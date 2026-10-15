@@ -1,0 +1,6 @@
+[submodule "thirdparty/XenonRecomp"]
+	path = thirdparty/XenonRecomp
+	url = https://github.com/danielbarretoes/XenonRecomp
+[submodule "thirdparty/XenosRecomp"]
+	path = thirdparty/XenosRecomp
+	url = https://github.com/danielbarretoes/XenosRecomp

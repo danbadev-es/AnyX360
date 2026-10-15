@@ -1,16 +1,6 @@
-include(FetchContent)
-
 # libmspack (LGPL-2.1) provides the LZX decoder used by "normal" compressed XEX images.
-# Only lzxd.c is built, into its own static library.
-FetchContent_Declare(libmspack
-  GIT_REPOSITORY https://github.com/kyz/libmspack.git
-  GIT_TAG v1.11
-  GIT_SHALLOW TRUE
-  SOURCE_SUBDIR _none  # populate only; libmspack's own build is not used
-)
-FetchContent_MakeAvailable(libmspack)
-
-set(MSPACK_DIR ${libmspack_SOURCE_DIR}/libmspack/mspack)
+# We reuse the copy pinned by the XenonRecomp submodule and build only lzxd.c.
+set(MSPACK_DIR ${ANYX360_THIRDPARTY}/XenonRecomp/thirdparty/libmspack/libmspack/mspack)
 add_library(mspack_lzxd STATIC ${MSPACK_DIR}/lzxd.c)
 target_include_directories(mspack_lzxd PUBLIC ${MSPACK_DIR})
 target_compile_definitions(mspack_lzxd PRIVATE _CRT_SECURE_NO_WARNINGS)
