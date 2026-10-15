@@ -3,32 +3,34 @@
 # This file contains no game code or data; it only describes where things are.
 
 [main]
-file_path = "../../extracted/gow3/default.xex"
+file_path = "../../extracted/gow3/Gears Of War 3/AP7kB/default.xex"
 # patch_file_path = "../../extracted/gow3/default.xexp"   # Title Update, if we target one
 out_directory_path = "ppc"
 switch_table_file_path = "switch_tables.toml"
 
-# Treat these registers as locals where safe (faster generated code).
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
 skip_lr = false
 skip_msr = false
-ctr_as_local = true
-xer_as_local = true
-reserved_as_local = true
-cr_as_local = true
-non_argument_as_local = true
-non_volatile_as_local = true
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
 
-# Compiler-generated register save/restore helpers (TBD).
-# restgprlr_14_address = 0x0
-# savegprlr_14_address = 0x0
-# restfpr_14_address = 0x0
-# savefpr_14_address = 0x0
-# restvmx_14_address = 0x0
-# savevmx_14_address = 0x0
-# restvmx_64_address = 0x0
-# savevmx_64_address = 0x0
+# Compiler-generated register save/restore helpers. Each byte pattern from the XenonRecomp README
+# occurs exactly once in .text (found with tools/scripts, see docs/GEARS3.md).
+restgprlr_14_address = 0x82CC9910
+savegprlr_14_address = 0x82CC98C0
+restfpr_14_address = 0x82CCA1CC
+savefpr_14_address = 0x82CCA180
+restvmx_14_address = 0x82CCA518
+savevmx_14_address = 0x82CCA280
+restvmx_64_address = 0x82CCA5AC
+savevmx_64_address = 0x82CCA314
 
-# CRT setjmp/longjmp (TBD).
+# CRT setjmp/longjmp: no setjmp-shaped function found; probably unused (UE3 does not use them).
+# Candidate to check in Ghidra: 0x82CCC3F0 (calls RtlUnwind, saves non-volatile registers).
 # setjmp_address = 0x0
 # longjmp_address = 0x0
 

@@ -10,12 +10,14 @@ endif()
 
 add_executable(x360tool
   src/main.cpp
+  src/exports.cpp
   src/util.cpp
   src/xdvdfs.cpp
   src/xex.cpp
   src/lzx.cpp
 )
 target_link_libraries(x360tool PRIVATE x360_runtime mspack_lzxd bcrypt)
+target_include_directories(x360tool PRIVATE ${ANYX360_THIRDPARTY}/XenonRecomp/XenonUtils)
 target_compile_definitions(x360tool PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 find_package(Python3 COMPONENTS Interpreter)

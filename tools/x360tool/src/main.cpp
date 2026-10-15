@@ -13,6 +13,7 @@
 #include <set>
 #include <sstream>
 
+#include "exports.h"
 #include "util.h"
 #include "x360/endian.h"
 #include "xdvdfs.h"
@@ -206,25 +207,34 @@ void write_sections(const std::vector<uint8_t>& img, uint32_t base, const fs::pa
   std::ofstream(out) << s.str();
 }
 
+// Each imported function has two records (a type-0 "variable" slot and a type-1 thunk); a true
+// variable import has only the type-0 record.
 void write_imports(const Xex& xex, const std::vector<uint8_t>& img, const fs::path& out) {
   std::ofstream f(out);
-  f << "# library  ordinal  kind  record_address\n";
+  f << "# library  ordinal  kind  record_address  name\n";
   const uint32_t base = xex.base_address();
   std::printf("\n== Imported ordinals ==\n");
   for (const auto& lib : xex.import_libraries()) {
-    std::set<uint16_t> funcs, vars;
+    std::set<uint16_t> funcs, slots;
+    size_t unknown = 0;
     for (uint32_t addr : lib.record_addresses) {
       if (addr < base || addr - base + 4 > img.size()) continue;
       uint32_t rec = x360::load_be<uint32_t>(img.data() + (addr - base));
       uint8_t type = uint8_t(rec >> 24);
       uint16_t ordinal = uint16_t(rec & 0xFFFF);
-      (type == 1 ? funcs : vars).insert(ordinal);
-      char line[96];
-      std::snprintf(line, sizeof(line), "%s  0x%03X  %s  0x%08X\n", lib.name.c_str(), ordinal,
-                    type == 1 ? "thunk" : type == 0 ? "var  " : "?    ", addr);
+      (type == 1 ? funcs : slots).insert(ordinal);
+      auto info = lookup_export(lib.name, ordinal);
+      if (!info) ++unknown;
+      char line[160];
+      std::snprintf(line, sizeof(line), "%s  0x%03X  %s  0x%08X  %s\n", lib.name.c_str(), ordinal,
+                    type == 1 ? "thunk" : type == 0 ? "var  " : "?    ", addr, info ? info->name : "<unknown>");
       f << line;
     }
-    std::printf("  %-16s %zu functions, %zu variables\n", lib.name.c_str(), funcs.size(), vars.size());
+    size_t vars = 0;
+    for (uint16_t o : slots) vars += !funcs.contains(o);
+    std::printf("  %-16s %zu functions, %zu variables", lib.name.c_str(), funcs.size(), vars);
+    if (unknown) std::printf(", %zu records with unknown ordinals", unknown);
+    std::printf("\n");
   }
 }
 
