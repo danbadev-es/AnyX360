@@ -1,0 +1,40 @@
+# --- Copyrighted game data: NEVER commit ---
+/raw/
+/assets/
+/extracted/
+*.iso
+*.xex
+*.xexp
+*.xbe
+*.stfs
+*.god
+
+# --- Console keys: NEVER commit ---
+/keys/*
+!/keys/README.md
+
+# --- Generated recompiler output (derived from game code) ---
+/games/*/out/
+/games/*/ppc/
+/games/*/shaders/
+
+# --- Build ---
+/build/
+/out/
+/.vs/
+/.cache/
+CMakeUserPresets.json
+compile_commands.json
+*.pdb
+*.ilk
+*.obj
+*.exe
+*.dll
+*.lib
+
+# --- Editors / OS ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+.DS_Store

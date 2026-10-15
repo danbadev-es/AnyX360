@@ -1,0 +1,44 @@
+# Gears of War 3 recompiler configuration (XenonRecomp format).
+# Addresses are filled in during Phase 1/2 from Ghidra analysis. Paths are relative to this file.
+# This file contains no game code or data; it only describes where things are.
+
+[main]
+file_path = "../../extracted/gow3/default.xex"
+# patch_file_path = "../../extracted/gow3/default.xexp"   # Title Update, if we target one
+out_directory_path = "ppc"
+switch_table_file_path = "switch_tables.toml"
+
+# Treat these registers as locals where safe (faster generated code).
+skip_lr = false
+skip_msr = false
+ctr_as_local = true
+xer_as_local = true
+reserved_as_local = true
+cr_as_local = true
+non_argument_as_local = true
+non_volatile_as_local = true
+
+# Compiler-generated register save/restore helpers (TBD).
+# restgprlr_14_address = 0x0
+# savegprlr_14_address = 0x0
+# restfpr_14_address = 0x0
+# savefpr_14_address = 0x0
+# restvmx_14_address = 0x0
+# savevmx_14_address = 0x0
+# restvmx_64_address = 0x0
+# savevmx_64_address = 0x0
+
+# CRT setjmp/longjmp (TBD).
+# setjmp_address = 0x0
+# longjmp_address = 0x0
+
+# Functions the analyser misses (address + size), added as they are found.
+# functions = [
+#   { address = 0x0, size = 0x0 },
+# ]
+
+# Hooks into recompiled code, e.g. to replace UE3's Xenon RHI entry points.
+# [[midasm_hook]]
+# name = "GoW3_RHI_Present"
+# address = 0x0
+# registers = ["r3"]

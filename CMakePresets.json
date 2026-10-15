@@ -1,0 +1,20 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "windows-clang",
+      "displayName": "Windows x64 (clang-cl + Ninja)",
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-cl",
+        "CMAKE_CXX_COMPILER": "clang-cl"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug", "configurePreset": "windows-clang", "configuration": "Debug" },
+    { "name": "release", "configurePreset": "windows-clang", "configuration": "Release" }
+  ]
+}
