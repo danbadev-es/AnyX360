@@ -42,26 +42,13 @@ uint32_t XexGetModuleHandle(uint32_t name_ptr, uint32_t handle_ptr) {
   return handle ? X_STATUS_SUCCESS : X_STATUS_NO_SUCH_FILE;
 }
 
-// Resources are listed in the XEX RESOURCE_INFO header: {char name[8]; address; size}[].
 uint32_t XexGetModuleSection(uint32_t module, uint32_t name_ptr, uint32_t data_ptr, uint32_t size_ptr) {
   (void)module;
-  const LoadedTitle& t = Title();
-  std::string wanted = Ptr<const char>(name_ptr);
-  uint32_t count = Load<uint32_t>(t.xex_header + 0x14);
-  for (uint32_t i = 0; i < count; ++i) {
-    if (Load<uint32_t>(t.xex_header + 0x18 + i * 8) != 0x000002FF) continue;
-    uint32_t info = t.xex_header + Load<uint32_t>(t.xex_header + 0x1C + i * 8);
-    uint32_t entries = (Load<uint32_t>(info) - 4) / 16;
-    for (uint32_t e = 0; e < entries; ++e) {
-      uint32_t entry = info + 4 + e * 16;
-      std::string name(Ptr<const char>(entry), strnlen(Ptr<const char>(entry), 8));
-      if (name != wanted) continue;
-      if (data_ptr) Store<uint32_t>(data_ptr, Load<uint32_t>(entry + 8));
-      if (size_ptr) Store<uint32_t>(size_ptr, Load<uint32_t>(entry + 12));
-      return X_STATUS_SUCCESS;
-    }
-  }
-  return X_STATUS_OBJECT_NAME_NOT_FOUND;
+  uint32_t address, size;
+  if (!FindXexResource(Ptr<const char>(name_ptr), address, size)) return X_STATUS_OBJECT_NAME_NOT_FOUND;
+  if (data_ptr) Store<uint32_t>(data_ptr, address);
+  if (size_ptr) Store<uint32_t>(size_ptr, size);
+  return X_STATUS_SUCCESS;
 }
 
 uint32_t XexGetProcedureAddress(uint32_t module, uint32_t ordinal, uint32_t out_ptr) {

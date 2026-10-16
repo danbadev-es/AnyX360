@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <string>
 
 namespace x360::gpu {
 
@@ -31,6 +32,7 @@ bool Initialize(const char* window_title, const DisplayConfig& config);
 const DisplayConfig& GetDisplayConfig();  // UI thread
 // Changes the target frame rate (the vblank rate) while running. UI thread.
 void SetTargetFps(uint32_t fps);
+void SetWindowTitle(const std::string& title);  // UI thread
 
 // Loads (and keeps updating) the title's persistent shader and pipeline cache under cache_root,
 // compiling cached pipelines in the background as Xenia does when it launches a title.

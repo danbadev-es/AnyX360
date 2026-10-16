@@ -276,6 +276,77 @@ bool LoadTitle(const TitleInfo& info) {
   return true;
 }
 
+namespace {
+
+// The title's name from its SPA resource (an XDBF database named after the title ID): string 0x8000
+// of the default language's string table (XSTC), else English, else any language.
+std::string ReadTitleName() {
+  char resource_name[9];
+  std::snprintf(resource_name, sizeof(resource_name), "%08X", g_title.title_id);
+  uint32_t base, size;
+  if (!FindXexResource(resource_name, base, size) || size < 24 || Load<uint32_t>(base) != 0x58444246)  // 'XDBF'
+    return {};
+  uint32_t entry_count = Load<uint32_t>(base + 8), free_count = Load<uint32_t>(base + 16);
+  uint64_t data = 24 + 18ull * entry_count + 8ull * free_count;
+  if (data > size) return {};
+  // Entries: {be16 section, be64 id, be32 offset (from the data), be32 size}.
+  auto find = [&](uint16_t section, uint64_t id, uint32_t& at, uint32_t& length) {
+    for (uint32_t i = 0; i < entry_count; ++i) {
+      uint32_t entry = base + 24 + i * 18;
+      if (Load<uint16_t>(entry) != section || Load<uint64_t>(entry + 2) != id) continue;
+      uint64_t offset = data + Load<uint32_t>(entry + 10);
+      length = Load<uint32_t>(entry + 14);
+      if (offset + length > size) return false;
+      at = base + uint32_t(offset);
+      return true;
+    }
+    return false;
+  };
+  // String tables (section 3, id = language): 'XSTR', version, size, be16 count, then
+  // {be16 id, be16 length, UTF-8}.
+  auto title_string = [&](uint64_t language) -> std::string {
+    uint32_t at, length;
+    if (!find(3, language, at, length) || length < 14 || Load<uint32_t>(at) != 0x58535452) return {};
+    uint32_t p = at + 14, end = at + length;
+    for (uint16_t i = 0, count = Load<uint16_t>(at + 12); i < count && p + 4 <= end; ++i) {
+      uint16_t id = Load<uint16_t>(p), text_length = Load<uint16_t>(p + 2);
+      if (p + 4 + text_length > end) break;
+      if (id == 0x8000) return std::string(Ptr<const char>(p + 4), text_length);
+      p += 4 + text_length;
+    }
+    return {};
+  };
+  uint32_t language = 1, at, length;
+  if (find(1, 0x58535443, at, length) && length >= 16) language = Load<uint32_t>(at + 12);  // 'XSTC'
+  std::string name = title_string(language);
+  if (name.empty()) name = title_string(1);
+  for (uint64_t l = 2; name.empty() && l < 32; ++l) name = title_string(l);
+  if (!name.empty()) KLOG_I("title: %s (XDBF %s, language %u)", name.c_str(), resource_name, language);
+  return name;
+}
+
+}  // namespace
+
+bool FindXexResource(const std::string& name, uint32_t& address, uint32_t& size) {
+  // RESOURCE_INFO (0x2FF) header: {be32 size; {char name[8]; be32 address; be32 size}[]}.
+  uint32_t header = g_title.xex_header;
+  if (!header) return false;
+  uint32_t count = Load<uint32_t>(header + 0x14);
+  for (uint32_t i = 0; i < count; ++i) {
+    if (Load<uint32_t>(header + 0x18 + i * 8) != 0x000002FF) continue;
+    uint32_t info = header + Load<uint32_t>(header + 0x1C + i * 8);
+    uint32_t entries = (Load<uint32_t>(info) - 4) / 16;
+    for (uint32_t e = 0; e < entries; ++e) {
+      uint32_t entry = info + 4 + e * 16;
+      if (name != std::string(Ptr<const char>(entry), strnlen(Ptr<const char>(entry), 8))) continue;
+      address = Load<uint32_t>(entry + 8);
+      size = Load<uint32_t>(entry + 12);
+      return true;
+    }
+  }
+  return false;
+}
+
 int Run(const TitleInfo& info) {
   InstallCrashHandler();
   if (!InitMemory()) return 1;
@@ -283,8 +354,17 @@ int Run(const TitleInfo& info) {
   // The window, Direct3D 12 and the GPU must exist before the title runs; this thread becomes the
   // UI thread.
   RaiseTimerResolution();
-  if (!gpu::Initialize("AnyX360", info.display)) return 1;
+  std::string window_title = info.title_name.empty() ? "AnyX360" : "AnyX360 - " + info.title_name;
+  if (!gpu::Initialize(window_title.c_str(), info.display)) return 1;
   if (!LoadTitle(info)) return 1;
+  std::string name = ReadTitleName();
+  if (name.empty()) name = info.title_name;
+  if (name.empty()) {
+    char fallback[24];
+    std::snprintf(fallback, sizeof(fallback), "Title %08X", g_title.title_id);
+    name = fallback;
+  }
+  gpu::SetWindowTitle("AnyX360 - " + name);
   gpu::InitializeShaderStorage(info.user_root / "cache", g_title.title_id);
 
   std::thread([] {

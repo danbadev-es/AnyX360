@@ -291,6 +291,10 @@ WindowKeys g_window_keys;
 
 const DisplayConfig& GetDisplayConfig() { return g_display; }
 
+void SetWindowTitle(const std::string& title) {
+  if (g_window) g_window->SetTitle(title);
+}
+
 void SetTargetFps(uint32_t fps) {
   g_display.target_fps = fps;
   g_vblank_hz = std::max(1u, fps) * 2;

@@ -343,6 +343,8 @@ struct LoadedTitle {
 
 const LoadedTitle& Title();
 const TitleInfo& TitlePaths();
+// Finds a resource of the title's XEX (RESOURCE_INFO header): its guest address and size.
+bool FindXexResource(const std::string& name, uint32_t& address, uint32_t& size);
 
 // Loads the executable, patches imports and starts the kernel services. Returns false on error.
 bool LoadTitle(const TitleInfo& info);
