@@ -301,6 +301,8 @@ void HleRtlRaiseException(uint32_t record) {
     if (name) {
       KLOG_I("thread %X named \"%s\"", id == 0xFFFFFFFF && CurrentThread() ? CurrentThread()->thread_id : id,
              Ptr<const char>(name));
+      std::shared_ptr<Thread> named = id == 0xFFFFFFFF ? CurrentThreadShared() : ThreadById(id);
+      if (named) named->name = Ptr<const char>(name);
       if (id == 0xFFFFFFFF || (CurrentThread() && id == CurrentThread()->thread_id)) {
         wchar_t wide[128];
         MultiByteToWideChar(CP_UTF8, 0, Ptr<const char>(name), -1, wide, 128);

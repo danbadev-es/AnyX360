@@ -1,6 +1,6 @@
 @echo off
 setlocal
-rem Usage: build.bat [debug|release]   (default: release)
+rem Usage: build.bat [debug|release] [target]   (default: release, all targets)
 set CONFIG=%1
 if "%CONFIG%"=="" set CONFIG=release
 
@@ -12,6 +12,8 @@ if not defined VSDIR (
 call "%VSDIR%\VC\Auxiliary\Build\vcvars64.bat" >nul || exit /b 1
 
 cmake --preset windows-clang || exit /b 1
-cmake --build --preset %CONFIG% || exit /b 1
+set TARGET_ARG=
+if not "%2"=="" set TARGET_ARG=--target %2
+cmake --build --preset %CONFIG% %TARGET_ARG% -- -k 0 || exit /b 1
 echo.
 echo Build finished: build\tools\x360tool\%CONFIG%\x360tool.exe

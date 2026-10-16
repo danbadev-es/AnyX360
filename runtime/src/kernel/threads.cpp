@@ -182,6 +182,61 @@ uint8_t PickCpu(uint32_t creation_flags) {
 }  // namespace
 
 Thread* CurrentThread() { return t_current.get(); }
+
+namespace {
+void NoteImport(const char* name) {
+  if (Thread* t = t_current.get()) t->current_import.store(name, std::memory_order_relaxed);
+}
+struct NoteImportInstaller {
+  NoteImportInstaller() { hle::g_note_import = NoteImport; }
+} g_note_import_installer;
+}  // namespace
+
+void DumpThreads() {
+  std::vector<std::shared_ptr<Thread>> threads;
+  {
+    std::lock_guard lock(g_threads_mutex);
+    for (auto& [id, weak] : g_threads)
+      if (auto t = weak.lock()) threads.push_back(t);
+  }
+  KLOG_I("---- thread dump (%zu threads) ----", threads.size());
+  // ANYX360_WATCH="addr[*],addr..." prints guest dwords (with '*': also the dword it points to).
+  if (const char* watch = std::getenv("ANYX360_WATCH")) {
+    std::string list = watch;
+    size_t pos = 0;
+    while (pos < list.size()) {
+      size_t end = list.find(',', pos);
+      std::string item = list.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+      pos = end == std::string::npos ? list.size() : end + 1;
+      bool deref = !item.empty() && item.back() == '*';
+      uint32_t addr = uint32_t(std::strtoul(item.c_str(), nullptr, 16));
+      uint32_t value = Load<uint32_t>(addr);
+      if (deref && value) {
+        KLOG_I("watch %08X = %08X -> [%08X] = %08X", addr, value, value, Load<uint32_t>(value));
+      } else {
+        KLOG_I("watch %08X = %08X", addr, value);
+      }
+    }
+  }
+  for (auto& t : threads) {
+    if (!t->context) continue;
+    PPCContext& c = *t->context;
+    std::string trace;
+    char buf[16];
+    uint32_t frame = c.r1.u32;
+    for (int i = 0; i < 10 && frame >= t->stack_limit && frame < t->stack_base; ++i) {
+      uint32_t next = Load<uint32_t>(frame);
+      if (next <= frame || next >= t->stack_base) break;
+      std::snprintf(buf, sizeof(buf), " %08X", Load<uint32_t>(next - 8));
+      trace += buf;
+      frame = next;
+    }
+    const char* import = t->current_import.load();
+    KLOG_I("thread %X %-14s in %-28s lr %08llX r3 %08X r29 %08X r30 %08X r31 %08X:%s", t->thread_id,
+           t->name.c_str(), import ? import : "(guest code)", (unsigned long long)c.lr, c.r3.u32, c.r29.u32,
+           c.r30.u32, c.r31.u32, trace.c_str());
+  }
+}
 std::shared_ptr<Thread> CurrentThreadShared() { return t_current; }
 
 std::shared_ptr<Thread> ThreadById(uint32_t id) {

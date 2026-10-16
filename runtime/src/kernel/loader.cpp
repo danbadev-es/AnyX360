@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "exports.h"
+#include "x360/gpu.h"
 #include "x360/kernel.h"
 #include "xex.h"
 
@@ -144,8 +145,6 @@ uint32_t KernelVariable(const char* name) {
 
 bool LoadTitle(const TitleInfo& info) {
   g_paths = info;
-  InstallCrashHandler();
-  if (!InitMemory()) return false;
 
   std::unique_ptr<x360tool::Xex> xex;
   std::vector<uint8_t> image;
@@ -167,7 +166,16 @@ bool LoadTitle(const TitleInfo& info) {
            g_title.image_base, g_title.image_size, PPC_IMAGE_BASE, PPC_IMAGE_SIZE);
     return false;
   }
+  if (!ReserveImage(g_title.image_base, g_title.image_size)) {
+    KLOG_E("could not reserve the image at %08X", g_title.image_base);
+    return false;
+  }
   std::memcpy(Ptr(g_title.image_base), image.data(), image.size());
+  // Recompiled function table: one host pointer per guest instruction, right after the image.
+  if (!ReserveImage(uint32_t(PPC_IMAGE_BASE + PPC_IMAGE_SIZE), uint32_t(PPC_CODE_SIZE * 2))) {
+    KLOG_E("could not reserve the function table");
+    return false;
+  }
 
   if (auto v = xex->opt_value(x360tool::xex_key::kDefaultStackSize)) g_title.stack_size = *v;
   if (auto e = xex->execution_info()) g_title.title_id = e->title_id;
@@ -210,10 +218,19 @@ bool LoadTitle(const TitleInfo& info) {
 }
 
 int Run(const TitleInfo& info) {
+  InstallCrashHandler();
+  if (!InitMemory()) return 1;
+  // The window, Direct3D 12 and the GPU must exist before the title runs; this thread becomes the
+  // UI thread.
+  if (!gpu::Initialize("AnyX360")) return 1;
   if (!LoadTitle(info)) return 1;
-  uint32_t code = RunMainThread(g_title.entry_point, g_title.stack_size);
-  KLOG_I("title exited with %08X", code);
-  return int(code);
+
+  std::thread([] {
+    uint32_t code = RunMainThread(g_title.entry_point, g_title.stack_size);
+    KLOG_I("title exited with %08X", code);
+    gpu::RequestQuit(int(code));
+  }).detach();
+  return gpu::RunMessageLoop();
 }
 
 }  // namespace x360::kernel

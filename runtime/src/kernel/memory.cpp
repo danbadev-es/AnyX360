@@ -1,16 +1,11 @@
-// Guest memory: a 4 GiB host reservation where guest address N lives at g_base + N.
-//
-// 0x00000000-0x9FFFFFFF is ordinary committed memory. The three physical windows are views of one
-// 512 MiB section, so writes through 0xA0000000 are visible through 0xC0000000/0xE0000000, as on the
-// console (the GPU only sees physical addresses). The 0xE0000000 window is offset by 4 KiB, matching
-// the console's mapping.
-#include "x360/kernel.h"
-
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-
+// Guest memory, backed by Xenia's xe::Memory (BSD): the 4 GiB guest address space at g_base with
+// the console's heaps (4 KiB / 64 KiB virtual, XEX, and the three aliased physical windows), page
+// protection, MMIO ranges (the GPU registers at 0x7FC80000) and physical write watches used by
+// the GPU's texture cache.
 #include <algorithm>
+
+#include "x360/kernel.h"
+#include "xenia/memory.h"
 
 namespace x360::kernel {
 
@@ -18,226 +13,94 @@ uint8_t* g_base = nullptr;
 
 namespace {
 
-constexpr uint64_t kGuestSize = 0x1'0000'0000ull;
-
-using VirtualAlloc2Fn = PVOID(WINAPI*)(HANDLE, PVOID, SIZE_T, ULONG, ULONG, MEM_EXTENDED_PARAMETER*, ULONG);
-using MapViewOfFile3Fn = PVOID(WINAPI*)(HANDLE, HANDLE, PVOID, ULONG64, SIZE_T, ULONG, ULONG,
-                                        MEM_EXTENDED_PARAMETER*, ULONG);
-
+xe::Memory* g_memory = nullptr;
 PageHeap* g_v4k = nullptr;
 PageHeap* g_v64k = nullptr;
 PageHeap* g_system = nullptr;
-PageHeap* g_physical = nullptr;  // in physical address space [0, 512 MiB)
 
-struct Region {
-  uint64_t start, end;  // guest addresses
-  int view;             // -1 = private memory, otherwise section offset
-  uint64_t section_offset;
-};
+constexpr uint32_t kRw = xe::kMemoryProtectRead | xe::kMemoryProtectWrite;
+constexpr uint32_t kReserveCommit = xe::kMemoryAllocationReserve | xe::kMemoryAllocationCommit;
 
 uint32_t AlignUp(uint32_t v, uint32_t a) { return (v + a - 1) & ~(a - 1); }
 
+xe::BaseHeap* XeHeap(void* p) { return static_cast<xe::BaseHeap*>(p); }
+
 }  // namespace
 
-// ---- PageHeap ---------------------------------------------------------------------------------
+xe::Memory* XeMemory() { return g_memory; }
+
+// ---- PageHeap: a view of an xe heap, optionally restricted to a sub-range --------------------
 
 PageHeap::PageHeap(const char* name, uint32_t base, uint32_t size, uint32_t page_size)
     : name_(name), base_(base), size_(size), page_size_(page_size) {
-  free_[base] = size;
+  heap_ = g_memory->LookupHeap(base);
 }
 
 uint32_t PageHeap::Alloc(uint32_t size, uint32_t alignment, bool top_down, uint32_t min_address,
                          uint32_t max_address) {
-  if (size == 0) return 0;
+  if (!size || !heap_) return 0;
   size = AlignUp(size, page_size_);
   alignment = std::max(AlignUp(alignment ? alignment : page_size_, page_size_), page_size_);
-
-  std::lock_guard lock(mutex_);
-  auto try_block = [&](uint32_t block, uint32_t block_size, uint32_t& out) -> bool {
-    uint64_t lo = std::max<uint64_t>(block, min_address);
-    uint64_t hi = std::min<uint64_t>(uint64_t(block) + block_size, uint64_t(max_address) + 1);
-    if (hi <= lo || hi - lo < size) return false;
-    uint64_t addr;
-    if (top_down) {
-      addr = (hi - size) & ~uint64_t(alignment - 1);
-      if (addr < lo) return false;
-    } else {
-      addr = (lo + alignment - 1) & ~uint64_t(alignment - 1);
-      if (addr + size > hi) return false;
-    }
-    out = uint32_t(addr);
-    return true;
-  };
-
-  uint32_t found = 0;
-  std::map<uint32_t, uint32_t>::iterator block = free_.end();
-  if (top_down) {
-    for (auto it = free_.rbegin(); it != free_.rend(); ++it) {
-      if (try_block(it->first, it->second, found)) {
-        block = std::prev(it.base());
-        break;
-      }
-    }
-  } else {
-    for (auto it = free_.begin(); it != free_.end(); ++it) {
-      if (try_block(it->first, it->second, found)) {
-        block = it;
-        break;
-      }
-    }
-  }
-  if (block == free_.end()) return 0;
-
-  uint32_t block_start = block->first, block_size = block->second;
-  free_.erase(block);
-  if (found > block_start) free_[block_start] = found - block_start;
-  uint64_t end = uint64_t(found) + size, block_end = uint64_t(block_start) + block_size;
-  if (end < block_end) free_[uint32_t(end)] = uint32_t(block_end - end);
-  used_[found] = size;
-  return found;
+  uint32_t lo = std::max(base_, min_address);
+  uint32_t hi = std::min<uint64_t>(uint64_t(base_) + size_ - 1, max_address);
+  uint32_t address = 0;
+  if (!XeHeap(heap_)->AllocRange(lo, hi, size, alignment, kReserveCommit, kRw, top_down, &address)) return 0;
+  return address;
 }
 
 bool PageHeap::AllocFixed(uint32_t address, uint32_t size) {
+  if (!heap_) return false;
   address &= ~(page_size_ - 1);
-  size = AlignUp(size, page_size_);
-  std::lock_guard lock(mutex_);
-  auto it = free_.upper_bound(address);
-  if (it == free_.begin()) return false;
-  --it;
-  uint64_t block_end = uint64_t(it->first) + it->second;
-  if (address < it->first || uint64_t(address) + size > block_end) return false;
-  uint32_t block_start = it->first;
-  free_.erase(it);
-  if (address > block_start) free_[block_start] = address - block_start;
-  if (uint64_t(address) + size < block_end) free_[address + size] = uint32_t(block_end - (uint64_t(address) + size));
-  used_[address] = size;
-  return true;
+  return XeHeap(heap_)->AllocFixed(address, AlignUp(size, page_size_), page_size_, kReserveCommit, kRw);
 }
 
 bool PageHeap::Free(uint32_t address, uint32_t* freed_size) {
-  std::lock_guard lock(mutex_);
-  auto it = used_.find(address);
-  if (it == used_.end()) return false;
-  uint32_t start = it->first, size = it->second;
-  used_.erase(it);
+  if (!heap_) return false;
+  uint32_t size = 0;
+  bool ok = XeHeap(heap_)->Release(address, &size);
   if (freed_size) *freed_size = size;
-
-  // Coalesce with neighbours.
-  auto next = free_.lower_bound(start);
-  if (next != free_.end() && start + size == next->first) {
-    size += next->second;
-    next = free_.erase(next);
-  }
-  if (next != free_.begin()) {
-    auto prev = std::prev(next);
-    if (prev->first + prev->second == start) {
-      start = prev->first;
-      size += prev->second;
-      free_.erase(prev);
-    }
-  }
-  free_[start] = size;
-  return true;
+  return ok;
 }
 
 bool PageHeap::Query(uint32_t address, uint32_t* alloc_base, uint32_t* alloc_size) const {
-  std::lock_guard lock(mutex_);
-  auto it = used_.upper_bound(address);
-  if (it == used_.begin()) return false;
-  --it;
-  if (address >= it->first + uint64_t(it->second)) return false;
-  if (alloc_base) *alloc_base = it->first;
-  if (alloc_size) *alloc_size = it->second;
+  if (!heap_) return false;
+  xe::HeapAllocationInfo info;
+  if (!XeHeap(heap_)->QueryRegionInfo(address, &info) || !(info.state & xe::kMemoryAllocationReserve)) return false;
+  if (alloc_base) *alloc_base = info.allocation_base;
+  if (alloc_size) *alloc_size = info.allocation_size;
   return true;
 }
 
-// ---- Address space ----------------------------------------------------------------------------
+// ---- address space -----------------------------------------------------------------------------
 
 bool InitMemory() {
-  HMODULE kernelbase = GetModuleHandleW(L"kernelbase.dll");
-  auto virtual_alloc2 = reinterpret_cast<VirtualAlloc2Fn>(GetProcAddress(kernelbase, "VirtualAlloc2"));
-  auto map_view3 = reinterpret_cast<MapViewOfFile3Fn>(GetProcAddress(kernelbase, "MapViewOfFile3"));
-  if (!virtual_alloc2 || !map_view3) {
-    KLOG_E("VirtualAlloc2/MapViewOfFile3 unavailable (Windows 10 1803+ required)");
+  g_memory = new xe::Memory();
+  if (!g_memory->Initialize()) {
+    KLOG_E("could not set up the guest address space");
     return false;
   }
-
-  // Reserve the whole guest space as one placeholder.
-  auto* base = static_cast<uint8_t*>(virtual_alloc2(nullptr, nullptr, kGuestSize,
-                                                    MEM_RESERVE | MEM_RESERVE_PLACEHOLDER, PAGE_NOACCESS,
-                                                    nullptr, 0));
-  if (!base) {
-    KLOG_E("could not reserve 4 GiB of address space (error %lu)", GetLastError());
-    return false;
-  }
-
-  const Region regions[] = {
-      {0x00000000, 0xA0000000, -1, 0},
-      {0xA0000000, 0xC0000000, 1, 0},
-      {0xC0000000, 0xE0000000, 1, 0},
-      {0xE0000000, 0xFFFFF000, 1, 0x1000},
-      {0xFFFFF000, 0x100000000ull, -2, 0},  // stays reserved
-  };
-
-  // Split the placeholder at every region boundary.
-  for (const Region& r : regions) {
-    if (r.end - r.start == kGuestSize) continue;
-    if (!VirtualFree(base + r.start, r.end - r.start, MEM_RELEASE | MEM_PRESERVE_PLACEHOLDER)) {
-      // Splitting the last piece fails harmlessly once it is already its own placeholder.
-      DWORD error = GetLastError();
-      if (error != ERROR_INVALID_PARAMETER && error != ERROR_INVALID_ADDRESS) {
-        KLOG_E("placeholder split failed at %08llX (error %lu)", r.start, GetLastError());
-        return false;
-      }
-    }
-  }
-
-  HANDLE section = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE | SEC_COMMIT, 0, kPhysicalSize,
-                                      nullptr);
-  if (!section) {
-    KLOG_E("could not create the 512 MiB physical memory section (error %lu)", GetLastError());
-    return false;
-  }
-
-  for (const Region& r : regions) {
-    void* at = base + r.start;
-    SIZE_T size = SIZE_T(r.end - r.start);
-    if (r.view == -1) {
-      if (!virtual_alloc2(nullptr, at, size, MEM_RESERVE | MEM_COMMIT | MEM_REPLACE_PLACEHOLDER, PAGE_READWRITE,
-                          nullptr, 0)) {
-        KLOG_E("commit of %08llX-%08llX failed (error %lu)", r.start, r.end, GetLastError());
-        return false;
-      }
-    } else if (r.view == 1) {
-      if (!map_view3(section, GetCurrentProcess(), at, r.section_offset, size, MEM_REPLACE_PLACEHOLDER,
-                     PAGE_READWRITE, nullptr, 0)) {
-        KLOG_E("physical view at %08llX failed (error %lu)", r.start, GetLastError());
-        return false;
-      }
-    }
-  }
-
-  // Catch guest null-pointer accesses.
-  DWORD old;
-  VirtualProtect(base, 0x1000, PAGE_NOACCESS, &old);
-
-  g_base = base;
-  hle::set_guest_base(base);
+  g_base = g_memory->virtual_membase();
+  hle::set_guest_base(g_base);
 
   g_v4k = new PageHeap("v4k", 0x00010000, 0x40000000 - 0x00010000, 0x1000);
   g_v64k = new PageHeap("v64k", 0x40000000, 0x30000000, 0x10000);
-  g_system = new PageHeap("system", 0x70000000, 0x0F000000, 0x1000);
-  // Keep the first 64 KiB of physical memory out of reach (and the E0 window offset page).
-  g_physical = new PageHeap("physical", 0x00010000, kPhysicalSize - 0x00010000, 0x1000);
-  KLOG_I("guest memory at %p", base);
+  g_system = new PageHeap("system", 0x70000000, 0x0F000000, 0x10000);
+  KLOG_I("guest memory at %p (physical view %p)", g_base, g_memory->physical_membase());
   return true;
+}
+
+bool ReserveImage(uint32_t base, uint32_t size) {
+  xe::BaseHeap* heap = g_memory->LookupHeap(base);
+  if (!heap) return false;
+  uint32_t page = heap->page_size();
+  return heap->AllocFixed(base & ~(page - 1), AlignUp(size + (base & (page - 1)), page), page, kReserveCommit, kRw);
 }
 
 PageHeap& HeapV4k() { return *g_v4k; }
 PageHeap& HeapV64k() { return *g_v64k; }
 PageHeap& HeapSystem() { return *g_system; }
 
-// ---- Small kernel allocations -----------------------------------------------------------------
+// ---- small kernel allocations -----------------------------------------------------------------
 
 namespace {
 std::mutex g_small_mutex;
@@ -266,40 +129,38 @@ uint32_t SystemAlloc(uint32_t size, uint32_t alignment) {
   return addr;
 }
 
-void SystemFree(uint32_t address) {
-  // Small blocks are never reused; large ones go back to the heap.
-  g_system->Free(address);
-}
+void SystemFree(uint32_t address) { g_system->Free(address); }
 
-// ---- Physical memory --------------------------------------------------------------------------
+// ---- physical memory (semantics of Xenia's MmAllocatePhysicalMemoryEx) -------------------------
 
 uint32_t PhysicalAlloc(uint32_t size, uint32_t page_size, uint32_t alignment, uint32_t min_physical,
-                       uint32_t max_physical) {
+                       uint32_t max_physical, uint32_t protect) {
   page_size = page_size >= 0x1000000 ? 0x1000000 : page_size >= 0x10000 ? 0x10000 : 0x1000;
-  size = AlignUp(size, page_size);
-  alignment = std::max(alignment, page_size);
-  if (max_physical == 0 || max_physical >= kPhysicalSize) max_physical = kPhysicalSize - 1;
-  uint32_t phys = g_physical->Alloc(size, alignment, false, min_physical & 0x1FFFFFFF, max_physical);
-  if (!phys) return 0;
-  uint32_t guest;
-  if (page_size == 0x1000) {
-    if (phys < 0x1000) return 0;
-    guest = 0xE0000000u + (phys - 0x1000);
-  } else if (page_size == 0x10000) {
-    guest = 0xA0000000u + phys;
-  } else {
-    guest = 0xC0000000u + phys;
+  // 4 KB physical pages live at 0xE0000000 on the console, where the CPU view is offset by 0x1000
+  // from physical memory. Recompiled code accesses guest memory without that offset, so the GPU
+  // and the CPU would disagree about such pages; serve them from the (4 KB granular) 0xA0000000
+  // window instead, which maps physical memory one to one.
+  auto* heap = static_cast<xe::PhysicalHeap*>(
+      g_memory->LookupHeapByType(true, page_size == 0x1000 ? 0x10000 : page_size));
+  uint32_t heap_base = heap->heap_base();
+  uint32_t offset = heap->GetPhysicalAddress(heap_base);
+  auto sat_sub = [](uint32_t a, uint32_t b) { return a > b ? a - b : 0u; };
+  if (!max_physical) max_physical = 0xFFFFFFFF;
+  uint32_t lo = heap_base + std::min(sat_sub(min_physical, offset), heap->heap_size() - 1);
+  uint32_t hi = heap_base + std::min(sat_sub(max_physical, offset), heap->heap_size() - 1);
+  uint32_t address = 0;
+  if (!heap->AllocRange(lo, hi, AlignUp(size, page_size), AlignUp(std::max(alignment, page_size), page_size),
+                        kReserveCommit, protect ? protect : kRw, true, &address)) {
+    return 0;
   }
-  std::memset(Ptr(guest), 0, size);
-  return guest;
+  return address;
 }
 
-uint32_t GuestToPhysical(uint32_t guest) {
-  if (guest >= 0xE0000000u) return (guest - 0xE0000000u) + 0x1000;
-  if (guest >= 0xA0000000u) return guest & 0x1FFFFFFF;
-  return guest;  // not physical memory
-}
+uint32_t GuestToPhysical(uint32_t guest_address) { return g_memory->GetPhysicalAddress(guest_address); }
 
-bool PhysicalFree(uint32_t guest_address) { return g_physical->Free(GuestToPhysical(guest_address)); }
+bool PhysicalFree(uint32_t guest_address) {
+  xe::BaseHeap* heap = g_memory->LookupHeap(guest_address);
+  return heap && heap->Release(guest_address);
+}
 
 }  // namespace x360::kernel

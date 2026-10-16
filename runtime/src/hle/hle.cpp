@@ -11,6 +11,8 @@ namespace {
 uint8_t* g_base = nullptr;
 }
 
+void (*g_note_import)(const char* name) = nullptr;
+
 void set_guest_base(uint8_t* base) { g_base = base; }
 uint8_t* guest_base() { return g_base; }
 

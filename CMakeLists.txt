@@ -28,6 +28,11 @@ if(ANYX360_BUILD_RECOMPILERS)
   add_subdirectory(thirdparty/XenosRecomp)
 endif()
 
+option(ANYX360_GPU_D3D12 "Render with Xenia's Direct3D 12 GPU back end" ON)
+if(ANYX360_GPU_D3D12)
+  include(cmake/XeniaGpu.cmake)
+endif()
+
 if(ANYX360_BUILD_RUNTIME)
   add_subdirectory(runtime)
 endif()

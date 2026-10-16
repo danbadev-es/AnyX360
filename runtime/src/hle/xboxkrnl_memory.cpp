@@ -1,110 +1,162 @@
-// xboxkrnl memory exports.
+// xboxkrnl memory exports on top of xe::Memory's heaps (semantics follow Xenia's
+// xboxkrnl_memory.cc, BSD licensed).
+#include <algorithm>
+
 #include "x360/kernel.h"
+#include "xenia/memory.h"
 
 using namespace x360::kernel;
 
 namespace {
 
-constexpr uint32_t kMemCommit = 0x1000;
-constexpr uint32_t kMemReserve = 0x2000;
-constexpr uint32_t kMemDecommit = 0x4000;
-constexpr uint32_t kMemRelease = 0x8000;
-constexpr uint32_t kMemTopDown = 0x100000;
-constexpr uint32_t kMemLargePages = 0x20000000;
-constexpr uint32_t kMem16MbPages = 0x80000000;
-constexpr uint32_t kPageReadWrite = 0x04;
+constexpr uint32_t X_MEM_COMMIT = 0x00001000;
+constexpr uint32_t X_MEM_RESERVE = 0x00002000;
+constexpr uint32_t X_MEM_DECOMMIT = 0x00004000;
+constexpr uint32_t X_MEM_RELEASE = 0x00008000;
+constexpr uint32_t X_MEM_RESET = 0x00080000;
+constexpr uint32_t X_MEM_TOP_DOWN = 0x00100000;
+constexpr uint32_t X_MEM_NOZERO = 0x00800000;
+constexpr uint32_t X_MEM_LARGE_PAGES = 0x20000000;
+constexpr uint32_t X_MEM_16MB_PAGES = 0x80000000;
 
-PageHeap* HeapFor(uint32_t address) {
-  if (HeapV4k().Contains(address)) return &HeapV4k();
-  if (HeapV64k().Contains(address)) return &HeapV64k();
-  if (HeapSystem().Contains(address)) return &HeapSystem();
-  return nullptr;
+constexpr uint32_t X_PAGE_NOACCESS = 0x01;
+constexpr uint32_t X_PAGE_READONLY = 0x02;
+constexpr uint32_t X_PAGE_READWRITE = 0x04;
+constexpr uint32_t X_PAGE_EXECUTE_READ = 0x20;
+constexpr uint32_t X_PAGE_EXECUTE_READWRITE = 0x40;
+constexpr uint32_t X_PAGE_NOCACHE = 0x200;
+constexpr uint32_t X_PAGE_WRITECOMBINE = 0x400;
+
+constexpr uint32_t X_STATUS_MEMORY_NOT_ALLOCATED = 0xC00000A0;
+
+uint32_t FromXdkProtect(uint32_t protect) {
+  uint32_t result = 0;
+  if (protect & (X_PAGE_READONLY | X_PAGE_EXECUTE_READ)) {
+    result = xe::kMemoryProtectRead;
+  } else if (protect & (X_PAGE_READWRITE | X_PAGE_EXECUTE_READWRITE)) {
+    result = xe::kMemoryProtectRead | xe::kMemoryProtectWrite;
+  }
+  if (protect & X_PAGE_NOCACHE) result |= xe::kMemoryProtectNoCache;
+  if (protect & X_PAGE_WRITECOMBINE) result |= xe::kMemoryProtectWriteCombine;
+  return result;
 }
 
-uint32_t NtAllocateVirtualMemory(uint32_t base_ptr, uint32_t size_ptr, uint32_t alloc_type, uint32_t protect,
+uint32_t ToXdkProtect(uint32_t protect) {
+  uint32_t result = 0;
+  if ((protect & xe::kMemoryProtectRead) && !(protect & xe::kMemoryProtectWrite)) result = X_PAGE_READONLY;
+  else if ((protect & xe::kMemoryProtectRead) && (protect & xe::kMemoryProtectWrite)) result = X_PAGE_READWRITE;
+  else result = X_PAGE_NOACCESS;
+  if (protect & xe::kMemoryProtectNoCache) result |= X_PAGE_NOCACHE;
+  if (protect & xe::kMemoryProtectWriteCombine) result |= X_PAGE_WRITECOMBINE;
+  return result;
+}
+
+uint32_t RoundUp(uint32_t v, uint32_t a) { return (v + a - 1) / a * a; }
+
+uint32_t NtAllocateVirtualMemory(uint32_t base_ptr, uint32_t size_ptr, uint32_t alloc_type, uint32_t protect_bits,
                                  uint32_t debug_memory) {
-  (void)protect;
   (void)debug_memory;
+  xe::Memory* memory = XeMemory();
   uint32_t base = Load<uint32_t>(base_ptr);
   uint32_t size = Load<uint32_t>(size_ptr);
-  if (size >= 0x1000000 || TraceEnabled()) {
-    KLOG_I("NtAllocateVirtualMemory(base %08X, size %08X, type %08X, protect %08X) from %s", base, size, alloc_type,
-           protect, GuestBacktrace().c_str());
-  }
   if (!size) return X_STATUS_INVALID_PARAMETER;
-  if (!(alloc_type & (kMemCommit | kMemReserve))) return X_STATUS_INVALID_PARAMETER;
+  if (!(alloc_type & (X_MEM_COMMIT | X_MEM_RESET | X_MEM_RESERVE))) return X_STATUS_INVALID_PARAMETER;
 
+  uint32_t page_size;
   if (base) {
-    PageHeap* heap = HeapFor(base);
-    if (!heap) return X_STATUS_INVALID_PARAMETER;
-    uint32_t alloc_base, alloc_size;
-    if (heap->Query(base, &alloc_base, &alloc_size)) {
-      // Committing pages of an existing reservation: memory is always backed already.
-      uint32_t page = heap->page_size();
-      uint32_t aligned = base & ~(page - 1);
-      size = ((base + size + page - 1) & ~(page - 1)) - aligned;
-      Store<uint32_t>(base_ptr, aligned);
-      Store<uint32_t>(size_ptr, size);
-      return X_STATUS_SUCCESS;
-    }
-    if (!heap->AllocFixed(base, size)) return X_STATUS_NO_MEMORY;
-    uint32_t page = heap->page_size();
-    base &= ~(page - 1);
-    size = (size + page - 1) & ~(page - 1);
-    std::memset(Ptr(base), 0, size);
+    xe::BaseHeap* heap = memory->LookupHeap(base);
+    if (!heap || heap->heap_type() != xe::HeapType::kGuestVirtual) return X_STATUS_INVALID_PARAMETER;
+    page_size = heap->page_size();
   } else {
-    PageHeap& heap = (alloc_type & (kMemLargePages | kMem16MbPages)) ? HeapV64k() : HeapV4k();
-    size = (size + heap.page_size() - 1) & ~(heap.page_size() - 1);
-    base = heap.Alloc(size, 0, (alloc_type & kMemTopDown) != 0);
-    if (!base) {
-      KLOG_W("NtAllocateVirtualMemory: out of memory (%X bytes, %s)", size, heap.name());
-      return X_STATUS_NO_MEMORY;
-    }
-    std::memset(Ptr(base), 0, size);
+    page_size = (alloc_type & X_MEM_LARGE_PAGES) ? 0x10000 : 0x1000;
   }
-  Store<uint32_t>(base_ptr, base);
-  Store<uint32_t>(size_ptr, size);
+  uint32_t adjusted_base = base - (base % page_size);
+  uint32_t adjusted_size = int32_t(size) < 0 ? uint32_t(-int32_t(size)) : size;
+  adjusted_size = RoundUp(adjusted_size, adjusted_base ? page_size : 0x10000);
+
+  uint32_t allocation_type = 0;
+  if (alloc_type & X_MEM_RESERVE) allocation_type |= xe::kMemoryAllocationReserve;
+  if (alloc_type & X_MEM_COMMIT) allocation_type |= xe::kMemoryAllocationCommit;
+  uint32_t protect = FromXdkProtect(protect_bits);
+
+  uint32_t address = 0;
+  xe::BaseHeap* heap;
+  bool was_committed = false;
+  if (adjusted_base) {
+    heap = memory->LookupHeap(adjusted_base);
+    if (heap->page_size() != page_size) return X_STATUS_ACCESS_DENIED;
+    xe::HeapAllocationInfo previous{};
+    was_committed = heap->QueryRegionInfo(adjusted_base, &previous) && (previous.state & xe::kMemoryAllocationCommit);
+    if (heap->AllocFixed(adjusted_base, adjusted_size, page_size, allocation_type, protect)) address = adjusted_base;
+  } else {
+    heap = memory->LookupHeapByType(false, page_size);
+    heap->Alloc(adjusted_size, page_size, allocation_type, protect, (alloc_type & X_MEM_TOP_DOWN) != 0, &address);
+  }
+  if (!address) {
+    KLOG_W("NtAllocateVirtualMemory: out of memory (base %08X, size %08X, type %08X) from %s", base, size, alloc_type,
+           GuestBacktrace(6).c_str());
+    return X_STATUS_NO_MEMORY;
+  }
+
+  if (!(alloc_type & X_MEM_NOZERO) && (alloc_type & X_MEM_COMMIT)) {
+    if (!(protect & xe::kMemoryProtectWrite)) heap->Protect(address, adjusted_size, xe::kMemoryProtectRead | xe::kMemoryProtectWrite);
+    if (!was_committed) memory->Zero(address, adjusted_size);
+    if (!(protect & xe::kMemoryProtectWrite)) heap->Protect(address, adjusted_size, protect);
+  }
+  if (TraceEnabled() || adjusted_size >= 0x1000000) {
+    KLOG_I("NtAllocateVirtualMemory(%08X, %08X, type %08X) -> %08X", base, size, alloc_type, address);
+  }
+  Store<uint32_t>(base_ptr, address);
+  Store<uint32_t>(size_ptr, adjusted_size);
   return X_STATUS_SUCCESS;
 }
 
 uint32_t NtFreeVirtualMemory(uint32_t base_ptr, uint32_t size_ptr, uint32_t free_type, uint32_t debug_memory) {
   (void)debug_memory;
   uint32_t base = Load<uint32_t>(base_ptr);
-  PageHeap* heap = HeapFor(base);
-  if (!heap) return X_STATUS_INVALID_PARAMETER;
-  if (free_type & kMemDecommit) {
-    uint32_t size = size_ptr ? Load<uint32_t>(size_ptr) : 0;
-    if (size) std::memset(Ptr(base), 0, size);
-    return X_STATUS_SUCCESS;
+  uint32_t size = size_ptr ? Load<uint32_t>(size_ptr) : 0;
+  if (!base) return X_STATUS_MEMORY_NOT_ALLOCATED;
+  xe::BaseHeap* heap = XeMemory()->LookupHeap(base);
+  if (!heap || heap->heap_type() != xe::HeapType::kGuestVirtual) return X_STATUS_INVALID_PARAMETER;
+  bool ok;
+  if (free_type == X_MEM_DECOMMIT) {
+    size = RoundUp(size, heap->page_size());
+    ok = heap->Decommit(base, size);
+  } else {
+    ok = heap->Release(base, &size);
   }
-  if (!(free_type & kMemRelease)) return X_STATUS_INVALID_PARAMETER;
-  uint32_t freed = 0;
-  if (!heap->Free(base, &freed)) return X_STATUS_INVALID_PARAMETER;
-  if (size_ptr) Store<uint32_t>(size_ptr, freed);
+  if (!ok) return X_STATUS_UNSUCCESSFUL;
+  Store<uint32_t>(base_ptr, base);
+  if (size_ptr) Store<uint32_t>(size_ptr, size);
   return X_STATUS_SUCCESS;
 }
 
 uint32_t NtQueryVirtualMemory(uint32_t address, uint32_t info_ptr, uint32_t debug_memory) {
   (void)debug_memory;
-  PageHeap* heap = HeapFor(address);
-  uint32_t alloc_base = 0, alloc_size = 0;
-  bool allocated = heap && heap->Query(address, &alloc_base, &alloc_size);
-  uint32_t page = heap ? heap->page_size() : 0x1000;
-  Store<uint32_t>(info_ptr + 0x00, address & ~(page - 1));
-  Store<uint32_t>(info_ptr + 0x04, allocated ? alloc_base : 0);
-  Store<uint32_t>(info_ptr + 0x08, allocated ? kPageReadWrite : 0);
-  Store<uint32_t>(info_ptr + 0x0C, allocated ? alloc_base + alloc_size - (address & ~(page - 1)) : page);
-  Store<uint32_t>(info_ptr + 0x10, allocated ? kMemCommit : 0x10000 /* MEM_FREE */);
-  Store<uint32_t>(info_ptr + 0x14, allocated ? kPageReadWrite : 1 /* PAGE_NOACCESS */);
-  Store<uint32_t>(info_ptr + 0x18, allocated ? 0x20000 /* MEM_PRIVATE */ : 0);
+  xe::BaseHeap* heap = XeMemory()->LookupHeap(address);
+  xe::HeapAllocationInfo info{};
+  if (!heap || !heap->QueryRegionInfo(address, &info)) return X_STATUS_INVALID_PARAMETER;
+  Store<uint32_t>(info_ptr + 0x00, info.base_address);
+  Store<uint32_t>(info_ptr + 0x04, info.allocation_base);
+  Store<uint32_t>(info_ptr + 0x08, ToXdkProtect(info.allocation_protect));
+  Store<uint32_t>(info_ptr + 0x0C, info.region_size);
+  // State: MEM_COMMIT / MEM_RESERVE / MEM_FREE.
+  uint32_t state = 0;
+  if (info.state & xe::kMemoryAllocationCommit) state = X_MEM_COMMIT;
+  else if (info.state & xe::kMemoryAllocationReserve) state = X_MEM_RESERVE;
+  else state = 0x10000;
+  Store<uint32_t>(info_ptr + 0x10, state);
+  Store<uint32_t>(info_ptr + 0x14, ToXdkProtect(info.protect));
+  Store<uint32_t>(info_ptr + 0x18, 0x20000);  // MEM_PRIVATE
   return X_STATUS_SUCCESS;
 }
 
-uint32_t MmAllocatePhysicalMemoryEx(uint32_t flags, uint32_t size, uint32_t protect, uint32_t min_address,
+uint32_t MmAllocatePhysicalMemoryEx(uint32_t flags, uint32_t size, uint32_t protect_bits, uint32_t min_address,
                                     uint32_t max_address, uint32_t alignment) {
   (void)flags;
-  uint32_t page = (protect & kMem16MbPages) ? 0x1000000 : (protect & kMemLargePages) ? 0x10000 : 0x1000;
-  uint32_t address = PhysicalAlloc(size, page, alignment, min_address, max_address);
+  if (!(protect_bits & (X_PAGE_READONLY | X_PAGE_READWRITE))) return 0;
+  uint32_t page = (protect_bits & X_MEM_LARGE_PAGES) ? 0x10000 : (protect_bits & X_MEM_16MB_PAGES) ? 0x1000000 : 0x1000;
+  uint32_t address = PhysicalAlloc(size, page, alignment, min_address, max_address, FromXdkProtect(protect_bits));
   if (!address) KLOG_W("MmAllocatePhysicalMemoryEx: failed (%X bytes, page %X)", size, page);
   return address;
 }
@@ -117,33 +169,28 @@ void MmFreePhysicalMemory(uint32_t type, uint32_t address) {
 uint32_t MmGetPhysicalAddress(uint32_t address) { return GuestToPhysical(address); }
 
 uint32_t MmMapIoSpace(uint32_t physical, uint32_t size, uint32_t protect) {
-  (void)size;
-  (void)protect;
-  return physical;  // device register ranges are addressed directly
+  (void)size, (void)protect;
+  return physical;
 }
 
 uint32_t MmQueryAddressProtect(uint32_t address) {
-  (void)address;
-  return kPageReadWrite;
+  xe::BaseHeap* heap = XeMemory()->LookupHeap(address);
+  uint32_t protect = 0;
+  if (!heap || !heap->QueryProtect(address, &protect)) return 0;
+  return ToXdkProtect(protect);
 }
 
-void MmSetAddressProtect(uint32_t address, uint32_t size, uint32_t protect) {
-  (void)address;
-  (void)size;
-  (void)protect;
+void MmSetAddressProtect(uint32_t address, uint32_t size, uint32_t protect_bits) {
+  xe::BaseHeap* heap = XeMemory()->LookupHeap(address);
+  if (heap) heap->Protect(address, size, FromXdkProtect(protect_bits));
 }
 
 uint32_t ExAllocatePoolTypeWithTag(uint32_t size, uint32_t tag, uint32_t pool_type) {
-  (void)tag;
-  (void)pool_type;
-  uint32_t address = HeapSystem().Alloc(size);
-  if (address) std::memset(Ptr(address), 0, (size + 0xFFF) & ~0xFFFu);
-  return address;
+  (void)tag, (void)pool_type;
+  return XeMemory()->SystemHeapAlloc(std::max<uint32_t>(size, 4));
 }
-
 uint32_t ExAllocatePool(uint32_t size) { return ExAllocatePoolTypeWithTag(size, 0, 0); }
-
-void ExFreePool(uint32_t address) { HeapSystem().Free(address); }
+void ExFreePool(uint32_t address) { XeMemory()->SystemHeapFree(address); }
 
 }  // namespace
 

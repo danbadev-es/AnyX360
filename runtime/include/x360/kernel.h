@@ -19,6 +19,10 @@
 
 #include "x360/hle.h"
 
+namespace xe {
+class Memory;
+}
+
 namespace x360::kernel {
 
 // ---------------------------------------------------------------------------------------------
@@ -127,7 +131,7 @@ inline void Store(uint32_t addr, T v) {
   store_be<T>(g_base + addr, v);
 }
 
-// First-fit page allocator over a guest range. Thread-safe.
+// A guest heap (a view of one of xe::Memory's heaps, optionally restricted to a sub-range).
 class PageHeap {
  public:
   PageHeap(const char* name, uint32_t base, uint32_t size, uint32_t page_size);
@@ -149,12 +153,13 @@ class PageHeap {
  private:
   const char* name_;
   uint32_t base_, size_, page_size_;
-  mutable std::mutex mutex_;
-  std::map<uint32_t, uint32_t> free_;  // address -> size
-  std::map<uint32_t, uint32_t> used_;  // address -> size
+  void* heap_ = nullptr;  // xe::BaseHeap
 };
 
 bool InitMemory();
+xe::Memory* XeMemory();
+// Reserves and commits a fixed range in whichever heap contains it (executable image, tables).
+bool ReserveImage(uint32_t base, uint32_t size);
 PageHeap& HeapV4k();
 PageHeap& HeapV64k();
 PageHeap& HeapSystem();
@@ -166,7 +171,7 @@ void SystemFree(uint32_t address);
 // Physical memory: allocates in physical space and returns the guest address in the window that
 // matches the page size (0xE0000000 for 4 KiB, 0xA0000000 for 64 KiB, 0xC0000000 for 16 MiB).
 uint32_t PhysicalAlloc(uint32_t size, uint32_t page_size, uint32_t alignment, uint32_t min_physical,
-                       uint32_t max_physical);
+                       uint32_t max_physical, uint32_t protect = 0);
 bool PhysicalFree(uint32_t guest_address);
 // Physical address (as seen by the GPU) of a guest address, and the inverse (0xA0000000 window).
 uint32_t GuestToPhysical(uint32_t guest_address);
@@ -270,6 +275,7 @@ struct Thread : Object {
   uint8_t cpu = 0;
 
   void* host = nullptr;  // Windows HANDLE
+  std::atomic<const char*> current_import{nullptr};  // export being executed (thread dumps)
   PPCContext* context = nullptr;
   std::function<void()> host_body;  // host-driven threads (interrupts, audio)
 
@@ -279,6 +285,8 @@ struct Thread : Object {
 };
 
 Thread* CurrentThread();
+// Logs every guest thread: name, current export, registers and guest backtrace.
+void DumpThreads();
 std::shared_ptr<Thread> CurrentThreadShared();
 std::shared_ptr<Thread> ThreadById(uint32_t id);
 

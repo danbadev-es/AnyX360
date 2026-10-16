@@ -1,6 +1,8 @@
 // Crash reporting: a vectored exception handler that explains faults in guest terms (which
 // recompiled function, which guest address, the guest thread's registers).
+#include <csignal>
 #include <cstdio>
+#include <exception>
 
 #include "x360/kernel.h"
 
@@ -103,10 +105,53 @@ std::string GuestBacktrace(int max_frames) {
   return out;
 }
 
+namespace {
+
+void PrintHostStack(const char* why) {
+  std::lock_guard lock(g_crash_mutex);
+  std::fprintf(stderr, "\n=== FATAL: %s (thread %X) ===\n", why, CurrentThread() ? CurrentThread()->thread_id : 0);
+  void* frames[32];
+  USHORT n = RtlCaptureStackBackTrace(1, 32, frames, nullptr);
+  char where[300];
+  for (USHORT i = 0; i < n; ++i) {
+    Symbolize(uint64_t(frames[i]), where, sizeof(where));
+    std::fprintf(stderr, "  #%02u %s\n", i, where);
+  }
+  std::fflush(stderr);
+}
+
+void InvalidParameter(const wchar_t* expression, const wchar_t* function, const wchar_t* file, unsigned line,
+                      uintptr_t) {
+  char msg[512];
+  std::snprintf(msg, sizeof(msg), "CRT invalid parameter: %ls in %ls (%ls:%u)", expression ? expression : L"?",
+                function ? function : L"?", file ? file : L"?", line);
+  PrintHostStack(msg);
+  std::_Exit(5);
+}
+
+}  // namespace
+
 void InstallCrashHandler() {
   SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
   SymInitialize(GetCurrentProcess(), nullptr, TRUE);
-  AddVectoredExceptionHandler(1, Handler);
+  _set_invalid_parameter_handler(InvalidParameter);
+  std::set_terminate([] {
+    const char* what = "std::terminate";
+    try {
+      if (auto e = std::current_exception()) std::rethrow_exception(e);
+    } catch (const std::exception& e) {
+      what = e.what();
+    } catch (...) {
+    }
+    PrintHostStack(what);
+    std::_Exit(6);
+  });
+  std::signal(SIGABRT, [](int) {
+    PrintHostStack("abort()");
+    std::_Exit(7);
+  });
+  // Last in the chain: Xenia's handler resolves MMIO accesses and memory watches first.
+  AddVectoredExceptionHandler(0, Handler);
 }
 
 }  // namespace x360::kernel

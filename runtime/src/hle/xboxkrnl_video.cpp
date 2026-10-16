@@ -70,8 +70,7 @@ uint32_t VdSetDisplayModeOverride() { return 0; }
 
 uint32_t VdInitializeEngines(uint32_t unk0, uint32_t callback, uint32_t arg, uint32_t pfp, uint32_t me) {
   (void)unk0, (void)callback, (void)arg, (void)pfp, (void)me;
-  gpu::Initialize();
-  return 1;
+  return 1;  // the GPU is set up before the title starts
 }
 void VdShutdownEngines() {}
 
@@ -127,9 +126,16 @@ uint32_t VdRetrainEDRAM() { return 0; }
 
 // VdSwap writes into 64 dwords the title reserved in the ring buffer: the front buffer's texture
 // fetch constant and a PM4_XE_SWAP packet the command processor turns into a present.
+}  // namespace
+namespace x360::gpu {
+extern std::atomic<uint64_t> g_swap_count;
+}
+namespace {
+
 void VdSwap(uint32_t buffer, uint32_t fetch, uint32_t unk2, uint32_t unk3, uint32_t unk4, uint32_t frontbuffer_ptr,
             uint32_t format_ptr, uint32_t color_space_ptr, uint32_t width_ptr, uint32_t height_ptr) {
   (void)unk2, (void)unk3, (void)unk4, (void)format_ptr, (void)color_space_ptr;
+  ++x360::gpu::g_swap_count;
   uint32_t fetch_dwords[6];
   for (int i = 0; i < 6; ++i) fetch_dwords[i] = Load<uint32_t>(fetch + i * 4);
   uint32_t frontbuffer_virtual = fetch_dwords[1] & 0xFFFFF000;
@@ -149,7 +155,7 @@ void VdSwap(uint32_t buffer, uint32_t fetch, uint32_t unk2, uint32_t unk3, uint3
   std::memset(Ptr(buffer), 0, 64 * 4);
   uint32_t o = 0;
   auto put = [&](uint32_t v) { Store<uint32_t>(buffer + 4 * o++, v); };
-  put((5u << 16) | gpu::reg::SHADER_CONSTANT_FETCH_00_0);  // type-0: 6 registers
+  put((5u << 16) | 0x4800);  // type-0: 6 registers at SHADER_CONSTANT_FETCH_00_0
   for (uint32_t v : fetch_dwords) put(v);
   put((3u << 30) | (3u << 16) | (0x64u << 8));  // type-3 XE_SWAP, 4 dwords
   put('SWAP');

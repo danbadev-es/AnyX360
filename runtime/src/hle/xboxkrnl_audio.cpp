@@ -45,7 +45,11 @@ uint32_t XAudioRegisterRenderDriverClient(uint32_t callback_ptr, uint32_t driver
   std::lock_guard lock(g_audio_mutex);
   for (uint32_t i = 0; i < 8; ++i) {
     if (g_clients[i].active) continue;
-    g_clients[i] = {callback, argument, true};
+    // The callback receives a pointer to a dword holding its argument (as the console's
+    // audio driver does), not the argument itself.
+    uint32_t wrapped = SystemAlloc(4);
+    Store<uint32_t>(wrapped, argument);
+    g_clients[i] = {callback, wrapped, true};
     Store<uint32_t>(driver_ptr, 0x41550000 | i);
     if (!g_audio_thread) g_audio_thread = CreateHostDrivenThread("audio", 0, AudioThreadBody);
     KLOG_I("XAudioRegisterRenderDriverClient: callback %08X(%08X) -> client %u", callback, argument, i);

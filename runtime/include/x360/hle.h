@@ -27,6 +27,8 @@ namespace x360::hle {
 
 // Logs the first call of an unimplemented export (thread-safe).
 void unimplemented(const char* name);
+// Records the export the current guest thread is executing (for thread dumps).
+extern void (*g_note_import)(const char* name);
 
 // Base of the guest address space, for converting host pointers back to guest addresses.
 void set_guest_base(uint8_t* base);
@@ -163,5 +165,9 @@ using UNICODE_STRING = ANSI_STRING;  // same layout; Buffer points to big-endian
 }  // namespace x360::hle
 
 // Defines the strong implementation of an import, replacing its weak stub.
-#define X360_EXPORT(name, fn) \
-  PPC_FUNC(__imp__##name) { ::x360::hle::invoke<fn>(ctx, base); }
+#define X360_EXPORT(name, fn)                                            \
+  PPC_FUNC(__imp__##name) {                                              \
+    if (::x360::hle::g_note_import) ::x360::hle::g_note_import(#name);   \
+    ::x360::hle::invoke<fn>(ctx, base);                                  \
+    if (::x360::hle::g_note_import) ::x360::hle::g_note_import(nullptr); \
+  }
