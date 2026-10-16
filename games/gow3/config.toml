@@ -19,7 +19,7 @@ non_argument_as_local = false
 non_volatile_as_local = false
 
 # Compiler-generated register save/restore helpers. Each byte pattern from the XenonRecomp README
-# occurs exactly once in .text (found with tools/scripts, see docs/GEARS3.md).
+# occurs exactly once in .text (tools/scripts/find_helpers.py on the extracted image).
 restgprlr_14_address = 0x82CC9910
 savegprlr_14_address = 0x82CC98C0
 restfpr_14_address = 0x82CCA1CC
