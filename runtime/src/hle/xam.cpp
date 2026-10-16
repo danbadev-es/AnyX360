@@ -496,8 +496,17 @@ uint16_t ScriptedButtons(XINPUT_GAMEPAD& pad) {
 }
 
 bool ReadPad(uint32_t user_index, XINPUT_GAMEPAD& pad) {
+  // XInputGetState on an empty slot is slow: probe disconnected slots at most once a second.
+  static std::atomic<int64_t> next_probe[4] = {};
+  int64_t now = std::chrono::steady_clock::now().time_since_epoch().count();
   XINPUT_STATE state{};
-  bool connected = XInputGetState(user_index, &state) == ERROR_SUCCESS;
+  bool connected = false;
+  if (now >= next_probe[user_index].load(std::memory_order_relaxed)) {
+    connected = XInputGetState(user_index, &state) == ERROR_SUCCESS;
+    if (!connected)
+      next_probe[user_index] = now + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                         std::chrono::seconds(1)).count();
+  }
   pad = connected ? state.Gamepad : XINPUT_GAMEPAD{};
   if (user_index != 0) return connected;
   if (uint16_t scripted = ScriptedButtons(pad)) {

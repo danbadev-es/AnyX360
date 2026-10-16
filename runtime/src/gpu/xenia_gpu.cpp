@@ -229,10 +229,15 @@ class WindowListener final : public xe::ui::WindowListener {
 };
 WindowListener g_window_listener;
 
-// F11 / Alt+Enter toggle fullscreen.
+// F1 toggles the performance overlay, F11 / Alt+Enter fullscreen.
 class WindowKeys final : public xe::ui::WindowInputListener {
  public:
   void OnKeyDown(xe::ui::KeyEvent& e) override {
+    if (e.virtual_key() == xe::ui::VirtualKey::kF1 && !e.prev_state()) {
+      SetStatsOverlayVisible(!IsStatsOverlayVisible());
+      e.set_handled(true);
+      return;
+    }
     bool toggle = e.virtual_key() == xe::ui::VirtualKey::kF11 ||
                   (e.virtual_key() == xe::ui::VirtualKey::kReturn && e.is_alt_pressed());
     if (toggle && g_window) {
@@ -309,7 +314,10 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
           xe::gpu::CommandProcessor::SwapPostEffect::kFxaa);
   }
   // ANYX360_NO_OVERLAY=1: no ImGui at all, so the guest output thread always presents (A/B tests).
-  if (!std::getenv("ANYX360_NO_OVERLAY")) StartStatsOverlay(g_window.get(), g_graphics.get(), XeMemory());
+  if (!std::getenv("ANYX360_NO_OVERLAY")) {
+    StartStatsOverlay(g_window.get(), g_graphics.get(), XeMemory());
+    if (std::getenv("ANYX360_OVERLAY")) SetStatsOverlayVisible(true);  // shown from the start
+  }
 
   g_interrupt_thread = CreateHostDrivenThread("GPU interrupts", 2, InterruptThreadBody);
   std::thread([] {

@@ -59,8 +59,7 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
 
  protected:
   void OnDraw(ImGuiIO& io) override {
-    if (ImGui::IsKeyPressed(ImGuiKey_F1, false)) visible_ = !visible_;
-    if (!visible_) return;
+    (void)io;
     auto now = clock::now();
     if (now - last_sample_ > std::chrono::milliseconds(500)) {
       Refresh();
@@ -150,12 +149,12 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
   Microsoft::WRL::ComPtr<IDXGIAdapter3> adapter_;
   Sample s_;
   clock::time_point last_sample_{};
-  bool visible_ = true;
 };
 
 std::unique_ptr<xe::ui::ImGuiDrawer> g_imgui;
 std::unique_ptr<xe::ui::ImmediateDrawer> g_immediate;
-StatsOverlay* g_overlay = nullptr;  // owned by the ImGui drawer's dialog list
+StatsOverlay* g_overlay = nullptr;  // lives until exit; registered with the drawer only while shown
+bool g_overlay_visible = false;
 
 }  // namespace
 
@@ -163,8 +162,22 @@ void StartStatsOverlay(xe::ui::Window* window, xe::gpu::GraphicsSystem* graphics
   g_imgui = std::make_unique<xe::ui::ImGuiDrawer>(window, 1);
   g_immediate = graphics->provider()->CreateImmediateDrawer();
   g_imgui->SetPresenterAndImmediateDrawer(graphics->presenter(), g_immediate.get());
-  g_overlay = new StatsOverlay(g_imgui.get(), window, graphics, memory);
+  // The overlay only shows text: draw it with new guest frames instead of at the monitor rate.
+  g_imgui->SetContinuousRepaint(false);
+  g_overlay = new StatsOverlay(g_imgui.get(), window, graphics, memory);  // registers itself
+  g_imgui->RemoveDialog(g_overlay);
 }
+
+void SetStatsOverlayVisible(bool visible) {
+  if (!g_overlay || visible == g_overlay_visible) return;
+  g_overlay_visible = visible;
+  if (visible)
+    g_imgui->AddDialog(g_overlay);
+  else
+    g_imgui->RemoveDialog(g_overlay);
+}
+
+bool IsStatsOverlayVisible() { return g_overlay_visible; }
 
 void NotifySwap(uint32_t frontbuffer_width, uint32_t frontbuffer_height) {
   g_frontbuffer_width = frontbuffer_width;
