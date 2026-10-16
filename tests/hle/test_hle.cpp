@@ -18,6 +18,9 @@ PPC_EXTERN_FUNC(__imp__KeGetCurrentProcessType);
 PPC_EXTERN_FUNC(__imp__NtCreateFile);  // not implemented: must resolve to the weak stub
 PPC_EXTERN_FUNC(__imp__XamUserGetSigninState);
 
+// The kernel's loader fills the function table from this generated array; tests have no game.
+PPCFuncMapping PPCFuncMappings[] = {{0, nullptr}};
+
 static int failures = 0;
 #define CHECK(cond)                                                    \
   do {                                                                 \

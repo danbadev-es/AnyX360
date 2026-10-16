@@ -4,9 +4,9 @@ add_library(x360_runtime STATIC
 )
 target_include_directories(x360_runtime PUBLIC include)
 
-# --- Per-game HLE ---------------------------------------------------------------------------
+# --- Per-game kernel / HLE --------------------------------------------------------------------
 # PPCContext's layout depends on the optimisation flags in the game's generated ppc_config.h,
-# so the HLE layer is compiled once per game against that header.
+# so everything that touches guest registers is compiled once per game against that header.
 
 set(XENON_UTILS_DIR ${ANYX360_THIRDPARTY}/XenonRecomp/XenonUtils)
 set(XENON_SIMDE_DIR ${ANYX360_THIRDPARTY}/XenonRecomp/thirdparty/simde)
@@ -20,13 +20,14 @@ file(CONFIGURE OUTPUT ${HLE_EXPORT_TABLE} CONTENT "${_table}" @ONLY)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   ${XENON_UTILS_DIR}/xbox/xboxkrnl_table.inc ${XENON_UTILS_DIR}/xbox/xam_table.inc)
 
-set(ANYX360_HLE_SOURCES
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/hle/hle.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/hle/stubs.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/hle/xboxkrnl_ke.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/hle/xboxkrnl_rtl.cpp
-  CACHE INTERNAL "")
+file(GLOB ANYX360_HLE_SOURCES CONFIGURE_DEPENDS
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/hle/*.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/kernel/*.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/gpu/*.cpp)
+set(ANYX360_HLE_SOURCES ${ANYX360_HLE_SOURCES} CACHE INTERNAL "")
+# tools/x360tool/src comes first: XenonUtils also has an xex.h.
 set(ANYX360_HLE_INCLUDES
+  ${PROJECT_SOURCE_DIR}/tools/x360tool/src
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_BINARY_DIR}/generated
   ${XENON_UTILS_DIR}
@@ -38,9 +39,11 @@ set(ANYX360_HLE_INCLUDES
 function(anyx360_add_hle target ppc_config_dir)
   add_library(${target} OBJECT ${ANYX360_HLE_SOURCES})
   target_include_directories(${target} PUBLIC ${ppc_config_dir} ${ANYX360_HLE_INCLUDES})
-  target_link_libraries(${target} PUBLIC x360_runtime)
+  target_link_libraries(${target} PUBLIC x360_runtime x360_formats xinput bcrypt dbghelp)
   target_compile_features(${target} PUBLIC cxx_std_20)
+  target_compile_definitions(${target} PRIVATE _CRT_SECURE_NO_WARNINGS)
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    target_compile_options(${target} PUBLIC -msse4.2 -Wno-unused-function)
+    target_compile_options(${target} PUBLIC -msse4.2)
+    target_compile_options(${target} PRIVATE -Wno-unused-function -Wno-multichar -Wno-unused-parameter)
   endif()
 endfunction()

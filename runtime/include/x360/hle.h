@@ -78,18 +78,26 @@ struct Cursor {
   int f = 0;
 };
 
+// Integer argument `index`: r3..r10, then 8-byte slots in the caller's parameter save area starting
+// at r1 + 0x54 (the 9th argument). Callers store 32-bit arguments with stw at the start of the
+// slot (seen in Gears of War 3's calls to VdInitializeScalerCommandBuffer), so read that word.
+inline uint64_t int_arg(PPCContext& ctx, uint8_t* base, int index) {
+  if (index < 8) return gpr(ctx, index).u64;
+  return load_be<uint32_t>(base + ctx.r1.u32 + 0x54 + (index - 8) * 8);
+}
+
 template <typename T>
 T read_arg(PPCContext& ctx, uint8_t* base, Cursor& c) {
-  if constexpr (std::is_floating_point_v<T>) {
+  if constexpr (std::is_same_v<T, PPCContext*>) {
+    return &ctx;  // raw access for variadic functions (does not consume an argument)
+  } else if constexpr (std::is_floating_point_v<T>) {
     return static_cast<T>(fpr(ctx, c.f++).f64);
   } else if constexpr (std::is_pointer_v<T>) {
-    uint32_t addr = gpr(ctx, c.g++).u32;
+    uint32_t addr = uint32_t(int_arg(ctx, base, c.g++));
     return addr ? reinterpret_cast<T>(base + addr) : nullptr;
-  } else if constexpr (std::is_enum_v<T>) {
-    return static_cast<T>(gpr(ctx, c.g++).u64);
   } else {
-    static_assert(std::is_integral_v<T>, "unsupported HLE argument type");
-    return static_cast<T>(gpr(ctx, c.g++).u64);
+    static_assert(std::is_integral_v<T> || std::is_enum_v<T>, "unsupported HLE argument type");
+    return static_cast<T>(int_arg(ctx, base, c.g++));
   }
 }
 
@@ -104,7 +112,6 @@ struct Signature {
 
 template <typename R, typename... Args>
 void call(R (*fn)(Args...), PPCContext& ctx, uint8_t* base) {
-  static_assert(Signature<R, Args...>::gprs <= 8, "stack-passed arguments are not supported yet");
   static_assert(Signature<R, Args...>::fprs <= 13, "too many floating-point arguments");
 
   Cursor cursor;

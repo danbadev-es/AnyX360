@@ -26,6 +26,8 @@ target_compile_options(gow3_ppc PRIVATE
   -Wno-constant-conversion
   -Wno-tautological-constant-out-of-range-compare)
 target_compile_features(gow3_ppc PRIVATE cxx_std_20)
+# Line tables only: enough to name the recompiled function in crash reports.
+target_compile_options(gow3_ppc PRIVATE -gline-tables-only)
 
 anyx360_add_hle(gow3_hle ${GOW3_PPC_DIR})
 
@@ -33,3 +35,6 @@ add_executable(gow3 src/main.cpp)
 target_link_libraries(gow3 PRIVATE gow3_ppc gow3_hle)
 target_compile_options(gow3 PRIVATE -msse4.1)
 set_target_properties(gow3 PROPERTIES OUTPUT_NAME GearsOfWar3)
+target_compile_options(gow3 PRIVATE -gline-tables-only)
+target_link_options(gow3 PRIVATE /DEBUG)
+target_compile_options(gow3_hle PRIVATE -gline-tables-only)

@@ -8,16 +8,20 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang")
   target_compile_options(mspack_lzxd PRIVATE -w)
 endif()
 
-add_executable(x360tool
-  src/main.cpp
-  src/exports.cpp
+# Console file formats (XDVDFS, XEX2, export names), shared by x360tool and the runtime loader.
+add_library(x360_formats STATIC
   src/util.cpp
   src/xdvdfs.cpp
   src/xex.cpp
   src/lzx.cpp
+  src/exports.cpp
 )
-target_link_libraries(x360tool PRIVATE x360_runtime mspack_lzxd bcrypt)
-target_include_directories(x360tool PRIVATE ${ANYX360_THIRDPARTY}/XenonRecomp/XenonUtils)
+target_include_directories(x360_formats PUBLIC src PRIVATE ${ANYX360_THIRDPARTY}/XenonRecomp/XenonUtils)
+target_link_libraries(x360_formats PUBLIC x360_runtime mspack_lzxd bcrypt)
+target_compile_definitions(x360_formats PRIVATE _CRT_SECURE_NO_WARNINGS)
+
+add_executable(x360tool src/main.cpp)
+target_link_libraries(x360tool PRIVATE x360_formats)
 target_compile_definitions(x360tool PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 find_package(Python3 COMPONENTS Interpreter)
