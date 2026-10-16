@@ -33,6 +33,9 @@ struct PlayerSettings {
 
 struct PacingSettings {
   uint32_t vblank_spin_us = 300;  // the vblank thread spins this long before each tick
+  // Run the title's vblank in step with the display's refresh when the rates are compatible
+  // (e.g. 120 Hz guest vblank on a 60 or 120 Hz screen), so every frame stays on screen equally long.
+  bool display_lock = true;
   bool thread_priorities = true;  // guest priorities mapped to Windows thread priorities
   bool mmcss = false;             // MMCSS "Games" class for the vblank and audio threads
 };

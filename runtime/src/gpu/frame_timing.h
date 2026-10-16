@@ -13,6 +13,7 @@ enum class Event : uint8_t {
   kGpuSwap,         // the command processor executed the frame's swap
   kPresentGpuThread,  // payload: 1 if a new guest frame was presented, 0 if a repaint
   kPresentUiThread,   // same payload
+  kHostVblank,        // the display's vblank (IDXGIOutput::WaitForVBlank)
   kCount,
 };
 

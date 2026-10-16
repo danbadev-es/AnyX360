@@ -58,6 +58,7 @@ void Parse(const toml::table& t, Settings& s) {
   s.display.render_scale = std::clamp(s.display.render_scale, 1u, 3u);
   if (auto v = display["upscale"].value<std::string>()) s.display.upscale = ParseUpscale(*v, s.display.upscale);
   Read(display["fxaa"], s.display.fxaa);
+  Read(display["vsync"], s.display.vsync);
   Read(display["fps"], s.display.target_fps);
   s.display.target_fps = s.display.target_fps >= 60 ? 60 : 30;
   Read(display["show_stats"], s.show_stats);
@@ -87,6 +88,7 @@ void Parse(const toml::table& t, Settings& s) {
 
   auto pacing = t["pacing"];
   Read(pacing["vblank_spin_us"], s.pacing.vblank_spin_us);
+  Read(pacing["display_lock"], s.pacing.display_lock);
   Read(pacing["thread_priorities"], s.pacing.thread_priorities);
   Read(pacing["mmcss"], s.pacing.mmcss);
 }
@@ -118,6 +120,7 @@ std::string Serialize(const Settings& s) {
     << "render_scale = " << s.display.render_scale << "  # 1-3: the game renders at 1280x720 times this\n"
     << "upscale = \"" << UpscaleName(s.display.upscale) << "\"  # fsr, cas, bilinear\n"
     << "fxaa = " << (s.display.fxaa ? "true" : "false") << "\n"
+    << "vsync = " << (s.display.vsync ? "true" : "false") << "\n"
     << "fps = " << s.display.target_fps << "  # 30 or 60\n"
     << "show_stats = " << (s.show_stats ? "true" : "false") << "\n\n"
     << "[input]\n"
@@ -139,6 +142,7 @@ std::string Serialize(const Settings& s) {
       << " }  # keyboard_mouse, pad, pad1-pad4, none\n";
   o << "\n[pacing]\n"
     << "vblank_spin_us = " << s.pacing.vblank_spin_us << "\n"
+    << "display_lock = " << (s.pacing.display_lock ? "true" : "false") << "\n"
     << "thread_priorities = " << (s.pacing.thread_priorities ? "true" : "false") << "\n"
     << "mmcss = " << (s.pacing.mmcss ? "true" : "false") << "\n";
   return o.str();

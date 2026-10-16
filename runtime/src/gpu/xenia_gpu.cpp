@@ -1,5 +1,7 @@
 // Glue between AnyX360's kernel and Xenia's GPU (D3D12) and UI.
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -11,6 +13,7 @@
 #include "x360/gpu.h"
 #include "frame_timing.h"
 #include "gpu_internal.h"
+#include "host_vblank.h"
 #include "stats_overlay.h"
 #include "x360/input.h"
 #include "x360/kernel.h"
@@ -148,6 +151,12 @@ HANDLE g_interrupt_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);  // aut
 std::deque<InterruptRequest> g_interrupts;
 std::atomic<uint32_t> g_vblank_hz{120};
 std::atomic<uint64_t> g_vblanks_skipped{0};
+std::atomic<bool> g_display_lock{true};
+std::atomic<bool> g_display_locked{false};
+// Where new frames are presented within the display's refresh, as an error from the middle in
+// refreshes ([-0.5, 0.5)), smoothed; and when it was last updated (QPC).
+std::atomic<double> g_present_phase_error{0};
+std::atomic<int64_t> g_present_phase_time{0};
 std::atomic<int> g_exit_code{0};
 std::atomic<uint32_t> g_writeback{0};
 DisplayConfig g_display;
@@ -205,10 +214,34 @@ int64_t QpcNow() {
   return t.QuadPart;
 }
 
+// New frames presented by the GPU thread: how far from the middle of the display's refresh they
+// land (the display lock steers the vblank so they land there, as far as possible from the
+// refresh where a late or early frame would be shown one refresh off).
+void TrackPresentPhase() {
+  int64_t vblank;
+  double period;
+  if (!host_vblank::Estimate(vblank, period)) return;
+  int64_t now = QpcNow();
+  double phase = double(now - vblank) / period;
+  phase -= std::floor(phase);
+  double error = phase - 0.5;
+  double smoothed = g_present_phase_error.load(std::memory_order_relaxed);
+  // Restart the average after a jump (near the wrap-around, values on both sides would cancel).
+  smoothed = std::abs(error - smoothed) > 0.25 ? error : smoothed + (error - smoothed) * 0.1;
+  g_present_phase_error.store(smoothed, std::memory_order_relaxed);
+  g_present_phase_time.store(now, std::memory_order_relaxed);
+}
+
 // The vblank interrupt (g_vblank_hz) plus queued command-buffer interrupts, delivered on a guest
-// thread. Vblank n is due at anchor + n * frequency / hz exactly (no drift, no truncated period): a
+// thread. Each vblank is due one period after the previous one (no drift, no truncated period): a
 // high-resolution waitable timer sleeps until shortly before it and the rest is spun
 // (ANYX360_VBLANK_SPIN_US, default 300). A late tick skips whole periods but keeps the phase.
+//
+// Display lock: when the display's refresh rate is the vblank rate times or divided by 1-4, the
+// period follows the measured refresh period exactly and the phase is steered (at most 20 us per
+// tick) so new frames are presented mid-refresh. Free-running, a guest vblank a few ppm off the
+// display drifts through the refresh, and while presents straddle a refresh boundary frames are
+// shown for one refresh too many or too few (periodic judder).
 void InterruptThreadBody() {
   SetLatencySensitiveThread(THREAD_PRIORITY_HIGHEST);
   HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
@@ -219,15 +252,14 @@ void InterruptThreadBody() {
   static const char* spin_env = std::getenv("ANYX360_VBLANK_SPIN_US");
   const int64_t spin_us = spin_env ? std::atoi(spin_env) : settings::Get().pacing.vblank_spin_us;
   const int64_t spin = std::clamp<int64_t>(spin_us, 0, 2000) * frequency / 1000000;
+  const double max_slew = 20e-6 * double(frequency);
   uint32_t hz = 0;
-  int64_t anchor = 0;
-  uint64_t tick = 0;
-  auto due = [&] { return anchor + int64_t(tick * uint64_t(frequency) / hz); };
+  double next = 0;  // QPC time of the next vblank
+  bool locked = false;
   for (;;) {
     if (uint32_t wanted = std::max(1u, g_vblank_hz.load(std::memory_order_relaxed)); wanted != hz) {
       hz = wanted;
-      anchor = QpcNow();
-      tick = 1;
+      next = double(QpcNow()) + double(frequency) / hz;
     }
     std::deque<InterruptRequest> requests;
     {
@@ -238,7 +270,7 @@ void InterruptThreadBody() {
       for (const InterruptRequest& r : requests) RunInterrupt(r);
       continue;
     }
-    int64_t target = due();
+    int64_t target = int64_t(next);
     int64_t remaining = target - QpcNow();
     if (remaining > spin) {
       LARGE_INTEGER relative;
@@ -251,11 +283,29 @@ void InterruptThreadBody() {
     int64_t now;
     while ((now = QpcNow()) < target) YieldProcessor();
     timing::Record(timing::Event::kVblank, int32_t((now - target) * 1000000 / frequency));
-    for (++tick; due() <= now; ++tick) ++g_vblanks_skipped;
-    if (tick >= hz) {  // keep the numbers small: exactly hz ticks per second of QPC time
-      anchor += frequency * int64_t(tick / hz);
-      tick %= hz;
+
+    double period = double(frequency) / hz;
+    int64_t display_vblank;
+    double display_period;
+    bool lock = g_display_lock.load(std::memory_order_relaxed) && host_vblank::Estimate(display_vblank, display_period);
+    if (lock) {
+      double ticks_per_refresh = hz * display_period / double(frequency);
+      double k = std::round(ticks_per_refresh >= 1 ? ticks_per_refresh : 1 / ticks_per_refresh);
+      double off = std::abs((ticks_per_refresh >= 1 ? ticks_per_refresh : 1 / ticks_per_refresh) - k);
+      lock = k >= 1 && k <= 4 && off < 0.01 * k;
+      if (lock) period = ticks_per_refresh >= 1 ? display_period / k : display_period * k;
     }
+    if (lock != locked) {
+      locked = lock;
+      g_display_locked = locked;
+      KLOG_I("vblank: %s", locked ? "locked to the display's refresh" : "free-running");
+    }
+    if (locked && now - g_present_phase_time.load(std::memory_order_relaxed) < frequency / 2) {
+      double error = g_present_phase_error.load(std::memory_order_relaxed);
+      period -= std::clamp(error * display_period * 0.005, -max_slew, max_slew);
+    }
+    next += period;
+    for (; next <= double(now); next += period) ++g_vblanks_skipped;
     g_graphics->MarkVblank();  // calls DispatchInterrupt(source 0) back on this thread
   }
 }
@@ -386,6 +436,26 @@ void SetUpscale(DisplayConfig::Upscale upscale) {
                                                                             : "bilinear");
 }
 
+void SetVsync(bool vsync) {
+  g_display.vsync = vsync;
+  g_graphics->presenter()->SetPresentSyncInterval(vsync ? 1 : 0);
+  KLOG_I("display: vsync %s", vsync ? "on" : "off");
+}
+
+void SetDisplayLock(bool lock) {
+  g_display_lock = lock;
+  KLOG_I("display: vblank lock %s", lock ? "on" : "off");
+}
+
+void DisplayLockState(double& display_hz, bool& locked) {
+  int64_t vblank;
+  double period;
+  LARGE_INTEGER frequency;
+  QueryPerformanceFrequency(&frequency);
+  display_hz = host_vblank::Estimate(vblank, period) ? double(frequency.QuadPart) / period : 0;
+  locked = g_display_locked.load();
+}
+
 void SetFxaa(bool fxaa) {
   g_display.fxaa = fxaa;
   g_graphics->command_processor()->SetDesiredSwapPostEffect(fxaa ? xe::gpu::CommandProcessor::SwapPostEffect::kFxaa
@@ -482,6 +552,7 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
   else
     ApplyWindowSize(config.width, config.height);
   input::Start(GameHwnd(), [] { SetFullscreenMode(!g_window->IsFullscreen()); });
+  host_vblank::Start(GameHwnd());
 
   if (!xe::gpu::d3d12::D3D12GraphicsSystem::IsAvailable()) {
     KLOG_E("Direct3D 12 is not available on this system");
@@ -498,6 +569,8 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
   KLOG_I("GPU init: presenter");
   g_window->SetPresenter(g_graphics->presenter());
   g_graphics->presenter()->SetGuestOutputPaintConfigFromUIThread(MakePaintConfig(config));
+  g_graphics->presenter()->SetPresentSyncInterval(config.vsync ? 1 : 0);
+  g_display_lock = settings::Get().pacing.display_lock && !std::getenv("ANYX360_NO_DISPLAY_LOCK");
   if (config.fxaa)
     g_graphics->command_processor()->SetDesiredSwapPostEffect(xe::gpu::CommandProcessor::SwapPostEffect::kFxaa);
   g_graphics->presenter()->SetPresentObserver([](bool ui_thread, bool presented) {
@@ -505,6 +578,7 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
     uint64_t swaps = g_gpu_swaps.load();
     bool new_frame = g_presented_swap.exchange(swaps) != swaps;
     timing::Record(ui_thread ? timing::Event::kPresentUiThread : timing::Event::kPresentGpuThread, new_frame);
+    if (new_frame && !ui_thread) TrackPresentPhase();  // UI-thread presents wait for the display anyway
   });
   // ANYX360_NO_OVERLAY=1: no ImGui at all, so the guest output thread always presents (A/B tests).
   if (!std::getenv("ANYX360_NO_OVERLAY")) {
@@ -537,7 +611,9 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
       static uint64_t last_wakes = 0;
       uint64_t wakes, missed;
       DispatcherCounters(wakes, missed);
-      KLOG_I("dispatcher: %.0f wakes/s, %llu missed wakeups", (wakes - last_wakes) / 5.0, (unsigned long long)missed);
+      KLOG_I("dispatcher: %.0f wakes/s, %llu missed wakeups; vblank %s, present phase error %+.2f",
+             (wakes - last_wakes) / 5.0, (unsigned long long)missed,
+             g_display_locked ? "locked to the display" : "free-running", g_present_phase_error.load());
       last_wakes = wakes;
       // ANYX360_FRAMETIMES=<file.csv>: every frame timing event (see tools/scripts/frametimes.py).
       static const char* frametimes = std::getenv("ANYX360_FRAMETIMES");

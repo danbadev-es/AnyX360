@@ -164,7 +164,7 @@ void AppendCsv(const char* path) {
   if (records.empty() && !first) return;
   FILE* f = std::fopen(path, first ? "w" : "a");
   if (!f) return;
-  static const char* const kNames[] = {"vblank", "vdswap", "gpuswap", "present_gpu", "present_ui"};
+  static const char* const kNames[] = {"vblank", "vdswap", "gpuswap", "present_gpu", "present_ui", "host_vblank"};
   if (first) std::fputs("time_ms,event,payload\n", f);
   first = false;
   for (const Entry& r : records)

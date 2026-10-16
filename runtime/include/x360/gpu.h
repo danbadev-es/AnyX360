@@ -20,6 +20,7 @@ struct DisplayConfig {
   uint32_t render_scale = 1;
   Upscale upscale = Upscale::kFsr;  // scaling of the rendered image to the window (AMD FidelityFX)
   bool fxaa = false;                // FXAA on the final image
+  bool vsync = true;                // present on the display's vertical blank (no tearing in fullscreen)
   bool fullscreen = false;
   // Target frame rate. Titles present every N vblanks (Gears of War 3: 2, i.e. 30 FPS at 60 Hz), so
   // the vblank interrupt runs at target_fps x 2.

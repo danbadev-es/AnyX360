@@ -23,6 +23,11 @@ void ApplyWindowSize(uint32_t width, uint32_t height);
 void SetFullscreenMode(bool fullscreen);
 void SetUpscale(DisplayConfig::Upscale upscale);
 void SetFxaa(bool fxaa);
+void SetVsync(bool vsync);
+void SetDisplayLock(bool lock);
+// The vblank's relation to the display, for the panel: the display's refresh rate (0 if unknown)
+// and whether the vblank is locked to it.
+void DisplayLockState(double& display_hz, bool& locked);
 
 // Saves the settings and relaunches the executable without the display flags (so the saved ones
 // apply). Exits on success; returns the error otherwise.

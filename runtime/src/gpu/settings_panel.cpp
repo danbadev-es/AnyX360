@@ -52,6 +52,16 @@ void SetFxaaSetting(bool fxaa) {
   SetFxaa(fxaa);
 }
 
+void SetVsyncSetting(bool vsync) {
+  settings::Update([&](Settings& s) { s.display.vsync = vsync; });
+  SetVsync(vsync);
+}
+
+void SetDisplayLockSetting(bool lock) {
+  settings::Update([&](Settings& s) { s.pacing.display_lock = lock; });
+  SetDisplayLock(lock);
+}
+
 void SetFps(uint32_t fps) {
   settings::Update([&](Settings& s) { s.display.target_fps = fps; });
   SetTargetFps(fps);
@@ -182,6 +192,11 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
     bool fxaa = s.display.fxaa;
     if (ImGui::Checkbox("FXAA", &fxaa)) PostToUIThread([fxaa] { SetFxaaSetting(fxaa); });
     CommandLineNote(s.display.fxaa != saved.display.fxaa);
+    ImGui::SameLine(140);
+    bool vsync = s.display.vsync;
+    if (ImGui::Checkbox("VSync", &vsync)) PostToUIThread([vsync] { SetVsyncSetting(vsync); });
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Waits for the display's refresh to show each frame: no tearing in fullscreen.");
 
     int fps = int(s.display.target_fps);
     ImGui::TextUnformatted("Frame rate");
@@ -321,7 +336,16 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
     ImGui::Text("%.1f FPS  (target %u)   presented by the %s thread", t.vdswaps / 2.0, GetDisplayConfig().target_fps,
                 t.presents_ui_thread > t.presents_gpu_thread ? "UI" : "GPU");
     ImGui::Text("Frame interval p50 %.2f  p99 %.2f  max %.1f ms", t.swap_p50_ms, t.swap_p99_ms, t.swap_max_ms);
-    ImGui::Text("Vblank %.0f Hz, late p99 %.0f us", t.vblanks / 2.0, t.vblank_late_p99_us);
+    double display_hz;
+    bool locked;
+    DisplayLockState(display_hz, locked);
+    ImGui::Text("Vblank %.0f Hz, late p99 %.0f us; display %.2f Hz, %s", t.vblanks / 2.0, t.vblank_late_p99_us,
+                display_hz, locked ? "locked to it" : "not locked");
+    bool lock = settings::Get().pacing.display_lock;
+    if (ImGui::Checkbox("Lock the game's vblank to the display refresh", &lock))
+      PostToUIThread([lock] { SetDisplayLockSetting(lock); });
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("With a 60 or 120 Hz display, every frame stays on screen equally long.");
     float values[240];
     size_t count = timing::RecentIntervals(timing::Event::kVdSwap, values, 240);
     ImGui::PlotLines("Frames (VdSwap)", values, int(count), 0, "0-50 ms", 0.0f, 50.0f, ImVec2(420, 70));
@@ -377,6 +401,8 @@ void RunSettingsTest(std::string spec) {
       else if (key == "upscale") SetUpscaleSetting(value == "cas" ? Upscale::kCas : value == "bilinear" ? Upscale::kBilinear : Upscale::kFsr);
       else if (key == "fxaa") SetFxaaSetting(n != 0);
       else if (key == "fps") SetFps(n >= 60 ? 60 : 30);
+      else if (key == "vsync") SetVsyncSetting(n != 0);
+      else if (key == "lock") SetDisplayLockSetting(n != 0);
       else if (key == "scale") SetRenderScale(std::clamp(n, 1u, 3u));
       else if (key == "stats") ShowStats(n != 0);
       else if (key == "panel") n ? OpenSettingsPanel() : CloseSettingsPanel();
