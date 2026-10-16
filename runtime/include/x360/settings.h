@@ -20,7 +20,7 @@ struct InputSettings {
   float aim_sensitivity = 0.6f;  // multiplier while aiming (left trigger held)
   bool invert_y = false;
   uint32_t smoothing_ms = 16;   // mouse speed is measured over this window
-  float anti_deadzone = 0.20f;  // added to any mouse movement so the game's stick dead zone doesn't eat it
+  float anti_deadzone = 0.25f;  // added to any mouse movement so the game's stick dead zone doesn't eat it
   // Overrides of the default bindings: pad control -> space-separated key names (see input.h).
   std::map<std::string, std::string> bindings;
 };

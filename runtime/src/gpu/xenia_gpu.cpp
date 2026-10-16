@@ -11,6 +11,7 @@
 #include "x360/gpu.h"
 #include "frame_timing.h"
 #include "stats_overlay.h"
+#include "x360/input.h"
 #include "x360/kernel.h"
 #include "x360/settings.h"
 #include "xenia/base/cvar.h"
@@ -22,6 +23,7 @@
 #include "xenia/ui/presenter.h"
 #include "xenia/ui/window.h"
 #include "xenia/ui/window_listener.h"
+#include "xenia/ui/window_win.h"
 #include "xenia/ui/windowed_app_context_win.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -266,7 +268,7 @@ class WindowListener final : public xe::ui::WindowListener {
 };
 WindowListener g_window_listener;
 
-// F1 toggles the performance overlay, F11 / Alt+Enter fullscreen.
+// F1 toggles the performance overlay, F11 fullscreen (Alt+Enter: see the input module's window hook).
 class WindowKeys final : public xe::ui::WindowInputListener {
  public:
   void OnKeyDown(xe::ui::KeyEvent& e) override {
@@ -277,9 +279,7 @@ class WindowKeys final : public xe::ui::WindowInputListener {
       e.set_handled(true);
       return;
     }
-    bool toggle = e.virtual_key() == xe::ui::VirtualKey::kF11 ||
-                  (e.virtual_key() == xe::ui::VirtualKey::kReturn && e.is_alt_pressed());
-    if (toggle && g_window) {
+    if (e.virtual_key() == xe::ui::VirtualKey::kF11 && g_window) {
       g_window->SetFullscreen(!g_window->IsFullscreen());
       e.set_handled(true);
     }
@@ -330,6 +330,8 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
     KLOG_E("could not open the game window");
     return false;
   }
+  input::Start(static_cast<xe::ui::Win32Window*>(g_window.get())->hwnd(),
+               [] { g_window->SetFullscreen(!g_window->IsFullscreen()); });
 
   if (!xe::gpu::d3d12::D3D12GraphicsSystem::IsAvailable()) {
     KLOG_E("Direct3D 12 is not available on this system");

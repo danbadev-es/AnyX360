@@ -1,10 +1,11 @@
-// xam.xex exports: users and profiles, content (saves), enumerators, notifications, input, loader,
-// tasks and system UI. One local profile ("Player") is always signed in on controller 0.
+// xam.xex exports: users and profiles, content (saves), enumerators, notifications, input (see
+// x360/input.h), loader, tasks and system UI. One local profile ("Player") is always signed in.
 #include <chrono>
 #include <deque>
 #include <fstream>
 #include <random>
 
+#include "x360/input.h"
 #include "x360/kernel.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -435,108 +436,11 @@ void XNotifyPositionUI(uint32_t position) { (void)position; }
 // ---- input ------------------------------------------------------------------------------------
 // X_INPUT_GAMEPAD: buttons (be16), left/right trigger (u8), thumbs lx/ly/rx/ry (be16).
 
-bool KeyDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
-
-// Scripted input for unattended runs: ANYX360_INPUT="<seconds>:<button>[/<hold>],..." presses each
-// button for 120 ms (or <hold> seconds) at the given time after the first input poll. Buttons:
-// START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT, and left stick LUP LDOWN LLEFT LRIGHT.
-uint16_t ScriptedButtons(XINPUT_GAMEPAD& pad) {
-  struct Press {
-    double at;
-    std::string button;
-    double hold = 0.12;
-  };
-  static const std::vector<Press> script = [] {
-    std::vector<Press> out;
-    const char* env = std::getenv("ANYX360_INPUT");
-    if (!env) return out;
-    std::string spec = env;
-    size_t pos = 0;
-    while (pos < spec.size()) {
-      size_t end = spec.find(',', pos);
-      if (end == std::string::npos) end = spec.size();
-      std::string item = spec.substr(pos, end - pos);
-      size_t colon = item.find(':');
-      if (colon != std::string::npos) {
-        Press press{std::atof(item.c_str()), item.substr(colon + 1)};
-        size_t slash = press.button.find('/');  // optional hold time: "<seconds>:<button>/<hold>"
-        if (slash != std::string::npos) {
-          press.hold = std::atof(press.button.c_str() + slash + 1);
-          press.button.resize(slash);
-        }
-        out.push_back(press);
-      }
-      pos = end + 1;
-    }
-    return out;
-  }();
-  if (script.empty()) return 0;
-  static const auto start = std::chrono::steady_clock::now();
-  double now = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-  static const std::pair<const char*, uint16_t> names[] = {
-      {"START", XINPUT_GAMEPAD_START}, {"BACK", XINPUT_GAMEPAD_BACK},
-      {"A", XINPUT_GAMEPAD_A},         {"B", XINPUT_GAMEPAD_B},
-      {"X", XINPUT_GAMEPAD_X},         {"Y", XINPUT_GAMEPAD_Y},
-      {"UP", XINPUT_GAMEPAD_DPAD_UP},  {"DOWN", XINPUT_GAMEPAD_DPAD_DOWN},
-      {"LEFT", XINPUT_GAMEPAD_DPAD_LEFT}, {"RIGHT", XINPUT_GAMEPAD_DPAD_RIGHT},
-      {"LB", XINPUT_GAMEPAD_LEFT_SHOULDER}, {"RB", XINPUT_GAMEPAD_RIGHT_SHOULDER}};
-  uint16_t buttons = 0;
-  for (const Press& p : script) {
-    if (now < p.at || now >= p.at + p.hold) continue;
-    if (p.button == "LT") pad.bLeftTrigger = 255;
-    if (p.button == "RT") pad.bRightTrigger = 255;
-    if (p.button == "LUP") pad.sThumbLY = 32767;
-    if (p.button == "LDOWN") pad.sThumbLY = -32768;
-    if (p.button == "LLEFT") pad.sThumbLX = -32768;
-    if (p.button == "LRIGHT") pad.sThumbLX = 32767;
-    for (auto& [name, bit] : names)
-      if (p.button == name) buttons |= bit;
-  }
-  return buttons;
-}
-
 bool ReadPad(uint32_t user_index, XINPUT_GAMEPAD& pad) {
-  // XInputGetState on an empty slot is slow: probe disconnected slots at most once a second.
-  static std::atomic<int64_t> next_probe[4] = {};
-  int64_t now = std::chrono::steady_clock::now().time_since_epoch().count();
-  XINPUT_STATE state{};
-  bool connected = false;
-  if (now >= next_probe[user_index].load(std::memory_order_relaxed)) {
-    connected = XInputGetState(user_index, &state) == ERROR_SUCCESS;
-    if (!connected)
-      next_probe[user_index] = now + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                                         std::chrono::seconds(1)).count();
-  }
-  pad = connected ? state.Gamepad : XINPUT_GAMEPAD{};
-  if (user_index != 0) return connected;
-  if (uint16_t scripted = ScriptedButtons(pad)) {
-    static uint16_t last = 0;
-    if (scripted != last) KLOG_I("input: scripted buttons %04X", scripted);
-    last = scripted;
-    pad.wButtons |= scripted;
-  }
-
-  // Keyboard fallback for player 1 (only while our console window or game window has focus).
-  HWND fg = GetForegroundWindow();
-  DWORD pid = 0;
-  GetWindowThreadProcessId(fg, &pid);
-  if (pid == GetCurrentProcessId()) {
-    if (KeyDown(VK_RETURN)) pad.wButtons |= XINPUT_GAMEPAD_START;
-    if (KeyDown(VK_SPACE)) pad.wButtons |= XINPUT_GAMEPAD_A;
-    if (KeyDown(VK_ESCAPE)) pad.wButtons |= XINPUT_GAMEPAD_B;
-    if (KeyDown(VK_BACK)) pad.wButtons |= XINPUT_GAMEPAD_BACK;
-    if (KeyDown('X')) pad.wButtons |= XINPUT_GAMEPAD_X;
-    if (KeyDown('Y')) pad.wButtons |= XINPUT_GAMEPAD_Y;
-    if (KeyDown(VK_UP)) pad.wButtons |= XINPUT_GAMEPAD_DPAD_UP;
-    if (KeyDown(VK_DOWN)) pad.wButtons |= XINPUT_GAMEPAD_DPAD_DOWN;
-    if (KeyDown(VK_LEFT)) pad.wButtons |= XINPUT_GAMEPAD_DPAD_LEFT;
-    if (KeyDown(VK_RIGHT)) pad.wButtons |= XINPUT_GAMEPAD_DPAD_RIGHT;
-    if (KeyDown('W')) pad.sThumbLY = 32767;
-    if (KeyDown('S')) pad.sThumbLY = -32768;
-    if (KeyDown('A')) pad.sThumbLX = -32768;
-    if (KeyDown('D')) pad.sThumbLX = 32767;
-  }
-  return true;  // player 1 is always present (keyboard)
+  x360::input::Pad p;
+  if (!x360::input::GetPad(user_index, p)) return false;
+  pad = {p.buttons, p.left_trigger, p.right_trigger, p.lx, p.ly, p.rx, p.ry};
+  return true;
 }
 
 void StorePad(uint32_t at, const XINPUT_GAMEPAD& pad) {
@@ -568,11 +472,11 @@ uint32_t XamInputGetState(uint32_t user_index, uint32_t flags, uint32_t state) {
   static std::atomic<int> logged{0};
   if (logged++ < 4) KLOG_I("XamInputGetState(%u, %X, %08X)", user_index, flags, state);
   user_index &= 0xFF;
-  static std::atomic<uint32_t> packet{1};
+  static std::atomic<uint32_t> packet[4] = {1, 1, 1, 1};
   XINPUT_GAMEPAD pad;
   if (user_index >= 4 || !ReadPad(user_index, pad)) return X_ERROR_DEVICE_NOT_CONNECTED;
   if (state) {
-    Store<uint32_t>(state, packet++);
+    Store<uint32_t>(state, packet[user_index]++);
     StorePad(state + 4, pad);
   }
   return X_ERROR_SUCCESS;
@@ -582,8 +486,7 @@ uint32_t XamInputSetState(uint32_t user_index, uint32_t unknown, uint32_t vibrat
   (void)unknown;
   user_index &= 0xFF;
   if (user_index >= 4) return X_ERROR_DEVICE_NOT_CONNECTED;
-  XINPUT_VIBRATION v{Load<uint16_t>(vibration), Load<uint16_t>(vibration + 2)};
-  XInputSetState(user_index, &v);
+  x360::input::SetVibration(user_index, Load<uint16_t>(vibration), Load<uint16_t>(vibration + 2));
   return X_ERROR_SUCCESS;
 }
 
