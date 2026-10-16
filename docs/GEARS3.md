@@ -80,12 +80,31 @@ run whose function split was different, which leads to duplicate symbols at link
 
 ## Status (2026-10-16)
 - Boots through the Epic/Microsoft logos (Bink), title screen, brightness setup and every menu.
+- **Campaign works**: New campaign → difficulty → Act I Prologue "Troubled Past" (`SP_Nightmare_*`):
+  in-engine cinematics with subtitles and voices, then gameplay.
 - **Private Horde works**: Horde → Private → Start Game → map selection (START) → character setup
   (START) → Checkout loads and plays (movement, aiming, firing, HUD).
-- **Campaign**: difficulty selection travels to `GearGame_P?game=GearGameSP?chapter=N`, but the
-  chapter's level (`sp_ravens_p` for Act 1) is never requested, so the player spawns in an empty
-  world. Not yet understood; `WorldInfo.PrepareMapChange` is not involved.
-- Silent: XMA is not decoded yet. The Horde pre-wave counter stays at 0:30.
+- **Audio**: XMA decoded by Xenia's XmaDecoder (FFmpeg fork), output through XAudio2.
+- Shaders and pipelines are cached in `<user>/cache/shaders`, so later runs start faster.
+
+### How the campaign starts (for reference)
+The front end calls `GearEngine.SetCheckpoint` (the chapter's start checkpoint) and travels to
+`GearGame_P?game=GearGameContent.GearGameSP?chapter=N?listen`. `GearEngine::LoadMap` then reads the
+chapter's data (`MapName`, e.g. `sp_nightmare_p` for chapter 0) and streams its levels into
+`GearGame_P` — but only if the base `LoadMap` returned no error. `?listen` makes the campaign a listen
+server for co-op, so a failing socket layer ("Error initializing network layer.") silently left the
+player in the empty `GearGame_P`. Sockets are emulated locally for this reason (`xam_net.cpp`).
+
+### Known issues
+- The Horde pre-wave counter stays at 0:30 (it may wait for the command post to be built; unverified).
+- An intermittent crash while the async loader creates objects (corrupt link in the object hash
+  chains, `sub_8230F098`); seen loading Horde maps, not reproducible on demand.
+
+### Analysis notes
+- `GNatives` 0x833CDFD8 (`EX_VirtualFunction` 0x822CD110, `EX_FinalFunction` 0x822CD180).
+- `FFrame`: `Object` +0x14, `Code` +0x18. `UObject`: `Outer` +0x28, `Name` +0x2C, `Class` +0x34.
+- `GWorld` 0x83429828; `GearEngine` checkpoint fields: pending action +1864, `CurrentCheckpoint` +1880.
+- Name entries are packed `[be32 index << 1][be32 hash next][text]` from 0x40130000.
 
 ## Debugging switches
 All opt-in through environment variables read by the runtime:
@@ -101,5 +120,10 @@ All opt-in through environment variables read by the runtime:
 | `ANYX360_LOG_FILES` | Logs file opens, writes and info changes |
 | `ANYX360_ZPD` | Occlusion query mode: `fake`, `fast`, `fast-alt`, `strict` |
 | `ANYX360_XENIA_LOG_LEVEL` | Xenia's log level |
+| `ANYX360_UE3_TRACE` | UnrealScript call trace: `"<seconds>[,filter]"` (first call of each `Class => Function`, or every call matching the filter) plus logging hooks on map, checkpoint and package loading |
+| `ANYX360_MEMDUMP` | With `ANYX360_DUMP_AT`: dumps guest memory, `"addr,length"` in hex |
+| `ANYX360_MEMSCAN=0x...` | Searches a big-endian 32-bit value instead of text |
+| `ANYX360_WATCH_WRITE` | Hardware write watchpoint on a guest address (logs the writing function) |
+| `ANYX360_NO_SOCKETS` | Disables the local socket layer and the network address |
 
 The runtime also accepts `--user <folder>` to run with a clean profile and saves.
