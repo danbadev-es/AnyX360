@@ -22,6 +22,9 @@ int RunMessageLoop();
 // Asks the UI loop to exit (any thread).
 void RequestQuit(int exit_code);
 
+// Records a guest frame (VdSwap) for the performance overlay.
+void NotifySwap();
+
 // Vd* exports.
 void InitializeRingBuffer(uint32_t physical, uint32_t size_log2);
 void EnableReadPointerWriteBack(uint32_t physical, uint32_t block_size_log2);

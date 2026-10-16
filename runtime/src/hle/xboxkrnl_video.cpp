@@ -136,6 +136,7 @@ void VdSwap(uint32_t buffer, uint32_t fetch, uint32_t unk2, uint32_t unk3, uint3
             uint32_t format_ptr, uint32_t color_space_ptr, uint32_t width_ptr, uint32_t height_ptr) {
   (void)unk2, (void)unk3, (void)unk4, (void)format_ptr, (void)color_space_ptr;
   ++x360::gpu::g_swap_count;
+  x360::gpu::NotifySwap();
   uint32_t fetch_dwords[6];
   for (int i = 0; i < 6; ++i) fetch_dwords[i] = Load<uint32_t>(fetch + i * 4);
   uint32_t frontbuffer_virtual = fetch_dwords[1] & 0xFFFFF000;

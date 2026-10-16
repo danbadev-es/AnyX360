@@ -9,6 +9,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <vector>
 
 #include "x360/kernel.h"
 #include "xenia/apu/xaudio2/xaudio2_audio_driver.h"
@@ -20,7 +21,9 @@ using xe::X_STATUS;  // Xenia's xbox.h defines the X_STATUS_* codes as casts to 
 
 namespace {
 
-constexpr size_t kMaximumQueuedFrames = 64;  // as Xenia's AudioSystem
+constexpr size_t kMaximumQueuedFrames = 64;  // XAudio2 voice buffers (as Xenia's AudioSystem)
+// Frames queued ahead of playback: 16 x 5.33 ms = 85 ms of latency, enough to absorb scheduling jitter.
+constexpr size_t kQueuedFrames = 16;
 
 struct AudioClient {
   uint32_t callback = 0;
@@ -28,6 +31,7 @@ struct AudioClient {
   bool active = false;
   std::unique_ptr<xe::threading::Semaphore> semaphore;
   std::unique_ptr<xe::apu::xaudio2::XAudio2AudioDriver> driver;
+  std::chrono::steady_clock::time_point next_frame{};  // clients without host output
 };
 
 std::mutex g_audio_mutex;
@@ -36,27 +40,51 @@ std::shared_ptr<Thread> g_audio_thread;
 std::unique_ptr<xe::apu::XmaDecoder> g_xma;
 std::atomic<uint32_t> g_xma_contexts{0};
 
+// Produces one frame per buffer the host finishes playing: XAudio2 releases the client's semaphore
+// at the end of each buffer, so the device's clock drives the title's mixer (a timer cannot: sleeps
+// are only as fine as the system timer, ~15.6 ms, while a frame lasts 5.33 ms). Clients without host
+// output run on a timer so the title's audio still advances.
 void AudioThreadBody() {
   using clock = std::chrono::steady_clock;
   const auto frame = std::chrono::microseconds(5333);  // 256 samples at 48 kHz
-  auto next = clock::now();
   for (;;) {
-    std::this_thread::sleep_until(next);
-    next += frame;
-    if (next < clock::now()) next = clock::now() + frame;
+    std::vector<xe::threading::WaitHandle*> handles;
+    std::vector<AudioClient*> owners;
+    bool produced = false;
     for (AudioClient& c : g_clients) {
-      uint32_t callback, argument;
+      uint32_t callback = 0, argument = 0;
       {
         std::lock_guard lock(g_audio_mutex);
         if (!c.active || !c.callback) continue;
-        // Only produce a frame when the host has room for it.
-        if (c.semaphore && xe::threading::Wait(c.semaphore.get(), false, std::chrono::milliseconds(0)) !=
-                               xe::threading::WaitResult::kSuccess)
+        if (c.semaphore) {
+          handles.push_back(c.semaphore.get());
+          owners.push_back(&c);
           continue;
+        }
+        if (clock::now() < c.next_frame) continue;
+        c.next_frame = std::max(c.next_frame + frame, clock::now() - 8 * frame);
         callback = c.callback;
         argument = c.argument;
       }
       CallGuest(callback, {argument});
+      produced = true;
+    }
+    if (!handles.empty()) {
+      auto [result, index] =
+          xe::threading::WaitAny(handles.data(), handles.size(), false, std::chrono::milliseconds(2));
+      if (result == xe::threading::WaitResult::kSuccess) {
+        uint32_t callback, argument;
+        {
+          std::lock_guard lock(g_audio_mutex);
+          if (!owners[index]->active) continue;
+          callback = owners[index]->callback;
+          argument = owners[index]->argument;
+        }
+        CallGuest(callback, {argument});
+        continue;
+      }
+    } else if (!produced) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
   }
 }
@@ -75,7 +103,7 @@ uint32_t XAudioRegisterRenderDriverClient(uint32_t callback_ptr, uint32_t driver
     c.callback = callback;
     c.argument = wrapped;
     c.semaphore = xe::threading::Semaphore::Create(0, kMaximumQueuedFrames);
-    c.semaphore->Release(kMaximumQueuedFrames, nullptr);
+    c.semaphore->Release(kQueuedFrames, nullptr);
     c.driver = std::make_unique<xe::apu::xaudio2::XAudio2AudioDriver>(c.semaphore.get());
     if (!c.driver->Initialize()) {
       KLOG_W("XAudio2 output unavailable, client %u is silent", i);
@@ -121,8 +149,13 @@ uint32_t XAudioSubmitRenderDriverFrame(uint32_t driver, uint32_t samples) {
       peak = std::max(peak, std::fabs(v));
     }
   }
+  static auto window_start = std::chrono::steady_clock::now();
   if (++frames % 1000 == 0) {
-    KLOG_I("audio: %u frames, peak %.3f, %u XMA contexts", frames, peak, g_xma_contexts.load());
+    auto now = std::chrono::steady_clock::now();
+    double seconds = std::chrono::duration<double>(now - window_start).count();
+    window_start = now;
+    KLOG_I("audio: %u frames, %.1f frames/s (48 kHz needs 187.5), peak %.3f, %u XMA contexts", frames,
+           1000.0 / seconds, peak, g_xma_contexts.load());
     peak = 0;
   }
   return X_STATUS_SUCCESS;

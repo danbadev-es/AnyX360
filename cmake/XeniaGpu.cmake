@@ -137,9 +137,10 @@ target_link_libraries(xe_memory PUBLIC xe_base)
 add_library(xe_ui STATIC)
 xe_platform_sources(xe_ui ${XENIA_SRC}/ui)
 get_target_property(_srcs xe_ui SOURCES)
-list(FILTER _srcs EXCLUDE REGEX "(_demo\\.|windowed_app_main_|imgui_|microprofile_drawer)")
+list(FILTER _srcs EXCLUDE REGEX "(_demo\\.|windowed_app_main_|microprofile_drawer)")
 set_target_properties(xe_ui PROPERTIES SOURCES "${_srcs}")
 anyx360_xenia_defaults(xe_ui)
+target_compile_definitions(xe_ui PRIVATE XE_UI_NO_HID=1)  # ImGui without Xenia's HID input system
 target_link_libraries(xe_ui PUBLIC xe_base xe_imgui dwmapi dxgi winmm)
 
 add_library(xe_ui_d3d12 STATIC)

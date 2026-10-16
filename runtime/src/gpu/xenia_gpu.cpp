@@ -9,6 +9,7 @@
 #include <deque>
 
 #include "x360/gpu.h"
+#include "stats_overlay.h"
 #include "x360/kernel.h"
 #include "xenia/base/cvar.h"
 #include "xenia/base/logging.h"
@@ -255,6 +256,7 @@ bool Initialize(const char* window_title) {
   }
   KLOG_I("GPU init: presenter");
   g_window->SetPresenter(g_graphics->presenter());
+  StartStatsOverlay(g_window.get(), g_graphics.get(), XeMemory());
 
   g_interrupt_thread = CreateHostDrivenThread("GPU interrupts", 2, InterruptThreadBody);
   std::thread([] {

@@ -86,6 +86,8 @@ run whose function split was different, which leads to duplicate symbols at link
   (START) → Checkout loads and plays (movement, aiming, firing, HUD).
 - **Audio**: XMA decoded by Xenia's XmaDecoder (FFmpeg fork), output through XAudio2.
 - Shaders and pipelines are cached in `<user>/cache/shaders`, so later runs start faster.
+- Performance overlay (top-left, **F1** toggles): guest FPS and frame time, the process's VRAM use
+  (DXGI budget), host RAM (working set and commit) and guest memory in use.
 
 ### How the campaign starts (for reference)
 The front end calls `GearEngine.SetCheckpoint` (the chapter's start checkpoint) and travels to
