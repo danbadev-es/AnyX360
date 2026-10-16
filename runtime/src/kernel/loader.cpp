@@ -246,6 +246,7 @@ bool LoadTitle(const TitleInfo& info) {
 
   FillFunctionTable();
   InstallHooks(std::make_integer_sequence<int, 8>());
+  if (info.on_function_table) info.on_function_table();
   SetupKernelVariables();
   ResolveImports(*xex);
 

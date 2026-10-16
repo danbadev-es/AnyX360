@@ -13,6 +13,10 @@
 
 namespace fs = std::filesystem;
 
+namespace gow3 {
+void InstallUe3Trace();
+}
+
 namespace {
 
 fs::path FindUpwards(const fs::path& start, const fs::path& relative) {
@@ -46,6 +50,7 @@ int main(int argc, char** argv) {
     info.user_root = fs::path(local ? local : ".") / "AnyX360" / "GearsOfWar3";
   }
   info.xex_path = info.game_root / "default.xex";
+  info.on_function_table = gow3::InstallUe3Trace;
 
   if (!fs::exists(info.xex_path)) {
     std::fprintf(stderr, "default.xex not found. Pass --game <folder containing default.xex>.\n");

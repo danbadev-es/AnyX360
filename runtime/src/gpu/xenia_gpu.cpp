@@ -77,6 +77,11 @@ void ScanGuestMemory(const char* text) {
   std::string ascii = text;
   std::string utf16;
   for (char c : ascii) utf16 += '\0', utf16 += c;
+  if (ascii.rfind("0x", 0) == 0) {  // "0x12345678": a big-endian 32-bit value
+    uint32_t value = uint32_t(std::strtoul(text + 2, nullptr, 16));
+    ascii.assign({char(value >> 24), char(value >> 16), char(value >> 8), char(value)});
+    utf16 = ascii;
+  }
   uint8_t* base = XeMemory()->virtual_membase();
   uint8_t* at = base + 0x40000000ull;
   uint8_t* end = base + 0x100000000ull;
@@ -102,6 +107,15 @@ void ScanGuestMemory(const char* text) {
             context += (c >= 32 && c < 127) ? c : '.';
           }
           KLOG_I("memscan %s %08X: %s", wide ? "w" : "a", uint32_t(at + pos - base), context.c_str());
+          if (std::getenv("ANYX360_MEMSCAN_HEX") && pos >= 32) {
+            std::string hex;
+            char byte[4];
+            for (size_t i = pos - 32; i < pos; ++i) {
+              std::snprintf(byte, sizeof(byte), "%02X ", uint8_t(region[i]));
+              hex += byte;
+            }
+            KLOG_I("memscan   before: %s", hex.c_str());
+          }
           ++hits;
         }
       }
@@ -270,6 +284,20 @@ bool Initialize(const char* window_title) {
           if (seconds / 5 == tick) {
             DumpThreads();
             if (const char* text = std::getenv("ANYX360_MEMSCAN")) ScanGuestMemory(text);
+            if (const char* dump = std::getenv("ANYX360_MEMDUMP")) {  // "addr,length" in hex
+              uint32_t addr = uint32_t(std::strtoul(dump, nullptr, 16));
+              const char* comma = std::strchr(dump, ',');
+              uint32_t length = comma ? uint32_t(std::strtoul(comma + 1, nullptr, 16)) : 0x100;
+              for (uint32_t row = 0; row < length; row += 32) {
+                std::string line;
+                char word[12];
+                for (uint32_t i = 0; i < 32; i += 4) {
+                  std::snprintf(word, sizeof(word), "%08X ", Load<uint32_t>(addr + row + i));
+                  line += word;
+                }
+                KLOG_I("memdump %08X: %s", addr + row, line.c_str());
+              }
+            }
           }
           while (*p && *p != ',') ++p;
           if (*p == ',') ++p;
