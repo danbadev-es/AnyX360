@@ -16,6 +16,7 @@
 # --- Generated recompiler output (derived from game code) ---
 /games/*/out/
 /games/*/ppc/
+/games/*/recomp/
 /games/*/shaders/
 
 # --- Build ---

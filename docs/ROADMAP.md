@@ -11,20 +11,27 @@ the game does, not by lines of code.
       plus `*.imports.txt` and `*.sections.txt`
 - [x] End-to-end tests on synthetic fixtures (`ctest`)
 
-## Phase 1: Inventory (needs the ISO)
-- [ ] Extract the disc into `extracted/gow3/` and record the layout and file list
-- [ ] `xex-info` on `default.xex`: title ID, version, compression, SDK (XDK) build
-- [ ] `xex-extract`: first real LZX run, verify the PE image and sections
-- [ ] Count kernel and XAM imports → initial HLE workload estimate
-- [ ] Load the basefile into Ghidra (big-endian PowerPC, 64-bit, VMX128 extension) and estimate the function count
+## Phase 1: Inventory (done)
+- [x] Extract the game (came as an extracted disc folder in a 7z, not an ISO)
+- [x] `xex-info` on `default.xex`: title ID, version, compression, XDK build
+- [x] `xex-extract`: decrypt with the retail key; PE image and sections verified
+- [x] Kernel and XAM imports with names: 163 + 117 functions, 13 variables
+- [x] Function count estimate: 41,369 in `.pdata`
+- [ ] Load the basefile into Ghidra (big-endian PowerPC, 64-bit, VMX128 extension)
 - [ ] Identify the UE3 build (engine version strings) and locate the Xenon RHI and audio device functions
-- [ ] Decide which Title Update (if any) to target
+- [x] Target version: base disc executable, no Title Update
 
-## Phase 2: CPU recompilation
-- [ ] Fork XenonRecomp into `thirdparty/` and build it with this tree
-- [ ] Locate `__savegprlr_14` / `__restgprlr_14`, FPR and VMX helpers, `setjmp` / `longjmp`
-- [ ] Run XenonAnalyse → jump table TOML; review the failures by hand
-- [ ] Recompile the full executable; get the generated C++ to compile and link (stub every import)
+## Phase 2: CPU recompilation (in progress)
+- [x] Fork XenonRecomp and XenosRecomp into `thirdparty/` and build them with this tree
+- [x] Locate `__savegprlr_14` / `__restgprlr_14`, FPR and VMX helpers
+- [ ] `setjmp` / `longjmp`: apparently unused; confirm in Ghidra
+- [x] Jump tables: dataflow detector in the XenonAnalyse fork (0 → 108 found)
+- [x] Function boundaries for leaf functions containing switches
+- [x] Implement the ~45 missing instruction kinds (5,190 → 36 sites, all in Bink)
+- [x] Recompile the full executable; the generated C++ compiles
+- [x] Link the executable against the HLE stubs (84,181 recompiled functions, 60 MB exe)
+- [ ] `mulchw.` decodes in Bink (or replace Bink with a native decoder)
+- [ ] Unit-test the new instructions against Xenia's PPC test suite (XenonTests)
 
 ## Phase 3: Boot (kernel HLE)
 - [ ] Loader: map sections, apply imports, set up TLS and the main thread stack

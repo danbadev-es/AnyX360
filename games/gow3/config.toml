@@ -5,7 +5,7 @@
 [main]
 file_path = "../../extracted/gow3/Gears Of War 3/AP7kB/default.xex"
 # patch_file_path = "../../extracted/gow3/default.xexp"   # Title Update, if we target one
-out_directory_path = "ppc"
+out_directory_path = "recomp"
 switch_table_file_path = "switch_tables.toml"
 
 # Optimisations stay off until the game runs (XenonRecomp recommendation).

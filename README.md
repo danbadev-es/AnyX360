@@ -6,7 +6,8 @@ audio. There is no emulator at runtime.
 
 First target: **Gears of War 3**.
 
-> **Status: Phase 0 (tooling).** Nothing is playable. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status: Phase 2 (CPU recompilation).** The whole Gears of War 3 executable recompiles to C++ and
+> builds. Nothing runs yet (no loader, kernel or GPU). See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Inspired by [BLACK-XBERecomp](https://github.com/danielbarretoes/BLACK-XBERecomp) (original Xbox),
 [UnleashedRecomp](https://github.com/hedge-dev/UnleashedRecomp) / XenonRecomp (Xbox 360) and
@@ -14,7 +15,9 @@ Inspired by [BLACK-XBERecomp](https://github.com/danielbarretoes/BLACK-XBERecomp
 
 ## Legal
 
-- This repository contains **no game code, assets or console keys**, and never will.
+- This repository contains **no game code, assets or console keys**, and never will. Note that the
+  third-party XenonRecomp submodule (like Xenia) embeds the publicly known XEX2 retail key in its
+  source to load executables. AnyX360's own tools read the key from `keys/` instead.
 - You need your own legally obtained copy of the game. Disc images go in `Raw/`, which is git-ignored,
   along with `*.iso`, `*.xex`, `extracted/`, `keys/` and all recompiler output (which is derived from the
   game's code).
@@ -26,10 +29,14 @@ Requirements: Windows 10/11 x64, Visual Studio 2022 or later with *Desktop devel
 *C++ Clang tools*, Python 3 with `cryptography` (tests only).
 
 ```bat
+git clone --recursive https://github.com/danielbarretoes/AnyX360
 build.bat            :: release build
 build.bat debug
 ctest --test-dir build -C Release
 ```
+
+This builds `x360tool`, the forked XenonAnalyse, XenonRecomp and XenosRecomp, and (once its
+`recomp/` folder has been generated) the game. The game workflow is in [docs/GEARS3.md](docs/GEARS3.md).
 
 ## Tools
 

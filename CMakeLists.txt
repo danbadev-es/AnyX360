@@ -38,4 +38,5 @@ endif()
 
 if(ANYX360_BUILD_RUNTIME)
   add_subdirectory(tests)
+  add_subdirectory(games/gow3)
 endif()
