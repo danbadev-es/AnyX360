@@ -1,14 +1,19 @@
-# anyx360_add_launcher(<target> <output name> <game executable> <title> <user folder>)
-# The Windows launcher of a distribution folder (tools/launcher): extracts the player's disc archive
-# and starts <game executable>. <user folder> is the game's folder under %LOCALAPPDATA%\AnyX360.
-function(anyx360_add_launcher target output_name game_exe title user_dir)
+# anyx360_add_launcher(<target> <game.json>)
+# The Windows launcher of a distribution folder (tools/launcher): prepares the player's copy of the
+# game and starts the game executable. Names come from the game's game.json (see cmake/Game.cmake).
+function(anyx360_add_launcher target json_path)
+  file(READ ${json_path} json)
+  string(JSON output_name GET "${json}" launcher_name)
+  string(JSON exe GET "${json}" exe)
+  string(JSON title GET "${json}" title)
+  string(JSON user_dir GET "${json}" user_dir)
   add_executable(${target} WIN32
     ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.cpp
     ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.manifest)
   set_target_properties(${target} PROPERTIES OUTPUT_NAME "${output_name}")
   target_compile_definitions(${target} PRIVATE
     UNICODE _UNICODE _WIN32_WINNT=0x0A00 WINVER=0x0A00
-    ANYX360_GAME_EXE="${game_exe}" ANYX360_GAME_TITLE="${title}" ANYX360_USER_DIR="${user_dir}")
+    ANYX360_GAME_EXE="${exe}.exe" ANYX360_GAME_TITLE="${title}" ANYX360_USER_DIR="${user_dir}")
   target_compile_options(${target} PRIVATE /utf-8)
   # The terms of use in English and Spanish, shown and accepted in the launcher (make_dist.ps1 also
   # copies the English text to TERMS.txt).

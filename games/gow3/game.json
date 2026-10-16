@@ -1,0 +1,16 @@
+{
+  "id": "gow3",
+  "title": "Gears of War 3",
+  "exe": "GearsOfWar3",
+  "user_dir": "GearsOfWar3",
+  "title_id": "4D5308AB",
+  "dev_game_dir": "extracted/gow3/Gears Of War 3/AP7kB",
+  "launcher_name": "AnyX360 Gears of War 3",
+  "size_gb": 8,
+  "archive_hint": "Gears Of War 3.7z",
+  "input": "keyboard_pad",
+  "required_files": [],
+  "owners": "Microsoft Corporation, Xbox Game Studios, The Coalition, Epic Games",
+  "trademarks": ["Xbox", "Xbox 360", "Gears of War"],
+  "components": []
+}

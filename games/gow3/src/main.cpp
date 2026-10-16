@@ -5,6 +5,7 @@
 // image is scaled to the window with --upscale (default AMD FSR). --fps 60 (default) runs the vblank
 // at 120 Hz, as the game presents every second vblank (30 FPS on the console). F11 or Alt+Enter toggle
 // fullscreen, F1 the performance overlay, F2 the settings panel.
+#include "game_info.h"
 #include "x360/host.h"
 
 namespace gow3 {
@@ -13,10 +14,10 @@ void InstallUe3Trace();
 
 int main(int argc, char** argv) {
   x360::host::GameDescriptor game;
-  game.title_name = "Gears of War 3";
-  game.user_dir = "GearsOfWar3";
-  game.dev_game_dir = "extracted/gow3/Gears Of War 3/AP7kB";
-  game.title_id = 0x4D5308AB;
+  game.title_name = game_info::kTitle;
+  game.user_dir = game_info::kUserDir;
+  game.dev_game_dir = game_info::kDevGameDir;
+  game.title_id = game_info::kTitleId;
   game.vblanks_per_frame = 2;
   game.on_function_table = gow3::InstallUe3Trace;
   return x360::host::RunHost(argc, argv, game);
