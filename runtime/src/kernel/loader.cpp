@@ -264,6 +264,7 @@ bool LoadTitle(const TitleInfo& info) {
 int Run(const TitleInfo& info) {
   InstallCrashHandler();
   if (!InitMemory()) return 1;
+  SetupWriteWatch();
   // The window, Direct3D 12 and the GPU must exist before the title runs; this thread becomes the
   // UI thread.
   if (!gpu::Initialize("AnyX360")) return 1;

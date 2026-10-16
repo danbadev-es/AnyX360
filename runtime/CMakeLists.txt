@@ -39,7 +39,7 @@ set(ANYX360_HLE_INCLUDES
 function(anyx360_add_hle target ppc_config_dir)
   add_library(${target} OBJECT ${ANYX360_HLE_SOURCES})
   target_include_directories(${target} PUBLIC ${ppc_config_dir} ${ANYX360_HLE_INCLUDES})
-  target_link_libraries(${target} PUBLIC x360_runtime x360_formats xe_gpu_d3d12 xinput bcrypt dbghelp)
+  target_link_libraries(${target} PUBLIC x360_runtime x360_formats xe_gpu_d3d12 xe_apu xinput bcrypt dbghelp)
   target_compile_features(${target} PUBLIC cxx_std_20)
   target_compile_definitions(${target} PRIVATE _CRT_SECURE_NO_WARNINGS)
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")

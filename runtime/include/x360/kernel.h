@@ -288,6 +288,9 @@ struct Thread : Object {
 };
 
 Thread* CurrentThread();
+// Debugging aid (ANYX360_WATCH_WRITE): hardware write watchpoint on a guest address.
+void SetupWriteWatch();  // after InitMemory
+void ArmWriteWatch();    // on each guest thread
 // Logs every guest thread: name, current export, registers and guest backtrace.
 void DumpThreads();
 std::shared_ptr<Thread> CurrentThreadShared();

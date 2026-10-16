@@ -781,7 +781,7 @@ uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_
 
 uint32_t XMsgStartIORequest(uint32_t app, uint32_t message, uint32_t overlapped, uint32_t buffer, uint32_t size) {
   uint32_t hr = DispatchXamApp(app, message, buffer, size);
-  KLOG_T("XMsgStartIORequest(app %X, message %08X) -> %08X", app, message, hr);
+  if (hr != kHrSuccess) KLOG_I("XMsgStartIORequest(app %X, message %08X) -> %08X", app, message, hr);
   if (overlapped) return Complete(overlapped, hr == kHrSuccess ? X_ERROR_SUCCESS : X_ERROR_FUNCTION_FAILED, 0, hr);
   return hr;
 }
@@ -792,7 +792,7 @@ uint32_t XMsgStartIORequestEx(uint32_t app, uint32_t message, uint32_t overlappe
 }
 uint32_t XMsgInProcessCall(uint32_t app, uint32_t message, uint32_t arg1, uint32_t arg2) {
   uint32_t hr = DispatchXamApp(app, message, arg1, arg2);
-  KLOG_T("XMsgInProcessCall(app %X, message %08X) -> %08X", app, message, hr);
+  if (hr != kHrSuccess) KLOG_I("XMsgInProcessCall(app %X, message %08X) -> %08X", app, message, hr);
   return hr;
 }
 uint32_t XMsgCompleteIORequest() { return X_ERROR_SUCCESS; }

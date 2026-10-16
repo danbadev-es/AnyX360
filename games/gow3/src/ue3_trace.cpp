@@ -9,6 +9,7 @@
 //   FFrame              Object +0x14, Code +0x18
 //   UObject             Outer +0x28, Name +0x2C, Class +0x34
 // Names are resolved by walking the FNameEntry pools ([be32 index << 1][be32 hash next][ANSI text]).
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
@@ -110,7 +111,12 @@ std::string Name(uint32_t index) {
   return it != g_names.end() ? it->second : "#" + std::to_string(index);
 }
 
-bool ValidObject(uint32_t object) { return object >= 0x40000000 && object < 0x90000000; }
+// Objects live in the 4 KB (0x00010000+) and 64 KB (0x40000000+) virtual heaps, or in the image
+// (intrinsic classes), and are aligned.
+bool ValidObject(uint32_t object) {
+  if (object & 3) return false;
+  return (object >= 0x00010000 && object < 0x70000000) || (object >= 0x82000000 && object < 0x835B0000);
+}
 
 std::string ObjectName(uint32_t object) {
   if (!ValidObject(object)) return "?";
@@ -210,6 +216,7 @@ void InstallUe3Trace() {
 
 }  // namespace gow3
 
+#ifndef GOW3_DISABLE_HOOKS
 // Direct-call hooks: XenonRecomp emits every function as a weak alias of __imp__sub_X, so a strong
 // definition here takes over all call sites. They only log while ANYX360_UE3_TRACE is set.
 #define GOW3_TRACE_CALL(address, label)                                                  \
@@ -331,3 +338,55 @@ PPC_FUNC(sub_82683148) {
   }
   __imp__sub_82683148(ctx, base);
 }
+
+// Experiment switch: ANYX360_OLD_MEMSET reproduces the truncated memset (tail bytes 2-3 not written).
+extern "C" PPC_FUNC(__imp__sub_82CC9EA0);
+PPC_FUNC(sub_82CC9EA0) {
+  static const bool old = std::getenv("ANYX360_OLD_MEMSET") != nullptr;
+  if (!old) {
+    __imp__sub_82CC9EA0(ctx, base);
+    return;
+  }
+  uint32_t dst = ctx.r3.u32, value = ctx.r4.u8, size = ctx.r5.u32;
+  // Byte stores up to 4-byte alignment, words for the body, then only the first tail byte.
+  uint32_t prefix = std::min<uint32_t>(size, (4 - (dst & 3)) & 3);
+  uint32_t body = (size - prefix) & ~3u;
+  uint32_t tail = size - prefix - body;
+  for (uint32_t i = 0; i < prefix + body; ++i) Store<uint8_t>(dst + i, uint8_t(value));
+  if (tail) Store<uint8_t>(dst + prefix + body, uint8_t(value));
+}
+
+#endif  // GOW3_DISABLE_HOOKS
+
+#ifndef GOW3_DISABLE_HOOKS
+// Crash investigation: StaticFindObjectFastInternal walks GObjHashOuter chains through
+// UObject::HashOuterNext (+0x10). Before walking, validate the chain and report the object whose
+// link is corrupt (with ANYX360_UE3_TRACE).
+extern "C" PPC_FUNC(__imp__sub_8230F098);
+PPC_FUNC(sub_8230F098) {
+  if (gow3::g_hooks_enabled && ctx.r4.u32) {
+    // (srawi outer,4) ^ FName.Index ^ FName.Number, 0x8000 buckets (rlwinm ...,2,15,29).
+    uint32_t hash = (uint32_t(ctx.r4.s32 >> 4) ^ ctx.r5.u32 ^ uint32_t(ctx.r5.u64 >> 32)) & 0x7FFF;
+    uint32_t object = Load<uint32_t>(0x833D63E8 + hash * 4);
+    uint32_t previous = 0;
+    for (int n = 0; object && n < 100000; ++n) {
+      if (!gow3::ValidObject(object)) {
+        std::string bytes;
+        char hex[12];
+        for (uint32_t i = 0; previous && i < 0x40; i += 4) {
+          std::snprintf(hex, sizeof(hex), "%08X ", Load<uint32_t>(previous + i));
+          bytes += hex;
+        }
+        std::lock_guard lock(gow3::g_mutex);
+        KLOG_E("GObjHashOuter[%04X]: object %08X (%s %s) has bad HashOuterNext %08X; header: %s", hash,
+               previous, gow3::ClassName(previous).c_str(), gow3::ObjectName(previous).c_str(), object,
+               bytes.c_str());
+        break;
+      }
+      previous = object;
+      object = Load<uint32_t>(object + 16);
+    }
+  }
+  __imp__sub_8230F098(ctx, base);
+}
+#endif

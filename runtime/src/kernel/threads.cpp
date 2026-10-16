@@ -123,6 +123,7 @@ DWORD WINAPI GuestThreadMain(void* param) {
   char name[32];
   std::snprintf(name, sizeof(name), "guest %X", t.thread_id);
   SetHostThreadName(name);
+  ArmWriteWatch();
 
   alignas(64) PPCContext ctx{};
   InitContext(t, ctx);

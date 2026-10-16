@@ -2,6 +2,7 @@
 // recompiled function, which guest address, the guest thread's registers).
 #include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <exception>
 
 #include "x360/kernel.h"
@@ -129,7 +130,53 @@ void InvalidParameter(const wchar_t* expression, const wchar_t* function, const 
   std::_Exit(5);
 }
 
+// ---- write watchpoint (debugging aid) ---------------------------------------------------------
+// ANYX360_WATCH_WRITE=<guest address>: a hardware data breakpoint (DR0, 4 bytes, writes) on every
+// guest thread; each write is logged with the host instruction (the recompiled function) and the
+// guest thread's lr.
+
+uint64_t g_watch_host = 0;
+
+LONG CALLBACK WatchHandler(EXCEPTION_POINTERS* info) {
+  if (info->ExceptionRecord->ExceptionCode != EXCEPTION_SINGLE_STEP || !(info->ContextRecord->Dr6 & 1))
+    return EXCEPTION_CONTINUE_SEARCH;
+  info->ContextRecord->Dr6 = 0;
+  char where[300];
+  Symbolize(info->ContextRecord->Rip, where, sizeof(where));
+  Thread* t = CurrentThread();
+  uint32_t value = load_be<uint32_t>(reinterpret_cast<uint8_t*>(g_watch_host));
+  std::lock_guard lock(g_crash_mutex);
+  std::fprintf(stderr, "[watch] write -> %08X at %s (thread %X, guest lr %08llX r3 %08X)\n", value, where,
+               t ? t->thread_id : 0, t && t->context ? (unsigned long long)t->context->lr : 0ull,
+               t && t->context ? t->context->r3.u32 : 0);
+  return EXCEPTION_CONTINUE_EXECUTION;
+}
+
 }  // namespace
+
+void ArmWriteWatch() {
+  if (!g_watch_host) return;
+  // Debug registers of a running thread can only be changed while it is suspended: do it from a
+  // helper thread.
+  HANDLE self = nullptr;
+  ::DuplicateHandle(::GetCurrentProcess(), ::GetCurrentThread(), ::GetCurrentProcess(), &self, 0, FALSE,
+                  DUPLICATE_SAME_ACCESS);
+  HANDLE helper = ::CreateThread(nullptr, 0, [](void* param) -> DWORD {
+    HANDLE target = static_cast<HANDLE>(param);
+    ::SuspendThread(target);
+    CONTEXT c{};
+    c.ContextFlags = CONTEXT_DEBUG_REGISTERS;
+    ::GetThreadContext(target, &c);
+    c.Dr0 = g_watch_host;
+    c.Dr7 = (c.Dr7 & ~0xF0003ull) | 1ull | (1ull << 16) | (3ull << 18);  // L0, write, 4 bytes
+    ::SetThreadContext(target, &c);
+    ::ResumeThread(target);
+    return 0;
+  }, self, 0, nullptr);
+  ::WaitForSingleObject(helper, INFINITE);
+  ::CloseHandle(helper);
+  ::CloseHandle(self);
+}
 
 void InstallCrashHandler() {
   SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
@@ -152,6 +199,15 @@ void InstallCrashHandler() {
   });
   // Last in the chain: Xenia's handler resolves MMIO accesses and memory watches first.
   AddVectoredExceptionHandler(0, Handler);
+}
+
+void SetupWriteWatch() {
+  if (const char* watch = std::getenv("ANYX360_WATCH_WRITE")) {
+    uint32_t guest = uint32_t(std::strtoul(watch, nullptr, 16));
+    g_watch_host = uint64_t(g_base) + hle::host_offset(guest);
+    AddVectoredExceptionHandler(1, WatchHandler);
+    std::fprintf(stderr, "[watch] watching writes to %08X\n", guest);
+  }
 }
 
 }  // namespace x360::kernel

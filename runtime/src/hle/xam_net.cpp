@@ -57,6 +57,10 @@ uint32_t NetDll_XNetGetEthernetLinkStatus(uint32_t caller) {
 // as Xenia reports (titles derive "random" ids from abEnet, so it must not be zero).
 uint32_t NetDll_XNetGetTitleXnAddr(uint32_t caller, uint32_t addr) {
   (void)caller;
+  if (std::getenv("ANYX360_NO_SOCKETS")) {  // debugging switch: no network address
+    if (addr) std::memset(Ptr(addr), 0, 0x24);
+    return 1;  // XNET_GET_XNADDR_NONE
+  }
   if (addr) {
     std::memset(Ptr(addr), 0, 0x24);
     Store<uint32_t>(addr, 0x7F000001);
@@ -93,6 +97,8 @@ bool IsSocket(uint32_t s) {
 
 int32_t NetDll_socket(uint32_t caller, uint32_t af, uint32_t type, uint32_t protocol) {
   (void)caller, (void)af, (void)protocol;
+  static const bool disabled = std::getenv("ANYX360_NO_SOCKETS") != nullptr;  // debugging switch
+  if (disabled) return Error(10050);  // WSAENETDOWN
   std::lock_guard lock(g_socket_mutex);
   uint32_t s = g_next_socket;
   g_next_socket += 4;

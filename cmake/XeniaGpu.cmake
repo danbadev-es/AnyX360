@@ -162,3 +162,23 @@ xe_platform_sources(xe_gpu_d3d12 ${XENIA_SRC}/gpu/d3d12)
 anyx360_xenia_defaults(xe_gpu_d3d12)
 anyx360_xenia_dxbc_shaders(xe_gpu_d3d12 ${XENIA_SRC}/gpu/shaders)
 target_link_libraries(xe_gpu_d3d12 PUBLIC xe_gpu xe_ui_d3d12)
+
+# ---- Audio: XMA decoding (FFmpeg) and XAudio2 output ----------------------------------------------
+include(${CMAKE_CURRENT_LIST_DIR}/XeniaFFmpeg.cmake)
+
+add_library(xe_apu STATIC
+  ${XENIA_SRC}/apu/apu_flags.cc
+  ${XENIA_SRC}/apu/audio_driver.cc
+  ${XENIA_SRC}/apu/xma_context.cc
+  ${XENIA_SRC}/apu/xma_context_fake.cc
+  ${XENIA_SRC}/apu/xma_context_master.cc
+  ${XENIA_SRC}/apu/xma_context_new.cc
+  ${XENIA_SRC}/apu/xma_context_old.cc
+  ${XENIA_SRC}/apu/xma_decoder.cc
+  ${XENIA_SRC}/apu/xma_register_file.cc
+  ${XENIA_SRC}/apu/xaudio2/xaudio2_audio_driver.cc)
+anyx360_xenia_defaults(xe_apu)
+target_include_directories(xe_apu PRIVATE
+  ${XENIA_ROOT}/third_party/FFmpeg
+  ${XENIA_ROOT}/third_party/ffmpeg-xenia)
+target_link_libraries(xe_apu PUBLIC xe_memory libavcodec libavutil libavformat)
