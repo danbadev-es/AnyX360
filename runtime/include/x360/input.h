@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace x360::input {
 
@@ -54,6 +56,9 @@ void SetVibration(uint32_t user, uint16_t left, uint16_t right);
 // cursor is free. When input is re-enabled, keys still held are ignored until released. UI thread.
 void SetGameInputEnabled(bool enabled);
 bool IsCursorCaptured();
+
+// The keyboard and mouse bindings in effect: {control, keys}.
+std::vector<std::pair<std::string, std::string>> DescribeBindings();
 
 // Called (on the Input thread) when a controller connects or disconnects.
 void OnDevicesChanged(std::function<void()> callback);

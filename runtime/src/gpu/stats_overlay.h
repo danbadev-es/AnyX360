@@ -7,6 +7,7 @@ namespace gpu {
 class GraphicsSystem;
 }
 namespace ui {
+class ImGuiDrawer;
 class Window;
 }
 }  // namespace xe
@@ -21,5 +22,8 @@ void StartStatsOverlay(xe::ui::Window* window, xe::gpu::GraphicsSystem* graphics
 // from the presenter and the GPU thread presents frames directly.
 void SetStatsOverlayVisible(bool visible);
 bool IsStatsOverlayVisible();
+
+// The ImGui drawer shared by the overlay and the settings panel.
+xe::ui::ImGuiDrawer* SharedImGuiDrawer();
 
 }  // namespace x360::gpu

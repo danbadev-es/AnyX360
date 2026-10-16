@@ -10,6 +10,7 @@
 
 #include "x360/gpu.h"
 #include "frame_timing.h"
+#include "gpu_internal.h"
 #include "stats_overlay.h"
 #include "x360/input.h"
 #include "x360/kernel.h"
@@ -33,6 +34,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <shellapi.h>
 
 DECLARE_int32(log_level);
 DECLARE_int32(draw_resolution_scale_x);
@@ -149,6 +151,8 @@ std::atomic<uint64_t> g_vblanks_skipped{0};
 std::atomic<int> g_exit_code{0};
 std::atomic<uint32_t> g_writeback{0};
 DisplayConfig g_display;
+// Window size to apply when leaving fullscreen (the panel's resolution while fullscreen).
+uint32_t g_pending_width = 0, g_pending_height = 0;
 
 }  // namespace
 
@@ -268,28 +272,168 @@ class WindowListener final : public xe::ui::WindowListener {
 };
 WindowListener g_window_listener;
 
-// F1 toggles the performance overlay, F11 fullscreen (Alt+Enter: see the input module's window hook).
+// F1 toggles the performance overlay, F2 the settings panel (Esc closes it), F11 fullscreen
+// (Alt+Enter: see the input module's window hook).
 class WindowKeys final : public xe::ui::WindowInputListener {
  public:
   void OnKeyDown(xe::ui::KeyEvent& e) override {
-    if (e.virtual_key() == xe::ui::VirtualKey::kF1 && !e.prev_state()) {
-      bool show = !IsStatsOverlayVisible();
-      SetStatsOverlayVisible(show);
-      settings::Update([show](settings::Settings& s) { s.show_stats = show; });
-      e.set_handled(true);
-      return;
+    if (e.prev_state()) return;  // auto-repeat
+    switch (e.virtual_key()) {
+      case xe::ui::VirtualKey::kF1: {
+        bool show = !IsStatsOverlayVisible();
+        SetStatsOverlayVisible(show);
+        settings::Update([show](settings::Settings& s) { s.show_stats = show; });
+        break;
+      }
+      case xe::ui::VirtualKey::kF2: ToggleSettingsPanel(); break;
+      case xe::ui::VirtualKey::kEscape:
+        if (!IsSettingsPanelOpen()) return;
+        CloseSettingsPanel();
+        break;
+      case xe::ui::VirtualKey::kF11: SetFullscreenMode(!g_window->IsFullscreen()); break;
+      default: return;
     }
-    if (e.virtual_key() == xe::ui::VirtualKey::kF11 && g_window) {
-      g_window->SetFullscreen(!g_window->IsFullscreen());
-      e.set_handled(true);
-    }
+    e.set_handled(true);
   }
 };
 WindowKeys g_window_keys;
 
+xe::ui::Presenter::GuestOutputPaintConfig MakePaintConfig(const DisplayConfig& config) {
+  using Effect = xe::ui::Presenter::GuestOutputPaintConfig::Effect;
+  xe::ui::Presenter::GuestOutputPaintConfig paint;
+  paint.SetAllowOverscanCutoff(true);
+  paint.SetEffect(config.upscale == DisplayConfig::Upscale::kFsr   ? Effect::kFsr
+                  : config.upscale == DisplayConfig::Upscale::kCas ? Effect::kCas
+                                                                   : Effect::kBilinear);
+  return paint;
+}
+
+HWND GameHwnd() { return g_window ? static_cast<xe::ui::Win32Window*>(g_window.get())->hwnd() : nullptr; }
+
+// Quotes a command-line argument the way CommandLineToArgvW parses it.
+std::wstring QuoteArgument(const std::wstring& arg) {
+  if (!arg.empty() && arg.find_first_of(L" \t\"") == std::wstring::npos) return arg;
+  std::wstring out = L"\"";
+  for (size_t i = 0;; ++i) {
+    size_t backslashes = 0;
+    while (i < arg.size() && arg[i] == L'\\') ++backslashes, ++i;
+    if (i == arg.size()) {
+      out.append(backslashes * 2, L'\\');
+      break;
+    }
+    out.append(arg[i] == L'"' ? backslashes * 2 + 1 : backslashes, L'\\');
+    out += arg[i];
+  }
+  return out + L"\"";
+}
+
 }  // namespace
 
 const DisplayConfig& GetDisplayConfig() { return g_display; }
+
+void PostToUIThread(std::function<void()> fn) { g_app->CallInUIThread(std::move(fn)); }
+
+xe::ui::Window* GameWindow() { return g_window.get(); }
+
+void ApplyWindowSize(uint32_t width, uint32_t height) {
+  HWND hwnd = GameHwnd();
+  if (!hwnd || !width || !height) return;
+  g_display.width = width;
+  g_display.height = height;
+  if (g_window->IsFullscreen()) {
+    g_pending_width = width, g_pending_height = height;
+    return;
+  }
+  g_pending_width = g_pending_height = 0;
+  if (IsZoomed(hwnd)) ShowWindow(hwnd, SW_RESTORE);
+  // The size is in physical pixels: the frame comes from the window's DPI.
+  UINT dpi = GetDpiForWindow(hwnd);
+  DWORD style = DWORD(GetWindowLongPtrW(hwnd, GWL_STYLE)), ex_style = DWORD(GetWindowLongPtrW(hwnd, GWL_EXSTYLE));
+  RECT frame{0, 0, 0, 0};
+  AdjustWindowRectExForDpi(&frame, style, FALSE, ex_style, dpi);
+  int frame_w = frame.right - frame.left, frame_h = frame.bottom - frame.top;
+  MONITORINFO monitor{sizeof(monitor)};
+  GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &monitor);
+  const RECT& work = monitor.rcWork;
+  int max_w = work.right - work.left - frame_w, max_h = work.bottom - work.top - frame_h;
+  double fit = std::min({1.0, double(max_w) / width, double(max_h) / height});  // keep the aspect ratio
+  int w = int(width * fit) + frame_w, h = int(height * fit) + frame_h;
+  RECT current;
+  GetWindowRect(hwnd, &current);
+  int x = std::clamp<int>(current.left, work.left, std::max<int>(work.left, work.right - w));
+  int y = std::clamp<int>(current.top, work.top, std::max<int>(work.top, work.bottom - h));
+  SetWindowPos(hwnd, nullptr, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+  RECT client;
+  GetClientRect(hwnd, &client);
+  KLOG_I("display: window %ux%u requested, client %ldx%ld (DPI %u)%s", width, height, client.right, client.bottom,
+         dpi, fit < 1.0 ? ", reduced to fit the screen" : "");
+}
+
+void SetFullscreenMode(bool fullscreen) {
+  if (!g_window) return;
+  if (g_window->IsFullscreen() != fullscreen) g_window->SetFullscreen(fullscreen);
+  g_display.fullscreen = fullscreen;
+  if (!fullscreen && g_pending_width) ApplyWindowSize(g_pending_width, g_pending_height);
+  settings::Update([fullscreen](settings::Settings& s) { s.display.fullscreen = fullscreen; });
+  KLOG_I("display: %s", fullscreen ? "fullscreen" : "windowed");
+}
+
+void SetUpscale(DisplayConfig::Upscale upscale) {
+  g_display.upscale = upscale;
+  g_graphics->presenter()->SetGuestOutputPaintConfigFromUIThread(MakePaintConfig(g_display));
+  KLOG_I("display: upscaling %s", upscale == DisplayConfig::Upscale::kFsr   ? "FSR"
+                                  : upscale == DisplayConfig::Upscale::kCas ? "CAS"
+                                                                            : "bilinear");
+}
+
+void SetFxaa(bool fxaa) {
+  g_display.fxaa = fxaa;
+  g_graphics->command_processor()->SetDesiredSwapPostEffect(fxaa ? xe::gpu::CommandProcessor::SwapPostEffect::kFxaa
+                                                                 : xe::gpu::CommandProcessor::SwapPostEffect::kNone);
+  KLOG_I("display: FXAA %s", fxaa ? "on" : "off");
+}
+
+std::string Restart() {
+  settings::SaveNow();
+  wchar_t exe[MAX_PATH];
+  GetModuleFileNameW(nullptr, exe, MAX_PATH);
+  // Same arguments without the display flags (the saved settings apply) and the previous restart.
+  int argc = 0;
+  LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+  std::wstring command = QuoteArgument(exe);
+  for (int i = 1; i < argc; ++i) {
+    std::wstring arg = argv[i];
+    if (arg == L"--resolution" || arg == L"--scale" || arg == L"--fps" || arg == L"--upscale" ||
+        arg == L"--restarted-from") {
+      ++i;
+      continue;
+    }
+    if (arg == L"--fxaa" || arg == L"--fullscreen") continue;
+    command += L" " + QuoteArgument(arg);
+  }
+  LocalFree(argv);
+  command += L" --restarted-from " + std::to_wstring(GetCurrentProcessId());
+  STARTUPINFOW startup{sizeof(startup)};
+  HANDLE output = GetStdHandle(STD_OUTPUT_HANDLE);
+  if (output && output != INVALID_HANDLE_VALUE) {
+    startup.dwFlags = STARTF_USESTDHANDLES;  // keep redirected logs going
+    startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+    startup.hStdOutput = output;
+    startup.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+  }
+  // Test hooks that drive this session don't carry over.
+  SetEnvironmentVariableW(L"ANYX360_SETTINGS_TEST", nullptr);
+  SetEnvironmentVariableW(L"ANYX360_FPS_SWITCH", nullptr);
+  PROCESS_INFORMATION process{};
+  if (!CreateProcessW(exe, command.data(), nullptr, nullptr, TRUE, 0, nullptr, nullptr, &startup, &process)) {
+    DWORD error = GetLastError();
+    KLOG_E("restart failed (%lu)", error);
+    return "could not start the game again (error " + std::to_string(error) + ")";
+  }
+  KLOG_I("restarting: new process %lu", process.dwProcessId);
+  std::fflush(nullptr);
+  std::_Exit(0);
+}
 
 void SetWindowTitle(const std::string& title) {
   if (g_window) g_window->SetTitle(title);
@@ -330,8 +474,12 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
     KLOG_E("could not open the game window");
     return false;
   }
-  input::Start(static_cast<xe::ui::Win32Window*>(g_window.get())->hwnd(),
-               [] { g_window->SetFullscreen(!g_window->IsFullscreen()); });
+  // Window::Create takes a size in DPI-scaled units: set the client area in physical pixels.
+  if (config.fullscreen)
+    g_pending_width = config.width, g_pending_height = config.height;
+  else
+    ApplyWindowSize(config.width, config.height);
+  input::Start(GameHwnd(), [] { SetFullscreenMode(!g_window->IsFullscreen()); });
 
   if (!xe::gpu::d3d12::D3D12GraphicsSystem::IsAvailable()) {
     KLOG_E("Direct3D 12 is not available on this system");
@@ -347,28 +495,20 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
   }
   KLOG_I("GPU init: presenter");
   g_window->SetPresenter(g_graphics->presenter());
+  g_graphics->presenter()->SetGuestOutputPaintConfigFromUIThread(MakePaintConfig(config));
+  if (config.fxaa)
+    g_graphics->command_processor()->SetDesiredSwapPostEffect(xe::gpu::CommandProcessor::SwapPostEffect::kFxaa);
   g_graphics->presenter()->SetPresentObserver([](bool ui_thread, bool presented) {
     if (!presented) return;
     uint64_t swaps = g_gpu_swaps.load();
     bool new_frame = g_presented_swap.exchange(swaps) != swaps;
     timing::Record(ui_thread ? timing::Event::kPresentUiThread : timing::Event::kPresentGpuThread, new_frame);
   });
-  {
-    using Effect = xe::ui::Presenter::GuestOutputPaintConfig::Effect;
-    xe::ui::Presenter::GuestOutputPaintConfig paint;
-    paint.SetAllowOverscanCutoff(true);
-    paint.SetEffect(config.upscale == DisplayConfig::Upscale::kFsr   ? Effect::kFsr
-                    : config.upscale == DisplayConfig::Upscale::kCas ? Effect::kCas
-                                                                     : Effect::kBilinear);
-    g_graphics->presenter()->SetGuestOutputPaintConfigFromUIThread(paint);
-    if (config.fxaa)
-      g_graphics->command_processor()->SetDesiredSwapPostEffect(
-          xe::gpu::CommandProcessor::SwapPostEffect::kFxaa);
-  }
   // ANYX360_NO_OVERLAY=1: no ImGui at all, so the guest output thread always presents (A/B tests).
   if (!std::getenv("ANYX360_NO_OVERLAY")) {
     StartStatsOverlay(g_window.get(), g_graphics.get(), XeMemory());
     if (std::getenv("ANYX360_OVERLAY") || settings::Get().show_stats) SetStatsOverlayVisible(true);
+    StartSettingsPanel();
   }
 
   g_interrupt_thread = CreateHostDrivenThread("GPU interrupts", 2, InterruptThreadBody);

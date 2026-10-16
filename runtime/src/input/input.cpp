@@ -383,6 +383,10 @@ void SetGameInputEnabled(bool enabled) {
 
 bool IsCursorCaptured() { return Captured(); }
 
+std::vector<std::pair<std::string, std::string>> DescribeBindings() {
+  return detail::DescribeBindings(settings::Get().input.bindings);
+}
+
 void OnDevicesChanged(std::function<void()> callback) {
   std::lock_guard lock(g_mutex);
   g_device_callbacks.push_back(std::move(callback));
