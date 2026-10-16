@@ -116,19 +116,22 @@ constexpr uint32_t kGpuRegisterBase = 0x7FC80000;
 
 extern uint8_t* g_base;
 
+// Guest addresses in the 0xE0000000 window are hosted 4 KB higher (hle::host_offset).
 template <typename T = uint8_t>
 inline T* Ptr(uint32_t addr) {
-  return addr ? reinterpret_cast<T*>(g_base + addr) : nullptr;
+  return addr ? reinterpret_cast<T*>(g_base + hle::host_offset(addr)) : nullptr;
 }
-inline uint32_t Addr(const void* p) { return p ? uint32_t(static_cast<const uint8_t*>(p) - g_base) : 0; }
+inline uint32_t Addr(const void* p) {
+  return p ? hle::guest_offset(uint64_t(static_cast<const uint8_t*>(p) - g_base)) : 0;
+}
 
 template <typename T>
 inline T Load(uint32_t addr) {
-  return load_be<T>(g_base + addr);
+  return load_be<T>(g_base + hle::host_offset(addr));
 }
 template <typename T>
 inline void Store(uint32_t addr, T v) {
-  store_be<T>(g_base + addr, v);
+  store_be<T>(g_base + hle::host_offset(addr), v);
 }
 
 // A guest heap (a view of one of xe::Memory's heaps, optionally restricted to a sub-range).

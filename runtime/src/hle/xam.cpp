@@ -1,5 +1,6 @@
 // xam.xex exports: users and profiles, content (saves), enumerators, notifications, input, loader,
 // tasks and system UI. One local profile ("Player") is always signed in on controller 0.
+#include <chrono>
 #include <deque>
 #include <fstream>
 #include <random>
@@ -436,11 +437,75 @@ void XNotifyPositionUI(uint32_t position) { (void)position; }
 
 bool KeyDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
 
+// Scripted input for unattended runs: ANYX360_INPUT="<seconds>:<button>[/<hold>],..." presses each
+// button for 120 ms (or <hold> seconds) at the given time after the first input poll. Buttons:
+// START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT, and left stick LUP LDOWN LLEFT LRIGHT.
+uint16_t ScriptedButtons(XINPUT_GAMEPAD& pad) {
+  struct Press {
+    double at;
+    std::string button;
+    double hold = 0.12;
+  };
+  static const std::vector<Press> script = [] {
+    std::vector<Press> out;
+    const char* env = std::getenv("ANYX360_INPUT");
+    if (!env) return out;
+    std::string spec = env;
+    size_t pos = 0;
+    while (pos < spec.size()) {
+      size_t end = spec.find(',', pos);
+      if (end == std::string::npos) end = spec.size();
+      std::string item = spec.substr(pos, end - pos);
+      size_t colon = item.find(':');
+      if (colon != std::string::npos) {
+        Press press{std::atof(item.c_str()), item.substr(colon + 1)};
+        size_t slash = press.button.find('/');  // optional hold time: "<seconds>:<button>/<hold>"
+        if (slash != std::string::npos) {
+          press.hold = std::atof(press.button.c_str() + slash + 1);
+          press.button.resize(slash);
+        }
+        out.push_back(press);
+      }
+      pos = end + 1;
+    }
+    return out;
+  }();
+  if (script.empty()) return 0;
+  static const auto start = std::chrono::steady_clock::now();
+  double now = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  static const std::pair<const char*, uint16_t> names[] = {
+      {"START", XINPUT_GAMEPAD_START}, {"BACK", XINPUT_GAMEPAD_BACK},
+      {"A", XINPUT_GAMEPAD_A},         {"B", XINPUT_GAMEPAD_B},
+      {"X", XINPUT_GAMEPAD_X},         {"Y", XINPUT_GAMEPAD_Y},
+      {"UP", XINPUT_GAMEPAD_DPAD_UP},  {"DOWN", XINPUT_GAMEPAD_DPAD_DOWN},
+      {"LEFT", XINPUT_GAMEPAD_DPAD_LEFT}, {"RIGHT", XINPUT_GAMEPAD_DPAD_RIGHT},
+      {"LB", XINPUT_GAMEPAD_LEFT_SHOULDER}, {"RB", XINPUT_GAMEPAD_RIGHT_SHOULDER}};
+  uint16_t buttons = 0;
+  for (const Press& p : script) {
+    if (now < p.at || now >= p.at + p.hold) continue;
+    if (p.button == "LT") pad.bLeftTrigger = 255;
+    if (p.button == "RT") pad.bRightTrigger = 255;
+    if (p.button == "LUP") pad.sThumbLY = 32767;
+    if (p.button == "LDOWN") pad.sThumbLY = -32768;
+    if (p.button == "LLEFT") pad.sThumbLX = -32768;
+    if (p.button == "LRIGHT") pad.sThumbLX = 32767;
+    for (auto& [name, bit] : names)
+      if (p.button == name) buttons |= bit;
+  }
+  return buttons;
+}
+
 bool ReadPad(uint32_t user_index, XINPUT_GAMEPAD& pad) {
   XINPUT_STATE state{};
   bool connected = XInputGetState(user_index, &state) == ERROR_SUCCESS;
   pad = connected ? state.Gamepad : XINPUT_GAMEPAD{};
   if (user_index != 0) return connected;
+  if (uint16_t scripted = ScriptedButtons(pad)) {
+    static uint16_t last = 0;
+    if (scripted != last) KLOG_I("input: scripted buttons %04X", scripted);
+    last = scripted;
+    pad.wButtons |= scripted;
+  }
 
   // Keyboard fallback for player 1 (only while our console window or game window has focus).
   HWND fg = GetForegroundWindow();
@@ -491,7 +556,8 @@ uint32_t XamInputGetCapabilities(uint32_t user_index, uint32_t flags, uint32_t c
 }
 
 uint32_t XamInputGetState(uint32_t user_index, uint32_t flags, uint32_t state) {
-  (void)flags;
+  static std::atomic<int> logged{0};
+  if (logged++ < 4) KLOG_I("XamInputGetState(%u, %X, %08X)", user_index, flags, state);
   user_index &= 0xFF;
   static std::atomic<uint32_t> packet{1};
   XINPUT_GAMEPAD pad;

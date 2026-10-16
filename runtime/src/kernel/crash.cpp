@@ -48,7 +48,7 @@ LONG CALLBACK Handler(EXCEPTION_POINTERS* info) {
     uint64_t target = info->ExceptionRecord->ExceptionInformation[1];
     const char* kind = info->ExceptionRecord->ExceptionInformation[0] == 1 ? "write" : "read";
     if (g_base && target >= uint64_t(g_base) && target < uint64_t(g_base) + 0x100000000ull) {
-      std::fprintf(stderr, "  guest %s at %08llX\n", kind, (unsigned long long)(target - uint64_t(g_base)));
+      std::fprintf(stderr, "  guest %s at %08llX\n", kind, (unsigned long long)hle::guest_offset(target - uint64_t(g_base)));
     } else {
       std::fprintf(stderr, "  host %s at %016llX\n", kind, (unsigned long long)target);
     }

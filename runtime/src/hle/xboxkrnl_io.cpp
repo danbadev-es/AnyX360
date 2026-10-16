@@ -8,6 +8,7 @@
 #include <unordered_map>
 
 #include "x360/kernel.h"
+#include "xenia/memory.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -162,6 +163,8 @@ uint32_t OpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_
   }
 
   Resolved r = Resolve(guest);
+  static const bool log_files = std::getenv("ANYX360_LOG_FILES") != nullptr;
+  if (log_files) KLOG_I("open %s (access %08X, disposition %u, options %08X)", guest.c_str(), desired_access, disposition, create_options);
   if (!r.ok) {
     KLOG_W("NtCreateFile: unresolved path '%s'", guest.c_str());
     SetIoStatus(io_status, X_STATUS_OBJECT_PATH_NOT_FOUND, 0);
@@ -260,9 +263,24 @@ uint32_t ReadAt(File& file, uint64_t* offset, uint32_t buffer, uint32_t length, 
   ov.Offset = DWORD(at);
   ov.OffsetHigh = DWORD(at >> 32);
   DWORD got = 0;
-  if (!ReadFile(file.handle, Ptr(buffer), length, &got, &ov)) {
+  // The GPU write-protects physical pages it caches (textures, buffers). The host kernel does not
+  // raise exceptions for those, ReadFile just fails, so read physical buffers through the
+  // unprotected physical view and then tell the GPU the range changed (as Xenia's XFile does).
+  xe::BaseHeap* heap = XeMemory()->LookupHeap(buffer);
+  auto* physical = heap && heap->heap_type() == xe::HeapType::kGuestPhysical
+                       ? static_cast<xe::PhysicalHeap*>(heap)
+                       : nullptr;
+  void* target = physical ? XeMemory()->TranslatePhysical(physical->GetPhysicalAddress(buffer))
+                          : static_cast<void*>(Ptr(buffer));
+  if (!ReadFile(file.handle, target, length, &got, &ov)) {
     DWORD error = GetLastError();
-    if (error != ERROR_HANDLE_EOF) return X_STATUS_UNSUCCESSFUL;
+    if (error != ERROR_HANDLE_EOF) {
+      KLOG_W("ReadFile(%s, %08X, %u) failed: %lu", file.guest_path.c_str(), buffer, length, error);
+      return X_STATUS_UNSUCCESSFUL;
+    }
+  }
+  if (physical && got) {
+    physical->TriggerCallbacks(xe::global_critical_region::AcquireDirect(), buffer, got, true, true);
   }
   file.position = at + got;
   *read = got;
@@ -336,6 +354,8 @@ uint32_t NtWriteFile(uint32_t handle, uint32_t event, uint32_t apc_routine, uint
   uint64_t offset;
   uint32_t written = 0;
   uint32_t status = WriteAt(*file, OffsetArg(byte_offset_ptr, offset), buffer, length, &written);
+  static const bool log_files = std::getenv("ANYX360_LOG_FILES") != nullptr;
+  if (log_files) KLOG_I("write %s: %u bytes -> %08X", file->guest_path.c_str(), length, status);
   SetIoStatus(io_status, status, written);
   SignalEvent(event);
   return status;
@@ -438,6 +458,8 @@ uint32_t NtSetInformationFile(uint32_t handle, uint32_t io_status, uint32_t info
   (void)length;
   auto file = LookupHandleAs<File>(handle);
   if (!file) return X_STATUS_INVALID_HANDLE;
+  static const bool log_files = std::getenv("ANYX360_LOG_FILES") != nullptr;
+  if (log_files) KLOG_I("set info %s: class %u", file->guest_path.c_str(), info_class);
   switch (info_class) {
     case 14:  // FilePositionInformation
       file->position = Load<uint64_t>(info);

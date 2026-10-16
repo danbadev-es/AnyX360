@@ -136,12 +136,7 @@ void SystemFree(uint32_t address) { g_system->Free(address); }
 uint32_t PhysicalAlloc(uint32_t size, uint32_t page_size, uint32_t alignment, uint32_t min_physical,
                        uint32_t max_physical, uint32_t protect) {
   page_size = page_size >= 0x1000000 ? 0x1000000 : page_size >= 0x10000 ? 0x10000 : 0x1000;
-  // 4 KB physical pages live at 0xE0000000 on the console, where the CPU view is offset by 0x1000
-  // from physical memory. Recompiled code accesses guest memory without that offset, so the GPU
-  // and the CPU would disagree about such pages; serve them from the (4 KB granular) 0xA0000000
-  // window instead, which maps physical memory one to one.
-  auto* heap = static_cast<xe::PhysicalHeap*>(
-      g_memory->LookupHeapByType(true, page_size == 0x1000 ? 0x10000 : page_size));
+  auto* heap = static_cast<xe::PhysicalHeap*>(g_memory->LookupHeapByType(true, page_size));
   uint32_t heap_base = heap->heap_base();
   uint32_t offset = heap->GetPhysicalAddress(heap_base);
   auto sat_sub = [](uint32_t a, uint32_t b) { return a > b ? a - b : 0u; };

@@ -6,6 +6,9 @@
 
 #include "exports.h"
 #include "x360/gpu.h"
+#include <atomic>
+#include <cstdlib>
+#include <utility>
 #include "x360/kernel.h"
 #include "xex.h"
 
@@ -40,6 +43,45 @@ void FillFunctionTable() {
     }
   }
   KLOG_I("function table: %zu recompiled functions", count);
+}
+
+// Debugging aid: ANYX360_HOOK="addr,addr,..." logs calls made through the function table (indirect
+// calls, e.g. UnrealScript natives) to those guest functions, then runs the original.
+struct Hook {
+  uint32_t guest = 0;
+  PPCFunc* original = nullptr;
+  std::atomic<uint32_t> calls{0};
+};
+Hook g_hooks[8];
+
+template <int N>
+PPC_FUNC(HookTrampoline) {
+  Hook& h = g_hooks[N];
+  uint32_t n = ++h.calls;
+  if (n <= 20 || (n & (n - 1)) == 0)
+    KLOG_I("hook %08X call #%u: r3 %08X r4 %08X r5 %08X lr %08llX", h.guest, n, ctx.r3.u32, ctx.r4.u32,
+           ctx.r5.u32, (unsigned long long)ctx.lr);
+  h.original(ctx, base);
+}
+
+template <int... N>
+void InstallHooks(std::integer_sequence<int, N...>) {
+  const char* env = std::getenv("ANYX360_HOOK");
+  if (!env) return;
+  PPCFunc* trampolines[] = {HookTrampoline<N>...};
+  int slot = 0;
+  for (const char* p = env; *p && slot < int(sizeof...(N));) {
+    uint32_t guest = uint32_t(std::strtoul(p, nullptr, 16));
+    if (guest >= PPC_CODE_BASE && guest < PPC_CODE_BASE + PPC_CODE_SIZE) {
+      g_hooks[slot].guest = guest;
+      g_hooks[slot].original = PPC_LOOKUP_FUNC(g_base, guest);
+      PPC_LOOKUP_FUNC(g_base, guest) = trampolines[slot];
+      KLOG_I("hook installed at %08X", guest);
+      ++slot;
+    }
+    while (*p && *p != ',') ++p;
+    if (*p == ',') ++p;
+  }
 }
 
 uint32_t AllocVariable(const char* name, uint32_t size) {
@@ -203,6 +245,7 @@ bool LoadTitle(const TitleInfo& info) {
   Store<uint32_t>(ldr + 0x58, g_title.xex_header);
 
   FillFunctionTable();
+  InstallHooks(std::make_integer_sequence<int, 8>());
   SetupKernelVariables();
   ResolveImports(*xex);
 

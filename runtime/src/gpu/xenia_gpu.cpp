@@ -1,11 +1,18 @@
 // Glue between AnyX360's kernel and Xenia's GPU (D3D12) and UI.
 #include <chrono>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <string_view>
+#include <vector>
 #include <deque>
 
 #include "x360/gpu.h"
 #include "x360/kernel.h"
 #include "xenia/base/cvar.h"
 #include "xenia/base/logging.h"
+#include "xenia/gpu/command_processor.h"
 #include "xenia/gpu/d3d12/d3d12_graphics_system.h"
 #include "xenia/gpu/graphics_host.h"
 #include "xenia/memory.h"
@@ -14,6 +21,14 @@
 #include "xenia/ui/window_listener.h"
 #include "xenia/ui/windowed_app_context_win.h"
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 DECLARE_int32(log_level);
 
 namespace x360::gpu {
@@ -21,6 +36,79 @@ namespace x360::gpu {
 using namespace x360::kernel;
 
 namespace {
+
+// Saves the latest guest frame as a 24-bit BMP (debugging aid, ANYX360_CAPTURE_DIR).
+void CaptureFrame(xe::ui::Presenter* presenter, const std::string& dir, int index) {
+  xe::ui::RawImage image;
+  if (!presenter || !presenter->CaptureGuestOutput(image)) return;
+  uint32_t row = (image.width * 3 + 3) & ~3u;
+  uint32_t data_size = row * image.height;
+  uint8_t header[54] = {'B', 'M'};
+  auto put32 = [&](int at, uint32_t v) { std::memcpy(header + at, &v, 4); };
+  put32(2, 54 + data_size);
+  put32(10, 54);
+  put32(14, 40);
+  put32(18, image.width);
+  put32(22, image.height);
+  header[26] = 1;
+  header[28] = 24;
+  put32(34, data_size);
+  char name[64];
+  std::snprintf(name, sizeof(name), "/frame_%04d.bmp", index);
+  FILE* f = std::fopen((dir + name).c_str(), "wb");
+  if (!f) return;
+  std::fwrite(header, 1, sizeof(header), f);
+  std::vector<uint8_t> line(row, 0);
+  for (uint32_t y = image.height; y-- > 0;) {
+    const uint8_t* src = image.data.data() + y * image.stride;
+    for (uint32_t x = 0; x < image.width; ++x) {
+      line[x * 3 + 0] = src[x * 4 + 2];
+      line[x * 3 + 1] = src[x * 4 + 1];
+      line[x * 3 + 2] = src[x * 4 + 0];
+    }
+    std::fwrite(line.data(), 1, row, f);
+  }
+  std::fclose(f);
+}
+
+// Debugging aid: logs every place in guest memory holding `text` as ASCII or big-endian UTF-16
+// (UE3 FStrings), with the surrounding characters.
+void ScanGuestMemory(const char* text) {
+  std::string ascii = text;
+  std::string utf16;
+  for (char c : ascii) utf16 += '\0', utf16 += c;
+  uint8_t* base = XeMemory()->virtual_membase();
+  uint8_t* at = base + 0x40000000ull;
+  uint8_t* end = base + 0x100000000ull;
+  int hits = 0;
+  while (at < end && hits < 64) {
+    MEMORY_BASIC_INFORMATION info;
+    if (!VirtualQuery(at, &info, sizeof(info))) break;
+    uint8_t* region_end = static_cast<uint8_t*>(info.BaseAddress) + info.RegionSize;
+    bool readable = info.State == MEM_COMMIT && !(info.Protect & (PAGE_NOACCESS | PAGE_GUARD)) &&
+                    (info.Protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_EXECUTE_READ |
+                                     PAGE_EXECUTE_READWRITE | PAGE_WRITECOPY));
+    if (readable) {
+      std::string_view region(reinterpret_cast<const char*>(at), size_t(region_end - at));
+      for (const std::string& needle : {ascii, utf16}) {
+        bool wide = &needle == &utf16;
+        for (size_t pos = region.find(needle); pos != std::string_view::npos && hits < 64;
+             pos = region.find(needle, pos + 1)) {
+          std::string context;
+          size_t from = pos >= 64 ? pos - 64 : 0;
+          for (size_t i = from; i < std::min(region.size(), pos + 160); i += wide ? 2 : 1) {
+            char c = region[wide ? i + 1 : i];
+            if (wide && region[i] != 0) c = '?';
+            context += (c >= 32 && c < 127) ? c : '.';
+          }
+          KLOG_I("memscan %s %08X: %s", wide ? "w" : "a", uint32_t(at + pos - base), context.c_str());
+          ++hits;
+        }
+      }
+    }
+    at = region_end;
+  }
+}
 
 struct InterruptRequest {
   uint32_t callback;
@@ -143,6 +231,8 @@ bool Initialize(const char* window_title) {
     KLOG_E("Direct3D 12 is not available on this system");
     return false;
   }
+  // Occlusion query mode (fake, fast, fast-alt, strict); see Xenia's occlusion_query cvar.
+  if (const char* zpd = std::getenv("ANYX360_ZPD")) xe::gpu::SetZPDMode(zpd);
   KLOG_I("GPU init: D3D12 graphics system");
   g_graphics = std::make_unique<xe::gpu::d3d12::D3D12GraphicsSystem>();
   if (g_graphics->Setup(XeMemory(), &g_host, g_app.get(), true) != 0) {
@@ -168,6 +258,23 @@ bool Initialize(const char* window_title) {
       stalled = (swaps == last_swaps) ? stalled + 1 : 0;
       if (stalled == 2) DumpThreads();
       last_swaps = swaps;
+      static const char* capture_dir = std::getenv("ANYX360_CAPTURE_DIR");
+      static int capture_index = 0;
+      if (capture_dir) CaptureFrame(g_graphics->presenter(), capture_dir, capture_index++);
+      static const char* dump_at = std::getenv("ANYX360_DUMP_AT");  // seconds, comma separated
+      static int tick = 0;
+      ++tick;
+      if (dump_at) {
+        for (const char* p = dump_at; *p;) {
+          int seconds = std::atoi(p);
+          if (seconds / 5 == tick) {
+            DumpThreads();
+            if (const char* text = std::getenv("ANYX360_MEMSCAN")) ScanGuestMemory(text);
+          }
+          while (*p && *p != ',') ++p;
+          if (*p == ',') ++p;
+        }
+      }
     }
   }).detach();
   KLOG_I("GPU: %s", g_graphics->name().c_str());

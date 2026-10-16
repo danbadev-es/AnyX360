@@ -34,12 +34,19 @@ extern void (*g_note_import)(const char* name);
 void set_guest_base(uint8_t* base);
 uint8_t* guest_base();
 
+// Offset of a guest address from the guest base. The 0xE0000000 window is hosted 4 KB higher so
+// that it aliases physical memory as on the console (see PPC_ADDR in ppc_context.h).
+inline uint64_t host_offset(uint32_t addr) { return uint64_t(addr) + (addr >= 0xE0000000u ? 0x1000u : 0u); }
+inline uint32_t guest_offset(uint64_t offset) {
+  return uint32_t(offset >= 0xE0001000ull ? offset - 0x1000 : offset);
+}
+
 inline uint32_t to_guest(const void* p) {
-  return p ? uint32_t(static_cast<const uint8_t*>(p) - guest_base()) : 0;
+  return p ? guest_offset(uint64_t(static_cast<const uint8_t*>(p) - guest_base())) : 0;
 }
 template <typename T = uint8_t>
 inline T* to_host(uint32_t addr) {
-  return addr ? reinterpret_cast<T*>(guest_base() + addr) : nullptr;
+  return addr ? reinterpret_cast<T*>(guest_base() + host_offset(addr)) : nullptr;
 }
 
 namespace detail {
@@ -96,7 +103,7 @@ T read_arg(PPCContext& ctx, uint8_t* base, Cursor& c) {
     return static_cast<T>(fpr(ctx, c.f++).f64);
   } else if constexpr (std::is_pointer_v<T>) {
     uint32_t addr = uint32_t(int_arg(ctx, base, c.g++));
-    return addr ? reinterpret_cast<T>(base + addr) : nullptr;
+    return addr ? reinterpret_cast<T>(base + host_offset(addr)) : nullptr;
   } else {
     static_assert(std::is_integral_v<T> || std::is_enum_v<T>, "unsupported HLE argument type");
     return static_cast<T>(int_arg(ctx, base, c.g++));
@@ -127,7 +134,7 @@ void call(R (*fn)(Args...), PPCContext& ctx, uint8_t* base) {
     if constexpr (std::is_floating_point_v<R>) {
       ctx.f1.f64 = static_cast<double>(r);
     } else if constexpr (std::is_pointer_v<R>) {
-      ctx.r3.u64 = r ? uint32_t(reinterpret_cast<const uint8_t*>(r) - base) : 0;
+      ctx.r3.u64 = r ? guest_offset(uint64_t(reinterpret_cast<const uint8_t*>(r) - base)) : 0;
     } else if constexpr (std::is_same_v<R, bool>) {
       ctx.r3.u64 = r ? 1 : 0;
     } else if constexpr (std::is_signed_v<R>) {

@@ -10,7 +10,9 @@ using namespace x360::kernel;
 
 namespace {
 
-constexpr uint32_t kStatusDriverOrdinalNotFound = 0xC0000262;
+// What the console kernel returns for an export it does not have; the XDK's wrappers for optional
+// exports (e.g. XamMediaVerificationVerify) treat the resulting ERROR_PROC_NOT_FOUND as "absent".
+constexpr uint32_t kStatusDriverEntrypointNotFound = 0xC0000263;
 constexpr uint32_t kKernelModuleHandle = 0x80010000;
 constexpr uint32_t kXamModuleHandle = 0x80020000;
 
@@ -65,7 +67,7 @@ uint32_t XexGetModuleSection(uint32_t module, uint32_t name_ptr, uint32_t data_p
 uint32_t XexGetProcedureAddress(uint32_t module, uint32_t ordinal, uint32_t out_ptr) {
   KLOG_W("XexGetProcedureAddress(%08X, %u) not supported", module, ordinal);
   if (out_ptr) Store<uint32_t>(out_ptr, 0);
-  return kStatusDriverOrdinalNotFound;
+  return kStatusDriverEntrypointNotFound;
 }
 
 uint32_t XexLoadImage(uint32_t name_ptr, uint32_t flags, uint32_t min_version, uint32_t handle_ptr) {

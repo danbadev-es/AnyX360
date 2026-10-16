@@ -9,6 +9,9 @@
 //   TLS block   [__declspec(thread) data from the XEX TLS header][KeTlsAlloc slots]
 #include <unordered_map>
 
+#include <chrono>
+#include <cstdlib>
+#include <cstring>
 #include "x360/kernel.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -184,8 +187,39 @@ uint8_t PickCpu(uint32_t creation_flags) {
 Thread* CurrentThread() { return t_current.get(); }
 
 namespace {
+// ANYX360_TRACE="<thread id hex>:<seconds>" logs the exports that thread calls after that time
+// (consecutive repeats collapsed), to see what it does before it blocks.
+void TraceImport(Thread* t, const char* name) {
+  static const auto config = [] {
+    std::pair<uint32_t, double> c{0, 0};
+    if (const char* env = std::getenv("ANYX360_TRACE")) {
+      c.first = uint32_t(std::strtoul(env, nullptr, 16));
+      if (const char* colon = std::strchr(env, ':')) c.second = std::atof(colon + 1);
+    }
+    return c;
+  }();
+  if (!config.first || (config.first != 0xFFFF && t->thread_id != config.first)) return;  // FFFF: all
+  static const auto start = std::chrono::steady_clock::now();
+  if (std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count() < config.second) return;
+  thread_local const char* last = nullptr;
+  thread_local int repeats = 0;
+  if (name == last) {
+    ++repeats;
+    return;
+  }
+  if (repeats) KLOG_I("trace: (x%d)", repeats + 1);
+  last = name;
+  repeats = 0;
+  PPCContext& c = *t->context;
+  KLOG_I("trace: %s(%08X, %08X, %08X, %08X) lr %08llX", name, c.r3.u32, c.r4.u32, c.r5.u32, c.r6.u32,
+         (unsigned long long)c.lr);
+}
+
 void NoteImport(const char* name) {
-  if (Thread* t = t_current.get()) t->current_import.store(name, std::memory_order_relaxed);
+  if (Thread* t = t_current.get()) {
+    t->current_import.store(name, std::memory_order_relaxed);
+    if (name && t->context) TraceImport(t, name);
+  }
 }
 struct NoteImportInstaller {
   NoteImportInstaller() { hle::g_note_import = NoteImport; }
