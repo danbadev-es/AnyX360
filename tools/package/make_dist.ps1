@@ -84,7 +84,8 @@ function Write-Text([string]$source, [string]$target) {
   [IO.File]::WriteAllText($target, $text.Replace("`r`n", "`n").Replace("`n", "`r`n"), $bom)
 }
 Write-Text "$PSScriptRoot\gow3\README.txt" "$dist\README.txt"
-Write-Text "$root\tools\launcher\terms_en.txt" "$dist\TERMS.txt"
+# The English terms with the game's details, as the launcher build filled them in.
+Write-Text "$root\build\games\gow3\gow3_launcher_terms_en.txt" "$dist\TERMS.txt"
 Write-Text "$root\CHANGELOG.md" "$dist\CHANGELOG.md"
 
 Compress-Archive -Path $dist -DestinationPath "$dist.zip"

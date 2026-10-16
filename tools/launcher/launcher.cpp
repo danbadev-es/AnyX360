@@ -14,8 +14,9 @@
 //
 // The text is in English and Spanish: Windows' display language picks one, the footer switches
 // (remembered in %LOCALAPPDATA%\AnyX360\launcher_language.txt). The terms of use
-// (tools/launcher/terms_en.txt and terms_es.txt, compiled in) must be accepted before the first use,
-// and again whenever either text changes (%LOCALAPPDATA%\AnyX360\terms_accepted.txt holds a hash).
+// (tools/launcher/terms_en.txt and terms_es.txt with the game's details, compiled in) must be accepted
+// before the first use of each game, and again whenever either text changes
+// (%LOCALAPPDATA%\AnyX360\<game>\terms_accepted.txt holds a hash).
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -44,6 +45,8 @@ namespace fs = std::filesystem;
 
 #define ANYX360_WIDEN2(x) L##x
 #define ANYX360_WIDEN(x) ANYX360_WIDEN2(x)
+#define ANYX360_STRINGIFY2(x) #x
+#define ANYX360_STRINGIFY(x) ANYX360_STRINGIFY2(x)
 
 namespace {
 
@@ -51,6 +54,8 @@ const wchar_t* const kGameExe = ANYX360_WIDEN(ANYX360_GAME_EXE);
 const wchar_t* const kGameTitle = ANYX360_WIDEN(ANYX360_GAME_TITLE);
 const wchar_t* const kUserDir = ANYX360_WIDEN(ANYX360_USER_DIR);
 const wchar_t* const kVersion = ANYX360_WIDEN(ANYX360_VERSION_FULL);
+const wchar_t* const kGameSize = ANYX360_WIDEN(ANYX360_STRINGIFY(ANYX360_GAME_SIZE_GB));
+constexpr bool kWebcam = ANYX360_GAME_WEBCAM != 0;  // played with a webcam (virtual Kinect)
 
 constexpr UINT kMsgProgress = WM_APP + 1;    // wParam: percent (-1 while checking the archive)
 constexpr UINT kMsgPrepared = WM_APP + 2;    // lParam: Message* (an error), or null on success
@@ -70,8 +75,9 @@ enum Text {
   kTextChecking,
   kTextFinishing,
   kTextExtracting,  // {0} percent
-  kTextReady,
-  kTextMissing,  // {0} game
+  kTextReadyPad,
+  kTextReadyWebcam,
+  kTextMissing,  // {0} game, {1} size in GB
   kTextPlay,
   kTextChoose,
   kTextPrepareAgain,
@@ -110,8 +116,10 @@ const wchar_t* const kEnglish[kTextCount] = {
     L"Finishing…",
     L"Extracting the game… {0} %",
     L"Ready to play. Keyboard and mouse or an Xbox controller; F2 opens the settings in game.",
+    L"Ready to play. Stand 2-3 m from your webcam with your whole body in view; F2 opens the settings in "
+    L"game.",
     L"First the game has to be prepared: choose the .7z archive with your {0} disc. It is extracted into "
-    L"this folder (about 8 GB).",
+    L"this folder (about {1} GB).",
     L"Play",
     L"Choose .7z archive…",
     L"Prepare again…",
@@ -151,8 +159,10 @@ const wchar_t* const kSpanish[kTextCount] = {
     L"Terminando…",
     L"Extrayendo el juego… {0} %",
     L"Listo para jugar. Teclado y ratón o mando de Xbox; F2 abre los ajustes durante la partida.",
+    L"Listo para jugar. Ponte a 2-3 m de la webcam, con todo el cuerpo a la vista; F2 abre los ajustes "
+    L"durante la partida.",
     L"Primero hay que preparar el juego: elige el archivo .7z con tu disco de {0}. Se extraerá en esta "
-    L"carpeta (unos 8 GB).",
+    L"carpeta (unos {1} GB).",
     L"Jugar",
     L"Elegir archivo .7z…",
     L"Volver a preparar…",
@@ -275,19 +285,21 @@ fs::path LocalAppData() {
   return result;
 }
 
+// Launcher settings shared by every game, and the game's own (next to its saves and settings).
 fs::path SettingsFile(const wchar_t* name) { return LocalAppData() / L"AnyX360" / name; }
+fs::path GameSettingsFile(const wchar_t* name) { return LocalAppData() / L"AnyX360" / kUserDir / name; }
 
-std::wstring ReadSetting(const wchar_t* name) {
-  std::wifstream in(SettingsFile(name));
+std::wstring ReadSetting(const fs::path& path) {
+  std::wifstream in(path);
   std::wstring value;
   std::getline(in, value);
   return value;
 }
 
-void WriteSetting(const wchar_t* name, const std::wstring& value) {
+void WriteSetting(const fs::path& path, const std::wstring& value) {
   std::error_code ec;
-  fs::create_directories(SettingsFile(name).parent_path(), ec);
-  std::wofstream(SettingsFile(name)) << value << L"\n";
+  fs::create_directories(path.parent_path(), ec);
+  std::wofstream(path) << value << L"\n";
 }
 
 std::wstring Quote(const fs::path& path) { return L"\"" + path.wstring() + L"\""; }
@@ -299,7 +311,7 @@ std::wstring Gigabytes(uint64_t bytes) {
 }
 
 void LoadLanguage() {
-  std::wstring saved = ReadSetting(L"launcher_language.txt");
+  std::wstring saved = ReadSetting(SettingsFile(L"launcher_language.txt"));
   if (saved == L"es" || saved == L"en")
     g_language = saved == L"es" ? Language::kSpanish : Language::kEnglish;
   else
@@ -500,7 +512,6 @@ std::wstring TermsText() {
   std::wstring text(size_t(std::max(length, 1)), L'\0');
   MultiByteToWideChar(CP_UTF8, 0, utf8, -1, text.data(), length);
   text.resize(wcslen(text.c_str()));
-  for (size_t at; (at = text.find(L"{GAME}")) != std::wstring::npos;) text.replace(at, 6, kGameTitle);
   std::wstring crlf;  // the edit control needs \r\n (the generated header may already have \r\n)
   for (wchar_t c : text) {
     if (c == L'\r') continue;
@@ -520,7 +531,7 @@ std::wstring TermsHash() {
   return text;
 }
 
-bool TermsAccepted() { return ReadSetting(L"terms_accepted.txt") == TermsHash(); }
+bool TermsAccepted() { return ReadSetting(GameSettingsFile(L"terms_accepted.txt")) == TermsHash(); }
 
 // ---- running the game -------------------------------------------------------------------------
 
@@ -599,7 +610,7 @@ void UpdateUi() {
              : g_percent >= 100 ? Tr(kTextFinishing)
                                 : Tr(kTextExtracting, {std::to_wstring(g_percent)});
   else
-    status = ready ? Tr(kTextReady) : Tr(kTextMissing, {kGameTitle});
+    status = ready ? Tr(kWebcam ? kTextReadyWebcam : kTextReadyPad) : Tr(kTextMissing, {kGameTitle, kGameSize});
   SetDlgItemTextW(g_window, kMessage, g_message.Render().c_str());
   SetDlgItemTextW(g_window, kStatus, status.c_str());
   ShowWindow(GetDlgItem(g_window, kMessage), g_message.id == kTextCount ? SW_HIDE : SW_SHOW);
@@ -850,7 +861,7 @@ bool ShowTerms(bool require_acceptance) {
     EnableWindow(g_window, TRUE);
     SetForegroundWindow(g_window);
   }
-  if (require_acceptance && g_terms.accepted) WriteSetting(L"terms_accepted.txt", TermsHash());
+  if (require_acceptance && g_terms.accepted) WriteSetting(GameSettingsFile(L"terms_accepted.txt"), TermsHash());
   return g_terms.accepted;
 }
 
@@ -863,7 +874,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
         ShowTerms(false);
       } else {  // the other language
         g_language = g_language == Language::kSpanish ? Language::kEnglish : Language::kSpanish;
-        WriteSetting(L"launcher_language.txt", g_language == Language::kSpanish ? L"es" : L"en");
+        WriteSetting(SettingsFile(L"launcher_language.txt"), g_language == Language::kSpanish ? L"es" : L"en");
         ApplyLanguage();
       }
       return 0;
