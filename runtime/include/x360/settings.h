@@ -53,6 +53,9 @@ struct Settings {
   PacingSettings pacing;
 };
 
+// The game's defaults (values missing from the file). Call before Load; without it the defaults are
+// Settings{}.
+void SetDefaults(const Settings& defaults);
 // Reads the file (missing: defaults; unreadable: renamed to settings.toml.bad, defaults). Call once,
 // before anything else uses the settings.
 void Load(const std::filesystem::path& path);

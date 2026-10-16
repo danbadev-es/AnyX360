@@ -150,6 +150,7 @@ std::mutex g_interrupt_mutex;
 HANDLE g_interrupt_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);  // auto-reset: queued work
 std::deque<InterruptRequest> g_interrupts;
 std::atomic<uint32_t> g_vblank_hz{120};
+std::atomic<uint32_t> g_vblanks_per_frame{2};
 std::atomic<uint64_t> g_vblanks_skipped{0};
 std::atomic<bool> g_display_lock{true};
 std::atomic<bool> g_display_locked{false};
@@ -511,13 +512,16 @@ void SetWindowTitle(const std::string& title) {
 
 void SetTargetFps(uint32_t fps) {
   g_display.target_fps = fps;
-  g_vblank_hz = std::max(1u, fps) * 2;
+  g_vblank_hz = std::max(1u, fps) * g_vblanks_per_frame;
   KLOG_I("display: %u FPS (vblank %u Hz)", fps, g_vblank_hz.load());
 }
 
+void SetVblanksPerFrame(uint32_t vblanks) { g_vblanks_per_frame = std::max(1u, vblanks); }
+
 bool Initialize(const char* window_title, const DisplayConfig& config) {
   g_display = config;
-  g_vblank_hz = std::max(1u, config.target_fps) * 2;
+  g_vblank_hz = std::max(1u, config.target_fps) * g_vblanks_per_frame;
+  KLOG_I("display: %u FPS (vblank %u Hz)", config.target_fps, g_vblank_hz.load());
   cvars::draw_resolution_scale_x = int32_t(std::max(1u, config.render_scale));
   cvars::draw_resolution_scale_y = int32_t(std::max(1u, config.render_scale));
   // ANYX360_XENIA_LOG_LEVEL: 0 error, 1 warning, 2 info (default), 3 debug (GPU details).

@@ -22,10 +22,14 @@ struct DisplayConfig {
   bool fxaa = false;                // FXAA on the final image
   bool vsync = true;                // present on the display's vertical blank (no tearing in fullscreen)
   bool fullscreen = false;
-  // Target frame rate. Titles present every N vblanks (Gears of War 3: 2, i.e. 30 FPS at 60 Hz), so
-  // the vblank interrupt runs at target_fps x 2.
+  // Target frame rate. Titles present every N vblanks (SetVblanksPerFrame), so the vblank interrupt
+  // runs at target_fps x N.
   uint32_t target_fps = 60;
 };
+
+// How many vblanks the title waits between presents at its normal frame rate (Gears of War 3: 2,
+// i.e. 30 FPS at 60 Hz). A property of the title, not a user setting. Call before Initialize.
+void SetVblanksPerFrame(uint32_t vblanks);
 
 // Creates the game window, the D3D12 graphics system and the vblank/interrupt thread. Must run on
 // the UI (main) thread after the guest memory exists. Returns false if D3D12 is unavailable.

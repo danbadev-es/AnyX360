@@ -26,7 +26,7 @@ using Upscale = gpu::DisplayConfig::Upscale;
 std::mutex g_mutex;
 std::condition_variable g_save_cv;
 std::filesystem::path g_path;
-Settings g_session, g_saved;
+Settings g_defaults, g_session, g_saved;
 bool g_dirty = false;
 std::chrono::steady_clock::time_point g_save_at;
 std::vector<std::function<void(const Settings&)>> g_listeners;
@@ -196,8 +196,16 @@ uint32_t ResolutionLines(const gpu::DisplayConfig& display) {
   return display.height <= 720 ? 720 : display.height <= 1080 ? 1080 : display.height <= 1440 ? 1440 : 2160;
 }
 
+void SetDefaults(const Settings& defaults) {
+  std::lock_guard lock(g_mutex);
+  g_defaults = defaults;
+}
+
 void Load(const std::filesystem::path& path) {
-  Settings s;
+  Settings s = [] {
+    std::lock_guard lock(g_mutex);
+    return g_defaults;
+  }();
   std::error_code ec;
   if (std::filesystem::exists(path, ec)) {
     try {
@@ -211,7 +219,8 @@ void Load(const std::filesystem::path& path) {
              path.string().c_str(), std::string(e.description()).c_str(), unsigned(e.source().begin.line),
              bad.filename().string().c_str());
       std::filesystem::rename(path, bad, ec);
-      s = Settings{};
+      std::lock_guard lock(g_mutex);
+      s = g_defaults;
     }
   }
   {
