@@ -1,6 +1,6 @@
 AnyX360 - Gears of War 3 · version {VERSION}
 ==========================================================
-Developed by danbadev.
+Developed by danbadev-es.
 
 Xbox 360's Gears of War 3, recompiled to run natively on Windows.
 This folder does NOT include the game: you need your own legal copy of Gears of War 3
@@ -93,4 +93,4 @@ their licenses are in the "licenses" folder.
 AnyX360 is not affiliated with Microsoft, Xbox, The Coalition or Epic Games. Gears of War and
 Xbox are trademarks of their respective owners.
 
-Developed by danbadev.
+Developed by danbadev-es.

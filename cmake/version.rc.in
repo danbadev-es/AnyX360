@@ -14,11 +14,11 @@ BEGIN
   BEGIN
     BLOCK "040904b0"
     BEGIN
-      VALUE "CompanyName", "danbadev"
+      VALUE "CompanyName", "danbadev-es"
       VALUE "FileDescription", "@ANYX360_RC_DESCRIPTION@"
       VALUE "FileVersion", "@ANYX360_VERSION_FULL@"
       VALUE "InternalName", "@ANYX360_RC_INTERNAL_NAME@"
-      VALUE "LegalCopyright", "Copyright (C) 2026 danbadev"
+      VALUE "LegalCopyright", "Copyright (C) 2026 danbadev-es"
       VALUE "OriginalFilename", "@ANYX360_RC_FILE_NAME@"
       VALUE "ProductName", "AnyX360"
       VALUE "ProductVersion", "@ANYX360_VERSION_FULL@"
