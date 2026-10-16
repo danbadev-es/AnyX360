@@ -86,8 +86,7 @@ README). The package contains no game data. It holds:
 - `AnyX360 Gears of War 3.exe`, the launcher (`tools/launcher`).
 - `bin\`: the game executable and its .pdb, 7-Zip, and the shader cache.
 - `keys\` and `licenses\` (third-party licenses).
-- In English and Spanish: `README.txt`/`LEEME.txt`, `TERMS.txt`/`TERMINOS.txt`, and
-  `CHANGELOG.md`/`CHANGELOG.es.md`.
+- `README.txt`, `TERMS.txt` and `CHANGELOG.md`.
 
 What the launcher does:
 - Shows its text in English or Spanish. Windows' display language picks one; a link in the footer

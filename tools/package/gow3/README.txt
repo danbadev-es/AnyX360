@@ -1,6 +1,6 @@
 AnyX360 - Gears of War 3 · version {VERSION}
 ==========================================================
-Developed by danbadev.                         (Español: LEEME.txt)
+Developed by danbadev.
 
 Xbox 360's Gears of War 3, recompiled to run natively on Windows.
 This folder does NOT include the game: you need your own legal copy of Gears of War 3

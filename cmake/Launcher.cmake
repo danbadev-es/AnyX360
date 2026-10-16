@@ -11,7 +11,7 @@ function(anyx360_add_launcher target output_name game_exe title user_dir)
     ANYX360_GAME_EXE="${game_exe}" ANYX360_GAME_TITLE="${title}" ANYX360_USER_DIR="${user_dir}")
   target_compile_options(${target} PRIVATE /utf-8)
   # The terms of use in English and Spanish, shown and accepted in the launcher (make_dist.ps1 also
-  # copies them to TERMS.txt and TERMINOS.txt).
+  # copies the English text to TERMS.txt).
   set(_terms_en ${PROJECT_SOURCE_DIR}/tools/launcher/terms_en.txt)
   set(_terms_es ${PROJECT_SOURCE_DIR}/tools/launcher/terms_es.txt)
   file(READ ${_terms_en} ANYX360_TERMS_EN)

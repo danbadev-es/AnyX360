@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to AnyX360 are documented in this file (Spanish: [CHANGELOG.es.md](CHANGELOG.es.md)).
+All notable changes to AnyX360 are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The version is in the
@@ -30,7 +30,7 @@ executable), the player's own copy.
 - Frame timing instrumentation (`ANYX360_FRAMETIMES`, `tools/scripts/frametimes.py`).
 - Windows launcher in English and Spanish: terms of use, extraction of the player's `.7z`, game
   logs and error reporting.
-- Distribution packaging (`tools/package/make_dist.ps1`) with README/LEEME, terms of use,
+- Distribution packaging (`tools/package/make_dist.ps1`) with a README, the terms of use,
   third-party licenses and this changelog.
 - Versioning: `VERSION`, version shown in the launcher, the game log and the F2 panel, and Windows
   file version information in the executables.

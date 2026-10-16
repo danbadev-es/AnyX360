@@ -1,8 +1,8 @@
 # Builds a Gears of War 3 distribution for testers: dist\AnyX360-GearsOfWar3-<version>\ and a .zip
 # of it. It holds the launcher, the recompiled executable (with its .pdb, so crash reports name
-# functions), 7-Zip, the XEX key, the shader cache, README/LEEME, the terms of use (TERMS/TERMINOS,
-# also shown by the launcher), the changelog and the third-party licenses - no game data: the
-# launcher extracts the player's own disc archive (.7z) next to itself.
+# functions), 7-Zip, the XEX key, the shader cache, the README, the terms of use (TERMS.txt; the
+# launcher shows them in English or Spanish), the changelog and the third-party licenses - no game
+# data: the launcher extracts the player's own disc archive (.7z) next to itself.
 #
 # <version> is the VERSION file (Semantic Versioning). A release - HEAD tagged v<version> with no
 # uncommitted changes - is named just by it ("0.1.0"); anything else carries the commit as build
@@ -77,18 +77,15 @@ foreach ($entry in $licenses.GetEnumerator()) { Copy-Item $entry.Value "$dist\li
 $cache = "$env:LOCALAPPDATA\AnyX360\GearsOfWar3\cache\shaders"
 if (Test-Path $cache) { Copy-Item $cache "$dist\bin\shader_cache" -Recurse }
 
-# Texts in English and Spanish, UTF-8 with a BOM and Windows line endings for Notepad.
+# Texts as UTF-8 with a BOM and Windows line endings, for Notepad.
 $bom = New-Object Text.UTF8Encoding $true
 function Write-Text([string]$source, [string]$target) {
   $text = (Get-Content $source -Raw -Encoding UTF8).Replace('{VERSION}', $version).Replace('{GAME}', 'Gears of War 3')
   [IO.File]::WriteAllText($target, $text.Replace("`r`n", "`n").Replace("`n", "`r`n"), $bom)
 }
 Write-Text "$PSScriptRoot\gow3\README.txt" "$dist\README.txt"
-Write-Text "$PSScriptRoot\gow3\LEEME.txt" "$dist\LEEME.txt"
 Write-Text "$root\tools\launcher\terms_en.txt" "$dist\TERMS.txt"
-Write-Text "$root\tools\launcher\terms_es.txt" "$dist\TERMINOS.txt"
 Write-Text "$root\CHANGELOG.md" "$dist\CHANGELOG.md"
-Write-Text "$root\CHANGELOG.es.md" "$dist\CHANGELOG.es.md"
 
 Compress-Archive -Path $dist -DestinationPath "$dist.zip"
 $size = (Get-Item "$dist.zip").Length / 1MB
