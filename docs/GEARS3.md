@@ -77,3 +77,29 @@ build.bat
 ```
 `recomp/` must be empty before regenerating: XenonRecomp does not delete output files from an earlier
 run whose function split was different, which leads to duplicate symbols at link time.
+
+## Status (2026-10-16)
+- Boots through the Epic/Microsoft logos (Bink), title screen, brightness setup and every menu.
+- **Private Horde works**: Horde → Private → Start Game → map selection (START) → character setup
+  (START) → Checkout loads and plays (movement, aiming, firing, HUD).
+- **Campaign**: difficulty selection travels to `GearGame_P?game=GearGameSP?chapter=N`, but the
+  chapter's level (`sp_ravens_p` for Act 1) is never requested, so the player spawns in an empty
+  world. Not yet understood; `WorldInfo.PrepareMapChange` is not involved.
+- Silent: XMA is not decoded yet. The Horde pre-wave counter stays at 0:30.
+
+## Debugging switches
+All opt-in through environment variables read by the runtime:
+
+| Variable | Effect |
+|---|---|
+| `ANYX360_INPUT` | Scripted pad 1 input: `"25:START,35:A,170:START/0.3"` (`seconds:button[/hold]`; buttons START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT LUP LDOWN LLEFT LRIGHT) |
+| `ANYX360_CAPTURE_DIR` | Saves the guest frame as BMP every 5 s |
+| `ANYX360_DUMP_AT` | Thread dumps at the given seconds (`"95,100"`) |
+| `ANYX360_MEMSCAN` | With `ANYX360_DUMP_AT`: logs guest memory holding that text (ASCII or UTF-16BE) |
+| `ANYX360_TRACE` | Logs the exports a thread calls after a time: `"11:75"` (`FFFF` = all threads) |
+| `ANYX360_HOOK` | Logs indirect calls to guest functions: `"8252A040,..."` |
+| `ANYX360_LOG_FILES` | Logs file opens, writes and info changes |
+| `ANYX360_ZPD` | Occlusion query mode: `fake`, `fast`, `fast-alt`, `strict` |
+| `ANYX360_XENIA_LOG_LEVEL` | Xenia's log level |
+
+The runtime also accepts `--user <folder>` to run with a clean profile and saves.
