@@ -210,7 +210,7 @@ int64_t QpcNow() {
 // high-resolution waitable timer sleeps until shortly before it and the rest is spun
 // (ANYX360_VBLANK_SPIN_US, default 300). A late tick skips whole periods but keeps the phase.
 void InterruptThreadBody() {
-  SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+  SetLatencySensitiveThread(THREAD_PRIORITY_HIGHEST);
   HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
   if (!timer) timer = CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);  // before Windows 10 1803
   LARGE_INTEGER frequency_value;
@@ -456,6 +456,8 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
   xe::InitializeLogging("AnyX360");
   KLOG_I("GPU init: UI context");
 
+  // The UI thread presents with the overlay or the panel open, and handles input and resizes.
+  if (settings::Get().pacing.thread_priorities) SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
   g_app = std::make_unique<xe::ui::Win32WindowedAppContext>(GetModuleHandleW(nullptr), SW_SHOWNORMAL);
   if (!g_app->Initialize()) {
     KLOG_E("could not initialize the UI");

@@ -84,6 +84,7 @@ void StartAudioWatchdog() {
 // are only as fine as the system timer, ~15.6 ms, while a frame lasts 5.33 ms). Clients without host
 // output run on a timer so the title's audio still advances.
 void AudioThreadBody() {
+  SetLatencySensitiveThread(THREAD_PRIORITY_ABOVE_NORMAL);
   using clock = std::chrono::steady_clock;
   const auto frame = std::chrono::microseconds(5333);  // 256 samples at 48 kHz
   for (;;) {

@@ -1,10 +1,12 @@
 // xboxkrnl threading and synchronization exports.
 #include <algorithm>
+#include <set>
 #include <bitset>
 #include <chrono>
 #include <thread>
 
 #include "x360/kernel.h"
+#include "x360/settings.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -97,9 +99,32 @@ uint32_t KeSetAffinityThread(uint32_t kthread, uint32_t affinity, uint32_t previ
 
 int32_t KeQueryBasePriorityThread(uint32_t kthread) { return int8_t(Load<uint8_t>(kthread + 0xB9)); }
 
+// The increment is Win32-like (Gears of War 3 uses -1, 0, 1, 2 and 16/17 for its time-critical
+// threads); never TIME_CRITICAL on the host, which could starve the system.
+int HostThreadPriority(int32_t increment) {
+  if (increment >= 15) return THREAD_PRIORITY_HIGHEST;
+  if (increment >= 1) return THREAD_PRIORITY_ABOVE_NORMAL;
+  if (increment == 0) return THREAD_PRIORITY_NORMAL;
+  if (increment > -15) return THREAD_PRIORITY_BELOW_NORMAL;
+  return THREAD_PRIORITY_LOWEST;
+}
+
 int32_t KeSetBasePriorityThread(uint32_t kthread, int32_t increment) {
   int32_t previous = int8_t(Load<uint8_t>(kthread + 0xB9));
   Store<uint8_t>(kthread + 0xB9, uint8_t(increment));
+  uint32_t thread_id = Load<uint32_t>(kthread + 0x14C);
+  {  // log each (thread, priority) once
+    static std::mutex mutex;
+    static std::set<std::pair<uint32_t, int32_t>> seen;
+    std::lock_guard lock(mutex);
+    if (seen.insert({thread_id, increment}).second)
+      KLOG_I("KeSetBasePriorityThread(thread %X, %d) -> host priority %d", thread_id, increment,
+             HostThreadPriority(increment));
+  }
+  static const bool apply = x360::settings::Get().pacing.thread_priorities;
+  if (apply)
+    if (auto thread = ThreadById(thread_id); thread && thread->host)
+      ::SetThreadPriority(static_cast<HANDLE>(thread->host), HostThreadPriority(increment));
   return previous;
 }
 
@@ -108,6 +133,7 @@ uint32_t KeDelayExecutionThread(uint32_t processor_mode, uint32_t alertable, uin
   (void)alertable;
   int64_t interval = interval_ptr ? Load<int64_t>(interval_ptr) : 0;
   int64_t relative = interval < 0 ? -interval : int64_t(interval - SystemTime());
+
   if (relative <= 0) {
     std::this_thread::yield();
   } else {

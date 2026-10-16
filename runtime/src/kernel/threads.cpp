@@ -13,10 +13,12 @@
 #include <cstdlib>
 #include <cstring>
 #include "x360/kernel.h"
+#include "x360/settings.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <avrt.h>
 
 namespace x360::kernel {
 
@@ -355,6 +357,15 @@ int SuspendThread(Thread& t) {
   int previous = t.suspend_count++;
   if (&t != CurrentThread()) KLOG_W("SuspendThread on a running thread %X is only honoured before it starts", t.thread_id);
   return previous;
+}
+
+void SetLatencySensitiveThread(int priority) {
+  settings::PacingSettings pacing = settings::Get().pacing;
+  if (pacing.thread_priorities || priority == THREAD_PRIORITY_HIGHEST) ::SetThreadPriority(GetCurrentThread(), priority);
+  if (pacing.mmcss) {
+    DWORD task = 0;
+    if (!AvSetMmThreadCharacteristicsW(L"Games", &task)) KLOG_W("MMCSS unavailable (%lu)", GetLastError());
+  }
 }
 
 }  // namespace x360::kernel

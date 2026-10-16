@@ -200,6 +200,17 @@ void RaiseTimerResolution() {
   KLOG_I("timer resolution: %.2f ms", current / 10000.0);
 }
 
+// Windows 11 may run background-looking processes on efficiency cores at lower clocks (EcoQoS) and
+// ignore their timer resolution while the window is covered: opt out of both.
+void DisablePowerThrottling() {
+  PROCESS_POWER_THROTTLING_STATE state{};
+  state.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
+  state.ControlMask = PROCESS_POWER_THROTTLING_EXECUTION_SPEED | PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION;
+  state.StateMask = 0;
+  if (!SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, &state, sizeof(state)))
+    KLOG_W("power throttling opt-out failed (%lu)", GetLastError());
+}
+
 bool LoadTitle(const TitleInfo& info) {
   g_paths = info;
 
@@ -354,6 +365,7 @@ int Run(const TitleInfo& info) {
   // The window, Direct3D 12 and the GPU must exist before the title runs; this thread becomes the
   // UI thread.
   RaiseTimerResolution();
+  DisablePowerThrottling();
   std::string window_title = info.title_name.empty() ? "AnyX360" : "AnyX360 - " + info.title_name;
   if (!gpu::Initialize(window_title.c_str(), info.display)) return 1;
   if (!LoadTitle(info)) return 1;

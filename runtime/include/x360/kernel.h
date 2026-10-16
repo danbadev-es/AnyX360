@@ -294,6 +294,9 @@ struct Thread : Object {
 };
 
 Thread* CurrentThread();
+// Host scheduling for latency-sensitive host threads (pacing settings): Windows priority and,
+// with pacing.mmcss, the MMCSS "Games" task.
+void SetLatencySensitiveThread(int priority);
 // Debugging aid (ANYX360_WATCH_WRITE): hardware write watchpoint on a guest address.
 void SetupWriteWatch();  // after InitMemory
 void ArmWriteWatch();    // on each guest thread
