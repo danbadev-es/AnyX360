@@ -101,11 +101,7 @@ void InitContext(Thread& t, PPCContext& ctx) {
 
 void FinishThread(Thread& t, uint32_t exit_code) {
   t.exit_code = exit_code;
-  {
-    std::lock_guard lock(DispatcherLock());
-    Ptr<DispatchHeader>(t.kthread)->signal_state = 1;
-    NotifyDispatcherChange();
-  }
+  SignalDispatcherObject(t.kthread);
   KLOG_I("thread %X exited with %08X", t.thread_id, exit_code);
 }
 

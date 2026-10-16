@@ -259,12 +259,11 @@ uint32_t NtReleaseSemaphore(uint32_t handle, int32_t count, uint32_t previous_pt
 }
 
 uint32_t NtCreateMutant(uint32_t handle_ptr, uint32_t object_attributes, uint32_t initial_owner) {
-  Thread* t = CurrentThread();
   return CreateDispatcher(handle_ptr, object_attributes, 0x20, [&](uint32_t body) {
     InitializeDispatcher(body, kMutant, initial_owner ? 0 : 1);
     Store<uint32_t>(body + 0x10, body + 0x10);
     Store<uint32_t>(body + 0x14, body + 0x10);
-    Store<uint32_t>(body + 0x18, initial_owner && t ? t->kthread : 0);
+    Store<uint32_t>(body + 0x18, initial_owner ? CurrentKthread() : 0);
   });
 }
 
@@ -298,11 +297,7 @@ void TimerThread() {
     for (auto it = g_timers.begin(); it != g_timers.end();) {
       TimerState& s = it->second;
       if (s.due <= now) {
-        {
-          std::lock_guard dispatch(DispatcherLock());
-          Ptr<DispatchHeader>(s.body)->signal_state = 1;
-          NotifyDispatcherChange();
-        }
+        SignalDispatcherObject(s.body);
         if (s.period.count() > 0) {
           s.due += s.period;
           if (s.due < now) s.due = now + s.period;

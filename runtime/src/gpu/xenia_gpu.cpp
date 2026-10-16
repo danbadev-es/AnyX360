@@ -532,6 +532,11 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
              t.present_p99_ms, t.present_max_ms, t.vblanks / 5.0, t.vblank_late_p99_us, t.vblank_late_max_us);
       if (uint64_t skipped = g_vblanks_skipped.exchange(0)) KLOG_W("vblank: %llu ticks skipped (late)",
                                                                    (unsigned long long)skipped);
+      static uint64_t last_wakes = 0;
+      uint64_t wakes, missed;
+      DispatcherCounters(wakes, missed);
+      KLOG_I("dispatcher: %.0f wakes/s, %llu missed wakeups", (wakes - last_wakes) / 5.0, (unsigned long long)missed);
+      last_wakes = wakes;
       // ANYX360_FRAMETIMES=<file.csv>: every frame timing event (see tools/scripts/frametimes.py).
       static const char* frametimes = std::getenv("ANYX360_FRAMETIMES");
       if (frametimes) timing::AppendCsv(frametimes);

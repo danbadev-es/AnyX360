@@ -238,10 +238,15 @@ struct DispatcherObject : Object {
   const char* TypeName() const override { return "Dispatcher"; }
 };
 
-// Guest-address keyed waits. Everything is serialized by one dispatcher lock; any state change
-// wakes all waiters, which re-check their conditions.
+// Guest-address keyed waits, serialized by one dispatcher lock. Signalling an object wakes only
+// the waits it satisfies (oldest first).
 std::mutex& DispatcherLock();
-void NotifyDispatcherChange();  // caller holds the lock
+// Mutant owner id of the calling thread: its KTHREAD, or a unique id for host threads.
+uint32_t CurrentKthread();
+// Sets a dispatcher object's state to signaled and wakes its waiters (threads, timers).
+void SignalDispatcherObject(uint32_t object);
+// Waits satisfied by a signal, and waits found satisfiable only by the safety-net re-check.
+void DispatcherCounters(uint64_t& wakes, uint64_t& missed);
 
 // timeout: nullptr = infinite; NT semantics otherwise (negative relative 100 ns, positive absolute).
 uint32_t WaitForObjects(const uint32_t* objects, uint32_t count, bool wait_all, const int64_t* timeout,
