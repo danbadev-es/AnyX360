@@ -15,8 +15,8 @@ PPC_EXTERN_FUNC(__imp__RtlFillMemoryUlong);
 PPC_EXTERN_FUNC(__imp__RtlUpperChar);
 PPC_EXTERN_FUNC(__imp__KeQueryPerformanceFrequency);
 PPC_EXTERN_FUNC(__imp__KeGetCurrentProcessType);
-PPC_EXTERN_FUNC(__imp__NtCreateFile);  // not implemented: must resolve to the weak stub
-PPC_EXTERN_FUNC(__imp__XamUserGetSigninState);
+PPC_EXTERN_FUNC(__imp__XeCryptRandom);  // not implemented: must resolve to the weak stub
+PPC_EXTERN_FUNC(__imp__XamGetCurrentTitleId);
 
 // The kernel's loader fills the function table from this generated array; tests have no game.
 PPCFuncMapping PPCFuncMappings[] = {{0, nullptr}};
@@ -100,10 +100,10 @@ int main() {
 
   // Weak stubs: link, log once, return 0
   ctx.r3.u64 = 0x1234;
-  __imp__NtCreateFile(ctx, base);
+  __imp__XeCryptRandom(ctx, base);
   CHECK(ctx.r3.u64 == 0);
   ctx.r3.u64 = 0x1234;
-  __imp__XamUserGetSigninState(ctx, base);
+  __imp__XamGetCurrentTitleId(ctx, base);
   CHECK(ctx.r3.u64 == 0);
 
   std::printf("\n%s\n", failures ? "FAILED" : "OK");
