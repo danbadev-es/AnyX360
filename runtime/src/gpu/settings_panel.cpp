@@ -265,7 +265,7 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
     uint32_t controllers = input::ConnectedControllers();
     ImGui::Text("Controllers connected: %s%s%s%s%s", controllers ? "" : "none", (controllers & 1) ? "1 " : "",
                 (controllers & 2) ? "2 " : "", (controllers & 4) ? "3 " : "", (controllers & 8) ? "4" : "");
-    if (ImGui::BeginTable("##players", 3, ImGuiTableFlags_SizingFixedFit)) {
+    if (ImGui::BeginTable("##players", 4, ImGuiTableFlags_SizingFixedFit)) {
       for (uint32_t user = 0; user < 4; ++user) {
         ImGui::PushID(int(user));
         ImGui::TableNextRow();
@@ -288,11 +288,32 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
           ImGui::Text("controller %d", controller + 1);
         else
           ImGui::Text("connected");
+        ImGui::TableNextColumn();
+        bool signed_in = kernel::IsUserSignedIn(user);
+        if (user == 0) {
+          ImGui::TextDisabled("signed in");
+        } else if (signed_in) {
+          if (ImGui::SmallButton("Sign out")) PostToUIThread([user] { kernel::SignOutUser(user); });
+        } else if (input::IsConnected(user)) {
+          if (ImGui::SmallButton("Sign in")) PostToUIThread([user] { kernel::SignInUser(user); });
+        }
         ImGui::PopID();
       }
       ImGui::EndTable();
     }
-    ImGui::TextDisabled("Split screen: the second player joins from the game's menus with their device.");
+    static const char* const kSignIn[] = {"on_demand", "at_start", "manual"};
+    static const char* const kSignInLabels[] = {"When the game asks", "At startup", "Only from this panel"};
+    int policy = 0;
+    for (int i = 0; i < 3; ++i)
+      if (s.sign_in == kSignIn[i]) policy = i;
+    ImGui::SetNextItemWidth(220);
+    if (ImGui::Combo("Players 2-4 sign in", &policy, kSignInLabels, 3)) {
+      std::string chosen = kSignIn[policy];
+      settings::Update([chosen](Settings& st) { st.sign_in = chosen; });
+    }
+    ImGui::TextDisabled("Split screen: player 2 presses Start in the main menu to join (as \"not signed in\").");
+    ImGui::TextDisabled("To join with a profile, sign in at the title screen: signing in later sends the game");
+    ImGui::TextDisabled("back to the title screen. Playing alone with a controller: set player 1 to it.");
   }
 
   void DrawPerformance() {
@@ -334,7 +355,7 @@ void OpenSettingsPanel() {
 }
 
 // ANYX360_SETTINGS_TEST="<seconds>:<setting>=<value>,..." applies settings as the panel does
-// (resolution, fullscreen, upscale, fxaa, fps, scale, stats, panel=1/0, tab=<name>, restart).
+// (resolution, fullscreen, upscale, fxaa, fps, scale, stats, panel=1/0, tab=<name>, signin=<player>, signout=<player>, restart).
 void RunSettingsTest(std::string spec) {
   auto start = std::chrono::steady_clock::now();
   for (size_t pos = 0; pos < spec.size();) {
@@ -361,6 +382,8 @@ void RunSettingsTest(std::string spec) {
       else if (key == "panel") n ? OpenSettingsPanel() : CloseSettingsPanel();
       else if (key == "restart") RestartNow();
       else if (key == "tab") g_select_tab = value;
+      else if (key == "signin") kernel::SignInUser(n - 1);
+      else if (key == "signout") kernel::SignOutUser(n - 1);
     });
   }
 }

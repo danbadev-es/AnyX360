@@ -361,6 +361,10 @@ std::string GuestBacktrace(int max_frames = 12);
 void InitTime();
 void InitIo(const TitleInfo& info);
 void InitXam();
+// Local players' profiles (xam.cpp). Player 1 is always signed in.
+bool IsUserSignedIn(uint32_t user_index);
+void SignInUser(uint32_t user_index);   // any thread
+void SignOutUser(uint32_t user_index);  // players 2-4
 void InitVideo();
 void InitAudio();
 

@@ -1,12 +1,21 @@
 // xam.xex exports: users and profiles, content (saves), enumerators, notifications, input (see
-// x360/input.h), loader, tasks and system UI. One local profile ("Player") is always signed in.
+// x360/input.h), loader, tasks and system UI.
+//
+// Local players: player 1 ("Player") is always signed in; players 2-4 sign in when the title shows
+// the sign-in UI (players.sign_in = "on_demand"), at startup ("at_start") or from the settings
+// panel, if their slot has a connected device. Player 1 keeps the original paths (<user>\profile,
+// <user>\content); the others use <user>\players\<XUID>\.
 #include <chrono>
 #include <deque>
 #include <fstream>
+#include <optional>
 #include <random>
+#include <set>
+#include <tuple>
 
 #include "x360/input.h"
 #include "x360/kernel.h"
+#include "x360/settings.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -23,8 +32,16 @@ void UnmountContent(const std::string& root_name);
 
 namespace {
 
-constexpr uint64_t kXuid = 0xE000000012345678ull;  // offline XUID
-constexpr const char* kGamertag = "Player";
+constexpr uint64_t kXuid = 0xE000000012345678ull;  // player 1's offline XUID; player n: kXuid + n - 1
+
+// XNotify IDs (area 0, system).
+constexpr uint32_t kNotifySystemUi = 0x00000009;
+constexpr uint32_t kNotifySigninChanged = 0x0000000A;
+constexpr uint32_t kNotifyStorageDevicesChanged = 0x0000000B;
+constexpr uint32_t kNotifyInputDevicesChanged = 0x00000012;
+
+void Broadcast(uint32_t id, uint32_t param);
+thread_local bool g_in_signin_ui = false;  // XamShowSigninUI is broadcasting the UI notifications
 
 // ---- overlapped -------------------------------------------------------------------------------
 // XOVERLAPPED: result (0), length (4), context (8), event (0xC), completion routine (0x10),
@@ -106,29 +123,94 @@ uint32_t XamGetPrivateEnumStructureFromHandle(uint32_t handle, uint32_t out_ptr)
 
 // ---- users ------------------------------------------------------------------------------------
 
-uint32_t XamUserGetSigninState(uint32_t user_index) { return user_index == 0 ? 1 : 0; }  // 1 = signed in locally
+struct User {
+  bool signed_in = false;
+  uint64_t xuid = 0;
+  std::string name;
+};
+std::mutex g_user_mutex;
+User g_users[4];
 
+void InitUsers() {
+  x360::settings::Settings s = x360::settings::Get();
+  std::lock_guard lock(g_user_mutex);
+  for (uint32_t i = 0; i < 4; ++i) {
+    g_users[i].xuid = kXuid + i;
+    g_users[i].name = s.players[i].name.empty() ? "Player " + std::to_string(i + 1) : s.players[i].name;
+    g_users[i].signed_in = i == 0 || (s.sign_in == "at_start" && x360::input::IsConnected(i));
+    if (i && g_users[i].signed_in) KLOG_I("users: player %u (%s) signed in at startup", i + 1, g_users[i].name.c_str());
+  }
+}
+
+uint32_t SignedInMask() {
+  std::lock_guard lock(g_user_mutex);
+  uint32_t mask = 0;
+  for (uint32_t i = 0; i < 4; ++i)
+    if (g_users[i].signed_in) mask |= 1u << i;
+  return mask;
+}
+
+std::optional<User> GetUser(uint32_t user_index) {
+  if (user_index >= 4) return std::nullopt;
+  std::lock_guard lock(g_user_mutex);
+  if (!g_users[user_index].signed_in) return std::nullopt;
+  return g_users[user_index];
+}
+
+// The player whose XUID this is (-1 if none).
+int UserFromXuid(uint64_t xuid) {
+  std::lock_guard lock(g_user_mutex);
+  for (int i = 0; i < 4; ++i)
+    if (g_users[i].xuid == xuid) return i;
+  return -1;
+}
+
+// Logs calls about players 2-4 once per (function, player, result), to see what the title does
+// when another player joins.
+void LogOtherUser(const char* function, uint32_t user_index, uint32_t result) {
+  if (user_index == 0 || user_index >= 4) return;
+  static std::mutex mutex;
+  static std::set<std::tuple<const char*, uint32_t, uint32_t>> seen;
+  std::lock_guard lock(mutex);
+  if (seen.insert({function, user_index, result}).second)
+    KLOG_I("users: %s(player %u) -> %08X", function, user_index + 1, result);
+}
+
+uint32_t XamUserGetSigninState(uint32_t user_index) {
+  uint32_t state = GetUser(user_index) ? 1 : 0;  // 1 = signed in locally
+  LogOtherUser("XamUserGetSigninState", user_index, state);
+  return state;
+}
+
+// XUSER_SIGNIN_INFO: xuid (0), flags (8), state (0xC), guest number (0x10), sponsor (0x14),
+// name (char[16], 0x18).
 uint32_t XamUserGetSigninInfo(uint32_t user_index, uint32_t flags, uint32_t info) {
   (void)flags;
   std::memset(Ptr(info), 0, 0x28);
-  if (user_index != 0) return X_ERROR_NO_SUCH_USER;
-  Store<uint64_t>(info + 0x00, kXuid);
-  Store<uint32_t>(info + 0x0C, 1);  // signin state
-  std::strcpy(Ptr<char>(info + 0x18), kGamertag);
+  auto user = GetUser(user_index);
+  LogOtherUser("XamUserGetSigninInfo", user_index, user ? 0 : X_ERROR_NO_SUCH_USER);
+  if (!user) return X_ERROR_NO_SUCH_USER;
+  Store<uint64_t>(info + 0x00, user->xuid);
+  Store<uint32_t>(info + 0x0C, 1);
+  std::strncpy(Ptr<char>(info + 0x18), user->name.c_str(), 15);
   return X_ERROR_SUCCESS;
 }
 
 uint32_t XamUserGetXUID(uint32_t user_index, uint32_t type_mask, uint32_t xuid_ptr) {
   (void)type_mask;
-  if (user_index != 0) return X_ERROR_NO_SUCH_USER;
-  if (xuid_ptr) Store<uint64_t>(xuid_ptr, kXuid);
+  auto user = GetUser(user_index);
+  LogOtherUser("XamUserGetXUID", user_index, user ? 0 : X_ERROR_NO_SUCH_USER);
+  if (!user) return X_ERROR_NO_SUCH_USER;
+  if (xuid_ptr) Store<uint64_t>(xuid_ptr, user->xuid);
   return X_ERROR_SUCCESS;
 }
 
 uint32_t XamUserGetName(uint32_t user_index, uint32_t buffer, uint32_t size) {
-  if (user_index != 0) return X_ERROR_NO_SUCH_USER;
+  auto user = GetUser(user_index);
+  LogOtherUser("XamUserGetName", user_index, user ? 0 : X_ERROR_NO_SUCH_USER);
+  if (!user) return X_ERROR_NO_SUCH_USER;
   if (size) {
-    std::string name = kGamertag;
+    std::string name = user->name;
     name.resize(std::min<size_t>(name.size(), size - 1));
     std::memcpy(Ptr(buffer), name.c_str(), name.size() + 1);
   }
@@ -137,7 +219,8 @@ uint32_t XamUserGetName(uint32_t user_index, uint32_t buffer, uint32_t size) {
 
 uint32_t XamUserCheckPrivilege(uint32_t user_index, uint32_t privilege, uint32_t result_ptr) {
   (void)privilege;
-  if (user_index != 0 && user_index != 0xFF) return X_ERROR_NO_SUCH_USER;
+  if (user_index != 0xFF && !GetUser(user_index)) return X_ERROR_NO_SUCH_USER;
+  LogOtherUser("XamUserCheckPrivilege", user_index, 0);
   if (result_ptr) Store<uint32_t>(result_ptr, 1);
   return X_ERROR_SUCCESS;
 }
@@ -152,26 +235,34 @@ uint32_t XamUserAreUsersFriends(uint32_t user_index, uint32_t xuids, uint32_t co
 uint32_t XamUserGetDeviceContext(uint32_t user_index, uint32_t unknown, uint32_t out_ptr) {
   (void)unknown;
   if (out_ptr) Store<uint32_t>(out_ptr, 0);
-  return user_index == 0 ? X_ERROR_SUCCESS : X_ERROR_NO_SUCH_USER;
+  return GetUser(user_index) ? X_ERROR_SUCCESS : X_ERROR_NO_SUCH_USER;
 }
 
 // ---- profile settings -------------------------------------------------------------------------
 // Setting id: type << 28 | size << 16 | id. Title-specific blobs are persisted on disk.
 
 std::mutex g_profile_mutex;
-std::map<uint32_t, std::vector<uint8_t>> g_profile_blobs;
+std::map<std::pair<uint32_t, uint32_t>, std::vector<uint8_t>> g_profile_blobs;  // (player, id)
 
-fs::path ProfileDir() { return TitlePaths().user_root / "profile"; }
+// Player 1 keeps the original folders; players 2-4 have theirs under players\<XUID>.
+fs::path UserRoot(uint32_t user_index) {
+  if (user_index == 0 || user_index >= 4) return TitlePaths().user_root;
+  char xuid[24];
+  std::snprintf(xuid, sizeof(xuid), "%016llX", (unsigned long long)(kXuid + user_index));
+  return TitlePaths().user_root / "players" / xuid;
+}
 
-std::vector<uint8_t>* ProfileBlob(uint32_t id) {
-  auto it = g_profile_blobs.find(id);
+fs::path ProfileDir(uint32_t user_index) { return UserRoot(user_index) / "profile"; }
+
+std::vector<uint8_t>* ProfileBlob(uint32_t user_index, uint32_t id) {
+  auto it = g_profile_blobs.find({user_index, id});
   if (it != g_profile_blobs.end()) return &it->second;
   char name[32];
   std::snprintf(name, sizeof(name), "%08X.bin", id);
-  std::ifstream in(ProfileDir() / name, std::ios::binary);
+  std::ifstream in(ProfileDir(user_index) / name, std::ios::binary);
   if (!in) return nullptr;
   std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), {});
-  return &(g_profile_blobs[id] = std::move(data));
+  return &(g_profile_blobs[{user_index, id}] = std::move(data));
 }
 
 uint32_t ReadProfileSettings(uint32_t title_id, uint32_t user_index, uint32_t xuid_count, uint32_t xuids,
@@ -194,7 +285,14 @@ uint32_t ReadProfileSettings(uint32_t title_id, uint32_t user_index, uint32_t xu
     Store<uint32_t>(buffer_size_ptr, needed);
     return X_ERROR_INSUFFICIENT_BUFFER;
   }
-  if (user_index != 0 && !xuids) return X_ERROR_NO_SUCH_USER;
+  // The settings of one player: by index, or by the first XUID.
+  if (xuids) {
+    int from_xuid = UserFromXuid(Load<uint64_t>(xuids));
+    user_index = from_xuid >= 0 ? uint32_t(from_xuid) : 0;
+  }
+  auto user = GetUser(user_index);
+  LogOtherUser("XamUserReadProfileSettings", user_index, user ? 0 : X_ERROR_NO_SUCH_USER);
+  if (!user) return X_ERROR_NO_SUCH_USER;
 
   std::lock_guard lock(g_profile_mutex);
   std::memset(Ptr(buffer), 0, needed);
@@ -208,7 +306,7 @@ uint32_t ReadProfileSettings(uint32_t title_id, uint32_t user_index, uint32_t xu
     uint32_t type = id >> 28, size = (id >> 16) & 0xFFF;
     Store<uint32_t>(s + 0x00, 1);  // source: default
     if (xuids) {
-      Store<uint64_t>(s + 0x04, kXuid);
+      Store<uint64_t>(s + 0x04, user->xuid);
     } else {
       Store<uint32_t>(s + 0x04, 0xFFFFFFFF);
       Store<uint32_t>(s + 0x08, user_index);
@@ -216,7 +314,7 @@ uint32_t ReadProfileSettings(uint32_t title_id, uint32_t user_index, uint32_t xu
     Store<uint32_t>(s + 0x0C, id);
     Store<uint8_t>(s + 0x10, uint8_t(type));
     if (type == 4 || type == 6) {
-      std::vector<uint8_t>* blob = ProfileBlob(id);
+      std::vector<uint8_t>* blob = ProfileBlob(user_index, id);
       uint32_t length = blob ? std::min<uint32_t>(uint32_t(blob->size()), size) : 0;
       if (blob) {
         std::memcpy(Ptr(extra), blob->data(), length);
@@ -242,10 +340,11 @@ uint32_t XamUserReadProfileSettings(uint32_t title_id, uint32_t user_index, uint
 uint32_t XamUserWriteProfileSettings(uint32_t title_id, uint32_t user_index, uint32_t setting_count,
                                      uint32_t settings, uint32_t overlapped) {
   (void)title_id;
-  (void)user_index;
+  if (user_index >= 4) user_index = 0;
+  LogOtherUser("XamUserWriteProfileSettings", user_index, 0);
   std::lock_guard lock(g_profile_mutex);
   std::error_code ec;
-  fs::create_directories(ProfileDir(), ec);
+  fs::create_directories(ProfileDir(user_index), ec);
   for (uint32_t i = 0; i < setting_count; ++i) {
     uint32_t s = settings + i * 40;
     uint32_t id = Load<uint32_t>(s + 0x0C);
@@ -255,8 +354,9 @@ uint32_t XamUserWriteProfileSettings(uint32_t title_id, uint32_t user_index, uin
     std::vector<uint8_t> blob(Ptr(data), Ptr(data) + length);
     char name[32];
     std::snprintf(name, sizeof(name), "%08X.bin", id);
-    std::ofstream(ProfileDir() / name, std::ios::binary).write(reinterpret_cast<const char*>(blob.data()), length);
-    g_profile_blobs[id] = std::move(blob);
+    std::ofstream(ProfileDir(user_index) / name, std::ios::binary)
+        .write(reinterpret_cast<const char*>(blob.data()), length);
+    g_profile_blobs[{user_index, id}] = std::move(blob);
   }
   return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
 }
@@ -283,20 +383,20 @@ uint32_t XamUserCreateStatsEnumerator(uint32_t title_id, uint32_t user_index, ui
 constexpr uint32_t kContentDataSize = 0x134;
 constexpr uint32_t kHddDeviceId = 1;
 
-fs::path ContentPath(uint32_t content_data) {
+fs::path ContentPath(uint32_t user_index, uint32_t content_data) {
   uint32_t type = Load<uint32_t>(content_data + 4);
   std::string file(Ptr<const char>(content_data + 0x108), strnlen(Ptr<const char>(content_data + 0x108), 42));
   char type_dir[16];
   std::snprintf(type_dir, sizeof(type_dir), "%08X", type);
-  return TitlePaths().user_root / "content" / type_dir / file;
+  return UserRoot(user_index) / "content" / type_dir / file;
 }
 
 uint32_t XamContentCreateEx(uint32_t user_index, uint32_t root_name_ptr, uint32_t content_data, uint32_t flags,
                             uint32_t disposition_ptr, uint32_t license_mask_ptr, uint32_t cache_size,
                             uint64_t content_size, uint32_t overlapped) {
-  (void)user_index, (void)cache_size, (void)content_size;
+  (void)cache_size, (void)content_size;
   std::string root = Ptr<const char>(root_name_ptr);
-  fs::path path = ContentPath(content_data);
+  fs::path path = ContentPath(user_index, content_data);
   std::error_code ec;
   bool exists = fs::exists(path, ec);
   uint32_t mode = flags & 0xF;  // 1 create new, 2 create always, 3 open existing, 4 open always, 5 truncate
@@ -311,7 +411,7 @@ uint32_t XamContentCreateEx(uint32_t user_index, uint32_t root_name_ptr, uint32_
     disposition = exists && mode != 2 && mode != 5 ? 2 : 1;  // 1 created, 2 opened
     MountContent(root, path);
   }
-  KLOG_I("XamContentCreateEx %s: -> %s (%u)", root.c_str(), path.string().c_str(), result);
+  KLOG_I("XamContentCreateEx %s (user %u): -> %s (%u)", root.c_str(), user_index, path.string().c_str(), result);
   if (disposition_ptr) Store<uint32_t>(disposition_ptr, disposition);
   if (license_mask_ptr) Store<uint32_t>(license_mask_ptr, 0xFFFFFFFF);
   return overlapped ? Complete(overlapped, result) : result;
@@ -323,23 +423,23 @@ uint32_t XamContentClose(uint32_t root_name_ptr, uint32_t overlapped) {
 }
 
 uint32_t XamContentDelete(uint32_t user_index, uint32_t content_data, uint32_t overlapped) {
-  (void)user_index;
   std::error_code ec;
-  fs::remove_all(ContentPath(content_data), ec);
+  fs::remove_all(ContentPath(user_index, content_data), ec);
   return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
 }
 
 uint32_t XamContentCreateEnumerator(uint32_t user_index, uint32_t device_id, uint32_t content_type,
                                     uint32_t content_flags, uint32_t items_per, uint32_t buffer_size_ptr,
                                     uint32_t handle_ptr) {
-  (void)user_index, (void)content_flags;
+  (void)content_flags;
+  LogOtherUser("XamContentCreateEnumerator", user_index, 0);
   if (buffer_size_ptr) Store<uint32_t>(buffer_size_ptr, kContentDataSize * std::max<uint32_t>(items_per, 1));
   std::vector<std::vector<uint8_t>> items;
   if (device_id == 0 || device_id == kHddDeviceId) {
     char type_dir[16];
     std::snprintf(type_dir, sizeof(type_dir), "%08X", content_type);
     std::error_code ec;
-    for (const auto& entry : fs::directory_iterator(TitlePaths().user_root / "content" / type_dir, ec)) {
+    for (const auto& entry : fs::directory_iterator(UserRoot(user_index) / "content" / type_dir, ec)) {
       std::vector<uint8_t> item(kContentDataSize, 0);
       x360::store_be<uint32_t>(item.data() + 0, kHddDeviceId);
       x360::store_be<uint32_t>(item.data() + 4, content_type);
@@ -354,9 +454,9 @@ uint32_t XamContentCreateEnumerator(uint32_t user_index, uint32_t device_id, uin
 
 uint32_t XamContentGetCreator(uint32_t user_index, uint32_t content_data, uint32_t is_creator_ptr, uint32_t xuid_ptr,
                               uint32_t overlapped) {
-  (void)user_index, (void)content_data;
+  (void)content_data;
   if (is_creator_ptr) Store<uint32_t>(is_creator_ptr, 1);
-  if (xuid_ptr) Store<uint64_t>(xuid_ptr, kXuid);
+  if (xuid_ptr) Store<uint64_t>(xuid_ptr, kXuid + (user_index < 4 ? user_index : 0));
   return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
 }
 
@@ -399,14 +499,24 @@ struct Listener : Object {
 std::mutex g_listener_mutex;
 std::vector<std::weak_ptr<Listener>> g_listeners;
 
+// Queues a notification for every listener of its area (bits 25+ of the ID).
+void Broadcast(uint32_t id, uint32_t param) {
+  KLOG_I("notify: %08X (%08X)", id, param);
+  uint64_t bit = 1ull << ((id >> 25) & 0x3F);
+  std::lock_guard lock(g_listener_mutex);
+  std::erase_if(g_listeners, [](const std::weak_ptr<Listener>& l) { return l.expired(); });
+  for (const auto& weak : g_listeners)
+    if (auto listener = weak.lock(); listener && (listener->mask & bit)) listener->queue.push_back({id, param});
+}
+
 uint32_t XamNotifyCreateListener(uint64_t mask, uint32_t unknown) {
   (void)unknown;
   auto listener = std::make_shared<Listener>();
   listener->mask = mask;
-  // A real console reports the signed-in user and storage right after a listener is created.
+  // A real console reports the signed-in users and storage right after a listener is created.
   if (mask & 1) {
-    listener->queue.push_back({0x0000000A, 1});  // XN_SYS_SIGNINCHANGED: user 0
-    listener->queue.push_back({0x0000000B, 0});  // XN_SYS_STORAGEDEVICESCHANGED
+    listener->queue.push_back({kNotifySigninChanged, SignedInMask()});
+    listener->queue.push_back({kNotifyStorageDevicesChanged, 0});
   }
   {
     std::lock_guard lock(g_listener_mutex);
@@ -559,8 +669,22 @@ uint32_t XamTaskCloseHandle(uint32_t handle) {
 
 // ---- system UI --------------------------------------------------------------------------------
 
+// The sign-in UI: signs in up to `count` more players whose slot has a connected device (unless
+// players.sign_in is "manual"), as if they had picked their profile.
 uint32_t XamShowSigninUI(uint32_t count, uint32_t flags) {
-  (void)count, (void)flags;
+  KLOG_I("XamShowSigninUI(%u, %X)", count, flags);
+  Broadcast(kNotifySystemUi, 1);
+  g_in_signin_ui = true;
+  if (x360::settings::Get().sign_in != "manual") {
+    uint32_t remaining = std::max<uint32_t>(count, 1);
+    for (uint32_t i = 1; i < 4 && remaining; ++i) {
+      if (IsUserSignedIn(i) || !x360::input::IsConnected(i)) continue;
+      SignInUser(i);
+      --remaining;
+    }
+  }
+  g_in_signin_ui = false;
+  Broadcast(kNotifySystemUi, 0);
   return X_ERROR_SUCCESS;
 }
 
@@ -737,7 +861,41 @@ void XGetVideoMode(uint32_t mode) {
 }  // namespace
 
 namespace x360::kernel {
-void InitXam() {}
+
+void InitXam() {
+  InitUsers();
+  x360::input::OnDevicesChanged([] { Broadcast(kNotifyInputDevicesChanged, 0); });
+}
+
+bool IsUserSignedIn(uint32_t user_index) { return GetUser(user_index).has_value(); }
+
+void SignInUser(uint32_t user_index) {
+  if (user_index >= 4) return;
+  {
+    std::lock_guard lock(g_user_mutex);
+    if (g_users[user_index].signed_in) return;
+    g_users[user_index].signed_in = true;
+  }
+  KLOG_I("users: player %u signed in", user_index + 1);
+  // As if picked in the system's sign-in UI, which is open while the sign-in changes.
+  if (!g_in_signin_ui) Broadcast(kNotifySystemUi, 1);
+  Broadcast(kNotifySigninChanged, SignedInMask());
+  if (!g_in_signin_ui) Broadcast(kNotifySystemUi, 0);
+}
+
+void SignOutUser(uint32_t user_index) {
+  if (user_index == 0 || user_index >= 4) return;
+  {
+    std::lock_guard lock(g_user_mutex);
+    if (!g_users[user_index].signed_in) return;
+    g_users[user_index].signed_in = false;
+  }
+  KLOG_I("users: player %u signed out", user_index + 1);
+  Broadcast(kNotifySystemUi, 1);
+  Broadcast(kNotifySigninChanged, SignedInMask());
+  Broadcast(kNotifySystemUi, 0);
+}
+
 }  // namespace x360::kernel
 
 X360_EXPORT(XamGetOverlappedResult, XamGetOverlappedResult)
