@@ -28,7 +28,9 @@ struct DisplayConfig {
 // Creates the game window, the D3D12 graphics system and the vblank/interrupt thread. Must run on
 // the UI (main) thread after the guest memory exists. Returns false if D3D12 is unavailable.
 bool Initialize(const char* window_title, const DisplayConfig& config);
-const DisplayConfig& GetDisplayConfig();
+const DisplayConfig& GetDisplayConfig();  // UI thread
+// Changes the target frame rate (the vblank rate) while running. UI thread.
+void SetTargetFps(uint32_t fps);
 
 // Loads (and keeps updating) the title's persistent shader and pipeline cache under cache_root,
 // compiling cached pipelines in the background as Xenia does when it launches a title.

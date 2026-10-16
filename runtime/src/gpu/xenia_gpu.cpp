@@ -139,8 +139,10 @@ std::unique_ptr<xe::ui::Window> g_window;
 std::unique_ptr<xe::gpu::d3d12::D3D12GraphicsSystem> g_graphics;
 std::shared_ptr<Thread> g_interrupt_thread;
 std::mutex g_interrupt_mutex;
-std::condition_variable g_interrupt_cv;
+HANDLE g_interrupt_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);  // auto-reset: queued work
 std::deque<InterruptRequest> g_interrupts;
+std::atomic<uint32_t> g_vblank_hz{120};
+std::atomic<uint64_t> g_vblanks_skipped{0};
 std::atomic<int> g_exit_code{0};
 std::atomic<uint32_t> g_writeback{0};
 DisplayConfig g_display;
@@ -175,9 +177,11 @@ class Host final : public xe::gpu::GraphicsHost {
       RunInterrupt(r);
       return;
     }
-    std::lock_guard lock(g_interrupt_mutex);
-    g_interrupts.push_back(r);
-    g_interrupt_cv.notify_all();
+    {
+      std::lock_guard lock(g_interrupt_mutex);
+      g_interrupts.push_back(r);
+    }
+    ::SetEvent(g_interrupt_event);
   }
   uint32_t GetTitleId() override { return Title().title_id; }
   void OnSwap() override {
@@ -188,32 +192,62 @@ class Host final : public xe::gpu::GraphicsHost {
 
 Host g_host;
 
-// vblank at 60 Hz plus queued command-buffer interrupts, delivered on a guest thread.
+int64_t QpcNow() {
+  LARGE_INTEGER t;
+  QueryPerformanceCounter(&t);
+  return t.QuadPart;
+}
+
+// The vblank interrupt (g_vblank_hz) plus queued command-buffer interrupts, delivered on a guest
+// thread. Vblank n is due at anchor + n * frequency / hz exactly (no drift, no truncated period): a
+// high-resolution waitable timer sleeps until shortly before it and the rest is spun
+// (ANYX360_VBLANK_SPIN_US, default 300). A late tick skips whole periods but keeps the phase.
 void InterruptThreadBody() {
-  using clock = std::chrono::steady_clock;
-  const auto period = std::chrono::microseconds(1000000 / (std::max(1u, g_display.target_fps) * 2));
-  auto next_vblank = clock::now() + period;
+  SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+  HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+  if (!timer) timer = CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);  // before Windows 10 1803
+  LARGE_INTEGER frequency_value;
+  QueryPerformanceFrequency(&frequency_value);
+  const int64_t frequency = frequency_value.QuadPart;
+  static const char* spin_env = std::getenv("ANYX360_VBLANK_SPIN_US");
+  const int64_t spin = (spin_env ? std::atoi(spin_env) : 300) * frequency / 1000000;
+  uint32_t hz = 0;
+  int64_t anchor = 0;
+  uint64_t tick = 0;
+  auto due = [&] { return anchor + int64_t(tick * uint64_t(frequency) / hz); };
   for (;;) {
-    InterruptRequest request{};
-    bool have_request = false;
-    {
-      std::unique_lock lock(g_interrupt_mutex);
-      g_interrupt_cv.wait_until(lock, next_vblank, [] { return !g_interrupts.empty(); });
-      if (!g_interrupts.empty()) {
-        request = g_interrupts.front();
-        g_interrupts.pop_front();
-        have_request = true;
-      }
+    if (uint32_t wanted = std::max(1u, g_vblank_hz.load(std::memory_order_relaxed)); wanted != hz) {
+      hz = wanted;
+      anchor = QpcNow();
+      tick = 1;
     }
-    if (have_request) {
-      RunInterrupt(request);
+    std::deque<InterruptRequest> requests;
+    {
+      std::lock_guard lock(g_interrupt_mutex);
+      requests.swap(g_interrupts);
+    }
+    if (!requests.empty()) {
+      for (const InterruptRequest& r : requests) RunInterrupt(r);
       continue;
     }
-    auto now = clock::now();
-    timing::Record(timing::Event::kVblank,
-                   int32_t(std::chrono::duration_cast<std::chrono::microseconds>(now - next_vblank).count()));
-    next_vblank += period;
-    if (next_vblank < now) next_vblank = now + period;
+    int64_t target = due();
+    int64_t remaining = target - QpcNow();
+    if (remaining > spin) {
+      LARGE_INTEGER relative;
+      relative.QuadPart = -std::max<int64_t>(1, (remaining - spin) * 10000000 / frequency);  // 100 ns units
+      SetWaitableTimer(timer, &relative, 0, nullptr, nullptr, FALSE);
+      HANDLE handles[] = {g_interrupt_event, timer};
+      WaitForMultipleObjects(2, handles, FALSE, INFINITE);
+      continue;
+    }
+    int64_t now;
+    while ((now = QpcNow()) < target) YieldProcessor();
+    timing::Record(timing::Event::kVblank, int32_t((now - target) * 1000000 / frequency));
+    for (++tick; due() <= now; ++tick) ++g_vblanks_skipped;
+    if (tick >= hz) {  // keep the numbers small: exactly hz ticks per second of QPC time
+      anchor += frequency * int64_t(tick / hz);
+      tick %= hz;
+    }
     g_graphics->MarkVblank();  // calls DispatchInterrupt(source 0) back on this thread
   }
 }
@@ -252,8 +286,15 @@ WindowKeys g_window_keys;
 
 const DisplayConfig& GetDisplayConfig() { return g_display; }
 
+void SetTargetFps(uint32_t fps) {
+  g_display.target_fps = fps;
+  g_vblank_hz = std::max(1u, fps) * 2;
+  KLOG_I("display: %u FPS (vblank %u Hz)", fps, g_vblank_hz.load());
+}
+
 bool Initialize(const char* window_title, const DisplayConfig& config) {
   g_display = config;
+  g_vblank_hz = std::max(1u, config.target_fps) * 2;
   cvars::draw_resolution_scale_x = int32_t(std::max(1u, config.render_scale));
   cvars::draw_resolution_scale_y = int32_t(std::max(1u, config.render_scale));
   // ANYX360_XENIA_LOG_LEVEL: 0 error, 1 warning, 2 info (default), 3 debug (GPU details).
@@ -338,6 +379,8 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
              t.vdswaps / 5.0, t.gpu_swaps / 5.0, t.presents_gpu_thread / 5.0, t.presents_ui_thread / 5.0,
              t.ui_repaints / 5.0, t.swap_mean_ms, t.swap_stddev_ms, t.swap_p50_ms, t.swap_p99_ms, t.swap_max_ms,
              t.present_p99_ms, t.present_max_ms, t.vblanks / 5.0, t.vblank_late_p99_us, t.vblank_late_max_us);
+      if (uint64_t skipped = g_vblanks_skipped.exchange(0)) KLOG_W("vblank: %llu ticks skipped (late)",
+                                                                   (unsigned long long)skipped);
       // ANYX360_FRAMETIMES=<file.csv>: every frame timing event (see tools/scripts/frametimes.py).
       static const char* frametimes = std::getenv("ANYX360_FRAMETIMES");
       if (frametimes) timing::AppendCsv(frametimes);
@@ -387,6 +430,22 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
       for (int index = 0;; ++index) {
         std::this_thread::sleep_for(std::chrono::milliseconds(interval));
         CaptureFrame(g_graphics->presenter(), dir, index);
+      }
+    }).detach();
+  }
+  // Test hook: ANYX360_FPS_SWITCH="<seconds>:<fps>,..." changes the target frame rate at those times.
+  if (const char* spec = std::getenv("ANYX360_FPS_SWITCH")) {
+    std::thread([schedule = std::string(spec)] {
+      auto start = std::chrono::steady_clock::now();
+      for (size_t pos = 0; pos < schedule.size();) {
+        size_t end = std::min(schedule.find(',', pos), schedule.size());
+        std::string item = schedule.substr(pos, end - pos);
+        pos = end + 1;
+        size_t colon = item.find(':');
+        if (colon == std::string::npos) continue;
+        std::this_thread::sleep_until(start + std::chrono::milliseconds(int64_t(std::atof(item.c_str()) * 1000)));
+        uint32_t fps = uint32_t(std::atoi(item.c_str() + colon + 1));
+        g_app->CallInUIThread([fps] { SetTargetFps(fps); });
       }
     }).detach();
   }
