@@ -1,7 +1,8 @@
 // Performance overlay drawn with Xenia's ImGui drawer over the presented frame (top-left corner,
-// F1 toggles it): guest frame rate and frame time (from VdSwap), the process's video memory use
-// (DXGI), and host and guest RAM.
+// F1 toggles it): guest frame rate and frame time (from VdSwap), frame interval graphs, the
+// process's video memory use (DXGI), and host and guest RAM.
 #include "stats_overlay.h"
+#include "frame_timing.h"
 #include "x360/gpu.h"
 
 #include <algorithm>
@@ -42,6 +43,7 @@ struct Sample {
   uint64_t vram_used = 0, vram_budget = 0, shared_used = 0;
   uint64_t working_set = 0, commit = 0;
   uint64_t guest_virtual = 0, guest_physical = 0;
+  uint32_t presents_gpu = 0, presents_ui = 0;
 };
 
 class StatsOverlay : public xe::ui::ImGuiDialog {
@@ -86,6 +88,14 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
                     s_.shared_used / mb);
       ImGui::Text("RAM  %.0f MB (commit %.0f MB)", s_.working_set / mb, s_.commit / mb);
       ImGui::Text("Guest %.0f MB virtual + %.0f MB physical", s_.guest_virtual / mb, s_.guest_physical / mb);
+      // Frame intervals: the title's submissions (VdSwap) and what reached the screen (presents of new
+      // frames), 0-50 ms; a steady 60 FPS is a flat line at 16.7 ms.
+      ImGui::Text("Presents: %s thread", s_.presents_ui > s_.presents_gpu ? "UI" : "GPU");
+      float values[120];
+      size_t count = timing::RecentIntervals(timing::Event::kVdSwap, values, 120);
+      ImGui::PlotLines("swap", values, int(count), 0, nullptr, 0.0f, 50.0f, ImVec2(240, 40));
+      count = timing::RecentIntervals(timing::Event::kPresentGpuThread, values, 120);
+      ImGui::PlotLines("present", values, int(count), 0, nullptr, 0.0f, 50.0f, ImVec2(240, 40));
     }
     ImGui::End();
   }
@@ -106,6 +116,9 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
                                              double(g_swaps.size() - 1)
                                        : 0;
     }
+    timing::Summary t = timing::Summarize(1.0);
+    s_.presents_gpu = t.presents_gpu_thread;
+    s_.presents_ui = t.presents_ui_thread;
     if (adapter_) {
       DXGI_QUERY_VIDEO_MEMORY_INFO local{}, shared{};
       adapter_->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &local);
@@ -156,6 +169,7 @@ void StartStatsOverlay(xe::ui::Window* window, xe::gpu::GraphicsSystem* graphics
 void NotifySwap(uint32_t frontbuffer_width, uint32_t frontbuffer_height) {
   g_frontbuffer_width = frontbuffer_width;
   g_frontbuffer_height = frontbuffer_height;
+  timing::Record(timing::Event::kVdSwap);
   std::lock_guard lock(g_swap_mutex);
   auto now = clock::now();
   if (!g_swaps.empty()) {

@@ -9,6 +9,7 @@
 #include <deque>
 
 #include "x360/gpu.h"
+#include "frame_timing.h"
 #include "stats_overlay.h"
 #include "x360/kernel.h"
 #include "xenia/base/cvar.h"
@@ -148,6 +149,8 @@ DisplayConfig g_display;
 
 std::atomic<uint64_t> g_swap_count{0};
 std::atomic<uint64_t> g_interrupt_count{0};
+std::atomic<uint64_t> g_gpu_swaps{0};       // swaps executed by the command processor
+std::atomic<uint64_t> g_presented_swap{0};  // g_gpu_swaps at the last present
 
 namespace {
 
@@ -177,6 +180,10 @@ class Host final : public xe::gpu::GraphicsHost {
     g_interrupt_cv.notify_all();
   }
   uint32_t GetTitleId() override { return Title().title_id; }
+  void OnSwap() override {
+    ++g_gpu_swaps;
+    timing::Record(timing::Event::kGpuSwap);
+  }
 };
 
 Host g_host;
@@ -202,8 +209,11 @@ void InterruptThreadBody() {
       RunInterrupt(request);
       continue;
     }
+    auto now = clock::now();
+    timing::Record(timing::Event::kVblank,
+                   int32_t(std::chrono::duration_cast<std::chrono::microseconds>(now - next_vblank).count()));
     next_vblank += period;
-    if (next_vblank < clock::now()) next_vblank = clock::now() + period;
+    if (next_vblank < now) next_vblank = now + period;
     g_graphics->MarkVblank();  // calls DispatchInterrupt(source 0) back on this thread
   }
 }
@@ -280,6 +290,12 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
   }
   KLOG_I("GPU init: presenter");
   g_window->SetPresenter(g_graphics->presenter());
+  g_graphics->presenter()->SetPresentObserver([](bool ui_thread, bool presented) {
+    if (!presented) return;
+    uint64_t swaps = g_gpu_swaps.load();
+    bool new_frame = g_presented_swap.exchange(swaps) != swaps;
+    timing::Record(ui_thread ? timing::Event::kPresentUiThread : timing::Event::kPresentGpuThread, new_frame);
+  });
   {
     using Effect = xe::ui::Presenter::GuestOutputPaintConfig::Effect;
     xe::ui::Presenter::GuestOutputPaintConfig paint;
@@ -292,7 +308,8 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
       g_graphics->command_processor()->SetDesiredSwapPostEffect(
           xe::gpu::CommandProcessor::SwapPostEffect::kFxaa);
   }
-  StartStatsOverlay(g_window.get(), g_graphics.get(), XeMemory());
+  // ANYX360_NO_OVERLAY=1: no ImGui at all, so the guest output thread always presents (A/B tests).
+  if (!std::getenv("ANYX360_NO_OVERLAY")) StartStatsOverlay(g_window.get(), g_graphics.get(), XeMemory());
 
   g_interrupt_thread = CreateHostDrivenThread("GPU interrupts", 2, InterruptThreadBody);
   std::thread([] {
@@ -306,6 +323,16 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
       uint32_t rptr = wb ? load_be<uint32_t>(XeMemory()->TranslatePhysical(wb)) : 0;
       KLOG_I("GPU: %llu swaps (+%llu), %llu interrupts, wptr %u, rptr %u", (unsigned long long)swaps,
              (unsigned long long)(swaps - last_swaps), (unsigned long long)g_interrupt_count.load(), wptr, rptr);
+      timing::Summary t = timing::Summarize(5.0);
+      KLOG_I("frames: %.1f swaps/s (gpu %.1f), presents/s gpu thread %.1f ui thread %.1f (%.1f repaints), "
+             "swap interval mean %.2f sd %.2f p50 %.2f p99 %.2f max %.1f ms, present p99 %.2f max %.1f ms, "
+             "vblank %.1f/s late p99 %.0f max %.0f us",
+             t.vdswaps / 5.0, t.gpu_swaps / 5.0, t.presents_gpu_thread / 5.0, t.presents_ui_thread / 5.0,
+             t.ui_repaints / 5.0, t.swap_mean_ms, t.swap_stddev_ms, t.swap_p50_ms, t.swap_p99_ms, t.swap_max_ms,
+             t.present_p99_ms, t.present_max_ms, t.vblanks / 5.0, t.vblank_late_p99_us, t.vblank_late_max_us);
+      // ANYX360_FRAMETIMES=<file.csv>: every frame timing event (see tools/scripts/frametimes.py).
+      static const char* frametimes = std::getenv("ANYX360_FRAMETIMES");
+      if (frametimes) timing::AppendCsv(frametimes);
       static int stalled = 0;
       stalled = (swaps == last_swaps) ? stalled + 1 : 0;
       if (stalled == 2) DumpThreads();
