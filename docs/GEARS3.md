@@ -86,6 +86,10 @@ run whose function split was different, which leads to duplicate symbols at link
   (START) → Checkout loads and plays (movement, aiming, firing, HUD).
 - **Audio**: XMA decoded by Xenia's XmaDecoder (FFmpeg fork), output through XAudio2.
 - Shaders and pipelines are cached in `<user>/cache/shaders`, so later runs start faster.
+- Display: 60 FPS by default (vblank at 120 Hz; the game presents every second vblank), window
+  1080p with AMD FSR upscaling. Options: `--resolution 720|1080|1440|2160`, `--scale 1-3` (native
+  render scale; 2x is GPU-heavy), `--upscale fsr|cas|bilinear`, `--fxaa`, `--fps 30|60`,
+  `--fullscreen`; F11 / Alt+Enter toggle fullscreen.
 - Performance overlay (top-left, **F1** toggles): guest FPS and frame time, the process's VRAM use
   (DXGI budget), host RAM (working set and commit) and guest memory in use.
 
@@ -126,6 +130,8 @@ All opt-in through environment variables read by the runtime:
 | `ANYX360_MEMDUMP` | With `ANYX360_DUMP_AT`: dumps guest memory, `"addr,length"` in hex |
 | `ANYX360_MEMSCAN=0x...` | Searches a big-endian 32-bit value instead of text |
 | `ANYX360_WATCH_WRITE` | Hardware write watchpoint on a guest address (logs the writing function) |
+| `ANYX360_CAPTURE_MS` | With `ANYX360_CAPTURE_DIR`: capture interval in ms (default every 5 s) |
+| `ANYX360_AUDIO_WATCHDOG` | Thread dumps when audio mixing stalls for 70 ms |
 | `ANYX360_NO_SOCKETS` | Disables the local socket layer and the network address |
 
 The runtime also accepts `--user <folder>` to run with a clean profile and saves.

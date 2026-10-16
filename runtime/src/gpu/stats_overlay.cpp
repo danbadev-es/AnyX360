@@ -2,8 +2,10 @@
 // F1 toggles it): guest frame rate and frame time (from VdSwap), the process's video memory use
 // (DXGI), and host and guest RAM.
 #include "stats_overlay.h"
+#include "x360/gpu.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <deque>
 #include <mutex>
@@ -31,6 +33,7 @@ using clock = std::chrono::steady_clock;
 
 std::mutex g_swap_mutex;
 std::deque<clock::time_point> g_swaps;  // the last second of VdSwap times
+std::atomic<uint32_t> g_frontbuffer_width{0}, g_frontbuffer_height{0};
 
 struct Sample {
   double fps = 0;
@@ -43,8 +46,9 @@ struct Sample {
 
 class StatsOverlay : public xe::ui::ImGuiDialog {
  public:
-  StatsOverlay(xe::ui::ImGuiDrawer* drawer, xe::gpu::GraphicsSystem* graphics, xe::Memory* memory)
-      : ImGuiDialog(drawer), graphics_(graphics), memory_(memory) {
+  StatsOverlay(xe::ui::ImGuiDrawer* drawer, xe::ui::Window* window, xe::gpu::GraphicsSystem* graphics,
+               xe::Memory* memory)
+      : ImGuiDialog(drawer), window_(window), graphics_(graphics), memory_(memory) {
     auto* provider = static_cast<xe::ui::d3d12::D3D12Provider*>(graphics->provider());
     Microsoft::WRL::ComPtr<IDXGIFactory4> factory;
     if (provider && SUCCEEDED(provider->GetDXGIFactory()->QueryInterface(IID_PPV_ARGS(&factory))))
@@ -68,6 +72,15 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
     if (ImGui::Begin("##anyx360_stats", nullptr, flags)) {
       const double mb = 1024.0 * 1024.0;
       ImGui::Text("%.0f FPS  %.2f ms (worst %.1f ms)", s_.fps, s_.frame_ms, s_.worst_ms);
+      const DisplayConfig& display = GetDisplayConfig();
+      uint32_t scale = display.render_scale;
+      const char* upscale = display.upscale == DisplayConfig::Upscale::kFsr   ? "FSR"
+                            : display.upscale == DisplayConfig::Upscale::kCas ? "CAS"
+                                                                              : "bilinear";
+      ImGui::Text("Render %ux%u (%ux)  Output %ux%u %s%s%s", g_frontbuffer_width.load() * scale,
+                  g_frontbuffer_height.load() * scale, scale, window_->GetActualPhysicalWidth(),
+                  window_->GetActualPhysicalHeight(), upscale, display.fxaa ? " +FXAA" : "",
+                  window_->IsFullscreen() ? " fullscreen" : "");
       if (adapter_)
         ImGui::Text("VRAM %.0f MB / %.0f MB  (shared %.0f MB)", s_.vram_used / mb, s_.vram_budget / mb,
                     s_.shared_used / mb);
@@ -118,6 +131,7 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
     s_.guest_physical = uint64_t(used) * 4096;
   }
 
+  xe::ui::Window* window_;
   xe::gpu::GraphicsSystem* graphics_;
   xe::Memory* memory_;
   Microsoft::WRL::ComPtr<IDXGIAdapter3> adapter_;
@@ -136,12 +150,19 @@ void StartStatsOverlay(xe::ui::Window* window, xe::gpu::GraphicsSystem* graphics
   g_imgui = std::make_unique<xe::ui::ImGuiDrawer>(window, 1);
   g_immediate = graphics->provider()->CreateImmediateDrawer();
   g_imgui->SetPresenterAndImmediateDrawer(graphics->presenter(), g_immediate.get());
-  g_overlay = new StatsOverlay(g_imgui.get(), graphics, memory);
+  g_overlay = new StatsOverlay(g_imgui.get(), window, graphics, memory);
 }
 
-void NotifySwap() {
+void NotifySwap(uint32_t frontbuffer_width, uint32_t frontbuffer_height) {
+  g_frontbuffer_width = frontbuffer_width;
+  g_frontbuffer_height = frontbuffer_height;
   std::lock_guard lock(g_swap_mutex);
-  g_swaps.push_back(clock::now());
+  auto now = clock::now();
+  if (!g_swaps.empty()) {
+    double gap = std::chrono::duration<double, std::milli>(now - g_swaps.back()).count();
+    if (gap > 100.0) std::fprintf(stderr, "[gpu] no frame presented for %.0f ms\n", gap);
+  }
+  g_swaps.push_back(now);
   if (g_swaps.size() > 1000) g_swaps.pop_front();
 }
 

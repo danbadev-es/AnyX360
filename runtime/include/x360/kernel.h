@@ -17,6 +17,7 @@
 #include <thread>
 #include <vector>
 
+#include "x360/gpu.h"
 #include "x360/hle.h"
 
 namespace xe {
@@ -320,6 +321,7 @@ struct TitleInfo {
   std::filesystem::path game_root;    // folder mounted as game:\ and d:\ (contains default.xex)
   std::filesystem::path user_root;    // writable folder for hdd, cache and saves
   std::filesystem::path key_path;     // keys/xex2_retail.key
+  gpu::DisplayConfig display;         // window, render scale, frame rate
   // Called once the function table is filled, before the title runs (game-specific debug hooks).
   std::function<void()> on_function_table;
 };

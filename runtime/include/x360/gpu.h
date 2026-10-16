@@ -9,9 +9,26 @@
 
 namespace x360::gpu {
 
+struct DisplayConfig {
+  enum class Upscale { kBilinear, kCas, kFsr };
+
+  uint32_t width = 1920;   // window client size
+  uint32_t height = 1080;
+  // Xenia's draw resolution scale: the title renders at 1280x720 x scale (integer only). 2x costs the
+  // GPU about 4x as much as 1x.
+  uint32_t render_scale = 1;
+  Upscale upscale = Upscale::kFsr;  // scaling of the rendered image to the window (AMD FidelityFX)
+  bool fxaa = false;                // FXAA on the final image
+  bool fullscreen = false;
+  // Target frame rate. Titles present every N vblanks (Gears of War 3: 2, i.e. 30 FPS at 60 Hz), so
+  // the vblank interrupt runs at target_fps x 2.
+  uint32_t target_fps = 60;
+};
+
 // Creates the game window, the D3D12 graphics system and the vblank/interrupt thread. Must run on
 // the UI (main) thread after the guest memory exists. Returns false if D3D12 is unavailable.
-bool Initialize(const char* window_title);
+bool Initialize(const char* window_title, const DisplayConfig& config);
+const DisplayConfig& GetDisplayConfig();
 
 // Loads (and keeps updating) the title's persistent shader and pipeline cache under cache_root,
 // compiling cached pipelines in the background as Xenia does when it launches a title.
@@ -23,7 +40,7 @@ int RunMessageLoop();
 void RequestQuit(int exit_code);
 
 // Records a guest frame (VdSwap) for the performance overlay.
-void NotifySwap();
+void NotifySwap(uint32_t frontbuffer_width, uint32_t frontbuffer_height);
 
 // Vd* exports.
 void InitializeRingBuffer(uint32_t physical, uint32_t size_log2);

@@ -185,6 +185,21 @@ uint32_t KernelVariable(const char* name) {
   return it == g_variables.end() ? 0 : it->second;
 }
 
+// Windows' default timer resolution (15.6 ms) makes every short sleep and timed wait (the title's
+// KeDelayExecutionThread, vblank and audio pacing) last ~15.6 ms. Use the finest one, as Xenia does.
+void RaiseTimerResolution() {
+  using QueryFn = LONG(NTAPI*)(PULONG, PULONG, PULONG);
+  using SetFn = LONG(NTAPI*)(ULONG, BOOLEAN, PULONG);
+  HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+  auto query = reinterpret_cast<QueryFn>(GetProcAddress(ntdll, "NtQueryTimerResolution"));
+  auto set = reinterpret_cast<SetFn>(GetProcAddress(ntdll, "NtSetTimerResolution"));
+  if (!query || !set) return;
+  ULONG minimum, maximum, current;  // in 100 ns units; "maximum" is the finest
+  query(&minimum, &maximum, &current);
+  set(maximum, TRUE, &current);
+  KLOG_I("timer resolution: %.2f ms", current / 10000.0);
+}
+
 bool LoadTitle(const TitleInfo& info) {
   g_paths = info;
 
@@ -267,7 +282,8 @@ int Run(const TitleInfo& info) {
   SetupWriteWatch();
   // The window, Direct3D 12 and the GPU must exist before the title runs; this thread becomes the
   // UI thread.
-  if (!gpu::Initialize("AnyX360")) return 1;
+  RaiseTimerResolution();
+  if (!gpu::Initialize("AnyX360", info.display)) return 1;
   if (!LoadTitle(info)) return 1;
   gpu::InitializeShaderStorage(info.user_root / "cache", g_title.title_id);
 

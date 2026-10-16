@@ -31,6 +31,8 @@
 #include <windows.h>
 
 DECLARE_int32(log_level);
+DECLARE_int32(draw_resolution_scale_x);
+DECLARE_int32(draw_resolution_scale_y);
 
 namespace x360::gpu {
 
@@ -140,6 +142,7 @@ std::condition_variable g_interrupt_cv;
 std::deque<InterruptRequest> g_interrupts;
 std::atomic<int> g_exit_code{0};
 std::atomic<uint32_t> g_writeback{0};
+DisplayConfig g_display;
 
 }  // namespace
 
@@ -181,7 +184,7 @@ Host g_host;
 // vblank at 60 Hz plus queued command-buffer interrupts, delivered on a guest thread.
 void InterruptThreadBody() {
   using clock = std::chrono::steady_clock;
-  const auto period = std::chrono::microseconds(16667);
+  const auto period = std::chrono::microseconds(1000000 / (std::max(1u, g_display.target_fps) * 2));
   auto next_vblank = clock::now() + period;
   for (;;) {
     InterruptRequest request{};
@@ -216,9 +219,28 @@ class WindowListener final : public xe::ui::WindowListener {
 };
 WindowListener g_window_listener;
 
+// F11 / Alt+Enter toggle fullscreen.
+class WindowKeys final : public xe::ui::WindowInputListener {
+ public:
+  void OnKeyDown(xe::ui::KeyEvent& e) override {
+    bool toggle = e.virtual_key() == xe::ui::VirtualKey::kF11 ||
+                  (e.virtual_key() == xe::ui::VirtualKey::kReturn && e.is_alt_pressed());
+    if (toggle && g_window) {
+      g_window->SetFullscreen(!g_window->IsFullscreen());
+      e.set_handled(true);
+    }
+  }
+};
+WindowKeys g_window_keys;
+
 }  // namespace
 
-bool Initialize(const char* window_title) {
+const DisplayConfig& GetDisplayConfig() { return g_display; }
+
+bool Initialize(const char* window_title, const DisplayConfig& config) {
+  g_display = config;
+  cvars::draw_resolution_scale_x = int32_t(std::max(1u, config.render_scale));
+  cvars::draw_resolution_scale_y = int32_t(std::max(1u, config.render_scale));
   // ANYX360_XENIA_LOG_LEVEL: 0 error, 1 warning, 2 info (default), 3 debug (GPU details).
   if (const char* level = std::getenv("ANYX360_XENIA_LOG_LEVEL")) cvars::log_level = std::atoi(level);
   KLOG_I("GPU init: logging");
@@ -231,12 +253,14 @@ bool Initialize(const char* window_title) {
     return false;
   }
   KLOG_I("GPU init: window");
-  g_window = xe::ui::Window::Create(*g_app, window_title, 1280, 720);
+  g_window = xe::ui::Window::Create(*g_app, window_title, config.width, config.height);
   if (!g_window) {
     KLOG_E("could not create the game window");
     return false;
   }
   g_window->AddListener(&g_window_listener);
+  g_window->AddInputListener(&g_window_keys, 0);
+  if (config.fullscreen) g_window->SetFullscreen(true);
   if (!g_window->Open()) {
     KLOG_E("could not open the game window");
     return false;
@@ -256,6 +280,18 @@ bool Initialize(const char* window_title) {
   }
   KLOG_I("GPU init: presenter");
   g_window->SetPresenter(g_graphics->presenter());
+  {
+    using Effect = xe::ui::Presenter::GuestOutputPaintConfig::Effect;
+    xe::ui::Presenter::GuestOutputPaintConfig paint;
+    paint.SetAllowOverscanCutoff(true);
+    paint.SetEffect(config.upscale == DisplayConfig::Upscale::kFsr   ? Effect::kFsr
+                    : config.upscale == DisplayConfig::Upscale::kCas ? Effect::kCas
+                                                                     : Effect::kBilinear);
+    g_graphics->presenter()->SetGuestOutputPaintConfigFromUIThread(paint);
+    if (config.fxaa)
+      g_graphics->command_processor()->SetDesiredSwapPostEffect(
+          xe::gpu::CommandProcessor::SwapPostEffect::kFxaa);
+  }
   StartStatsOverlay(g_window.get(), g_graphics.get(), XeMemory());
 
   g_interrupt_thread = CreateHostDrivenThread("GPU interrupts", 2, InterruptThreadBody);
@@ -276,7 +312,8 @@ bool Initialize(const char* window_title) {
       last_swaps = swaps;
       static const char* capture_dir = std::getenv("ANYX360_CAPTURE_DIR");
       static int capture_index = 0;
-      if (capture_dir) CaptureFrame(g_graphics->presenter(), capture_dir, capture_index++);
+      if (capture_dir && !std::getenv("ANYX360_CAPTURE_MS"))
+        CaptureFrame(g_graphics->presenter(), capture_dir, capture_index++);
       static const char* dump_at = std::getenv("ANYX360_DUMP_AT");  // seconds, comma separated
       static int tick = 0;
       ++tick;
@@ -307,6 +344,17 @@ bool Initialize(const char* window_title) {
       }
     }
   }).detach();
+  // ANYX360_CAPTURE_MS: capture frames at this interval instead of every 5 s (with ANYX360_CAPTURE_DIR).
+  if (const char* ms = std::getenv("ANYX360_CAPTURE_MS"); ms && std::getenv("ANYX360_CAPTURE_DIR")) {
+    int interval = std::max(50, std::atoi(ms));
+    std::thread([interval] {
+      std::string dir = std::getenv("ANYX360_CAPTURE_DIR");
+      for (int index = 0;; ++index) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(interval));
+        CaptureFrame(g_graphics->presenter(), dir, index);
+      }
+    }).detach();
+  }
   KLOG_I("GPU: %s", g_graphics->name().c_str());
   return true;
 }

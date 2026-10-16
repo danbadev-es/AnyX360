@@ -9,6 +9,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <thread>
 #include <vector>
 
 #include "x360/kernel.h"
@@ -39,6 +40,44 @@ AudioClient g_clients[8];
 std::shared_ptr<Thread> g_audio_thread;
 std::unique_ptr<xe::apu::XmaDecoder> g_xma;
 std::atomic<uint32_t> g_xma_contexts{0};
+
+// Logs gaps between mix callbacks long enough to drain the queued frames (heard as a cut).
+std::atomic<int64_t> g_last_mix_us{0};
+std::atomic<uint32_t> g_mixes{0};
+
+int64_t NowUs() {
+  return std::chrono::duration_cast<std::chrono::microseconds>(
+             std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+
+void NoteMix() {
+  int64_t now = NowUs();
+  int64_t last = g_last_mix_us.exchange(now);
+  double gap = (now - last) / 1000.0;
+  if (++g_mixes > 100 && gap > 80.0) KLOG_W("audio: no frame mixed for %.0f ms (playback ran dry)", gap);
+}
+
+// ANYX360_AUDIO_WATCHDOG: dumps the guest threads when mixing stalls for 70 ms (a few times), to see
+// what the mixer waits on.
+void StartAudioWatchdog() {
+  if (!std::getenv("ANYX360_AUDIO_WATCHDOG")) return;
+  std::thread([] {
+    int dumps = 0;
+    bool in_stall = false;
+    while (dumps < 6) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      if (g_mixes < 200) continue;
+      bool stalled = NowUs() - g_last_mix_us.load() > 70000;
+      if (stalled && !in_stall) {
+        KLOG_W("audio watchdog: mixing stalled, thread dump %d", dumps + 1);
+        DumpThreads();
+        ++dumps;
+      }
+      in_stall = stalled;
+    }
+  }).detach();
+}
 
 // Produces one frame per buffer the host finishes playing: XAudio2 releases the client's semaphore
 // at the end of each buffer, so the device's clock drives the title's mixer (a timer cannot: sleeps
@@ -80,6 +119,7 @@ void AudioThreadBody() {
           callback = owners[index]->callback;
           argument = owners[index]->argument;
         }
+        NoteMix();
         CallGuest(callback, {argument});
         continue;
       }
@@ -112,7 +152,10 @@ uint32_t XAudioRegisterRenderDriverClient(uint32_t callback_ptr, uint32_t driver
     }
     c.active = true;
     Store<uint32_t>(driver_ptr, 0x41550000 | i);
-    if (!g_audio_thread) g_audio_thread = CreateHostDrivenThread("audio", 0, AudioThreadBody);
+    if (!g_audio_thread) {
+      g_audio_thread = CreateHostDrivenThread("audio", 0, AudioThreadBody);
+      StartAudioWatchdog();
+    }
     KLOG_I("XAudioRegisterRenderDriverClient: callback %08X(%08X) -> client %u", callback, argument, i);
     return X_STATUS_SUCCESS;
   }
