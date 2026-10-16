@@ -5,12 +5,17 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 
 namespace x360::gpu {
 
 // Creates the game window, the D3D12 graphics system and the vblank/interrupt thread. Must run on
 // the UI (main) thread after the guest memory exists. Returns false if D3D12 is unavailable.
 bool Initialize(const char* window_title);
+
+// Loads (and keeps updating) the title's persistent shader and pipeline cache under cache_root,
+// compiling cached pipelines in the background as Xenia does when it launches a title.
+void InitializeShaderStorage(const std::filesystem::path& cache_root, uint32_t title_id);
 
 // Runs the UI message loop until the window closes or the title exits; returns the exit code.
 int RunMessageLoop();

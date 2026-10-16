@@ -269,6 +269,7 @@ int Run(const TitleInfo& info) {
   // UI thread.
   if (!gpu::Initialize("AnyX360")) return 1;
   if (!LoadTitle(info)) return 1;
+  gpu::InitializeShaderStorage(info.user_root / "cache", g_title.title_id);
 
   std::thread([] {
     uint32_t code = RunMainThread(g_title.entry_point, g_title.stack_size);

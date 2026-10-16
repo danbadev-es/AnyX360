@@ -309,6 +309,12 @@ bool Initialize(const char* window_title) {
   return true;
 }
 
+void InitializeShaderStorage(const std::filesystem::path& cache_root, uint32_t title_id) {
+  if (!g_graphics) return;
+  KLOG_I("GPU: shader storage in %s", cache_root.string().c_str());
+  g_graphics->InitializeShaderStorage(cache_root, title_id, false);
+}
+
 int RunMessageLoop() {
   int result = g_app->RunMainMessageLoop();
   return result ? result : g_exit_code.load();
