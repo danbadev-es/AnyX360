@@ -1,0 +1,41 @@
+# Dance Central 3 recompiler configuration (XenonRecomp format). Paths are relative to this file.
+# This file contains no game code or data; it only describes where things are.
+#
+# file_path is a copy of the game's default.xex (the rest of the game is read where it is, see
+# docs/DANCECENTRAL3.md). The executable is encrypted with the devkit key; the XenonRecomp fork
+# falls back to it.
+
+[main]
+file_path = "../../extracted/dc3/default.xex"
+out_directory_path = "recomp"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x827DE360
+savegprlr_14_address = 0x827DE310
+restfpr_14_address = 0x827E037C
+savefpr_14_address = 0x827E0330
+restvmx_14_address = 0x82C60A98
+savevmx_14_address = 0x82C60800
+restvmx_64_address = 0x82C60B2C
+savevmx_64_address = 0x82C60894
+
+# setjmp/longjmp: no candidates (libjpeg is linked, but with Harmonix's own error handling).
+# setjmp_address = 0x0
+# longjmp_address = 0x0
+
+# Functions the analyser misses (address + size), added as they are found.
+# functions = [
+#   { address = 0x0, size = 0x0 },
+# ]

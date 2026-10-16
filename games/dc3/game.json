@@ -1,0 +1,16 @@
+{
+  "id": "dc3",
+  "title": "Dance Central 3",
+  "exe": "DanceCentral3",
+  "user_dir": "DanceCentral3",
+  "title_id": "373307D9",
+  "dev_game_dir": "extracted/dc3/game",
+  "launcher_name": "AnyX360 Dance Central 3",
+  "size_gb": 7,
+  "archive_hint": "Dance Central 3.7z",
+  "input": "webcam",
+  "required_files": ["gen/main_xbox.hdr"],
+  "owners": "Microsoft Corporation, Xbox Game Studios, Harmonix Music Systems",
+  "trademarks": ["Xbox", "Xbox 360", "Kinect", "Dance Central", "Harmonix"],
+  "components": ["MediaPipe (Apache 2.0)", "OpenCV (Apache 2.0)", "NumPy (BSD)", "Python (PSF)"]
+}
