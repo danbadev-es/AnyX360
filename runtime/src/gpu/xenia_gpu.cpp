@@ -12,6 +12,7 @@
 #include "frame_timing.h"
 #include "stats_overlay.h"
 #include "x360/kernel.h"
+#include "x360/settings.h"
 #include "xenia/base/cvar.h"
 #include "xenia/base/logging.h"
 #include "xenia/gpu/command_processor.h"
@@ -210,7 +211,8 @@ void InterruptThreadBody() {
   QueryPerformanceFrequency(&frequency_value);
   const int64_t frequency = frequency_value.QuadPart;
   static const char* spin_env = std::getenv("ANYX360_VBLANK_SPIN_US");
-  const int64_t spin = (spin_env ? std::atoi(spin_env) : 300) * frequency / 1000000;
+  const int64_t spin_us = spin_env ? std::atoi(spin_env) : settings::Get().pacing.vblank_spin_us;
+  const int64_t spin = std::clamp<int64_t>(spin_us, 0, 2000) * frequency / 1000000;
   uint32_t hz = 0;
   int64_t anchor = 0;
   uint64_t tick = 0;
@@ -257,6 +259,7 @@ class WindowListener final : public xe::ui::WindowListener {
   void OnClosing(xe::ui::UIEvent& e) override {
     (void)e;
     KLOG_I("window closed: exiting");
+    settings::SaveNow();
     std::fflush(nullptr);
     std::_Exit(0);
   }
@@ -268,7 +271,9 @@ class WindowKeys final : public xe::ui::WindowInputListener {
  public:
   void OnKeyDown(xe::ui::KeyEvent& e) override {
     if (e.virtual_key() == xe::ui::VirtualKey::kF1 && !e.prev_state()) {
-      SetStatsOverlayVisible(!IsStatsOverlayVisible());
+      bool show = !IsStatsOverlayVisible();
+      SetStatsOverlayVisible(show);
+      settings::Update([show](settings::Settings& s) { s.show_stats = show; });
       e.set_handled(true);
       return;
     }
@@ -357,7 +362,7 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
   // ANYX360_NO_OVERLAY=1: no ImGui at all, so the guest output thread always presents (A/B tests).
   if (!std::getenv("ANYX360_NO_OVERLAY")) {
     StartStatsOverlay(g_window.get(), g_graphics.get(), XeMemory());
-    if (std::getenv("ANYX360_OVERLAY")) SetStatsOverlayVisible(true);  // shown from the start
+    if (std::getenv("ANYX360_OVERLAY") || settings::Get().show_stats) SetStatsOverlayVisible(true);
   }
 
   g_interrupt_thread = CreateHostDrivenThread("GPU interrupts", 2, InterruptThreadBody);
