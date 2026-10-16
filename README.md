@@ -6,8 +6,9 @@ audio. There is no emulator at runtime.
 
 First target: **Gears of War 3**.
 
-> **Status: Phase 2 (CPU recompilation).** The whole Gears of War 3 executable recompiles to C++ and
-> builds. Nothing runs yet (no loader, kernel or GPU). See [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status: version 0.1.0.** Gears of War 3 runs natively: campaign, private Horde and local split
+> screen, keyboard and mouse or controllers, 60 FPS. See [CHANGELOG.md](CHANGELOG.md),
+> [docs/GEARS3.md](docs/GEARS3.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Inspired by [BLACK-XBERecomp](https://github.com/danielbarretoes/BLACK-XBERecomp) (original Xbox),
 [UnleashedRecomp](https://github.com/hedge-dev/UnleashedRecomp) / XenonRecomp (Xbox 360) and
@@ -37,6 +38,21 @@ ctest --test-dir build -C Release
 
 This builds `x360tool`, the forked XenonAnalyse, XenonRecomp and XenosRecomp, and (once its
 `recomp/` folder has been generated) the game. The game workflow is in [docs/GEARS3.md](docs/GEARS3.md).
+
+## Versioning
+
+AnyX360 follows [Semantic Versioning](https://semver.org). The version is in [VERSION](VERSION).
+Builds append the git commit as build metadata (`0.1.0+0b3cb8d`, plus `.dirty` with uncommitted
+changes). That full version appears in the launcher, the game's log, the F2 panel and the
+executables' file properties. Each release is tagged `v<version>` and described in
+[CHANGELOG.md](CHANGELOG.md) ([Spanish](CHANGELOG.es.md)), following
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+To release a version:
+1. Move the *Unreleased* entries to a new version section in both changelogs.
+2. Update `VERSION`.
+3. Commit and tag `v<version>`.
+4. Run `tools\package\make_dist.ps1`. It names the package after the tag, without build metadata.
 
 ## Tools
 

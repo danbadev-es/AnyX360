@@ -11,6 +11,7 @@
 #include <string>
 #include <thread>
 
+#include "anyx360_version.h"
 #include "frame_timing.h"
 #include "gpu_internal.h"
 #include "stats_overlay.h"
@@ -148,7 +149,8 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
         ImGui::EndTabBar();
       }
       ImGui::Separator();
-      ImGui::TextDisabled("F1 performance overlay   F2/Esc close   F11/Alt+Enter fullscreen");
+      ImGui::TextDisabled("AnyX360 " ANYX360_VERSION_FULL "   F1 performance overlay   F2/Esc close   F11/Alt+Enter "
+                          "fullscreen");
     }
     ImGui::End();
     if (!open) PostToUIThread(CloseSettingsPanel);

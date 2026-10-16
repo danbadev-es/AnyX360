@@ -1,0 +1,54 @@
+TÉRMINOS Y CONDICIONES DE USO DE ANYX360
+Versión 1.0 · 16 de octubre de 2026
+
+Lee estos términos antes de usar el software. Al pulsar «Aceptar», o al usar el software de cualquier forma, declaras que los has leído y que los aceptas. Si no estás de acuerdo, no lo uses y elimínalo de tu equipo.
+
+1. QUÉ ES ANYX360
+AnyX360 es un proyecto independiente, experimental y sin ánimo de lucro, desarrollado por danbadev, cuyo objetivo es la preservación y la interoperabilidad de videojuegos de Xbox 360 en ordenadores con Windows. Para ello utiliza la recompilación estática: el código del ejecutable de la consola se traduce automáticamente a código nativo de PC, y un entorno propio sustituye a los servicios del sistema de la consola. Este paquete está preparado para {GAME}.
+
+2. REQUISITO IMPRESCINDIBLE: UNA COPIA LEGAL DEL JUEGO
+Para usar AnyX360 debes ser titular de una copia original y adquirida legalmente de {GAME}. Los archivos del juego que utilices deben proceder de tu propia copia, por ejemplo de una copia de seguridad que tú mismo hayas hecho de tu disco, en la medida en que la ley de tu país lo permita.
+
+AnyX360 no proporciona, vende ni distribuye el juego ni ninguno de sus archivos o contenidos (datos, niveles, texturas, modelos, audio, vídeos, textos), ni facilita ni indica dónde obtenerlos. Si no posees una copia legal del juego, no estás autorizado a usar este software.
+
+3. TUS ARCHIVOS ORIGINALES
+AnyX360 no modifica los archivos del juego que aportas. El lanzador extrae los archivos de tu archivo comprimido en tu propio equipo y el programa los lee tal como son. Nada de tu copia del juego se envía a terceros.
+
+4. CONTENIDO DE ESTE PAQUETE
+Este paquete contiene el lanzador, un ejecutable para Windows generado por recompilación estática y componentes de terceros que se distribuyen bajo sus propias licencias (ver la sección 12). No contiene archivos de datos del juego.
+
+5. AUSENCIA DE AFILIACIÓN Y MARCAS
+AnyX360 no está afiliado, asociado, autorizado, patrocinado ni respaldado por Microsoft Corporation, Xbox Game Studios, The Coalition, Epic Games ni ningún otro titular de derechos sobre el juego. «Xbox», «Xbox 360», «Gears of War» y el resto de nombres y marcas mencionados pertenecen a sus respectivos titulares y se citan únicamente para identificar el juego con el que el software es compatible.
+
+6. USO PERMITIDO
+Se te permite usar el software solo para fines personales, privados y no comerciales, con tu propia copia legal del juego. No puedes:
+  a) venderlo, alquilarlo, sublicenciarlo ni obtener beneficio económico de él;
+  b) distribuirlo junto con archivos del juego, ni publicarlo o redistribuirlo sin el permiso de danbadev;
+  c) usarlo para acceder a contenidos que no te pertenezcan o para eludir medidas de protección sobre copias de las que no seas titular;
+  d) usarlo de cualquier forma contraria a la ley aplicable o a los derechos de terceros.
+
+7. SOFTWARE EXPERIMENTAL SIN GARANTÍA
+El software se proporciona «TAL CUAL» y «SEGÚN DISPONIBILIDAD», sin garantías de ningún tipo, expresas o implícitas, incluidas, entre otras, las de comerciabilidad, idoneidad para un fin determinado y no infracción. Es una versión de prueba: puede contener errores, cerrarse inesperadamente, no funcionar en tu equipo o dañar partidas guardadas. Haz copias de seguridad de lo que te importe.
+
+8. LIMITACIÓN DE RESPONSABILIDAD
+En la máxima medida permitida por la ley aplicable, danbadev y los colaboradores del proyecto no serán responsables de ningún daño directo, indirecto, incidental, especial o consecuente, incluidos la pérdida de datos, los daños al equipo, el lucro cesante o la interrupción de la actividad, derivados del uso del software o de la imposibilidad de usarlo, aunque se haya advertido de la posibilidad de tales daños. Nada en estos términos excluye la responsabilidad que no pueda excluirse según la ley.
+
+9. TU RESPONSABILIDAD
+Eres el único responsable de que tu copia del juego sea legal y de cumplir las leyes de propiedad intelectual y de cualquier otro tipo que se apliquen en tu país al usar el software. Te comprometes a mantener indemnes a danbadev y a los colaboradores del proyecto frente a cualquier reclamación derivada del incumplimiento de estos términos o de la ley por tu parte.
+
+10. TITULARES DE DERECHOS
+AnyX360 respeta los derechos de propiedad intelectual. Si eres titular de derechos y consideras que alguna parte del proyecto los vulnera, ponte en contacto con danbadev: la revisaremos y, si procede, la retiraremos.
+
+11. PRIVACIDAD
+El software no recopila ni envía datos personales. Tus partidas guardadas, ajustes y registros se guardan solo en tu equipo. Los registros de errores solo salen de tu equipo si tú decides enviarlos.
+
+12. COMPONENTES DE TERCEROS
+El software incluye componentes de terceros con licencias propias, entre ellos Xenia (BSD), XenonRecomp (MIT), FFmpeg (LGPL), libmspack (LGPL), Dear ImGui (MIT), AMD FidelityFX (MIT) y 7-Zip (GNU LGPL). Sus licencias se incluyen en la carpeta «licenses». Esas licencias rigen sus respectivos componentes y prevalecen sobre estos términos en lo que se refiere a ellos.
+
+13. CAMBIOS Y TERMINACIÓN
+danbadev puede modificar estos términos; las versiones nuevas se mostrarán en el lanzador y deberás aceptarlas para seguir usándolo. Tu derecho a usar el software termina automáticamente si incumples estos términos; en ese caso debes dejar de usarlo y eliminarlo.
+
+14. GENERAL
+Si alguna disposición de estos términos se considera inválida, las demás seguirán en vigor. Estos términos constituyen el acuerdo completo entre tú y danbadev sobre el uso del software. Las versiones en español e inglés de estos términos son equivalentes.
+
+Desarrollado por danbadev.

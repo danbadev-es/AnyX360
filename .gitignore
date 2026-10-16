@@ -21,6 +21,7 @@
 
 # --- Build ---
 /build/
+/dist/
 /out/
 /.vs/
 /.cache/

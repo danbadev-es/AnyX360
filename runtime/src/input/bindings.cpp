@@ -23,8 +23,9 @@ struct Control {
 };
 
 // Movement on WASD, camera on the mouse, aim (LT) and fire (RT) on the mouse buttons; A (cover,
-// roadie run, confirm) on Space/Shift/Enter, B (melee, back) on V/Backspace, X (reload, use) on E,
-// weapon slots (D-pad) on the arrows, 1-4 and the wheel.
+// roadie run, confirm) on Space/Shift/Enter, B (melee, back) on V/Backspace, RB (reload) on R,
+// X (use, pick up, revive) on E, LB (Tac-Com) on Q, weapon slots (D-pad) on the arrows, 1-4 and the
+// wheel.
 const Control kControls[] = {
     {"LUP", Target::kStickUp, 0, "W"},
     {"LDOWN", Target::kStickDown, 0, "S"},

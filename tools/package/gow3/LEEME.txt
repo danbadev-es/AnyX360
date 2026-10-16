@@ -1,0 +1,96 @@
+AnyX360 - Gears of War 3 · versión {VERSION}
+==========================================================
+Desarrollado por danbadev.                     (English: README.txt)
+
+Gears of War 3 de Xbox 360 recompilado para funcionar de forma nativa en Windows.
+Esta carpeta NO incluye el juego: hace falta tu propia copia legal de Gears of War 3
+(el archivo .7z con el disco).
+
+Al usar este software aceptas los términos y condiciones de TERMINOS.txt, que el launcher
+te muestra la primera vez que lo abres. Los cambios de cada versión están en CHANGELOG.es.md.
+
+
+REQUISITOS
+- Windows 10 u 11 de 64 bits.
+- Tarjeta gráfica con DirectX 12 y los drivers al día.
+- Unos 8 GB libres en el disco donde esté esta carpeta (el juego se extrae aquí dentro).
+- El archivo .7z de tu copia del juego ("Gears Of War 3.7z").
+
+
+PRIMERA VEZ
+1. Descomprime este .zip en una carpeta normal, por ejemplo Documentos o D:\Juegos
+   (no dentro de "Archivos de programa").
+2. Abre "AnyX360 Gears of War 3.exe".
+   Si Windows dice "Windows protegió su PC", pulsa "Más información" y luego
+   "Ejecutar de todas formas" (el programa no está firmado digitalmente).
+   La primera vez verás los términos y condiciones: léelos y acéptalos para continuar.
+   El launcher está en español e inglés: el idioma se cambia en el pie de la ventana.
+3. Pulsa "Elegir archivo .7z…" y selecciona el .7z del juego. Se extrae en la carpeta
+   "game" (unos minutos). Después puedes borrar el .7z si quieres.
+4. Pulsa "Jugar".
+
+La primera partida puede dar algún tirón mientras se preparan los gráficos; después va fluido.
+
+
+CONTROLES
+Jugador 1: teclado y ratón. Jugador 2: mando de Xbox.
+Para jugar solo con mando, abre F2 > Players y pon el Player 1 en "Controller".
+
+  Moverse                               W A S D
+  Mirar                                 Ratón
+  Apuntar / Disparar                    Clic derecho / Clic izquierdo
+  Cubrirse, correr, esquivar (A)        Espacio  (también Shift izquierdo o Enter)
+  Cuerpo a cuerpo, motosierra (B)       V  (también Retroceso)
+  Recargar (RB)                         R
+  Usar, recoger, reanimar (X)           E
+  Señalar (Y)                           F
+  Tac-Com (LB)                          Q
+  Cambiar de arma (cruceta)             Flechas, 1 2 3 4 o rueda del ratón
+  Zoom de la mira (R3)                  Clic central
+  L3                                    C
+  Pausa (Start)                         Esc
+  Marcador (Back)                       Tab
+
+En los menús: Espacio o Enter acepta, V o Retroceso vuelve.
+
+
+TECLAS DEL PROGRAMA
+  F1                  Estadísticas (FPS, memoria)
+  F2                  Ajustes: resolución, pantalla completa, escalado, FPS 30/60, VSync,
+                      sensibilidad del ratón y dispositivo de cada jugador
+  F11 o Alt+Enter     Pantalla completa
+  Alt+Tab             Suelta el ratón
+
+
+PANTALLA DIVIDIDA (cooperativo en el mismo PC)
+Con un mando conectado, el jugador 2 pulsa Start en el menú principal y se une al grupo.
+Luego entrad en Campaña como siempre: la pantalla se divide en dos.
+
+
+PARTIDAS GUARDADAS Y AJUSTES
+Están en %LOCALAPPDATA%\AnyX360\GearsOfWar3 (pégalo en la barra de direcciones del
+Explorador). Se conservan al pasar a una versión nueva.
+
+
+SI ALGO FALLA
+- Si el juego se cierra con un error, el launcher lo avisa. Pulsa "Registros" y envía
+  el archivo last_run.log (y previous_run.log si existe), indicando la versión
+  ({VERSION}) y qué estabas haciendo.
+- Si se queda congelado, ciérralo y envía igualmente last_run.log.
+
+
+PROBLEMAS CONOCIDOS
+- Las cinemáticas y los vídeos van a 30 FPS: así son en el juego original.
+- En Horda, el contador antes de la primera oleada puede quedarse en 0:30.
+- Puede haber algún cierre inesperado al cargar mapas de Horda.
+- No hay juego online (Xbox Live de 360 ya no existe). Campaña, Horda privada y pantalla
+  dividida sí funcionan.
+
+
+Incluye 7-Zip (www.7-zip.org) para extraer el archivo y otros componentes de código abierto;
+sus licencias están en la carpeta "licenses".
+
+AnyX360 no está afiliado a Microsoft, Xbox, The Coalition ni Epic Games. Gears of War y Xbox
+son marcas de sus respectivos titulares.
+
+Desarrollado por danbadev.

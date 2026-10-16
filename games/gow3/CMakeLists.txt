@@ -35,6 +35,11 @@ add_executable(gow3 src/main.cpp src/ue3_trace.cpp)
 target_link_libraries(gow3 PRIVATE gow3_ppc gow3_hle)
 target_compile_options(gow3 PRIVATE -msse4.1)
 set_target_properties(gow3 PROPERTIES OUTPUT_NAME GearsOfWar3)
+target_include_directories(gow3 PRIVATE ${ANYX360_GENERATED_DIR})
+anyx360_add_version_resource(gow3 "Gears of War 3 (AnyX360 static recompilation)" GearsOfWar3.exe)
 target_compile_options(gow3 PRIVATE -gline-tables-only)
 target_link_options(gow3 PRIVATE /DEBUG)
 target_compile_options(gow3_hle PRIVATE -gline-tables-only)
+
+# The distribution's launcher (tools/package/make_dist.ps1 builds the folder around it).
+anyx360_add_launcher(gow3_launcher "AnyX360 Gears of War 3" GearsOfWar3.exe "Gears of War 3" GearsOfWar3)

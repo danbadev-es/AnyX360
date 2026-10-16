@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.25)
-project(AnyX360 LANGUAGES C CXX)
+# The version is in VERSION (Semantic Versioning); CHANGELOG.md lists the changes of each one.
+file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/VERSION ANYX360_VERSION LIMIT_COUNT 1)
+project(AnyX360 VERSION ${ANYX360_VERSION} LANGUAGES C CXX RC)
+include(cmake/Version.cmake)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -42,6 +45,7 @@ if(ANYX360_BUILD_TOOLS)
 endif()
 
 if(ANYX360_BUILD_RUNTIME)
+  include(cmake/Launcher.cmake)
   add_subdirectory(tests)
   add_subdirectory(games/gow3)
 endif()

@@ -78,6 +78,27 @@ build.bat
 `recomp/` must be empty before regenerating: XenonRecomp does not delete output files from an earlier
 run whose function split was different, which leads to duplicate symbols at link time.
 
+## Distribution for testers
+`powershell -ExecutionPolicy Bypass -File tools\package\make_dist.ps1` builds the game and the
+launcher, then creates `dist\AnyX360-GearsOfWar3-<version>\` and a zip of it (about 55 MB). The
+version is `0.1.0` for a tagged release, or `0.1.0+<commit>` otherwise (see Versioning in the
+README). The package contains no game data. It holds:
+- `AnyX360 Gears of War 3.exe`, the launcher (`tools/launcher`).
+- `bin\`: the game executable and its .pdb, 7-Zip, and the shader cache.
+- `keys\` and `licenses\` (third-party licenses).
+- In English and Spanish: `README.txt`/`LEEME.txt`, `TERMS.txt`/`TERMINOS.txt`, and
+  `CHANGELOG.md`/`CHANGELOG.es.md`.
+
+What the launcher does:
+- Shows its text in English or Spanish. Windows' display language picks one; a link in the footer
+  switches, and the choice is remembered.
+- Shows the terms of use (`tools/launcher/terms_en.txt`, `terms_es.txt`) and requires accepting
+  them. They are asked again whenever either text changes.
+- Asks for the player's `.7z`, checks that it contains `default.xex` and that there is free space,
+  and extracts it to `game\` with a progress bar.
+- Starts the game without a console window, writing its output to `logs\last_run.log`.
+- If the game exits with an error, shows the launcher again and points to the log.
+
 ## Status (2026-10-16)
 - Boots through the Epic/Microsoft logos (Bink), title screen, brightness setup and every menu.
 - **Campaign works**: New campaign → difficulty → Act I Prologue "Troubled Past" (`SP_Nightmare_*`):
@@ -123,11 +144,11 @@ held), with a radial anti dead zone so slow movements still turn the camera. The
 | Right stick | Mouse |
 | A (cover, roadie run, confirm) | Space, Left Shift, Enter |
 | B (melee, back) | V, Backspace |
-| X (reload, use) | E |
-| Y | F |
-| LB / RB | Q / R |
+| X (use, pick up, revive) | E |
+| Y (point of interest) | F |
+| LB (Tac-Com) / RB (reload) | Q / R |
 | LT (aim) / RT (fire) | Right / left mouse button |
-| LS / RS | C / middle mouse button |
+| LS / RS (scope zoom) | C / middle mouse button |
 | Back / Start | Tab / Esc |
 | D-pad (weapons) | Arrows; 1 2 3 4 = left, right, down, up; wheel up = right, wheel down = left |
 

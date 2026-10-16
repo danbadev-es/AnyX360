@@ -23,6 +23,7 @@
 #include <functional>
 #include <vector>
 
+#include "anyx360_version.h"
 #include "x360/kernel.h"
 #include "x360/settings.h"
 
@@ -123,8 +124,8 @@ int main(int argc, char** argv) {
     return 1;
   }
   const auto& d = info.display;
-  std::printf("AnyX360 - Gears of War 3\n  game: %s\n  user: %s\n", info.game_root.string().c_str(),
-              info.user_root.string().c_str());
+  std::printf("AnyX360 " ANYX360_VERSION_FULL " - Gears of War 3\n  game: %s\n  user: %s\n",
+              info.game_root.string().c_str(), info.user_root.string().c_str());
   std::printf("  display: %ux%u%s, rendering %ux%u (%ux), %u FPS\n", d.width, d.height,
               d.fullscreen ? " fullscreen" : "", 1280 * d.render_scale, 720 * d.render_scale, d.render_scale,
               d.target_fps);
