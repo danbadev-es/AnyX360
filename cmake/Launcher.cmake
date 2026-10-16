@@ -10,6 +10,19 @@ function(anyx360_add_launcher target json_path)
   string(JSON size_gb GET "${json}" size_gb)
   string(JSON input GET "${json}" input)
   string(JSON owners GET "${json}" owners)
+  string(JSON title_id GET "${json}" title_id)
+  string(JSON required_count LENGTH "${json}" required_files)
+  set(required_files "")
+  if(required_count GREATER 0)
+    math(EXPR last "${required_count} - 1")
+    foreach(i RANGE ${last})
+      string(JSON file GET "${json}" required_files ${i})
+      if(i GREATER 0)
+        string(APPEND required_files "|")
+      endif()
+      string(APPEND required_files "${file}")
+    endforeach()
+  endif()
   add_executable(${target} WIN32
     ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.cpp
     ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.manifest)
@@ -22,7 +35,8 @@ function(anyx360_add_launcher target json_path)
   target_compile_definitions(${target} PRIVATE
     UNICODE _UNICODE _WIN32_WINNT=0x0A00 WINVER=0x0A00
     ANYX360_GAME_EXE="${exe}.exe" ANYX360_GAME_TITLE="${title}" ANYX360_USER_DIR="${user_dir}"
-    ANYX360_GAME_SIZE_GB=${size_gb} ANYX360_GAME_WEBCAM=${webcam})
+    ANYX360_GAME_SIZE_GB=${size_gb} ANYX360_GAME_WEBCAM=${webcam} ANYX360_GAME_TITLE_ID=0x${title_id}
+    ANYX360_GAME_REQUIRED_FILES="${required_files}")
   target_compile_options(${target} PRIVATE /utf-8)
 
   # The terms of use in English and Spanish, shown and accepted in the launcher, with the game's name,
@@ -71,6 +85,6 @@ constexpr char kTermsEsUtf8[] = R\"terms(@ANYX360_TERMS_es@)terms\";
     @ONLY)
   target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${ANYX360_GENERATED_DIR})
   target_compile_definitions(${target} PRIVATE ANYX360_TERMS_HEADER="${target}_terms.h")
-  target_link_libraries(${target} PRIVATE comctl32 ole32 shell32 uuid)
+  target_link_libraries(${target} PRIVATE comctl32 ole32 shell32 shlwapi uuid)
   anyx360_add_version_resource(${target} "${title} launcher (AnyX360)" "${output_name}.exe")
 endfunction()

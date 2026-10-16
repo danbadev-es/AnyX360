@@ -1,5 +1,6 @@
 // Windows launcher for a distribution folder: prepares the game files from the player's disc
-// archive (.7z) and starts the recompiled game, logging to logs\.
+// archive (.7z) or from a folder where their copy already is, and starts the recompiled game,
+// logging to logs\.
 //
 //   <launcher>.exe           this program
 //   bin\<game>.exe (+ .pdb)  the recompiled game (the .pdb names functions in crash reports)
@@ -7,10 +8,13 @@
 //   bin\shader_cache\        Xenia shader storage, copied once to the player's cache
 //   keys\xex2_retail.key
 //   game\                    the disc folder holding default.xex, extracted here by the launcher
+//   game_location.txt        or the folder of the player's copy, used where it is (UTF-8)
 //   logs\                    last_run.log (the game's output) and previous_run.log
 //
-// Run from the build folder (game executable next to the launcher, no bin\) it works the same.
-// `--archive <file.7z>` starts preparing from that archive without asking (unattended tests).
+// Either way the copy must be the right game: default.xex's title ID and the game's required files
+// are checked. Run from the build folder (game executable next to the launcher, no bin\) it works
+// the same. `--archive <file.7z>` and `--folder <dir>` start preparing without asking (unattended
+// tests).
 //
 // The text is in English and Spanish: Windows' display language picks one, the footer switches
 // (remembered in %LOCALAPPDATA%\AnyX360\launcher_language.txt). The terms of use
@@ -23,6 +27,7 @@
 #include <commctrl.h>
 #include <shellapi.h>
 #include <shlobj.h>
+#include <shlwapi.h>
 #include <shobjidl.h>
 
 #include <algorithm>
@@ -32,6 +37,7 @@
 #include <fstream>
 #include <functional>
 #include <initializer_list>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -56,6 +62,9 @@ const wchar_t* const kUserDir = ANYX360_WIDEN(ANYX360_USER_DIR);
 const wchar_t* const kVersion = ANYX360_WIDEN(ANYX360_VERSION_FULL);
 const wchar_t* const kGameSize = ANYX360_WIDEN(ANYX360_STRINGIFY(ANYX360_GAME_SIZE_GB));
 constexpr bool kWebcam = ANYX360_GAME_WEBCAM != 0;  // played with a webcam (virtual Kinect)
+constexpr uint32_t kTitleId = ANYX360_GAME_TITLE_ID;
+// Files a complete copy has besides default.xex ('|'-separated, relative to its folder).
+const wchar_t* const kRequiredFiles = ANYX360_WIDEN(ANYX360_GAME_REQUIRED_FILES);
 
 constexpr UINT kMsgProgress = WM_APP + 1;    // wParam: percent (-1 while checking the archive)
 constexpr UINT kMsgPrepared = WM_APP + 2;    // lParam: Message* (an error), or null on success
@@ -84,16 +93,24 @@ enum Text {
   kTextCancel,
   kTextLogs,
   kTextFooter,
+  kTextMenuArchive,
+  kTextMenuFolder,
   kTextDialogTitle,  // {0} game
+  kTextFolderTitle,  // {0} game
   kTextFilter7z,
   kTextFilterAll,
   kTextMissing7Zip,
   kTextConfirmPrepareAgain,
   kTextConfirmCancelExit,
   kTextPrepared,
+  kTextPreparedFolder,  // {0} folder
   kTextCancelled,
   kTextErrorList,       // {0} 7-Zip exit code
   kTextErrorNotGame,    // {0} game
+  kTextErrorNoXexFolder,  // {0} game
+  kTextErrorWrongTitle,   // {0} game, {1} title ID found
+  kTextErrorMissingFile,  // {0} file
+  kTextErrorLocationGone,  // {0} folder
   kTextErrorSpace,      // {0} needed, {1} free
   kTextErrorExtract,    // {0} 7-Zip exit code
   kTextErrorNoXex,
@@ -112,30 +129,38 @@ enum Text {
 
 const wchar_t* const kEnglish[kTextCount] = {
     L"AnyX360 {0} · native PC recompilation",
-    L"Checking the archive…",
+    L"Checking the game…",
     L"Finishing…",
     L"Extracting the game… {0} %",
     L"Ready to play. Keyboard and mouse or an Xbox controller; F2 opens the settings in game.",
     L"Ready to play. Stand 2-3 m from your webcam with your whole body in view; F2 opens the settings in "
     L"game.",
-    L"First the game has to be prepared: choose the .7z archive with your {0} disc. It is extracted into "
-    L"this folder (about {1} GB).",
+    L"First the game has to be prepared: choose the .7z archive with your {0} disc (it is extracted into "
+    L"this folder, about {1} GB) or the folder where your copy already is.",
     L"Play",
-    L"Choose .7z archive…",
+    L"Prepare the game…",
     L"Prepare again…",
     L"Cancel",
     L"Logs",
     L"Developed by danbadev-es  ·  <a>Terms of use</a>  ·  <a>Español</a>",
+    L"From a .7z archive…",
+    L"From a game folder…",
     L"Choose the .7z archive of {0}",
+    L"Choose the folder of {0} (the one with default.xex)",
     L"7z archive",
     L"All files",
     L"7-Zip is missing (bin\\7z.exe). Extract the whole folder again.",
-    L"The game is already prepared. Extract it again from a .7z? The current files will be replaced.",
+    L"The game is already prepared. Prepare it again? The current setup will be replaced.",
     L"Cancel the extraction and exit?",
     L"The game is ready.",
+    L"The game is ready. It is played from {0}: don't move or delete that folder.",
     L"Extraction cancelled.",
     L"7-Zip could not read the archive (code {0}). Check that it is the game's .7z and that it is complete.",
     L"That archive has no default.xex: it doesn't look like the {0} disc.",
+    L"That folder has no default.xex: choose the folder of your {0} copy.",
+    L"That copy is another game (title {1}), not {0}.",
+    L"The copy is incomplete: {0} is missing.",
+    L"The game folder is no longer available ({0}). Prepare the game again.",
     L"Not enough space on this drive: {0} needed, {1} free. Move this folder to another drive or free up "
     L"space.",
     L"The extraction failed (7-Zip code {0}). Check the free space and that the archive isn't damaged.",
@@ -155,30 +180,38 @@ const wchar_t* const kEnglish[kTextCount] = {
 
 const wchar_t* const kSpanish[kTextCount] = {
     L"AnyX360 {0} · recompilación nativa para PC",
-    L"Comprobando el archivo…",
+    L"Comprobando el juego…",
     L"Terminando…",
     L"Extrayendo el juego… {0} %",
     L"Listo para jugar. Teclado y ratón o mando de Xbox; F2 abre los ajustes durante la partida.",
     L"Listo para jugar. Ponte a 2-3 m de la webcam, con todo el cuerpo a la vista; F2 abre los ajustes "
     L"durante la partida.",
-    L"Primero hay que preparar el juego: elige el archivo .7z con tu disco de {0}. Se extraerá en esta "
-    L"carpeta (unos {1} GB).",
+    L"Primero hay que preparar el juego: elige el archivo .7z con tu disco de {0} (se extrae en esta "
+    L"carpeta, unos {1} GB) o la carpeta donde ya tienes tu copia.",
     L"Jugar",
-    L"Elegir archivo .7z…",
+    L"Preparar el juego…",
     L"Volver a preparar…",
     L"Cancelar",
     L"Registros",
     L"Desarrollado por danbadev-es  ·  <a>Términos y condiciones de uso</a>  ·  <a>English</a>",
+    L"Desde un archivo .7z…",
+    L"Desde una carpeta del juego…",
     L"Elige el archivo .7z de {0}",
+    L"Elige la carpeta de {0} (la que tiene default.xex)",
     L"Archivo 7z",
     L"Todos los archivos",
     L"Falta 7-Zip (bin\\7z.exe). Vuelve a descomprimir la carpeta completa.",
-    L"El juego ya está preparado. ¿Extraerlo otra vez desde un .7z? Se reemplazarán los archivos actuales.",
+    L"El juego ya está preparado. ¿Prepararlo otra vez? Se reemplazará la preparación actual.",
     L"¿Cancelar la extracción y salir?",
     L"El juego está preparado.",
+    L"El juego está preparado. Se juega desde {0}: no muevas ni borres esa carpeta.",
     L"Extracción cancelada.",
     L"7-Zip no pudo leer el archivo (código {0}). Comprueba que es el .7z del juego y que está completo.",
     L"Ese archivo no contiene default.xex: no parece el disco de {0}.",
+    L"Esa carpeta no contiene default.xex: elige la carpeta de tu copia de {0}.",
+    L"Esa copia es de otro juego (título {1}), no de {0}.",
+    L"La copia está incompleta: falta {0}.",
+    L"La carpeta del juego ya no está disponible ({0}). Vuelve a preparar el juego.",
     L"No hay espacio suficiente en esta unidad: hacen falta {0} y hay {1}. Mueve esta carpeta a otro disco "
     L"o libera espacio.",
     L"La extracción falló (código de 7-Zip {0}). Comprueba el espacio libre y que el archivo no esté dañado.",
@@ -245,12 +278,44 @@ fs::path Root() {
   return root;
 }
 
-fs::path GameDir() { return Root() / L"game"; }
+fs::path ExtractedDir() { return Root() / L"game"; }
+fs::path LocationFile() { return Root() / L"game_location.txt"; }
 fs::path LogDir() { return Root() / L"logs"; }
 
 bool Exists(const fs::path& path) {
   std::error_code ec;
   return fs::exists(path, ec);
+}
+
+// A one-line UTF-8 text file (paths may have any characters).
+std::wstring ReadUtf8(const fs::path& path) {
+  std::ifstream in(path, std::ios::binary);
+  std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  if (bytes.rfind("\xEF\xBB\xBF", 0) == 0) bytes.erase(0, 3);  // saved by an editor with a BOM
+  while (!bytes.empty() && (bytes.back() == '\n' || bytes.back() == '\r')) bytes.pop_back();
+  int length = MultiByteToWideChar(CP_UTF8, 0, bytes.data(), int(bytes.size()), nullptr, 0);
+  std::wstring text(size_t(std::max(length, 0)), L'\0');
+  MultiByteToWideChar(CP_UTF8, 0, bytes.data(), int(bytes.size()), text.data(), length);
+  return text;
+}
+
+bool WriteUtf8(const fs::path& path, const std::wstring& text) {
+  int length = WideCharToMultiByte(CP_UTF8, 0, text.data(), int(text.size()), nullptr, 0, nullptr, nullptr);
+  std::string bytes(size_t(std::max(length, 0)), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, text.data(), int(text.size()), bytes.data(), length, nullptr, nullptr);
+  std::ofstream out(path, std::ios::binary | std::ios::trunc);
+  out << bytes << "\n";
+  return bool(out);
+}
+
+// The folder of a copy prepared in place, or empty.
+fs::path StoredLocation() { return Exists(LocationFile()) ? fs::path(ReadUtf8(LocationFile())) : fs::path(); }
+
+// The prepared copy: the game\ folder extracted from an archive, else the player's own folder.
+fs::path GameDir() {
+  if (Exists(ExtractedDir() / L"default.xex")) return ExtractedDir();
+  fs::path stored = StoredLocation();
+  return stored.empty() ? ExtractedDir() : stored;
 }
 
 bool GameReady() { return Exists(GameDir() / L"default.xex"); }
@@ -303,6 +368,12 @@ void WriteSetting(const fs::path& path, const std::wstring& value) {
 }
 
 std::wstring Quote(const fs::path& path) { return L"\"" + path.wstring() + L"\""; }
+
+// A path short enough for one line of a message ("C:\Users\...\Disc\Game").
+std::wstring ShortPath(const fs::path& path) {
+  wchar_t shortened[MAX_PATH];
+  return PathCompactPathExW(shortened, path.c_str(), 56, 0) ? shortened : path.wstring();
+}
 
 std::wstring Gigabytes(uint64_t bytes) {
   wchar_t text[32];
@@ -420,6 +491,100 @@ void RemoveAll(const fs::path& path) {
   fs::remove_all(path, ec);
 }
 
+// The folder holding default.xex: `folder` itself or one up to 4 levels below it (archives and copies
+// often have the disc inside a folder or two).
+fs::path FindGameRoot(const fs::path& folder) {
+  if (Exists(folder / L"default.xex")) return folder;
+  std::error_code ec;
+  for (auto it = fs::recursive_directory_iterator(folder, ec); !ec && it != fs::recursive_directory_iterator();
+       it.increment(ec)) {
+    if (it.depth() > 4) {
+      it.disable_recursion_pending();
+      continue;
+    }
+    std::wstring name = it->path().filename().wstring();
+    std::transform(name.begin(), name.end(), name.begin(), ::towlower);
+    if (name == L"default.xex" && it->is_regular_file(ec)) return it->path().parent_path();
+  }
+  return {};
+}
+
+// The title ID in default.xex's header: the execution info (optional header 0x00040006) holds it at
+// offset 0xC. All big-endian.
+bool ReadTitleId(const fs::path& xex, uint32_t& title_id) {
+  std::ifstream in(xex, std::ios::binary);
+  std::vector<uint8_t> header(0x10000);
+  in.read(reinterpret_cast<char*>(header.data()), std::streamsize(header.size()));
+  size_t size = size_t(in.gcount());
+  auto be32 = [&](size_t at) -> uint32_t {
+    if (at + 4 > size) return 0;
+    return uint32_t(header[at]) << 24 | uint32_t(header[at + 1]) << 16 | uint32_t(header[at + 2]) << 8 | header[at + 3];
+  };
+  if (be32(0) != 0x58455832) return false;  // 'XEX2'
+  uint32_t count = std::min<uint32_t>(be32(0x14), 256);
+  for (uint32_t i = 0; i < count; ++i) {
+    if (be32(0x18 + i * 8) != 0x00040006) continue;
+    uint32_t info = be32(0x1C + i * 8);
+    if (size_t(info) + 0x10 > size) return false;
+    title_id = be32(info + 0xC);
+    return true;
+  }
+  return false;
+}
+
+// A copy must be this game (the recompiled code only runs its own executable) and complete.
+bool CheckCopy(const fs::path& root, Message& error) {
+  uint32_t title_id = 0;
+  if (!ReadTitleId(root / L"default.xex", title_id) || title_id != kTitleId) {
+    wchar_t found[16];
+    swprintf(found, 16, L"%08X", title_id);
+    error = {kTextErrorWrongTitle, {kGameTitle, found}, true};
+    return false;
+  }
+  std::wstring files = kRequiredFiles;
+  for (size_t start = 0; start < files.size();) {
+    size_t end = files.find(L'|', start);
+    if (end == std::wstring::npos) end = files.size();
+    std::wstring file = files.substr(start, end - start);
+    start = end + 1;
+    if (!file.empty() && !Exists(root / file)) {
+      error = {kTextErrorMissingFile, {file}, true};
+      return false;
+    }
+  }
+  return true;
+}
+
+// Removes an earlier extraction (game\), which would take precedence over a copy used in place.
+void RemoveExtracted() {
+  if (!Exists(ExtractedDir())) return;
+  std::error_code ec;
+  fs::path old = Root() / L"game.old";
+  RemoveAll(old);
+  fs::rename(ExtractedDir(), old, ec);
+  RemoveAll(old);
+}
+
+// Worker thread: checks the player's folder and remembers it; the copy is played where it is.
+void PrepareFolderWorker(fs::path folder) {
+  auto finish = [](const Message& result) { PostMessageW(g_window, kMsgPrepared, 0, LPARAM(new Message(result))); };
+  fs::path root = FindGameRoot(folder);
+  if (root.empty()) return finish({kTextErrorNoXexFolder, {kGameTitle}, true});
+  Message error;
+  if (!CheckCopy(root, error)) return finish(error);
+  std::error_code ec;
+  root = fs::absolute(root, ec);
+  fs::path extracted = fs::absolute(ExtractedDir(), ec);
+  auto relative = root.lexically_relative(extracted);
+  if (!relative.empty() && *relative.begin() != L"..") {  // the extracted copy itself
+    fs::remove(LocationFile(), ec);
+    return finish({kTextPrepared, {}, false});
+  }
+  RemoveExtracted();
+  if (!WriteUtf8(LocationFile(), root.wstring())) return finish({kTextErrorMove, {L"game_location.txt"}, true});
+  finish({kTextPreparedFolder, {ShortPath(root)}, false});
+}
+
 // Worker thread: checks and extracts the archive, then moves the folder holding default.xex to
 // game\. Posts progress and, at the end, kMsgPrepared.
 void PrepareWorker(fs::path archive) {
@@ -469,38 +634,25 @@ void PrepareWorker(fs::path archive) {
   }
   PostMessageW(g_window, kMsgProgress, 100, 0);
 
-  fs::path found;
-  std::error_code ec;
-  for (auto it = fs::recursive_directory_iterator(partial, ec); !ec && it != fs::recursive_directory_iterator();
-       it.increment(ec)) {
-    if (it.depth() > 4) {
-      it.disable_recursion_pending();
-      continue;
-    }
-    std::wstring name = it->path().filename().wstring();
-    std::transform(name.begin(), name.end(), name.begin(), ::towlower);
-    if (name == L"default.xex" && it->is_regular_file(ec)) {
-      found = it->path().parent_path();
-      break;
-    }
-  }
+  fs::path found = FindGameRoot(partial);
   if (found.empty()) {
     RemoveAll(partial);
     return finish({kTextErrorNoXex, {}, true});
   }
-  if (Exists(GameDir())) {  // preparing again: replace the old files
-    fs::path old = Root() / L"game.old";
-    RemoveAll(old);
-    fs::rename(GameDir(), old, ec);
-    RemoveAll(old);
+  if (!CheckCopy(found, error)) {
+    RemoveAll(partial);
+    return finish(error);
   }
-  fs::rename(found, GameDir(), ec);
+  RemoveExtracted();  // preparing again: replace the old files
+  std::error_code ec;
+  fs::rename(found, ExtractedDir(), ec);
   if (ec) {
     std::string reason = ec.message();
     RemoveAll(partial);
     return finish({kTextErrorMove, {std::wstring(reason.begin(), reason.end())}, true});
   }
   if (found != partial) RemoveAll(partial);
+  fs::remove(LocationFile(), ec);  // a copy used in place before
   finish({});
 }
 
@@ -663,13 +815,33 @@ fs::path ChooseArchive() {
   return chosen;
 }
 
-void StartPreparing(const fs::path& archive) {
+fs::path ChooseFolder() {
+  fs::path chosen;
+  IFileOpenDialog* dialog = nullptr;
+  if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog))))
+    return chosen;
+  std::wstring title = Tr(kTextFolderTitle, {kGameTitle});
+  dialog->SetTitle(title.c_str());
+  dialog->SetOptions(FOS_PICKFOLDERS | FOS_PATHMUSTEXIST | FOS_FORCEFILESYSTEM);
+  IShellItem* item = nullptr;
+  if (SUCCEEDED(dialog->Show(g_window)) && SUCCEEDED(dialog->GetResult(&item))) {
+    wchar_t* path = nullptr;
+    if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path))) chosen = path;
+    CoTaskMemFree(path);
+    item->Release();
+  }
+  dialog->Release();
+  return chosen;
+}
+
+// `from_folder`: the player's folder, used in place; otherwise a .7z archive extracted here.
+void StartPreparing(const fs::path& source, bool from_folder) {
   g_state = State::kPreparing;
   g_percent = -1;
   g_message = {};
   g_cancel = false;
   UpdateUi();
-  g_worker = std::thread(PrepareWorker, archive);
+  g_worker = from_folder ? std::thread(PrepareFolderWorker, source) : std::thread(PrepareWorker, source);
 }
 
 void OnPrepare() {
@@ -679,15 +851,31 @@ void OnPrepare() {
     if (g_extractor) TerminateProcess(g_extractor, 1);
     return;
   }
-  if (SevenZip().empty()) {
-    MessageBoxW(g_window, Tr(kTextMissing7Zip).c_str(), kGameTitle, MB_ICONERROR);
-    return;
-  }
   if (GameReady() &&
       MessageBoxW(g_window, Tr(kTextConfirmPrepareAgain).c_str(), kGameTitle, MB_YESNO | MB_ICONQUESTION) != IDYES)
     return;
-  fs::path archive = ChooseArchive();
-  if (!archive.empty()) StartPreparing(archive);
+  // Where the copy comes from: a menu under the button.
+  enum { kFromArchive = 1, kFromFolder };
+  std::wstring from_archive = Tr(kTextMenuArchive), from_folder = Tr(kTextMenuFolder);
+  HMENU menu = CreatePopupMenu();
+  AppendMenuW(menu, MF_STRING, kFromArchive, from_archive.c_str());
+  AppendMenuW(menu, MF_STRING, kFromFolder, from_folder.c_str());
+  RECT button;
+  GetWindowRect(GetDlgItem(g_window, kPrepare), &button);
+  int choice = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_LEFTALIGN | TPM_TOPALIGN, button.left,
+                              button.bottom, 0, g_window, nullptr);
+  DestroyMenu(menu);
+  if (choice == kFromArchive) {
+    if (SevenZip().empty()) {
+      MessageBoxW(g_window, Tr(kTextMissing7Zip).c_str(), kGameTitle, MB_ICONERROR);
+      return;
+    }
+    fs::path archive = ChooseArchive();
+    if (!archive.empty()) StartPreparing(archive, false);
+  } else if (choice == kFromFolder) {
+    fs::path folder = ChooseFolder();
+    if (!folder.empty()) StartPreparing(folder, true);
+  }
 }
 
 void OnPlay() {
@@ -991,11 +1179,20 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     CoUninitialize();
     return 0;
   }
+  // A copy prepared in place that has since been moved or deleted (or a disconnected drive).
+  fs::path stored = StoredLocation();
+  if (!GameReady() && !stored.empty()) {
+    g_message = {kTextErrorLocationGone, {ShortPath(stored)}, true};
+    UpdateUi();
+  }
   ShowWindow(g_window, show);
   int argc = 0;
   LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-  for (int i = 1; i + 1 < argc; ++i)
-    if (std::wstring(argv[i]) == L"--archive" && !SevenZip().empty()) StartPreparing(argv[i + 1]);
+  for (int i = 1; i + 1 < argc; ++i) {
+    std::wstring arg = argv[i];
+    if (arg == L"--archive" && !SevenZip().empty()) StartPreparing(argv[i + 1], false);
+    if (arg == L"--folder") StartPreparing(argv[i + 1], true);
+  }
   LocalFree(argv);
 
   MSG msg;
