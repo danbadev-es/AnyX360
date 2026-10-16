@@ -1,24 +1,30 @@
-# Builds a Gears of War 3 distribution for testers: dist\AnyX360-GearsOfWar3-<version>\ and a .zip
-# of it. It holds the launcher, the recompiled executable (with its .pdb, so crash reports name
-# functions), 7-Zip, the XEX key, the shader cache, the README, the terms of use (TERMS.txt; the
-# launcher shows them in English or Spanish), the changelog and the third-party licenses - no game
-# data: the launcher extracts the player's own disc archive (.7z) next to itself.
+# Builds a distribution of one game for testers: dist\AnyX360-<Game>-<version>\ and a .zip of it. It
+# holds the launcher, the recompiled executable (with its .pdb, so crash reports name functions),
+# 7-Zip, the XEX key, the shader cache, the README, the terms of use (TERMS.txt; the launcher shows
+# them in English or Spanish), the changelog and the third-party licenses - no game data: the launcher
+# extracts the player's own disc archive (.7z) next to itself, or uses the folder of their copy.
+#
+# The game's facts come from games\<id>\game.json; its README is tools\package\<id>\README.txt, and
+# tools\package\<id>\extra.ps1 (optional) adds the game's own files to the folder.
 #
 # <version> is the VERSION file (Semantic Versioning). A release - HEAD tagged v<version> with no
 # uncommitted changes - is named just by it ("0.1.0"); anything else carries the commit as build
 # metadata, like the executables ("0.1.0+0b3cb8d", "0.1.0+0b3cb8d.dirty").
 #
-#   powershell -ExecutionPolicy Bypass -File tools\package\make_dist.ps1 [-NoBuild]
+#   powershell -ExecutionPolicy Bypass -File tools\package\make_dist.ps1 [-Game gow3] [-NoBuild] [-OutDir <folder>]
 #
 # Needs 7-Zip installed (its 7z.exe and 7z.dll are copied) and keys\xex2_retail.key.
-param([switch]$NoBuild)
+param([string]$Game = 'gow3', [switch]$NoBuild, [string]$OutDir = '')
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path "$PSScriptRoot\..\..").Path
-$release = "$root\build\games\gow3\Release"
-$launcher = "AnyX360 Gears of War 3.exe"
+$info = Get-Content "$root\games\$Game\game.json" -Raw | ConvertFrom-Json
+$release = "$root\build\games\$Game\Release"
+$launcher = "$($info.launcher_name).exe"
+$exe = $info.exe
+if (-not $OutDir) { $OutDir = "$root\dist" }
 
 if (-not $NoBuild) {
-  foreach ($target in 'gow3', 'gow3_launcher') {
+  foreach ($target in $Game, "${Game}_launcher") {
     & "$root\build.bat" release $target | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Build of $target failed: run build.bat release $target to see why." }
   }
@@ -30,9 +36,12 @@ foreach ($file in '7z.exe', '7z.dll', 'License.txt') {
 }
 $key = "$root\keys\xex2_retail.key"
 if (-not (Test-Path $key)) { throw "$key is missing" }
-foreach ($file in $launcher, 'GearsOfWar3.exe', 'GearsOfWar3.pdb') {
+foreach ($file in $launcher, "$exe.exe", "$exe.pdb") {
   if (-not (Test-Path "$release\$file")) { throw "$release\$file is missing: build first" }
 }
+# The English terms with the game's details, as the launcher build filled them in.
+$terms = "$root\build\games\$Game\${Game}_launcher_terms_en.txt"
+if (-not (Test-Path $terms)) { throw "$terms is missing: build ${Game}_launcher first" }
 
 # Licenses of the third-party code in the executables (BSD/MIT notices, LGPL texts).
 $third = "$root\thirdparty"
@@ -64,28 +73,30 @@ $commit = (& git -C $root rev-parse --short=7 HEAD).Trim()
 $dirty = [bool](& git -C $root status --porcelain --untracked-files=no)
 $tag = (& git -C $root tag --points-at HEAD) -contains "v$version"
 if ($dirty -or -not $tag) { $version += "+$commit" + $(if ($dirty) { '.dirty' } else { '' }) }
-$dist = "$root\dist\AnyX360-GearsOfWar3-$version"
+$dist = "$OutDir\AnyX360-$exe-$version"
 if (Test-Path $dist) { throw "$dist already exists: delete it (and its .zip) to package this version again" }
 
 New-Item -ItemType Directory "$dist\bin", "$dist\keys", "$dist\licenses" | Out-Null
 Copy-Item "$release\$launcher" $dist
-Copy-Item "$release\GearsOfWar3.exe", "$release\GearsOfWar3.pdb" "$dist\bin"
+Copy-Item "$release\$exe.exe", "$release\$exe.pdb" "$dist\bin"
 Copy-Item "$sevenZip\7z.exe", "$sevenZip\7z.dll" "$dist\bin"
 Copy-Item $key "$dist\keys"
 foreach ($entry in $licenses.GetEnumerator()) { Copy-Item $entry.Value "$dist\licenses\$($entry.Key)" }
 # Shaders and pipelines collected while testing: the launcher seeds the player's cache with them.
-$cache = "$env:LOCALAPPDATA\AnyX360\GearsOfWar3\cache\shaders"
+$cache = "$env:LOCALAPPDATA\AnyX360\$($info.user_dir)\cache\shaders"
 if (Test-Path $cache) { Copy-Item $cache "$dist\bin\shader_cache" -Recurse }
+# The game's own files (for example the webcam bridge of a Kinect game).
+$extra = "$PSScriptRoot\$Game\extra.ps1"
+if (Test-Path $extra) { & $extra -Root $root -Dist $dist -Release $release }
 
 # Texts as UTF-8 with a BOM and Windows line endings, for Notepad.
 $bom = New-Object Text.UTF8Encoding $true
 function Write-Text([string]$source, [string]$target) {
-  $text = (Get-Content $source -Raw -Encoding UTF8).Replace('{VERSION}', $version).Replace('{GAME}', 'Gears of War 3')
+  $text = (Get-Content $source -Raw -Encoding UTF8).Replace('{VERSION}', $version).Replace('{GAME}', $info.title)
   [IO.File]::WriteAllText($target, $text.Replace("`r`n", "`n").Replace("`n", "`r`n"), $bom)
 }
-Write-Text "$PSScriptRoot\gow3\README.txt" "$dist\README.txt"
-# The English terms with the game's details, as the launcher build filled them in.
-Write-Text "$root\build\games\gow3\gow3_launcher_terms_en.txt" "$dist\TERMS.txt"
+Write-Text "$PSScriptRoot\$Game\README.txt" "$dist\README.txt"
+Write-Text $terms "$dist\TERMS.txt"
 Write-Text "$root\CHANGELOG.md" "$dist\CHANGELOG.md"
 
 Compress-Archive -Path $dist -DestinationPath "$dist.zip"
