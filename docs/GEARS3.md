@@ -89,9 +89,84 @@ run whose function split was different, which leads to duplicate symbols at link
 - Display: 60 FPS by default (vblank at 120 Hz; the game presents every second vblank), window
   1080p with AMD FSR upscaling. Options: `--resolution 720|1080|1440|2160`, `--scale 1-3` (native
   render scale; 2x is GPU-heavy), `--upscale fsr|cas|bilinear`, `--fxaa`, `--fps 30|60`,
-  `--fullscreen`; F11 / Alt+Enter toggle fullscreen.
-- Performance overlay (top-left, **F1** toggles): guest FPS and frame time, the process's VRAM use
-  (DXGI budget), host RAM (working set and commit) and guest memory in use.
+  `--fullscreen`; F11 / Alt+Enter toggle fullscreen. The window title is the XEX's own title name
+  ("AnyX360 - Gears of War 3", from the SPA/XDBF resource).
+- **Settings panel (F2)**, an ImGui window over the game (F2 or Esc closes it):
+  - Display: window size, fullscreen, upscaling, FXAA, VSync, 30/60 FPS, and the render scale, which
+    needs a restart ("Restart now" relaunches the game with the saved settings).
+  - Controls: mouse sensitivity, aiming sensitivity, invert Y, smoothing and anti dead zone.
+  - Players: the device of each player.
+  - Performance: frame-interval graphs and the vblank state.
+
+  While the panel is open the game gets no keyboard or mouse input and the cursor is free.
+- **Settings file** `<user>\settings.toml` (`%LOCALAPPDATA%\AnyX360\GearsOfWar3`). Precedence:
+  defaults, then the file, then command-line flags. Flags apply to that session only and are saved
+  only if the same setting is then changed in the panel. An invalid file is renamed to
+  `settings.toml.bad` and the defaults are used.
+- Performance overlay (top-left, **F1** toggles, remembered): guest FPS and frame time, frame and
+  present interval graphs, the process's VRAM use (DXGI budget), host RAM (working set and commit)
+  and guest memory in use.
+
+### Keyboard and mouse
+Player 1 uses the keyboard and mouse by default, player 2 the first Xbox controller. Devices are
+assigned in the F2 panel's Players tab or with `[players]` in settings.toml. To play alone with a
+controller, set player 1 to it.
+
+The mouse is the right stick. Raw mouse input is read on its own thread, and the stick deflection
+is the mouse speed over `smoothing_ms`, times the sensitivity (the aiming sensitivity while LT is
+held), with a radial anti dead zone so slow movements still turn the camera. The cursor is captured
+(clipped and hidden) while the window is active; Alt+Tab or F2 frees it.
+
+| Pad | Keys (default; `[input.bindings]` overrides) |
+|---|---|
+| Left stick | W A S D |
+| Right stick | Mouse |
+| A (cover, roadie run, confirm) | Space, Left Shift, Enter |
+| B (melee, back) | V, Backspace |
+| X (reload, use) | E |
+| Y | F |
+| LB / RB | Q / R |
+| LT (aim) / RT (fire) | Right / left mouse button |
+| LS / RS | C / middle mouse button |
+| Back / Start | Tab / Esc |
+| D-pad (weapons) | Arrows; 1 2 3 4 = left, right, down, up; wheel up = right, wheel down = left |
+
+### Split screen
+Player 2 (and 3, 4) joins in the main menu by pressing Start with their device. The party then shows
+the player as "not signed in" and the campaign runs in split screen. To join with a profile
+(name, saves under `<user>\players\<XUID>`), sign the player in at the title screen. Use the F2
+Players tab or `players.sign_in = "at_start"`. Gears returns to the title screen ("Sign-In Status
+Changed") when the number of signed-in players changes later. Player 1's profile and saves keep
+their original paths.
+
+### Frame pacing
+Campaign gameplay at 60 FPS on a 60 Hz display, windowed. Measured with `ANYX360_FRAMETIMES` and
+`tools/scripts/frametimes.py`, over the same 60 s of the prologue:
+
+| | Before (3d015f5) | Now |
+|---|---|---|
+| Vblank lateness p50 / p99 | 606 / 1537 µs | 7 / 300 µs |
+| VdSwap interval sd / p99 | 1.40 / 20.2 ms | ~1.0 / ~19.0 ms |
+| Present interval sd / p99 (GPU thread) | 1.01 / 18.9 ms | 0.8 / 18.4 ms |
+| UI-thread presents with the overlay shown | 120/s (60 repaints) | 60/s (new frames only) |
+| Present phase in the display refresh | drifts ~1.3 ms every 30 s | held at 0.50 (p5–p95 0.44–0.56) |
+| Frames shown for exactly one refresh | not measured; periodic judder while drifting | 100% |
+
+What changed:
+- The vblank follows an exact QPC schedule with a high-resolution waitable timer.
+- The vblank is locked to the display refresh when the rates are compatible, steering presents to
+  the middle of the refresh.
+- The dispatcher wakes only the waits a signal satisfies.
+- The overlay no longer forces UI-thread presents at the monitor rate (F1 never reached it).
+- The GPU command processor queue is thread-safe.
+- Thread priorities follow the game's KeSetBasePriorityThread (Win32-like increments: -1..2,
+  16/17 for its time-critical threads).
+- The process opts out of power throttling.
+- VSync (on by default) removes tearing in fullscreen.
+
+In-engine cinematics, the intro and Bink videos run at 30 FPS or less by design. The main thread
+waits for the render thread with zero-length KeDelayExecutionThread calls (about a million per
+second), as it does on the console; this keeps one CPU core busy.
 
 ### How the campaign starts (for reference)
 The front end calls `GearEngine.SetCheckpoint` (the chapter's start checkpoint) and travels to
@@ -117,7 +192,15 @@ All opt-in through environment variables read by the runtime:
 
 | Variable | Effect |
 |---|---|
-| `ANYX360_INPUT` | Scripted pad 1 input: `"25:START,35:A,170:START/0.3"` (`seconds:button[/hold]`; buttons START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT LUP LDOWN LLEFT LRIGHT) |
+| `ANYX360_INPUT` | Scripted pad input: `"25:START,35:A,170:START/0.3,50:START@1"` (`seconds:button[/hold][@player]`, player 0-3, default 0; buttons START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT LUP LDOWN LLEFT LRIGHT). A player with scripted input counts as connected |
+| `ANYX360_INPUT_TRACE` | Logs every change of each player's virtual pad |
+| `ANYX360_FRAMETIMES` | Writes every vblank, VdSwap, GPU swap, present and display vblank to a CSV; summarise with `tools/scripts/frametimes.py <csv> [--from s] [--to s]` |
+| `ANYX360_OVERLAY` / `ANYX360_NO_OVERLAY` | Show the performance overlay from the start / no ImGui at all (A/B tests) |
+| `ANYX360_FPS_SWITCH` | Changes the frame rate at given times: `"30:30,60:60"` (`seconds:fps`) |
+| `ANYX360_SETTINGS_TEST` | Applies panel actions at given times: `"20:resolution=1440,25:upscale=cas,30:fps=30,35:fxaa=1,40:fullscreen=1,45:vsync=0,50:scale=2,55:restart"`; also `panel=1/0`, `tab=<name>`, `stats=1`, `lock=0/1`, `signin=<player>`, `signout=<player>` |
+| `ANYX360_VBLANK_SPIN_US` | How long the vblank thread spins before each tick (default 300) |
+| `ANYX360_NO_DISPLAY_LOCK` | Free-running vblank instead of locking it to the display |
+| `ANYX360_DISPATCH_SAFETY_MS` | Interval of the dispatcher's missed-wakeup re-check for infinite waits (default 250, 0 disables) |
 | `ANYX360_CAPTURE_DIR` | Saves the guest frame as BMP every 5 s |
 | `ANYX360_DUMP_AT` | Thread dumps at the given seconds (`"95,100"`) |
 | `ANYX360_MEMSCAN` | With `ANYX360_DUMP_AT`: logs guest memory holding that text (ASCII or UTF-16BE) |
@@ -134,4 +217,4 @@ All opt-in through environment variables read by the runtime:
 | `ANYX360_AUDIO_WATCHDOG` | Thread dumps when audio mixing stalls for 70 ms |
 | `ANYX360_NO_SOCKETS` | Disables the local socket layer and the network address |
 
-The runtime also accepts `--user <folder>` to run with a clean profile and saves.
+The runtime also accepts `--user <folder>` to run with a clean profile, saves and settings.
