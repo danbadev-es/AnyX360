@@ -215,8 +215,8 @@ uint32_t NetDll_XNetRandom(uint32_t caller, uint32_t buffer, uint32_t length) {
   return 0;
 }
 
-uint32_t NetDll_inet_addr(uint32_t caller, uint32_t cp) {
-  (void)caller;
+// Unlike most NetDll exports, inet_addr has no XNCALLER argument: the string is the first argument.
+uint32_t NetDll_inet_addr(uint32_t cp) {
   unsigned a, b, c, d;
   if (!cp || std::sscanf(Ptr<const char>(cp), "%u.%u.%u.%u", &a, &b, &c, &d) != 4) return 0xFFFFFFFF;
   return (a << 24) | (b << 16) | (c << 8) | d;
