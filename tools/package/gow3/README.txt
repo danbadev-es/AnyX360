@@ -25,8 +25,10 @@ FIRST TIME
    "Run anyway" (the program is not digitally signed).
    The first time you will see the terms of use: read and accept them to continue.
    The launcher is in English and Spanish: switch the language in the window's footer.
-3. Click "Choose .7z archive…" and select the game's .7z. It is extracted into the "game"
-   folder (a few minutes). You can delete the .7z afterwards if you want.
+3. Click "Prepare the game…", then "From a .7z archive…", and select the game's .7z. It is
+   extracted into the "game" folder (a few minutes); you can delete the .7z afterwards if you want.
+   If your copy is already a folder (the one with default.xex), choose "From a game folder…"
+   instead: it is used where it is.
 4. Click "Play".
 
 The first game may stutter a little while the graphics are prepared; then it runs smoothly.

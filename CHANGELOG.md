@@ -8,6 +8,54 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+Second target: Dance Central 3 (title 373307D9, base disc executable), the Kinect dance game,
+played with a webcam.
+
+### Added
+
+- Dance Central 3, recompiled whole. It boots, plays its intro, menus and songs at 60 FPS, and
+  scores what the player dances.
+- Virtual Kinect: the Kinect (NUI) library linked into the game is replaced at its API by a sensor
+  on the host. It produces skeleton frames, color and depth image streams and the camera's
+  elevation. Its players come from the webcam, the mouse or scripted poses.
+- Webcam pose bridge (`tools/pose_bridge`):
+  - MediaPipe pose estimation for up to two players, turned into Kinect skeletons, color and depth
+    images.
+  - The game starts it, restarts it if it fails and ends it on exit.
+  - Its build uses pinned, hash-checked packages and models and runs a self-test.
+- F2 Kinect tab:
+  - the sensor's state, the camera's frame rate and latency, and a preview of the skeletons;
+  - the source, the webcam, mirroring, field of view, smoothing, players and the pose model;
+  - "Recentre on me" and "Restart camera".
+- F1 overlay: a Kinect line.
+- Kernel and XAM:
+  - AES (`XeCryptAesKey`, `XeCryptAesEcb`, `XeCryptAesCbc`), for the encrypted songs;
+  - more user, content, input, UI and networking functions;
+  - the Kinect Guide shows as system UI, and the title pauses for it.
+- Launcher:
+  - prepares a game from the folder of the player's copy (used in place), as well as from a `.7z`;
+  - checks the title ID and the game's required files.
+- Packaging: `make_dist.ps1 -Game <id>`. Dance Central 3's package ships the pose bridge and its
+  licenses, plus a README on setting up the webcam.
+- Testing aids:
+  - `ANYX360_NUI_SCRIPT`, scripted players, also from a file read while the game runs;
+  - `ANYX360_NUI_SOURCE`, `ANYX360_NUI_TRACE` and `ANYX360_POSE_BRIDGE`;
+  - `tools/scripts/find_helpers.py` and `nui_recon.py`.
+
+### Changed
+
+- All games share one host entry point and per-game build files (`games/<id>/game.json`).
+- Terms of use 1.1: each game's name, owners and trademarks, and how a webcam's images are
+  handled.
+- The launcher's text depends on the game (a controller or keyboard game, or a webcam game).
+
+### Fixed
+
+- The display vblank thread spun when the monitor was in power saving.
+- XenonRecomp: executables encrypted with the devkit key, and more instructions.
+- XenonAnalyse: switches indexed by a function's result, and tables read across unconditional
+  branches.
+
 ## [0.1.0] - 2026-10-16
 
 First version distributed to testers. Target: Gears of War 3 (title 4D5308AB, base disc

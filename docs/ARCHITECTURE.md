@@ -34,15 +34,17 @@ realistic for this console (see [Why the Xbox 360 is harder](#why-the-xbox-360-i
 
 | Path | Role | Status |
 |---|---|---|
-| `tools/x360tool` | Disc extraction, XEX2 inspection, decryption and decompression, import and section inventory | Working (synthetic tests; LZX untested until real data) |
-| `runtime/` `x360/endian.h`, `x360/memory.h` | Big-endian access helpers and the 4 GiB guest address-space reservation | Base in place |
-| `thirdparty/XenonRecomp` (planned) | PPC → C++ recompiler and XEX analyser | To fork |
-| `thirdparty/XenosRecomp` (planned) | Xenos shader microcode → HLSL | To fork |
-| `runtime/kernel` (planned) | HLE of `xboxkrnl.exe` and `xam.xex` exports | Not started |
-| `runtime/gpu` (planned) | D3D12 renderer and the RHI replacement (see below) | Not started |
-| `runtime/audio` (planned) | XMA decoding (FFmpeg) and an XAudio2 replacement | Not started |
-| `runtime/vfs` (planned) | `game:\`, `dvd:\`, `cache:\` and save paths mapped to host folders | Not started |
-| `games/gow3` | Gears of War 3 configuration, hooks and patches | Template |
+| `tools/x360tool` | Disc extraction, XEX2 inspection, decryption and decompression, import and section inventory | Working |
+| `thirdparty/XenonRecomp` | PPC → C++ recompiler and XEX analyser (fork: devkit key, dataflow jump tables, missing instructions) | Working |
+| `runtime/` `x360/endian.h`, `x360/memory.h` | Big-endian access helpers and the 4 GiB guest address-space reservation | Working |
+| `runtime/src/kernel`, `runtime/src/hle` | HLE of the `xboxkrnl.exe` and `xam.xex` exports the titles call; the shared host entry point | Working for both titles |
+| `runtime/src/gpu` | Xenia's Direct3D 12 back end, display pacing, the F1 overlay and the F2 settings panel | Working |
+| `runtime/src/input` | Keyboard and mouse, XInput controllers, per-player devices | Working |
+| `runtime/src/nui` | The virtual Kinect: the NUI API on the host, with webcam, mouse and scripted sources | Working (Dance Central 3) |
+| `tools/pose_bridge` | The webcam pose bridge: MediaPipe pose estimation → Kinect skeletons and images | Working; webcam use in testing |
+| `tools/launcher`, `tools/package` | Per-game launcher (English and Spanish) and distribution packaging | Working |
+| `games/gow3` | Gears of War 3 configuration, hooks and patches | Playable (0.1.0) |
+| `games/dc3` | Dance Central 3 configuration, Milo hooks and NUI bindings | Playable, in testing |
 
 ## Key design decisions
 
@@ -74,8 +76,38 @@ We target the **UE3 RHI layer** first. Shaders are still Xenos microcode (UE3 sh
 caches for Xenon), and they go through the shader recompiler. Falling back to D3D hooks for individual
 functions is always possible.
 
+**Outcome:** the shipped runtime runs the title's own D3D command stream on Xenia's Direct3D 12
+back end instead, which needed no per-engine mapping. Replacing the RHI is still an option for
+performance work.
+
 ### 4. Audio: replace at the UE3 audio device level
 The same reasoning applies: hook UE3's XAudio2-based audio device and decode XMA with FFmpeg.
+
+**Outcome:** XMA is decoded by Xenia's decoder and played through XAudio2, below the engine.
+
+### 5. Kinect: replace the NUI library at its API, feed it a virtual sensor
+Kinect titles link the NUI library into the executable. It reads raw depth images from the camera
+driver (`PsCamDeviceRequest`) and runs the skeleton tracking itself. There are again three
+possible cut points:
+
+| Cut point | Pros | Cons |
+|---|---|---|
+| Emulate the camera driver | Generic, the title's tracking runs unchanged | Needs a real depth camera's images; the tracking is tuned to the Kinect's sensor |
+| **Replace the NUI library's entry points** | About 20 functions per title, documented by the Kinect for Windows SDK 1.x; skeletons can come from anything | Each title's entry points must be found (they are statically linked) |
+| Patch the title's gameplay code | Full control | Per title, deep, fragile |
+
+AnyX360 replaces the library's entry points with strong overrides (`X360_GUEST_FUNCTION`), bound
+to a generic virtual sensor in `runtime/src/nui`. The sensor produces skeleton frames and image
+streams in the XDK's layouts on a 30 Hz clock. Its skeletons come from a source:
+
+- a webcam through the pose bridge, a separate process that shares memory with the game;
+- the mouse;
+- scripted poses for tests.
+
+The pose bridge is Python (MediaPipe, OpenCV) packaged with PyInstaller. Keeping it out of the game
+process means its runtime, models and crashes stay separate: the game restarts it, and the job
+object ends it with the game.
+
 
 ## Why the Xbox 360 is harder
 

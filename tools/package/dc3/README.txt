@@ -29,7 +29,7 @@ FIRST TIME
    program is not digitally signed).
    The first time you will see the terms of use: read and accept them to continue.
    The launcher is in English and Spanish: switch the language in the window's footer.
-3. Click "Prepare" and choose where your copy is:
+3. Click "Prepare the game…" and choose where your copy is:
    - "From a .7z archive": it is extracted into the "game" folder (a few minutes);
    - "From a game folder": the folder is used where it is (nothing is copied).
 4. Click "Play".
