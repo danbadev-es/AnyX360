@@ -30,6 +30,10 @@ struct DisplayConfig {
 // How many vblanks the title waits between presents at its normal frame rate (Gears of War 3: 2,
 // i.e. 30 FPS at 60 Hz). A property of the title, not a user setting. Call before Initialize.
 void SetVblanksPerFrame(uint32_t vblanks);
+// A title that runs at one frame rate only (a rhythm game's timing): the settings panel shows it
+// without a choice. 0 (the default): 30 or 60 FPS.
+void SetFixedFps(uint32_t fps);
+uint32_t FixedFps();
 
 // Creates the game window, the D3D12 graphics system and the vblank/interrupt thread. Must run on
 // the UI (main) thread after the guest memory exists. Returns false if D3D12 is unavailable.

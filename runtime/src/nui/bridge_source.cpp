@@ -120,7 +120,11 @@ class BridgeSource : public Source {
     LARGE_INTEGER frequency;
     QueryPerformanceFrequency(&frequency);
     frequency_ = double(frequency.QuadPart);
-    if (options_.name.empty()) options_.name = L"Local\\AnyX360-Nui-" + std::to_wstring(GetCurrentProcessId());
+    // A name per source: a new one can start while the previous one is still stopping.
+    static std::atomic<uint32_t> instances{0};
+    if (options_.name.empty())
+      options_.name = L"Local\\AnyX360-Nui-" + std::to_wstring(GetCurrentProcessId()) + L"-" +
+                      std::to_wstring(instances++);
     if (!channel_.Create(options_.name)) {
       problem_ = "cannot create the pose bridge's shared memory";
       gave_up_ = true;
@@ -170,6 +174,33 @@ class BridgeSource : public Source {
   }
 
   std::string Message() const override { return message_; }
+
+  void Calibrate() override {
+    if (Header* h = channel_.header()) h->calibrate = h->calibrate + 1;
+  }
+
+  void Restart() override {
+    if (!options_.launch) return;
+    process_.Kill();
+    starts_ = 0;
+    next_start_ = 0;
+    gave_up_ = incompatible_ = false;
+    problem_.clear();
+    if (Header* h = channel_.header()) h->producer_version_major = h->producer_version_minor = 0;
+    KLOG_I("nui: restarting the pose bridge");
+  }
+
+  void Stats(Status& status) const override {
+    const Header* h = channel_.header();
+    if (!h) return;
+    status.camera_running = Live();
+    status.camera_width = h->camera_width;
+    status.camera_height = h->camera_height;
+    status.camera_fps = h->camera_fps;
+    status.inference_ms = h->inference_ms;
+    status.latency_ms = float(latency_ms_);
+    status.restarts = restarts_;
+  }
 
  private:
   // Starts the bridge when it's due, restarts it if it exited or stopped responding.
@@ -228,6 +259,8 @@ class BridgeSource : public Source {
       std::filesystem::path previous = log_;
       std::filesystem::rename(log_, previous.replace_filename("pose_bridge.previous.log"), ec);
     }
+    if (launched_) ++restarts_;
+    launched_ = true;
     ++starts_;
     started_ = time;
     const std::wstring arguments = L"--shm " + channel_.name() + L" --event " + channel_.event_name() +
@@ -329,7 +362,9 @@ class BridgeSource : public Source {
   Snapshot snapshot_;
   double latency_ms_ = 0;
 
-  uint32_t starts_ = 0;
+  uint32_t starts_ = 0;    // since the last success or Restart (for the backoff)
+  uint32_t restarts_ = 0;  // in all
+  bool launched_ = false;
   double started_ = 0, next_start_ = 0;
   bool gave_up_ = false, incompatible_ = false, stalled_ = false;
   std::string problem_, message_ = "starting the pose bridge";

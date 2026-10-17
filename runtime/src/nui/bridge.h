@@ -89,7 +89,7 @@ class BridgeProcess {
 };
 
 struct BridgeOptions {
-  std::wstring name;    // the channel name (default: Local\AnyX360-Nui-<pid>)
+  std::wstring name;    // the channel name (default: Local\AnyX360-Nui-<pid>-<n>)
   bool launch = true;   // false: a producer is already there (tests)
   std::filesystem::path log;      // the bridge's output (default: BridgeLogPath())
   double stall_seconds = 2.0;    // a running bridge whose heartbeat stops this long is restarted

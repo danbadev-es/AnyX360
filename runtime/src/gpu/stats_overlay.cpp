@@ -1,15 +1,18 @@
 // Performance overlay drawn with Xenia's ImGui drawer over the presented frame (top-left corner,
 // F1 toggles it): guest frame rate and frame time (from VdSwap), frame interval graphs, the
-// process's video memory use (DXGI), and host and guest RAM.
+// process's video memory use (DXGI), host and guest RAM, and the virtual Kinect (Kinect games).
 #include "stats_overlay.h"
 #include "frame_timing.h"
 #include "x360/gpu.h"
+#include "x360/nui.h"
+#include "x360/settings.h"
 
 #include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <deque>
 #include <mutex>
+#include <string>
 
 #include "third_party/imgui/imgui.h"
 #include "xenia/gpu/graphics_system.h"
@@ -44,6 +47,7 @@ struct Sample {
   uint64_t working_set = 0, commit = 0;
   uint64_t guest_virtual = 0, guest_physical = 0;
   uint32_t presents_gpu = 0, presents_ui = 0;
+  std::string kinect;  // empty for games without a Kinect
 };
 
 class StatsOverlay : public xe::ui::ImGuiDialog {
@@ -87,6 +91,7 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
                     s_.shared_used / mb);
       ImGui::Text("RAM  %.0f MB (commit %.0f MB)", s_.working_set / mb, s_.commit / mb);
       ImGui::Text("Guest %.0f MB virtual + %.0f MB physical", s_.guest_virtual / mb, s_.guest_physical / mb);
+      if (!s_.kinect.empty()) ImGui::Text("Kinect: %s", s_.kinect.c_str());
       // Frame intervals: the title's submissions (VdSwap) and what reached the screen (presents of new
       // frames), 0-50 ms; a steady 60 FPS is a flat line at 16.7 ms.
       ImGui::Text("Presents: %s thread", s_.presents_ui > s_.presents_gpu ? "UI" : "GPU");
@@ -117,6 +122,20 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
     }
     timing::Summary t = timing::Summarize(1.0);
     s_.presents_gpu = t.presents_gpu_thread;
+    s_.kinect.clear();
+    if (settings::Get().kinect.enabled) {
+      const nui::Status k = nui::GetStatus();
+      char text[160];
+      const char* people = k.bodies == 1 ? "person" : "people";
+      if (k.source == "webcam" && k.camera_running)
+        std::snprintf(text, sizeof(text), "webcam %.0f fps, %u %s, pose %.0f ms, latency %.0f ms", k.camera_fps,
+                      k.bodies, people, k.inference_ms, k.latency_ms);
+      else if (k.source == "webcam" || k.source.empty())
+        std::snprintf(text, sizeof(text), "%s", k.message.empty() ? "not started" : k.message.c_str());
+      else
+        std::snprintf(text, sizeof(text), "%s, %u %s", k.source.c_str(), k.bodies, people);
+      s_.kinect = text;
+    }
     s_.presents_ui = t.presents_ui_thread;
     if (adapter_) {
       DXGI_QUERY_VIDEO_MEMORY_INFO local{}, shared{};

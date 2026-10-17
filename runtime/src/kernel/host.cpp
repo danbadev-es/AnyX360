@@ -126,8 +126,10 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   settings::SetDefaults(defaults);
   settings::Load(info.user_root / "settings.toml");
   for (const auto& change : overrides) settings::Override(change);
+  if (game.fixed_fps) settings::Override([&](Settings& s) { s.display.target_fps = game.fixed_fps; });
   info.display = settings::Get().display;
   gpu::SetVblanksPerFrame(game.vblanks_per_frame);
+  gpu::SetFixedFps(game.fixed_fps);
 
   const auto& d = info.display;
   std::printf("AnyX360 " ANYX360_VERSION_FULL " - %s\n  game: %s\n  user: %s\n", game.title_name,

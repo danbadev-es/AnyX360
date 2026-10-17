@@ -1,6 +1,7 @@
 // Settings panel (F2): display (window size, fullscreen, upscaling, FXAA, frame rate, render scale
-// with a restart), mouse and keyboard, players' devices, and frame pacing graphs. While it is open
-// the game gets no keyboard and mouse input and the cursor is free.
+// with a restart), mouse and keyboard, players' devices, the virtual Kinect (Kinect games), and
+// frame pacing graphs. While it is open the game gets no keyboard and mouse input and the cursor is
+// free.
 //
 // Everything that changes the window or the presenter is posted to the UI thread instead of running
 // inside OnDraw (Xenia forbids surface changes during a paint).
@@ -8,7 +9,9 @@
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
+#include <functional>
 #include <string>
+#include <vector>
 #include <thread>
 
 #include "anyx360_version.h"
@@ -18,6 +21,7 @@
 #include "third_party/imgui/imgui.h"
 #include "x360/input.h"
 #include "x360/kernel.h"
+#include "x360/nui.h"
 #include "x360/settings.h"
 #include "xenia/ui/imgui_dialog.h"
 #include "xenia/ui/imgui_drawer.h"
@@ -78,6 +82,11 @@ void ShowStats(bool show) {
   settings::Update([&](Settings& s) { s.show_stats = show; });
 }
 
+// The [kinect] settings: saved, and applied by the virtual sensor (it follows the settings).
+void UpdateKinect(const std::function<void(settings::KinectSettings&)>& change) {
+  settings::Update([&](Settings& s) { change(s.kinect); });
+}
+
 std::string g_restart_error;
 std::string g_select_tab;  // test hook: tab to bring to the front
 
@@ -136,6 +145,10 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
         }
         if (ImGui::BeginTabItem("Controls", nullptr, tab_flags("Controls"))) {
           DrawControls(s);
+          ImGui::EndTabItem();
+        }
+        if (s.kinect.enabled && ImGui::BeginTabItem("Kinect", nullptr, tab_flags("Kinect"))) {
+          DrawKinect(s);
           ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Players", nullptr, tab_flags("Players"))) {
@@ -203,11 +216,15 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
     int fps = int(s.display.target_fps);
     ImGui::TextUnformatted("Frame rate");
     ImGui::SameLine(140);
-    changed = ImGui::RadioButton("30 FPS", &fps, 30);
-    ImGui::SameLine();
-    changed |= ImGui::RadioButton("60 FPS", &fps, 60);
-    if (changed) PostToUIThread([fps] { SetFps(uint32_t(fps)); });
-    CommandLineNote(s.display.target_fps != saved.display.target_fps);
+    if (FixedFps()) {
+      ImGui::TextDisabled("%u FPS (this game runs at this rate only)", FixedFps());
+    } else {
+      changed = ImGui::RadioButton("30 FPS", &fps, 30);
+      ImGui::SameLine();
+      changed |= ImGui::RadioButton("60 FPS", &fps, 60);
+      if (changed) PostToUIThread([fps] { SetFps(uint32_t(fps)); });
+      CommandLineNote(s.display.target_fps != saved.display.target_fps);
+    }
 
     int scale = int(s.display.render_scale);
     ImGui::TextUnformatted("Render scale");
@@ -333,6 +350,117 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
     ImGui::TextDisabled("back to the title screen. Playing alone with a controller: set player 1 to it.");
   }
 
+  void DrawKinect(const Settings& s) {
+    const settings::KinectSettings& k = s.kinect;
+    const nui::Status status = nui::GetStatus();
+    ImGui::SeparatorText("Sensor");
+    ImGui::Text("Source: %s", status.source.empty() ? "not started yet" : status.source.c_str());
+    const bool camera = status.source == "webcam" && status.camera_running;
+    if (!status.message.empty() && !camera) {
+      ImGui::SameLine();
+      ImGui::TextWrapped("- %s", status.message.c_str());
+    }
+    if (camera)
+      ImGui::Text("Camera %ux%u at %.0f fps   pose %.0f ms   latency %.0f ms", status.camera_width,
+                  status.camera_height, status.camera_fps, status.inference_ms, status.latency_ms);
+    ImGui::Text("People in view: %u (%u tracked)", status.bodies, status.tracked);
+    if (status.restarts) {
+      ImGui::SameLine();
+      ImGui::TextDisabled("   pose bridge restarted %u time%s", status.restarts, status.restarts == 1 ? "" : "s");
+    }
+    DrawSkeletons();
+
+    ImGui::SeparatorText("Source");
+    static const char* const kSources[] = {"webcam", "mouse", "none"};
+    static const char* const kSourceLabels[] = {"Webcam", "Mouse (the right hand follows the cursor)", "None"};
+    int source = 0;
+    for (int i = 0; i < 3; ++i)
+      if (k.source == kSources[i]) source = i;
+    ImGui::SetNextItemWidth(300);
+    if (ImGui::Combo("##source", &source, kSourceLabels, 3)) {
+      std::string chosen = kSources[source];
+      UpdateKinect([chosen](settings::KinectSettings& kk) { kk.source = chosen; });
+    }
+    if (k.source == "mouse")
+      ImGui::TextDisabled("Left click: select (a swipe). Right click: back. Space: the pause gesture.");
+    if (k.source != "webcam") return;
+
+    ImGui::SeparatorText("Webcam");
+    std::vector<std::string> cameras = nui::ListCameras();
+    std::string current = k.camera < cameras.size() ? cameras[k.camera] : "Camera " + std::to_string(k.camera);
+    ImGui::SetNextItemWidth(300);
+    if (ImGui::BeginCombo("Camera", current.c_str())) {
+      for (uint32_t i = 0; i < cameras.size(); ++i) {
+        if (ImGui::Selectable(cameras[i].c_str(), i == k.camera))
+          UpdateKinect([i](settings::KinectSettings& kk) { kk.camera = i; });
+      }
+      if (cameras.empty()) ImGui::TextDisabled("No webcam found");
+      ImGui::EndCombo();
+    }
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Refresh")) nui::ListCameras(true);
+    bool mirror = k.mirror;
+    if (ImGui::Checkbox("My camera already mirrors its image", &mirror))
+      UpdateKinect([mirror](settings::KinectSettings& kk) { kk.mirror = mirror; });
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Turn this on if raising your right hand moves the skeleton's left hand.");
+    float fov = k.fov;
+    ImGui::SetNextItemWidth(300);
+    if (ImGui::SliderFloat("Field of view", &fov, 40.0f, 100.0f, "%.0f degrees"))
+      UpdateKinect([fov](settings::KinectSettings& kk) { kk.fov = fov; });
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("The webcam's horizontal field of view (most are 60-78 degrees). A wrong value makes\n"
+                        "you look nearer or farther than you are.");
+    float smoothing = k.smoothing;
+    ImGui::SetNextItemWidth(300);
+    if (ImGui::SliderFloat("Smoothing", &smoothing, 0.0f, 1.0f, "%.2f"))
+      UpdateKinect([smoothing](settings::KinectSettings& kk) { kk.smoothing = smoothing; });
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("More: steadier but later. Less: quicker but jittery.");
+    int players = int(k.players);
+    ImGui::TextUnformatted("Players");
+    ImGui::SameLine(140);
+    bool changed = ImGui::RadioButton("1", &players, 1);
+    ImGui::SameLine();
+    changed |= ImGui::RadioButton("2", &players, 2);
+    if (changed) UpdateKinect([players](settings::KinectSettings& kk) { kk.players = uint32_t(players); });
+    int model = k.model == "lite" ? 0 : 1;
+    ImGui::TextUnformatted("Pose model");
+    ImGui::SameLine(140);
+    changed = ImGui::RadioButton("Fast", &model, 0);
+    ImGui::SameLine();
+    changed |= ImGui::RadioButton("Accurate", &model, 1);
+    if (changed) UpdateKinect([model](settings::KinectSettings& kk) { kk.model = model ? "full" : "lite"; });
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Fast uses less CPU; Accurate tracks better.");
+    if (ImGui::Button("Recentre on me")) nui::Calibrate();
+    if (ImGui::IsItemHovered())
+      ImGui::SetTooltip("Stand where you'll play: the game then sees you centred, at the Kinect's distance.");
+    ImGui::SameLine();
+    if (ImGui::Button("Restart camera")) nui::RestartSource();
+    ImGui::TextDisabled("Stand 2-3 m from the webcam, in good light, with all of you in view.");
+  }
+
+  // The latest skeletons as the sensor sees them (mirrored), in a 320x240 frame.
+  void DrawSkeletons() {
+    const ImVec2 size(320, 240);
+    const ImVec2 o = ImGui::GetCursorScreenPos();
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    draw->AddRectFilled(o, ImVec2(o.x + size.x, o.y + size.y), IM_COL32(18, 18, 26, 255));
+    draw->AddRect(o, ImVec2(o.x + size.x, o.y + size.y), IM_COL32(90, 90, 110, 255));
+    auto project = [&](const float* j) {
+      const float z = std::max(j[2], 0.2f);
+      return ImVec2(o.x + size.x / 2 + j[0] * nui::kDepthFocal / z, o.y + size.y / 2 - j[1] * nui::kDepthFocal / z);
+    };
+    draw->PushClipRect(o, ImVec2(o.x + size.x, o.y + size.y), true);
+    for (const nui::PreviewBody& body : nui::GetBodies()) {
+      const ImU32 color = body.tracked ? IM_COL32(90, 220, 130, 255) : IM_COL32(150, 150, 160, 255);
+      for (const auto& bone : nui::kSkeletonBones)
+        draw->AddLine(project(body.joints[bone[0]]), project(body.joints[bone[1]]), color, 3.0f);
+      draw->AddCircleFilled(project(body.joints[nui::kHead]), 7.0f, color);
+    }
+    draw->PopClipRect();
+    ImGui::Dummy(size);
+  }
+
   void DrawPerformance() {
     timing::Summary t = timing::Summarize(2.0);
     ImGui::Text("%.1f FPS  (target %u)   presented by the %s thread", t.vdswaps / 2.0, GetDisplayConfig().target_fps,
@@ -381,7 +509,8 @@ void OpenSettingsPanel() {
 }
 
 // ANYX360_SETTINGS_TEST="<seconds>:<setting>=<value>,..." applies settings as the panel does
-// (resolution, fullscreen, upscale, fxaa, fps, scale, stats, panel=1/0, tab=<name>, signin=<player>, signout=<player>, restart).
+// (resolution, fullscreen, upscale, fxaa, fps, scale, stats, panel=1/0, tab=<name>, signin=<player>, signout=<player>, restart,
+// kinect_source=<webcam|mouse|none>, kinect_players=<1|2>, kinect_mirror=<0|1>, kinect_restart, kinect_calibrate).
 void RunSettingsTest(std::string spec) {
   auto start = std::chrono::steady_clock::now();
   for (size_t pos = 0; pos < spec.size();) {
@@ -402,7 +531,7 @@ void RunSettingsTest(std::string spec) {
       else if (key == "fullscreen") SetFullscreenMode(n != 0);
       else if (key == "upscale") SetUpscaleSetting(value == "cas" ? Upscale::kCas : value == "bilinear" ? Upscale::kBilinear : Upscale::kFsr);
       else if (key == "fxaa") SetFxaaSetting(n != 0);
-      else if (key == "fps") SetFps(n >= 60 ? 60 : 30);
+      else if (key == "fps" && !FixedFps()) SetFps(n >= 60 ? 60 : 30);
       else if (key == "vsync") SetVsyncSetting(n != 0);
       else if (key == "lock") SetDisplayLockSetting(n != 0);
       else if (key == "scale") SetRenderScale(std::clamp(n, 1u, 3u));
@@ -412,6 +541,11 @@ void RunSettingsTest(std::string spec) {
       else if (key == "tab") g_select_tab = value;
       else if (key == "signin") kernel::SignInUser(n - 1);
       else if (key == "signout") kernel::SignOutUser(n - 1);
+      else if (key == "kinect_source") UpdateKinect([value](settings::KinectSettings& k) { k.source = value; });
+      else if (key == "kinect_players") UpdateKinect([n](settings::KinectSettings& k) { k.players = std::clamp(n, 1u, 2u); });
+      else if (key == "kinect_mirror") UpdateKinect([n](settings::KinectSettings& k) { k.mirror = n != 0; });
+      else if (key == "kinect_restart") nui::RestartSource();
+      else if (key == "kinect_calibrate") nui::Calibrate();
     });
   }
 }

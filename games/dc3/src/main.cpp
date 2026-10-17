@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
   game.dev_game_dir = game_info::kDevGameDir;
   game.title_id = game_info::kTitleId;
   game.vblanks_per_frame = 1;
+  game.fixed_fps = 60;  // its timing is untested at 30
   game.defaults = [](x360::settings::Settings& s) {
     s.kinect.enabled = true;
     // Played with the body: keyboard and mouse don't drive a pad, so the cursor stays free.

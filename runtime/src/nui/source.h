@@ -18,6 +18,12 @@ class Source {
   virtual std::string Message() const { return "ok"; }
   // The [kinect] settings changed (camera, mirror, players...).
   virtual void Configure(const settings::KinectSettings&) {}
+  // Recentre the play space on the player in view.
+  virtual void Calibrate() {}
+  // Start again after failures (the pose bridge).
+  virtual void Restart() {}
+  // The camera's numbers for the status (webcam).
+  virtual void Stats(Status&) const {}
 };
 
 // Scripted test poses: "seconds:action[/duration][@player],..." (see synthetic_source.cpp).

@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 
+#include "x360/settings.h"
+
 struct PPCContext;
 
 namespace x360::nui {
@@ -111,7 +113,7 @@ uint32_t ImageStreamReleaseFrame(uint32_t stream, uint32_t frame);
 uint32_t CameraElevationGetAngle(uint32_t angle_ptr);
 uint32_t CameraElevationSetAngle(int32_t angle);
 
-// ---- status (settings panel, overlay) ----
+// ---- status and settings (settings panel, overlay) ----
 
 struct Status {
   bool initialized = false;
@@ -120,7 +122,44 @@ struct Status {
   uint32_t frames = 0;  // skeleton frames produced
   uint32_t bodies = 0;  // people in view
   uint32_t tracked = 0;  // of them, fully tracked
+  // The webcam source (the pose bridge).
+  bool camera_running = false;
+  uint32_t camera_width = 0, camera_height = 0;
+  float camera_fps = 0;
+  float inference_ms = 0;  // pose estimation per frame
+  float latency_ms = 0;    // from the camera's capture to the sensor's frame
+  uint32_t restarts = 0;   // times the bridge was started again
 };
 Status GetStatus();
+
+// The latest frame's people, for a preview.
+struct PreviewBody {
+  uint32_t id = 0;
+  bool tracked = false;
+  float joints[kJointCount][3] = {};
+};
+std::vector<PreviewBody> GetBodies();
+
+// The [kinect] settings changed: another source starts if it changed, else the source applies them.
+void ApplySettings(const settings::KinectSettings& kinect);
+// Recentres the play space on the player in view (webcam).
+void Calibrate();
+// Starts the source again (the webcam's pose bridge), clearing its failures.
+void RestartSource();
+
+// The webcams Media Foundation lists, in the order [kinect] camera counts. Enumerated once (again
+// with refresh); listing doesn't open them.
+std::vector<std::string> ListCameras(bool refresh = false);
+
+// Joint pairs to draw a skeleton with.
+constexpr Joint kSkeletonBones[][2] = {
+    {kHipCenter, kSpine},         {kSpine, kShoulderCenter},      {kShoulderCenter, kHead},
+    {kShoulderCenter, kShoulderLeft}, {kShoulderLeft, kElbowLeft}, {kElbowLeft, kWristLeft},
+    {kWristLeft, kHandLeft},      {kShoulderCenter, kShoulderRight}, {kShoulderRight, kElbowRight},
+    {kElbowRight, kWristRight},   {kWristRight, kHandRight},      {kHipCenter, kHipLeft},
+    {kHipLeft, kKneeLeft},        {kKneeLeft, kAnkleLeft},        {kAnkleLeft, kFootLeft},
+    {kHipCenter, kHipRight},      {kHipRight, kKneeRight},        {kKneeRight, kAnkleRight},
+    {kAnkleRight, kFootRight},
+};
 
 }  // namespace x360::nui

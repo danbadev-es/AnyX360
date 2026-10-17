@@ -5,11 +5,13 @@
 // source (webcam, mouse, synthetic, none) for this run.
 #include "x360/nui.h"
 
+#include <algorithm>
 #include <bit>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
 #include <cstdlib>
+#include <cstring>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -47,6 +49,7 @@ std::thread g_clock;
 bool g_stop = false;
 float g_camera_height = 0.8f;
 uint32_t g_players = 2;
+settings::KinectSettings g_applied;  // the settings the source runs with
 
 bool g_tracking = false;
 uint32_t g_tracking_flags = 0;
@@ -204,8 +207,11 @@ void SetTitleSupport(TitleSupport support) {
 
 uint32_t Initialize(uint32_t flags, uint32_t hardware_thread) {
   settings::KinectSettings kinect = settings::Get().kinect;
+  static std::once_flag subscribed;  // the settings panel's changes reach the source
+  std::call_once(subscribed, [] { settings::Subscribe([](const settings::Settings& s) { ApplySettings(s.kinect); }); });
   std::lock_guard lock(g_mutex);
   if (g_initialized) return kOk;
+  g_applied = kinect;
   g_camera_height = kinect.camera_height;
   g_players = kinect.players;
   g_source = MakeSource(kinect, g_source_name);
@@ -311,7 +317,60 @@ Status GetStatus() {
   uint32_t order = 0;
   for (uint32_t slot : g_slots)
     if (slot && IsTracked(slot, order++)) ++status.tracked;
+  if (g_source) g_source->Stats(status);
   return status;
+}
+
+std::vector<PreviewBody> GetBodies() {
+  std::lock_guard lock(g_mutex);
+  std::vector<PreviewBody> bodies;
+  uint32_t order = 0;
+  for (uint32_t slot : g_slots) {
+    if (!slot) continue;
+    const bool tracked = IsTracked(slot, order++);
+    for (uint32_t i = 0; i < g_snapshot.body_count; ++i) {
+      if (g_snapshot.bodies[i].id != slot) continue;
+      PreviewBody& b = bodies.emplace_back();
+      b.id = slot;
+      b.tracked = tracked;
+      std::memcpy(b.joints, g_snapshot.bodies[i].joints, sizeof(b.joints));
+    }
+  }
+  return bodies;
+}
+
+void ApplySettings(const settings::KinectSettings& kinect) {
+  std::unique_ptr<Source> previous;
+  {
+    std::lock_guard lock(g_mutex);
+    if (kinect == g_applied) return;
+    g_applied = kinect;
+    g_camera_height = kinect.camera_height;
+    g_players = std::clamp<uint32_t>(kinect.players, 1, 2);
+    if (!g_initialized || std::getenv("ANYX360_NUI_SCRIPT") || std::getenv("ANYX360_NUI_SOURCE")) {
+      if (g_source) g_source->Configure(kinect);
+      return;
+    }
+    if (kinect.source != g_source_name) {
+      previous = std::move(g_source);
+      g_source = MakeSource(kinect, g_source_name);
+      KLOG_I("nui: source %s%s", g_source_name.c_str(), g_source ? "" : " (no player)");
+    } else if (g_source) {
+      g_source->Configure(kinect);
+    }
+  }
+  // The previous source ends on its own thread: the bridge takes up to a second to stop.
+  if (previous) std::thread([source = std::move(previous)]() mutable { source.reset(); }).detach();
+}
+
+void Calibrate() {
+  std::lock_guard lock(g_mutex);
+  if (g_source) g_source->Calibrate();
+}
+
+void RestartSource() {
+  std::lock_guard lock(g_mutex);
+  if (g_source) g_source->Restart();
 }
 
 }  // namespace x360::nui

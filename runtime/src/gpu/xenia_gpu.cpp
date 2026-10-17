@@ -518,6 +518,12 @@ void SetTargetFps(uint32_t fps) {
 
 void SetVblanksPerFrame(uint32_t vblanks) { g_vblanks_per_frame = std::max(1u, vblanks); }
 
+namespace {
+uint32_t g_fixed_fps = 0;
+}
+void SetFixedFps(uint32_t fps) { g_fixed_fps = fps; }
+uint32_t FixedFps() { return g_fixed_fps; }
+
 bool Initialize(const char* window_title, const DisplayConfig& config) {
   g_display = config;
   g_vblank_hz = std::max(1u, config.target_fps) * g_vblanks_per_frame;

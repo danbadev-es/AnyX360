@@ -1,8 +1,8 @@
 // The pose bridge protocol: shared memory between a Kinect game (consumer) and the pose bridge
 // process (producer, tools/pose_bridge), which turns a webcam into skeletons and images.
 //
-// The game creates a file mapping "Local\AnyX360-Nui-<pid>" (sizeof(Header) + kSlotCount slots) and
-// an auto-reset event "Local\AnyX360-Nui-<pid>-frame", then starts the bridge with
+// The game creates a file mapping "Local\AnyX360-Nui-<pid>-<n>" (sizeof(Header) + kSlotCount slots)
+// and an auto-reset event of the same name plus "-frame", then starts the bridge with
 //   --shm <mapping name> --event <event name> --parent <pid>
 // The bridge fills the header's producer fields, writes each new frame into the slot after
 // `latest_slot` and publishes it:
