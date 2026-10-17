@@ -53,6 +53,11 @@ void ThreadBody(HWND hwnd) {
   double predicted = 0, period = 0;
   int good = 0;
   int64_t next_monitor_check = 0;
+  // A display in power saving (or switched off) returns from WaitForVBlank at once. Called right
+  // after the previous vblank, a real wait lasts about a refresh; one under 1 ms didn't wait, and
+  // after a few the thread backs off instead of spinning.
+  const int64_t min_wait = frequency.QuadPart / 1000;
+  int fast = 0;
   for (;;) {
     int64_t now = QpcNow();
     if (now >= next_monitor_check) {
@@ -72,13 +77,27 @@ void ThreadBody(HWND hwnd) {
         }
       }
     }
+    const int64_t wait_start = QpcNow();
     if (!output || FAILED(output->WaitForVBlank())) {
       output.Reset();
       g_locked = false;
       Sleep(100);
       continue;
     }
-    double t = double(QpcNow());
+    const int64_t returned = QpcNow();
+    if (returned - wait_start < min_wait) {
+      if (++fast == 3) {
+        KLOG_W("display vblank: the display returns no vblanks (power saving?); vblank free-running");
+        predicted = period = 0;
+        good = 0;
+        g_locked = false;
+      }
+      if (fast >= 3) Sleep(4);
+      continue;
+    }
+    if (fast >= 3) KLOG_I("display vblank: the display reports vblanks again");
+    fast = 0;
+    double t = double(returned);
     timing::Record(timing::Event::kHostVblank);
     if (period == 0) {  // first two vblanks: initial period
       if (predicted != 0) period = t - predicted;
