@@ -99,7 +99,16 @@ Write-Text "$PSScriptRoot\$Game\README.txt" "$dist\README.txt"
 Write-Text $terms "$dist\TERMS.txt"
 Write-Text "$root\CHANGELOG.md" "$dist\CHANGELOG.md"
 
-Compress-Archive -Path $dist -DestinationPath "$dist.zip"
+# Antivirus software may still be reading newly copied executables (the pose bridge's): try again.
+for ($attempt = 1; ; $attempt++) {
+  try {
+    Compress-Archive -Path $dist -DestinationPath "$dist.zip" -Force
+    break
+  } catch {
+    if ($attempt -ge 5) { throw }
+    Start-Sleep -Seconds 5
+  }
+}
 $size = (Get-Item "$dist.zip").Length / 1MB
 "Packaged $dist"
 "Zip: $dist.zip ({0:N0} MB)" -f $size
