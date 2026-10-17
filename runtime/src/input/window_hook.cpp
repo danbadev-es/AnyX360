@@ -2,6 +2,7 @@
 // hidden) while the window is active and a player uses the keyboard and mouse, releases it when the
 // window loses focus, and handles the system keys Xenia's window doesn't see (Alt+Enter) or that
 // would stall the UI thread (Alt or F10 alone enter the window menu's modal loop).
+#include <algorithm>
 #include <atomic>
 #include <functional>
 
@@ -136,3 +137,22 @@ void TryCaptureCursor() {
 }
 
 }  // namespace x360::input::detail
+
+namespace x360::input {
+
+bool GetMouseHand(MouseHand& hand) {
+  using namespace detail;
+  if (!GameWindowActive() || !GameInputEnabled()) return false;
+  POINT p;
+  RECT client;
+  if (!GetCursorPos(&p) || !ScreenToClient(g_hwnd, &p) || !GetClientRect(g_hwnd, &client)) return false;
+  if (client.right <= 0 || client.bottom <= 0) return false;
+  hand.x = std::clamp(float(p.x) / float(client.right), 0.0f, 1.0f);
+  hand.y = std::clamp(float(p.y) / float(client.bottom), 0.0f, 1.0f);
+  hand.left = GetAsyncKeyState(VK_LBUTTON) & 0x8000;
+  hand.right = GetAsyncKeyState(VK_RBUTTON) & 0x8000;
+  hand.space = GetAsyncKeyState(VK_SPACE) & 0x8000;
+  return true;
+}
+
+}  // namespace x360::input

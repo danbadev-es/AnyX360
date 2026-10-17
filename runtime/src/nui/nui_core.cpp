@@ -134,7 +134,9 @@ std::unique_ptr<Source> MakeSource(const settings::KinectSettings& kinect, std::
     return MakeSyntheticSource(script, kinect.camera_height);
   }
   name = kinect.source;
-  if (kinect.source == "synthetic") return MakeSyntheticSource("0:enter", kinect.camera_height);
+  if (const char* source = std::getenv("ANYX360_NUI_SOURCE")) name = source;  // debugging switch
+  if (name == "synthetic") return MakeSyntheticSource("0:enter", kinect.camera_height);
+  if (name == "mouse") return MakeMouseSource(kinect.camera_height);
   return nullptr;  // none, or a source not available in this build
 }
 

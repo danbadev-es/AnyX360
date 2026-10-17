@@ -57,6 +57,15 @@ void SetVibration(uint32_t user, uint16_t left, uint16_t right);
 void SetGameInputEnabled(bool enabled);
 bool IsCursorCaptured();
 
+// The mouse over the game window, for a virtual Kinect hand: the cursor in the client area (0-1,
+// top left 0,0), the buttons and the Space key. False while the window isn't in the foreground or
+// game input is off (settings panel). Any thread.
+struct MouseHand {
+  float x = 0.5f, y = 0.5f;
+  bool left = false, right = false, space = false;
+};
+bool GetMouseHand(MouseHand& hand);
+
 // The keyboard and mouse bindings in effect: {control, keys}.
 std::vector<std::pair<std::string, std::string>> DescribeBindings();
 

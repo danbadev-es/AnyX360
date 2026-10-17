@@ -20,7 +20,15 @@ class Source {
 // Scripted test poses: "seconds:action[/duration][@player],..." (see synthetic_source.cpp).
 std::unique_ptr<Source> MakeSyntheticSource(const std::string& script, float camera_height);
 
+// The mouse over the game window: the right hand follows the cursor (see mouse_source.cpp).
+std::unique_ptr<Source> MakeMouseSource(float camera_height);
+
 // A standing person, joints in camera space, `x`/`z` their position on the floor.
 void StandingPose(Body& body, float x, float z, float camera_height);
+
+// An arm held straight from its shoulder. side: +1 the player's right arm, -1 their left.
+// azimuth: 0 pointing out to the side, 90 forward at the sensor, more across the body (degrees);
+// elevation: up from horizontal (degrees).
+void ArmPose(Body& body, float side, float azimuth, float elevation);
 
 }  // namespace x360::nui

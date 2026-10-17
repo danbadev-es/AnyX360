@@ -168,28 +168,16 @@ class SyntheticSource : public Source {
                              : 0.5f + 0.5f * std::cos((k - 2.0f / 3) * 3 * kPi);
     }
 
-    // Arms as straight lines from the shoulder: `azimuth` from pointing out to the side (0) through
-    // pointing forward at the sensor (90 degrees) to across the body; `elevation` up from horizontal.
-    // side: +1 the player's right, -1 their left.
-    auto arm = [&](float side, Arm pose, float dy, bool swiping, Joint shoulder, Joint elbow, Joint wrist,
-                   Joint hand) {
+    auto arm = [&](float side, Arm pose, float dy, bool swiping) {
       if (pose == Arm::kDown) return;
       float azimuth = 25.0f, elevation = std::asin(std::clamp(dy / 0.62f, -0.9f, 0.9f)) * 180 / kPi;
       if (pose == Arm::kGuide) azimuth = 0, elevation = -45;
       // A swipe towards the other side of the body crosses in front of it (to 155 degrees).
       if (swiping && pose == Arm::kMenu && p.swipe_direction == -side) azimuth += 130.0f * sweep;
-      const float a = azimuth * kPi / 180, e = elevation * kPi / 180;
-      const float dir[3] = {side * std::cos(e) * std::cos(a), std::sin(e), -std::cos(e) * std::sin(a)};
-      const float* s = body.joints[shoulder];
-      auto at = [&](Joint j, float length) {
-        Set(body, j, s[0] + dir[0] * length, s[1] + dir[1] * length, s[2] + dir[2] * length);
-      };
-      at(elbow, 0.30f);
-      at(wrist, 0.55f);
-      at(hand, 0.63f);
+      ArmPose(body, side, azimuth, elevation);
     };
-    arm(1.0f, p.right, p.right_y, !p.swipe_left_hand, kShoulderRight, kElbowRight, kWristRight, kHandRight);
-    arm(-1.0f, p.left, p.left_y, p.swipe_left_hand, kShoulderLeft, kElbowLeft, kWristLeft, kHandLeft);
+    arm(1.0f, p.right, p.right_y, !p.swipe_left_hand);
+    arm(-1.0f, p.left, p.left_y, p.swipe_left_hand);
 
     // Wave: the right hand swings sideways at 2 Hz.
     if (t >= p.wave_start && t < p.wave_end) {
@@ -243,6 +231,19 @@ void StandingPose(Body& body, float x, float z, float camera_height) {
   std::fill(std::begin(body.joint_state), std::end(body.joint_state), uint8_t(kJointTracked));
   body.quality = 0;
   std::memcpy(body.position, body.joints[kSpine], sizeof(body.position));
+}
+
+void ArmPose(Body& body, float side, float azimuth, float elevation) {
+  const float a = azimuth * kPi / 180, e = elevation * kPi / 180;
+  const float dir[3] = {side * std::cos(e) * std::cos(a), std::sin(e), -std::cos(e) * std::sin(a)};
+  const bool right = side > 0;
+  const float* s = body.joints[right ? kShoulderRight : kShoulderLeft];
+  auto at = [&](Joint j, float length) {
+    Set(body, j, s[0] + dir[0] * length, s[1] + dir[1] * length, s[2] + dir[2] * length);
+  };
+  at(right ? kElbowRight : kElbowLeft, 0.30f);
+  at(right ? kWristRight : kWristLeft, 0.55f);
+  at(right ? kHandRight : kHandLeft, 0.63f);
 }
 
 std::unique_ptr<Source> MakeSyntheticSource(const std::string& script, float camera_height) {
