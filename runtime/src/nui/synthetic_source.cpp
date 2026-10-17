@@ -12,6 +12,8 @@
 //   lower                    both arms down
 //   wave                     the right hand waves (default 2 s)
 //   guide                    the left arm held at 45 degrees (the Kinect guide gesture)
+//   arm_left_<az>_<el>,      that arm held straight at an azimuth and elevation in degrees (see
+//   arm_right_<az>_<el>      ArmPose), raised from the side over the duration (default at once)
 //   dance                    a looping routine of arm, hip and knee movement (default 30 s)
 //   idle                     stops any movement in progress
 #include <algorithm>
@@ -36,7 +38,7 @@ struct Event {
   int player = 0;
 };
 
-enum class Arm { kDown, kMenu, kGuide };
+enum class Arm { kDown, kMenu, kGuide, kAngle };
 
 struct Player {
   bool present = false;
@@ -50,6 +52,8 @@ struct Player {
   bool swipe_left_hand = false;
   double wave_start = -1, wave_end = -1;
   double dance_start = -1, dance_end = -1;
+  float azimuth[2] = {}, elevation[2] = {};  // kAngle, per arm (0 right, 1 left)
+  double raise_start[2] = {}, raise_end[2] = {};
 };
 
 void Set(Body& b, Joint j, float x, float y, float z) {
@@ -172,6 +176,14 @@ class SyntheticSource : public Source {
       p.wave_end = time + duration(2.0);
     } else if (e.action == "guide") {
       p.left = Arm::kGuide;
+    } else if (float az, el; std::sscanf(e.action.c_str(), "arm_left_%f_%f", &az, &el) == 2 ||
+                             std::sscanf(e.action.c_str(), "arm_right_%f_%f", &az, &el) == 2) {
+      const int arm = e.action.rfind("arm_left_", 0) == 0 ? 1 : 0;
+      (arm ? p.left : p.right) = Arm::kAngle;
+      p.azimuth[arm] = az;
+      p.elevation[arm] = el;
+      p.raise_start[arm] = time;
+      p.raise_end[arm] = time + std::max(duration(0.0), 0.0);
     } else if (e.action == "dance") {
       p.dance_start = time;
       p.dance_end = time + duration(30.0);
@@ -211,6 +223,13 @@ class SyntheticSource : public Source {
       if (pose == Arm::kDown) return;
       float azimuth = 25.0f, elevation = std::asin(std::clamp(dy / 0.62f, -0.9f, 0.9f)) * 180 / kPi;
       if (pose == Arm::kGuide) azimuth = 0, elevation = -45;
+      if (pose == Arm::kAngle) {
+        const int i = side < 0 ? 1 : 0;
+        const double span = p.raise_end[i] - p.raise_start[i];
+        const float k = span > 0 ? float(std::clamp((t - p.raise_start[i]) / span, 0.0, 1.0)) : 1.0f;
+        azimuth = p.azimuth[i] * k;
+        elevation = -85.0f + (p.elevation[i] + 85.0f) * k;  // from hanging at the side
+      }
       // A swipe towards the other side of the body crosses in front of it (to 155 degrees).
       if (swiping && pose == Arm::kMenu && p.swipe_direction == -side) azimuth += 130.0f * sweep;
       ArmPose(body, side, azimuth, elevation);

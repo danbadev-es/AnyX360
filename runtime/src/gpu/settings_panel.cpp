@@ -382,7 +382,7 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
       UpdateKinect([chosen](settings::KinectSettings& kk) { kk.source = chosen; });
     }
     if (k.source == "mouse")
-      ImGui::TextDisabled("Left click: select (a swipe). Right click: back. Space: the pause gesture.");
+      ImGui::TextDisabled("Left click: select (a swipe). Right click: back. Space: the Kinect guide gesture.");
     if (k.source != "webcam") return;
 
     ImGui::SeparatorText("Webcam");

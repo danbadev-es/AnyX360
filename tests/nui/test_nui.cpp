@@ -74,6 +74,18 @@ int main() {
     CHECK(s.bodies[0].joints[nui::kHandRight][0] > s.bodies[0].joints[nui::kShoulderRight][0] + 0.4f);
   }
 
+  {  // An arm at a given angle, raised from the side over the duration.
+    auto source = nui::MakeSyntheticSource("0:enter,1:arm_right_0_45/1", 0.8f);
+    nui::Snapshot s;
+    source->Poll(1.0, s);
+    const float* shoulder = s.bodies[0].joints[nui::kShoulderRight];
+    CHECK(s.bodies[0].joints[nui::kHandRight][1] < shoulder[1] - 0.5f);  // hanging at first
+    source->Poll(2.5, s);
+    const float* hand = s.bodies[0].joints[nui::kHandRight];
+    CHECK(std::abs((hand[1] - shoulder[1]) - 0.445f) < 0.02f);  // 45 degrees up, 0.63 m away
+    CHECK(std::abs((hand[0] - shoulder[0]) - 0.445f) < 0.02f);  // out to the player's right
+  }
+
   {  // A live script file: what is appended while the game runs happens when it's read.
     const auto path = std::filesystem::temp_directory_path() / ("anyx360_nui_live_" + std::to_string(_getpid()) + ".txt");
     std::FILE* f = _wfopen(path.c_str(), L"wb");
