@@ -1,12 +1,11 @@
 // Virtual Kinect: the skeleton frame in the XDK layout (big-endian), slots and tracking IDs, the
 // title choosing whom to track, and the scripted source's gestures.
 #include <bit>
-#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <thread>
 
+#include "../../runtime/src/nui/image_stream.h"
 #include "../../runtime/src/nui/source.h"
 #include "x360/hle.h"
 #include "x360/kernel.h"
@@ -70,6 +69,29 @@ int main() {
     CHECK(s.bodies[0].joints[nui::kHandRight][2] < s.bodies[0].joints[nui::kSpine][2] - 0.2f);
     source->Poll(3.5, s);  // back to the side
     CHECK(s.bodies[0].joints[nui::kHandRight][0] > s.bodies[0].joints[nui::kShoulderRight][0] + 0.4f);
+  }
+
+  {  // Images drawn from a body: its pixels carry its slot and its depth; its arm is on the mirrored side.
+    auto source = nui::MakeSyntheticSource("0:enter,0:menu_right", 0.8f);
+    nui::Snapshot s;
+    source->Poll(0.5, s);
+    const uint32_t slots[nui::kSkeletonCount] = {2, 6, 6, 6, 6, 6};
+    std::vector<uint16_t> depth;
+    nui::DrawDepth(s, slots, depth);
+    CHECK(depth.size() == nui::kDepthWidth * nui::kDepthHeight);
+    const float* spine = s.bodies[0].joints[nui::kSpine];
+    const uint32_t cx = uint32_t(160 + spine[0] * nui::kDepthFocal / spine[2]);
+    const uint32_t cy = uint32_t(120 - spine[1] * nui::kDepthFocal / spine[2]);
+    const uint16_t center = depth[cy * nui::kDepthWidth + cx];
+    CHECK((center & 7) == 3);                                        // slot 2 -> player index 3
+    CHECK(std::abs(int((center >> 3)) - int(spine[2] * 1000)) < 50);  // millimetres
+    CHECK((depth[5 * nui::kDepthWidth + 5] & 7) == 0);              // the room has no player
+    const float* hand = s.bodies[0].joints[nui::kHandRight];
+    const uint32_t hx = uint32_t(160 + hand[0] * nui::kDepthFocal / hand[2]);
+    CHECK(hx > cx + 20);  // the raised right hand is on the image's right
+    std::vector<uint8_t> color;
+    nui::DrawColor(s, color);
+    CHECK(color.size() == nui::kColorWidth * nui::kColorHeight * 4);
   }
 
   // The API, driven by a scripted player who walks in at once.

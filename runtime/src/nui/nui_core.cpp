@@ -161,23 +161,29 @@ void ClockThread() {
     const double now = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
 
     uint32_t skeleton_event = 0;
-    std::vector<uint32_t> image_events;
+    Snapshot snapshot;
+    uint32_t slots[kSkeletonCount];  // frame slot of each body in `snapshot`
+    uint32_t number;
+    uint64_t time_ms;
     {
       std::lock_guard lock(g_mutex);
       if (g_stop) break;
-      Snapshot snapshot;
       if (g_source) g_source->Poll(now, snapshot);
       g_snapshot = snapshot;
-      ++g_frame_number;
-      g_frame_time_ms = NowMs();
+      number = ++g_frame_number;
+      time_ms = g_frame_time_ms = NowMs();
       AssignSlots();
+      for (uint32_t i = 0; i < kSkeletonCount; ++i) {
+        slots[i] = kSkeletonCount;
+        for (uint32_t s = 0; s < kSkeletonCount && i < snapshot.body_count; ++s)
+          if (g_slots[s] == snapshot.bodies[i].id) slots[i] = s;
+      }
       if (g_tracking) skeleton_event = g_skeleton_event;
-      image_events = PublishImageFrames(g_snapshot, g_frame_number, g_frame_time_ms);
     }
     g_frame_cv.notify_all();
     if (skeleton_event)
       if (uint32_t body = ObjectFromHandle(skeleton_event)) SetEvent(body);
-    for (uint32_t event : image_events)
+    for (uint32_t event : PublishImageFrames(snapshot, slots, number, time_ms))
       if (uint32_t body = ObjectFromHandle(event)) SetEvent(body);
   }
   if (timer) CloseHandle(timer);

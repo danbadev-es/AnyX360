@@ -9,6 +9,9 @@
 #include "x360/hle.h"
 #include "x360/nui.h"
 
+PPC_EXTERN_FUNC(sub_82AC7908);  // XGSetTextureHeaderEx (the title's D3D library)
+PPC_EXTERN_FUNC(sub_82AC7B28);  // XGOffsetResourceAddress
+
 namespace dc3 {
 
 namespace {
@@ -43,6 +46,34 @@ bool StreamFormat(uint32_t type, uint32_t resolution, nui::StreamFormat& format)
     case 4: format.kind = nui::StreamFormat::kDepth; return true;
     default: return false;  // images mapped into the other camera's space
   }
+}
+
+// The texture header of an image frame, made as the library makes its own (8280CB60):
+// XGSetTextureHeaderEx(width, height, 1 level, usage 4, format, exp bias 0, flags 1, base offset 0,
+// mip offset "contiguous", pitch 0 (default), header, NULL, NULL), then
+// XGOffsetResourceAddress(header, pixels). Arguments 9-13 go on the stack at r1+0x54, 8 bytes apart.
+void TextureHeader(PPCContext& ctx, uint32_t header, const nui::StreamFormat& format, uint32_t pixels) {
+  uint8_t* base = x360::hle::guest_base();
+  const PPCContext saved = ctx;
+  ctx.r1.u64 -= 0x200;  // a frame for the calls, clear of the caller's
+  const uint32_t sp = ctx.r1.u32;
+  const uint32_t stack_args[] = {0xFFFFFFFF, 0, header, 0, 0};
+  for (uint32_t i = 0; i < 5; ++i) Store32(sp + 0x54 + i * 8, stack_args[i]);
+  ctx.r3.u64 = format.width;
+  ctx.r4.u64 = format.height;
+  ctx.r5.u64 = 1;
+  ctx.r6.u64 = 4;
+  ctx.r7.u64 = format.d3d_format;
+  ctx.r8.u64 = 0;
+  ctx.r9.u64 = 1;
+  ctx.r10.u64 = 0;
+  ctx.lr = 0x8280CD0C;
+  sub_82AC7908(ctx, base);
+  ctx.r3.u64 = header;
+  ctx.r4.u64 = pixels;
+  ctx.lr = 0x8280CD1C;
+  sub_82AC7B28(ctx, base);
+  ctx = saved;
 }
 
 // ---- color camera settings: kept as the game sets them ---------------------------------------
@@ -87,6 +118,7 @@ uint32_t IdentityGetEnrollment(uint32_t index, uint32_t info) {
 void InstallNui() {
   nui::TitleSupport support;
   support.stream_format = StreamFormat;
+  support.texture_header = TextureHeader;
   nui::SetTitleSupport(std::move(support));
 }
 

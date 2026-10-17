@@ -16,7 +16,9 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
+#include <vector>
 
 struct PPCContext;
 
@@ -54,10 +56,22 @@ struct Body {
   uint32_t quality = 0;
 };
 
+// Camera images (as the sensor sees them: mirrored, like the skeleton's x).
+constexpr uint32_t kColorWidth = 640, kColorHeight = 480;
+constexpr uint32_t kDepthWidth = 320, kDepthHeight = 240;
+// Nominal focal lengths in pixels (NUI_CAMERA_*_NOMINAL_FOCAL_LENGTH_IN_PIXELS); both cameras share
+// their optical centre here. A point (x, y, z) projects to (w/2 + x f/z, h/2 - y f/z).
+constexpr float kColorFocal = 531.15f;
+constexpr float kDepthFocal = 285.63f;
+
 // What a source sees at one moment.
 struct Snapshot {
   uint32_t body_count = 0;
   Body bodies[kSkeletonCount];
+  // When the source has a camera: 640x480 BGRA8, and 320x240 depth (millimetres << 3 | 1 + the
+  // index of the body in `bodies`, 0 for none). Without them the images are drawn from the bodies.
+  std::shared_ptr<const std::vector<uint8_t>> color;
+  std::shared_ptr<const std::vector<uint16_t>> depth;
 };
 
 // The format of an image stream, from the title's NUI tables.
