@@ -5,6 +5,7 @@
 #include <string>
 
 #include "x360/nui.h"
+#include "x360/settings.h"
 
 namespace x360::nui {
 
@@ -15,6 +16,8 @@ class Source {
   virtual void Poll(double time, Snapshot& out) = 0;
   // The source's state for the settings panel ("ok", "no camera found"...).
   virtual std::string Message() const { return "ok"; }
+  // The [kinect] settings changed (camera, mirror, players...).
+  virtual void Configure(const settings::KinectSettings&) {}
 };
 
 // Scripted test poses: "seconds:action[/duration][@player],..." (see synthetic_source.cpp).

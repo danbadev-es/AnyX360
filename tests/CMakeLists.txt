@@ -12,6 +12,10 @@ add_executable(test_nui nui/test_nui.cpp)
 target_link_libraries(test_nui PRIVATE x360_hle_test_objs)
 add_test(NAME nui COMMAND test_nui)
 
+add_executable(test_nui_bridge nui/test_bridge.cpp)
+target_link_libraries(test_nui_bridge PRIVATE x360_hle_test_objs)
+add_test(NAME nui_bridge COMMAND test_nui_bridge)
+
 # Python tools (synthetic inputs, no game data).
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)

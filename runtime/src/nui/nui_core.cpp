@@ -1,7 +1,8 @@
 // Virtual Kinect sensor (x360/nui.h): the NUI API on a 30 Hz clock fed by a source.
 //
 // Debugging: ANYX360_NUI_TRACE logs the API calls; ANYX360_NUI_SCRIPT drives the sensor with
-// scripted poses (synthetic_source.cpp) whatever the settings say.
+// scripted poses (synthetic_source.cpp) whatever the settings say; ANYX360_NUI_SOURCE picks the
+// source (webcam, mouse, synthetic, none) for this run.
 #include "x360/nui.h"
 
 #include <bit>
@@ -13,6 +14,7 @@
 #include <thread>
 #include <vector>
 
+#include "bridge.h"
 #include "image_stream.h"
 #include "source.h"
 #include "x360/kernel.h"
@@ -137,7 +139,8 @@ std::unique_ptr<Source> MakeSource(const settings::KinectSettings& kinect, std::
   if (const char* source = std::getenv("ANYX360_NUI_SOURCE")) name = source;  // debugging switch
   if (name == "synthetic") return MakeSyntheticSource("0:enter", kinect.camera_height);
   if (name == "mouse") return MakeMouseSource(kinect.camera_height);
-  return nullptr;  // none, or a source not available in this build
+  if (name == "webcam") return MakeBridgeSource(kinect);
+  return nullptr;  // none
 }
 
 void ClockThread() {
