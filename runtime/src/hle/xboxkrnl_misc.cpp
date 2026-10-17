@@ -1,4 +1,6 @@
 // xboxkrnl modules, console configuration, crypto and power exports.
+#include <mutex>
+
 #include "x360/kernel.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -141,6 +143,61 @@ void XeCryptRandom(uint32_t buffer, uint32_t length) {
   if (buffer && length) BCryptGenRandom(nullptr, Ptr(buffer), length, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
 }
 
+// AES-128. XECRYPT_AES_STATE (0x160 bytes) holds the console's key schedule; here it holds the key
+// itself in its first 16 bytes (only these functions read it). Encrypted game data (Dance Central 3's
+// songs) is read through them.
+constexpr uint32_t kAesStateSize = 0x160;
+
+BCRYPT_ALG_HANDLE AesAlgorithm(bool cbc) {
+  static BCRYPT_ALG_HANDLE handles[2] = {};
+  static std::once_flag once;
+  std::call_once(once, [] {
+    for (int i = 0; i < 2; ++i) {
+      if (BCryptOpenAlgorithmProvider(&handles[i], BCRYPT_AES_ALGORITHM, nullptr, 0) < 0) continue;
+      const wchar_t* mode = i ? BCRYPT_CHAIN_MODE_CBC : BCRYPT_CHAIN_MODE_ECB;
+      BCryptSetProperty(handles[i], BCRYPT_CHAINING_MODE, (PUCHAR)mode, ULONG((wcslen(mode) + 1) * sizeof(wchar_t)), 0);
+    }
+  });
+  return handles[cbc ? 1 : 0];
+}
+
+// Runs AES over `size` bytes (a multiple of 16) in place; with CBC, `iv` is updated to chain on.
+void AesInPlace(uint32_t state, bool cbc, bool encrypt, uint8_t* data, uint32_t size, uint8_t* iv) {
+  BCRYPT_KEY_HANDLE key = nullptr;
+  if (BCryptGenerateSymmetricKey(AesAlgorithm(cbc), &key, nullptr, 0, Ptr<uint8_t>(state), 16, 0) < 0) {
+    KLOG_E("XeCryptAes: no AES key");
+    return;
+  }
+  ULONG done = 0;
+  if (encrypt)
+    BCryptEncrypt(key, data, size, nullptr, iv, iv ? 16 : 0, data, size, &done, 0);
+  else
+    BCryptDecrypt(key, data, size, nullptr, iv, iv ? 16 : 0, data, size, &done, 0);
+  BCryptDestroyKey(key);
+}
+
+void XeCryptAesKey(uint32_t state, uint32_t key) {
+  std::memset(Ptr(state), 0, kAesStateSize);
+  std::memcpy(Ptr(state), Ptr(key), 16);
+}
+
+void XeCryptAesEcb(uint32_t state, uint32_t input, uint32_t output, uint32_t encrypt) {
+  std::memmove(Ptr(output), Ptr(input), 16);
+  AesInPlace(state, false, encrypt != 0, Ptr<uint8_t>(output), 16, nullptr);
+}
+
+// XeCryptAesCbc(state, input, size, output, feed, encrypt): `feed` is the IV, left as the last
+// ciphertext block for the next call.
+void XeCryptAesCbc(uint32_t state, uint32_t input, uint32_t size, uint32_t output, uint32_t feed, uint32_t encrypt) {
+  size &= ~15u;
+  if (!size) return;
+  std::memmove(Ptr(output), Ptr(input), size);
+  uint8_t iv[16];
+  std::memcpy(iv, Ptr(feed), 16);
+  AesInPlace(state, true, encrypt != 0, Ptr<uint8_t>(output), size, iv);
+  std::memcpy(Ptr(feed), iv, 16);
+}
+
 // A made-up console ID: 5 raw bytes and the same as 12 decimal digits (not NUL-terminated).
 uint32_t XeKeysGetConsoleID(uint32_t raw_ptr, uint32_t text_ptr) {
   static const uint8_t kRaw[5] = {0x39, 0x10, 0x40, 0x66, 0x7E};
@@ -176,6 +233,9 @@ X360_EXPORT(ExRegisterTitleTerminateNotification, ExRegisterTitleTerminateNotifi
 X360_EXPORT(ExGetXConfigSetting, ExGetXConfigSetting)
 X360_EXPORT(XeCryptSha, XeCryptSha)
 X360_EXPORT(XeCryptRandom, XeCryptRandom)
+X360_EXPORT(XeCryptAesKey, XeCryptAesKey)
+X360_EXPORT(XeCryptAesEcb, XeCryptAesEcb)
+X360_EXPORT(XeCryptAesCbc, XeCryptAesCbc)
 X360_EXPORT(XeKeysGetConsoleID, XeKeysGetConsoleID)
 X360_EXPORT(XeKeysConsolePrivateKeySign, XeKeysConsolePrivateKeySign)
 X360_EXPORT(XeKeysConsoleSignatureVerification, XeKeysConsoleSignatureVerification)

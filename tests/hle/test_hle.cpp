@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "x360/hle.h"
+#include "x360/kernel.h"
 #include "x360/memory.h"
 
 // Declared exactly as XenonRecomp's generated ppc_recomp_shared.h does.
@@ -15,6 +16,9 @@ PPC_EXTERN_FUNC(__imp__RtlFillMemoryUlong);
 PPC_EXTERN_FUNC(__imp__RtlUpperChar);
 PPC_EXTERN_FUNC(__imp__KeQueryPerformanceFrequency);
 PPC_EXTERN_FUNC(__imp__KeGetCurrentProcessType);
+PPC_EXTERN_FUNC(__imp__XeCryptAesKey);
+PPC_EXTERN_FUNC(__imp__XeCryptAesCbc);
+PPC_EXTERN_FUNC(__imp__XeCryptAesEcb);
 PPC_EXTERN_FUNC(__imp__KeBlowFuses);  // not implemented: must resolve to the weak stub
 PPC_EXTERN_FUNC(__imp__XamShowRecentMessageUI);
 
@@ -40,6 +44,7 @@ int main() {
   CHECK(mem.commit(kHeap, 0x10000));
   uint8_t* base = mem.base();
   hle::set_guest_base(base);
+  kernel::g_base = base;  // exports reach guest memory through the kernel's pointer helpers
 
   alignas(64) PPCContext ctx{};
 
@@ -97,6 +102,37 @@ int main() {
   CHECK(ctx.r3.u64 == 50'000'000);
   __imp__KeGetCurrentProcessType(ctx, base);
   CHECK(ctx.r3.u64 == 1);
+
+  // AES-128 (NIST SP 800-38A F.2.1/F.2.2, two CBC blocks): encrypt, then decrypt in place.
+  {
+    const uint8_t key[16] = {0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c};
+    const uint8_t plain[32] = {0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96, 0xe9, 0x3d, 0x7e, 0x11, 0x73, 0x93, 0x17, 0x2a,
+                               0xae, 0x2d, 0x8a, 0x57, 0x1e, 0x03, 0xac, 0x9c, 0x9e, 0xb7, 0x6f, 0xac, 0x45, 0xaf, 0x8e, 0x51};
+    const uint8_t cipher[32] = {0x76, 0x49, 0xab, 0xac, 0x81, 0x19, 0xb2, 0x46, 0xce, 0xe9, 0x8e, 0x9b, 0x12, 0xe9, 0x19, 0x7d,
+                                0x50, 0x86, 0xcb, 0x9b, 0x50, 0x72, 0x19, 0xee, 0x95, 0xdb, 0x11, 0x3a, 0x91, 0x76, 0x78, 0xb2};
+    const guest_addr state = kHeap + 0x1000, key_at = kHeap + 0x1200, data = kHeap + 0x1300, out = kHeap + 0x1400,
+                     feed = kHeap + 0x1500;
+    std::memcpy(mem.translate<uint8_t>(key_at), key, 16);
+    std::memcpy(mem.translate<uint8_t>(data), plain, 32);
+    for (int i = 0; i < 16; ++i) mem.translate<uint8_t>(feed)[i] = uint8_t(i);
+    ctx.r3.u64 = state;
+    ctx.r4.u64 = key_at;
+    __imp__XeCryptAesKey(ctx, base);
+    ctx.r3.u64 = state, ctx.r4.u64 = data, ctx.r5.u64 = 32, ctx.r6.u64 = out, ctx.r7.u64 = feed, ctx.r8.u64 = 1;
+    __imp__XeCryptAesCbc(ctx, base);
+    CHECK(std::memcmp(mem.translate<uint8_t>(out), cipher, 32) == 0);
+    CHECK(std::memcmp(mem.translate<uint8_t>(feed), cipher + 16, 16) == 0);  // chains on the last block
+    for (int i = 0; i < 16; ++i) mem.translate<uint8_t>(feed)[i] = uint8_t(i);
+    ctx.r3.u64 = state, ctx.r4.u64 = out, ctx.r5.u64 = 32, ctx.r6.u64 = out, ctx.r7.u64 = feed, ctx.r8.u64 = 0;
+    __imp__XeCryptAesCbc(ctx, base);
+    CHECK(std::memcmp(mem.translate<uint8_t>(out), plain, 32) == 0);
+    // ECB of the first block is CBC with a zero IV.
+    std::memcpy(mem.translate<uint8_t>(data), plain, 16);
+    for (int i = 0; i < 16; ++i) mem.translate<uint8_t>(data)[i] ^= uint8_t(i);
+    ctx.r3.u64 = state, ctx.r4.u64 = data, ctx.r5.u64 = out, ctx.r6.u64 = 1;
+    __imp__XeCryptAesEcb(ctx, base);
+    CHECK(std::memcmp(mem.translate<uint8_t>(out), cipher, 16) == 0);
+  }
 
   // Weak stubs: link, log once, return 0
   ctx.r3.u64 = 0x1234;
