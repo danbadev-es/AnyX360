@@ -219,8 +219,18 @@ uint32_t XAudioGetVoiceCategoryVolume(uint32_t category, uint32_t volume_ptr) {
   return X_STATUS_SUCCESS;
 }
 
+// The ducker lowers the title's audio under chat; with no chat, it stays off. The getters (level,
+// threshold, attack, release, hold) all report 0.
 uint32_t XAudioGetDuckerLevel(uint32_t level_ptr) {
   if (level_ptr) Store<uint32_t>(level_ptr, 0);
+  return X_STATUS_SUCCESS;
+}
+uint32_t XAudioEnableDucker(uint32_t enable) {
+  (void)enable;
+  return X_STATUS_SUCCESS;
+}
+uint32_t XAudioOverrideSpeakerConfig(uint32_t config) {
+  (void)config;
   return X_STATUS_SUCCESS;
 }
 
@@ -259,5 +269,11 @@ X360_EXPORT(XAudioSubmitRenderDriverFrame, XAudioSubmitRenderDriverFrame)
 X360_EXPORT(XAudioGetSpeakerConfig, XAudioGetSpeakerConfig)
 X360_EXPORT(XAudioGetVoiceCategoryVolume, XAudioGetVoiceCategoryVolume)
 X360_EXPORT(XAudioGetDuckerLevel, XAudioGetDuckerLevel)
+X360_EXPORT(XAudioGetDuckerThreshold, XAudioGetDuckerLevel)
+X360_EXPORT(XAudioGetDuckerAttackTime, XAudioGetDuckerLevel)
+X360_EXPORT(XAudioGetDuckerReleaseTime, XAudioGetDuckerLevel)
+X360_EXPORT(XAudioGetDuckerHoldTime, XAudioGetDuckerLevel)
+X360_EXPORT(XAudioEnableDucker, XAudioEnableDucker)
+X360_EXPORT(XAudioOverrideSpeakerConfig, XAudioOverrideSpeakerConfig)
 X360_EXPORT(XMACreateContext, XMACreateContext)
 X360_EXPORT(XMAReleaseContext, XMAReleaseContext)

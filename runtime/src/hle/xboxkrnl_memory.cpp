@@ -190,7 +190,15 @@ uint32_t ExAllocatePoolTypeWithTag(uint32_t size, uint32_t tag, uint32_t pool_ty
   return XeMemory()->SystemHeapAlloc(std::max<uint32_t>(size, 4));
 }
 uint32_t ExAllocatePool(uint32_t size) { return ExAllocatePoolTypeWithTag(size, 0, 0); }
+uint32_t ExAllocatePoolWithTag(uint32_t size, uint32_t tag) { return ExAllocatePoolTypeWithTag(size, tag, 0); }
 void ExFreePool(uint32_t address) { XeMemory()->SystemHeapFree(address); }
+
+// Size of the allocation an address belongs to (0 if none).
+uint32_t MmQueryAllocationSize(uint32_t address) {
+  xe::BaseHeap* heap = XeMemory()->LookupHeap(address);
+  uint32_t size = 0;
+  return heap && heap->QuerySize(address, &size) ? size : 0;
+}
 
 }  // namespace
 
@@ -205,4 +213,6 @@ X360_EXPORT(MmQueryAddressProtect, MmQueryAddressProtect)
 X360_EXPORT(MmSetAddressProtect, MmSetAddressProtect)
 X360_EXPORT(ExAllocatePoolTypeWithTag, ExAllocatePoolTypeWithTag)
 X360_EXPORT(ExAllocatePool, ExAllocatePool)
+X360_EXPORT(ExAllocatePoolWithTag, ExAllocatePoolWithTag)
 X360_EXPORT(ExFreePool, ExFreePool)
+X360_EXPORT(MmQueryAllocationSize, MmQueryAllocationSize)

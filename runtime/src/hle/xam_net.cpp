@@ -222,6 +222,44 @@ uint32_t NetDll_inet_addr(uint32_t cp) {
   return (a << 24) | (b << 16) | (c << 8) | d;
 }
 
+int32_t NetDll_shutdown(uint32_t caller, uint32_t s, uint32_t how) {
+  (void)caller, (void)how;
+  return IsSocket(s) ? 0 : Error(kWsaENotSock);
+}
+
+// No stream connection ever succeeds, so no socket has a peer.
+int32_t NetDll_getpeername(uint32_t caller, uint32_t s, uint32_t name, uint32_t length_ptr) {
+  (void)caller, (void)name, (void)length_ptr;
+  return Error(IsSocket(s) ? 10057u : kWsaENotSock);  // WSAENOTCONN
+}
+
+// __WSAFDIsSet(socket, fd_set): the macro FD_ISSET (no XNCALLER argument).
+int32_t NetDll___WSAFDIsSet(uint32_t s, uint32_t set) {
+  uint32_t count = std::min<uint32_t>(Load<uint32_t>(set), 64);
+  for (uint32_t i = 0; i < count; ++i)
+    if (Load<uint32_t>(set + 4 + i * 4) == s) return 1;
+  return 0;
+}
+
+// XNetInAddrToString(caller, in_addr, buffer, size): dotted quad.
+uint32_t NetDll_XNetInAddrToString(uint32_t caller, uint32_t address, uint32_t buffer, uint32_t size) {
+  (void)caller;
+  char text[16];
+  int length = std::snprintf(text, sizeof(text), "%u.%u.%u.%u", address >> 24, (address >> 16) & 0xFF,
+                             (address >> 8) & 0xFF, address & 0xFF);
+  if (!buffer || size <= uint32_t(length)) return 0x80070000u | 122;  // ERROR_INSUFFICIENT_BUFFER
+  std::memcpy(Ptr(buffer), text, size_t(length) + 1);
+  return 0;
+}
+
+// Machine IDs belong to Xbox Live addresses.
+uint32_t NetDll_XNetXnAddrToMachineId() { return 1; }
+
+uint32_t NetDll_XNetGetConnectStatus(uint32_t caller, uint32_t address) {
+  (void)caller, (void)address;
+  return 0;  // XNET_CONNECT_STATUS_IDLE
+}
+
 uint32_t NetDll_ErrorStatus() { return 0x80070000u | kWsaENetDown; }
 
 }  // namespace
@@ -252,6 +290,13 @@ X360_EXPORT(NetDll_setsockopt, NetDll_setsockopt)
 X360_EXPORT(NetDll_getsockopt, NetDll_getsockopt)
 X360_EXPORT(NetDll_getsockname, NetDll_getsockname)
 X360_EXPORT(NetDll_ioctlsocket, NetDll_ioctlsocket)
+X360_EXPORT(NetDll_shutdown, NetDll_shutdown)
+X360_EXPORT(NetDll_getpeername, NetDll_getpeername)
+X360_EXPORT(NetDll___WSAFDIsSet, NetDll___WSAFDIsSet)
+X360_EXPORT(NetDll_XNetInAddrToString, NetDll_XNetInAddrToString)
+X360_EXPORT(NetDll_XNetXnAddrToMachineId, NetDll_XNetXnAddrToMachineId)
+X360_EXPORT(NetDll_XNetGetConnectStatus, NetDll_XNetGetConnectStatus)
+X360_EXPORT(NetDll_XnpGetConfigStatus, NetDll_ErrorStatus)
 // XNet services: unavailable.
 X360_EXPORT(NetDll_XNetConnect, NetDll_ErrorStatus)
 X360_EXPORT(NetDll_XNetDnsLookup, NetDll_ErrorStatus)

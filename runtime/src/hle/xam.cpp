@@ -238,6 +238,30 @@ uint32_t XamUserGetDeviceContext(uint32_t user_index, uint32_t unknown, uint32_t
   return GetUser(user_index) ? X_ERROR_SUCCESS : X_ERROR_NO_SUCH_USER;
 }
 
+constexpr uint32_t kHrNoSuchUser = 0x80070525;  // HRESULT_FROM_WIN32(ERROR_NO_SUCH_USER)
+
+uint32_t XamUserGetIndexFromXUID(uint64_t xuid, uint32_t flags, uint32_t index_ptr) {
+  (void)flags;
+  int user = UserFromXuid(xuid);
+  if (user < 0 || !GetUser(uint32_t(user))) return kHrNoSuchUser;
+  if (index_ptr) Store<uint32_t>(index_ptr, uint32_t(user));
+  return X_ERROR_SUCCESS;
+}
+
+// Offline profiles: no Xbox Live membership, the console's country, no cached flags.
+uint32_t XamUserGetMembershipTierFromXUID(uint64_t xuid) {
+  (void)xuid;
+  return 0;
+}
+uint32_t XamUserGetOnlineCountryFromXUID(uint64_t xuid) {
+  (void)xuid;
+  return 103;  // United States, as ExGetXConfigSetting reports
+}
+uint32_t XamUserGetCachedUserFlags(uint32_t user_index) {
+  (void)user_index;
+  return 0;
+}
+
 // ---- profile settings -------------------------------------------------------------------------
 // Setting id: type << 28 | size << 16 | id. Title-specific blobs are persisted on disk.
 
@@ -428,6 +452,22 @@ uint32_t XamContentDelete(uint32_t user_index, uint32_t content_data, uint32_t o
   return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
 }
 
+// The system's own content (no player): kept in the title's base folder.
+uint32_t XamContentCreateInternal(uint32_t root_name_ptr, uint32_t content_data, uint32_t flags,
+                                  uint32_t disposition_ptr, uint32_t license_mask_ptr, uint32_t cache_size,
+                                  uint64_t content_size, uint32_t overlapped) {
+  return XamContentCreateEx(0xFE, root_name_ptr, content_data, flags, disposition_ptr, license_mask_ptr, cache_size,
+                            content_size, overlapped);
+}
+uint32_t XamContentDeleteInternal(uint32_t content_data, uint32_t overlapped) {
+  return XamContentDelete(0xFE, content_data, overlapped);
+}
+uint32_t XamContentFlush(uint32_t root_name_ptr, uint32_t overlapped) {
+  (void)root_name_ptr;
+  return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
+}
+uint32_t XamContentOpenFile() { return X_ERROR_FILE_NOT_FOUND; }
+
 uint32_t XamContentCreateEnumerator(uint32_t user_index, uint32_t device_id, uint32_t content_type,
                                     uint32_t content_flags, uint32_t items_per, uint32_t buffer_size_ptr,
                                     uint32_t handle_ptr) {
@@ -600,6 +640,21 @@ uint32_t XamInputSetState(uint32_t user_index, uint32_t unknown, uint32_t vibrat
   return X_ERROR_SUCCESS;
 }
 
+// X_INPUT_CAPABILITIES_EX: the 0x14-byte capabilities followed by 0xC bytes of device details.
+uint32_t XamInputGetCapabilitiesEx(uint32_t version, uint32_t user_index, uint32_t flags, uint32_t caps) {
+  if (version > 1) return X_ERROR_NOT_SUPPORTED;
+  std::memset(Ptr(caps), 0, 0x20);
+  if ((user_index & 0xFF) == 0xFF) user_index = 0;  // any player
+  return XamInputGetCapabilities(user_index, flags, caps);
+}
+uint32_t XamInputSendStayAliveRequest() { return X_ERROR_SUCCESS; }
+uint32_t XamInputControl() { return X_ERROR_SUCCESS; }
+uint32_t XamInputRawState() { return X_ERROR_DEVICE_NOT_CONNECTED; }
+
+// Inactivity (the dashboard's screen dimming) doesn't apply.
+uint32_t XamEnableInactivityProcessing() { return X_ERROR_SUCCESS; }
+void XamResetInactivity() {}
+
 // ---- loader / process -------------------------------------------------------------------------
 
 uint32_t XamLoaderGetLaunchDataSize(uint32_t size_ptr) {
@@ -716,6 +771,25 @@ uint32_t XamShowKeyboardUI(uint32_t user_index, uint32_t flags, uint32_t default
 // The remaining UI entry points show Live/guide screens that do not exist here.
 uint32_t XamShowUIStub() { return X_ERROR_SUCCESS; }
 
+// Kinect versions of the system UI take the tracking ID of the skeleton that asked first.
+uint32_t XamShowNuiSigninUI(uint32_t tracking_id, uint32_t count, uint32_t flags) {
+  (void)tracking_id;
+  return XamShowSigninUI(count, flags);
+}
+uint32_t XamShowNuiDeviceSelectorUI(uint32_t tracking_id, uint32_t user_index, uint32_t content_type,
+                                    uint32_t content_flags, uint64_t total_requested, uint32_t device_id_ptr,
+                                    uint32_t overlapped) {
+  (void)tracking_id;
+  return XamShowDeviceSelectorUI(user_index, content_type, content_flags, total_requested, device_id_ptr, overlapped);
+}
+[[noreturn]] void XamShowNuiDirtyDiscErrorUI(uint32_t tracking_id, uint32_t user_index) {
+  (void)tracking_id;
+  XamShowDirtyDiscErrorUI(user_index);
+}
+// The Kinect guide is a system overlay; it isn't available.
+uint32_t XamShowNuiGuideUI() { return X_ERROR_ACCESS_DENIED; }
+uint32_t XamIsUIActive() { return 0; }
+
 // ---- sessions, voice, messaging, misc --------------------------------------------------------
 
 struct Session : Object {
@@ -753,6 +827,32 @@ uint32_t XamVoiceSubmitPacket() { return 0; }
 
 uint32_t XamReadTileToTexture() { return X_ERROR_NOT_FOUND; }
 uint32_t XamWriteGamerTile() { return X_ERROR_NOT_FOUND; }
+
+uint32_t XamGetCurrentTitleId() { return Title().title_id; }
+uint32_t XamBackgroundDownloadSetMode(uint32_t mode) {
+  (void)mode;
+  return X_ERROR_SUCCESS;
+}
+
+// Xbox SmartGlass ("LRC"): no companion devices ever connect.
+uint32_t XamLrcSetTitlePort(uint32_t port) {
+  (void)port;
+  return X_ERROR_SUCCESS;
+}
+uint32_t XamLrcFail() { return 0x80004005; }
+
+// ---- Kinect system services ---------------------------------------------------------------------
+// The skeleton, cameras and microphones belong to the NUI library linked into the title, which the
+// virtual sensor replaces (x360/nui.h). The system only reports a connected sensor and no
+// microphone array.
+
+// X_NUI_DEVICE_STATUS: camera, tilt and microphone status (NTSTATUS), status bits.
+uint32_t XamNuiGetDeviceStatus(uint32_t status) {
+  std::memset(Ptr(status), 0, 0x10);
+  Store<uint32_t>(status + 0x0C, 1);  // ready
+  return X_ERROR_SUCCESS;
+}
+uint32_t XamVoiceGetMicArrayStatus() { return 0; }
 
 // ---- XAM "apps" reached through XMsg* (message semantics from Xenia's xam/apps) ----------------
 
@@ -810,6 +910,16 @@ uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_
         default:
           return kHrSuccess;
       }
+    case 0xFE:  // XAM: Kinect title support
+      switch (message) {
+        case 0x0002B001:  // XNuiDelayUI {milliseconds}
+        case 0x0002B003:  // XNuiTitleInitialize {xam version, XTL version, flags}
+        case 0x0002B004:  // XNuiTitleShutdown
+        case 0x0002C009:  // identity callback (register or remove)
+          return kHrSuccess;
+        default:
+          return kHrFail;
+      }
     default:
       return kHrFail;
   }
@@ -829,6 +939,11 @@ uint32_t XMsgStartIORequestEx(uint32_t app, uint32_t message, uint32_t overlappe
 uint32_t XMsgInProcessCall(uint32_t app, uint32_t message, uint32_t arg1, uint32_t arg2) {
   uint32_t hr = DispatchXamApp(app, message, arg1, arg2);
   if (hr != kHrSuccess) KLOG_I("XMsgInProcessCall(app %X, message %08X) -> %08X", app, message, hr);
+  return hr;
+}
+uint32_t XMsgSystemProcessCall(uint32_t app, uint32_t message, uint32_t buffer, uint32_t length) {
+  uint32_t hr = DispatchXamApp(app, message, buffer, length);
+  if (hr != kHrSuccess) KLOG_I("XMsgSystemProcessCall(app %X, message %08X) -> %08X", app, message, hr);
   return hr;
 }
 uint32_t XMsgCompleteIORequest() { return X_ERROR_SUCCESS; }
@@ -975,3 +1090,37 @@ X360_EXPORT(XGetAVPack, XGetAVPack)
 X360_EXPORT(XGetGameRegion, XGetGameRegion)
 X360_EXPORT(XGetLanguage, XGetLanguage)
 X360_EXPORT(XGetVideoMode, XGetVideoMode)
+X360_EXPORT(XMsgSystemProcessCall, XMsgSystemProcessCall)
+X360_EXPORT(XamGetCurrentTitleId, XamGetCurrentTitleId)
+X360_EXPORT(XamUserGetIndexFromXUID, XamUserGetIndexFromXUID)
+X360_EXPORT(XamUserGetMembershipTierFromXUID, XamUserGetMembershipTierFromXUID)
+X360_EXPORT(XamUserGetOnlineCountryFromXUID, XamUserGetOnlineCountryFromXUID)
+X360_EXPORT(XamUserGetCachedUserFlags, XamUserGetCachedUserFlags)
+X360_EXPORT(XamContentCreateInternal, XamContentCreateInternal)
+X360_EXPORT(XamContentDeleteInternal, XamContentDeleteInternal)
+X360_EXPORT(XamContentFlush, XamContentFlush)
+X360_EXPORT(XamContentOpenFile, XamContentOpenFile)
+X360_EXPORT(XamInputGetCapabilitiesEx, XamInputGetCapabilitiesEx)
+X360_EXPORT(XamInputSendStayAliveRequest, XamInputSendStayAliveRequest)
+X360_EXPORT(XamInputControl, XamInputControl)
+X360_EXPORT(XamInputRawState, XamInputRawState)
+X360_EXPORT(XamEnableInactivityProcessing, XamEnableInactivityProcessing)
+X360_EXPORT(XamResetInactivity, XamResetInactivity)
+X360_EXPORT(XamIsUIActive, XamIsUIActive)
+X360_EXPORT(XamShowNuiSigninUI, XamShowNuiSigninUI)
+X360_EXPORT(XamShowNuiDeviceSelectorUI, XamShowNuiDeviceSelectorUI)
+X360_EXPORT(XamShowNuiDirtyDiscErrorUI, XamShowNuiDirtyDiscErrorUI)
+X360_EXPORT(XamShowNuiGuideUI, XamShowNuiGuideUI)
+X360_EXPORT(XamShowNuiTroubleshooterUI, XamShowUIStub)
+X360_EXPORT(XamShowNuiFriendsUI, XamShowUIStub)
+X360_EXPORT(XamShowNuiGamerCardUIForXUID, XamShowUIStub)
+X360_EXPORT(XamShowNuiMarketplaceUI, XamShowUIStub)
+X360_EXPORT(XamShowNuiPartyUI, XamShowUIStub)
+X360_EXPORT(XamShowNuiControllerRequiredUI, XamShowUIStub)
+X360_EXPORT(XamShowMarketplaceDownloadItemsUI, XamShowUIStub)
+X360_EXPORT(XamBackgroundDownloadSetMode, XamBackgroundDownloadSetMode)
+X360_EXPORT(XamLrcSetTitlePort, XamLrcSetTitlePort)
+X360_EXPORT(XamLrcVerifyClientId, XamLrcFail)
+X360_EXPORT(XamLrcEncryptDecryptTitleMessage, XamLrcFail)
+X360_EXPORT(XamNuiGetDeviceStatus, XamNuiGetDeviceStatus)
+X360_EXPORT(XamVoiceGetMicArrayStatus, XamVoiceGetMicArrayStatus)

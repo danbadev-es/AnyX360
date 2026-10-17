@@ -137,6 +137,18 @@ void XeCryptSha(uint32_t in1, uint32_t size1, uint32_t in2, uint32_t size2, uint
   if (out) std::memcpy(Ptr(out), digest, std::min<uint32_t>(out_size, 20));
 }
 
+void XeCryptRandom(uint32_t buffer, uint32_t length) {
+  if (buffer && length) BCryptGenRandom(nullptr, Ptr(buffer), length, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+}
+
+// A made-up console ID: 5 raw bytes and the same as 12 decimal digits (not NUL-terminated).
+uint32_t XeKeysGetConsoleID(uint32_t raw_ptr, uint32_t text_ptr) {
+  static const uint8_t kRaw[5] = {0x39, 0x10, 0x40, 0x66, 0x7E};
+  if (raw_ptr) std::memcpy(Ptr(raw_ptr), kRaw, sizeof(kRaw));
+  if (text_ptr) std::memcpy(Ptr(text_ptr), "245149100000", 12);
+  return X_STATUS_SUCCESS;
+}
+
 uint32_t XeKeysConsolePrivateKeySign(uint32_t hash, uint32_t signature) {
   (void)hash;
   if (signature) std::memset(Ptr(signature), 0, 0x228);
@@ -163,5 +175,7 @@ X360_EXPORT(HalReturnToFirmware, HalReturnToFirmware)
 X360_EXPORT(ExRegisterTitleTerminateNotification, ExRegisterTitleTerminateNotification)
 X360_EXPORT(ExGetXConfigSetting, ExGetXConfigSetting)
 X360_EXPORT(XeCryptSha, XeCryptSha)
+X360_EXPORT(XeCryptRandom, XeCryptRandom)
+X360_EXPORT(XeKeysGetConsoleID, XeKeysGetConsoleID)
 X360_EXPORT(XeKeysConsolePrivateKeySign, XeKeysConsolePrivateKeySign)
 X360_EXPORT(XeKeysConsoleSignatureVerification, XeKeysConsoleSignatureVerification)

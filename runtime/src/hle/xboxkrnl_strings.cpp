@@ -292,6 +292,18 @@ int32_t RtlCompareStringN(uint32_t s1, uint32_t len1, uint32_t s2, uint32_t len2
 }
 
 uint32_t RtlUpcaseUnicodeChar(uint32_t c) { return uint16_t(std::towupper(wchar_t(c))); }
+uint32_t RtlDowncaseUnicodeChar(uint32_t c) { return uint16_t(std::towlower(wchar_t(c))); }
+
+// RtlCopyString(destination, source): copies as much as fits in the destination's buffer.
+void RtlCopyString(x360::hle::ANSI_STRING* destination, const x360::hle::ANSI_STRING* source) {
+  if (!source) {
+    destination->Length = 0;
+    return;
+  }
+  uint16_t length = std::min<uint16_t>(source->Length, destination->MaximumLength);
+  if (length) std::memcpy(x360::hle::to_host(destination->Buffer), x360::hle::to_host(source->Buffer), length);
+  destination->Length = length;
+}
 
 void HleRtlCaptureContext(uint32_t context) {
   // A zeroed CONTEXT is enough for the callers seen so far (crash reporting paths).
@@ -364,6 +376,8 @@ X360_EXPORT(RtlUnicodeStringToAnsiString, RtlUnicodeStringToAnsiString)
 X360_EXPORT(RtlFreeAnsiString, RtlFreeAnsiString)
 X360_EXPORT(RtlCompareStringN, RtlCompareStringN)
 X360_EXPORT(RtlUpcaseUnicodeChar, RtlUpcaseUnicodeChar)
+X360_EXPORT(RtlDowncaseUnicodeChar, RtlDowncaseUnicodeChar)
+X360_EXPORT(RtlCopyString, RtlCopyString)
 X360_EXPORT(RtlCaptureContext, HleRtlCaptureContext)
 X360_EXPORT(RtlRaiseException, HleRtlRaiseException)
 X360_EXPORT(RtlUnwind, HleRtlUnwind)

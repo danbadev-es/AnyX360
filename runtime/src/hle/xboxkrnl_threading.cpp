@@ -443,6 +443,26 @@ uint32_t ObReferenceObjectByHandle(uint32_t handle, uint32_t object_type, uint32
 
 void ObReferenceObject(uint32_t object) { (void)object; }
 void ObDereferenceObject(uint32_t object) { (void)object; }
+
+uint32_t ObLookupThreadByThreadId(uint32_t thread_id, uint32_t out_ptr) {
+  auto thread = ThreadById(thread_id);
+  if (!thread) return X_STATUS_INVALID_PARAMETER;
+  if (out_ptr) Store<uint32_t>(out_ptr, thread->kthread);
+  return X_STATUS_SUCCESS;
+}
+
+// A new handle to an object known by its body: a thread (its KTHREAD holds the thread id at 0x14C)
+// or any dispatcher object.
+uint32_t ObOpenObjectByPointer(uint32_t object, uint32_t handle_ptr) {
+  if (!object) return X_STATUS_INVALID_PARAMETER;
+  uint32_t handle = 0;
+  if (auto thread = ThreadById(Load<uint32_t>(object + 0x14C)); thread && thread->kthread == object)
+    handle = DuplicateHandle(thread->handle);
+  else
+    handle = CreateHandle(std::make_shared<DispatcherObject>(object));
+  if (handle_ptr) Store<uint32_t>(handle_ptr, handle);
+  return handle ? X_STATUS_SUCCESS : X_STATUS_INVALID_PARAMETER;
+}
 uint32_t ObIsTitleObject(uint32_t object) {
   (void)object;
   return 1;
@@ -654,6 +674,8 @@ X360_EXPORT(NtDuplicateObject, NtDuplicateObject)
 X360_EXPORT(ObReferenceObjectByHandle, ObReferenceObjectByHandle)
 X360_EXPORT(ObReferenceObject, ObReferenceObject)
 X360_EXPORT(ObDereferenceObject, ObDereferenceObject)
+X360_EXPORT(ObLookupThreadByThreadId, ObLookupThreadByThreadId)
+X360_EXPORT(ObOpenObjectByPointer, ObOpenObjectByPointer)
 X360_EXPORT(ObIsTitleObject, ObIsTitleObject)
 X360_EXPORT(InterlockedPopEntrySList, HleInterlockedPopEntrySList)
 X360_EXPORT(InterlockedFlushSList, HleInterlockedFlushSList)

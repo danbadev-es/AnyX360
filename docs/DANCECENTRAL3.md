@@ -65,5 +65,17 @@ build.bat
 `recomp\` must be empty before XenonRecomp runs; to regenerate, use a new folder and point the
 build at it with `cmake --preset windows-clang -DDC3_PPC_DIR=<folder>`.
 
+## Bring-up notes
+- **Main loop through an exception**: Milo's `App::Run` (`0x82311A68`) installs an
+  unhandled-exception filter and then stores to address 0 on purpose; the filter (`0x82311A40`) runs
+  the main loop. There is no guest exception dispatch, so `games/dc3/src/milo_hooks.cpp` calls the
+  filter directly.
+- **Switches the analyser missed**: `XGetLocale`'s result indexes a 37-entry table in Milo's startup;
+  XenonAnalyse took the call's result for a constant (calls now end the dataflow) and the switch had
+  become an indirect call whose cases ran as separate functions.
+- **Pacing**: the title presents on every vblank, so the vblank runs at the console's 60 Hz.
+
 ## Status (2026-10-17)
-Recompiler configuration done; bring-up in progress.
+Boots to the main menu ("Start the party") at 60 FPS without a sensor: `NuiInitialize` reports the
+device as not connected and the menu waits for a hand. The imports still unimplemented are only
+called from inside the NUI library.
