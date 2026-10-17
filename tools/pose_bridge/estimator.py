@@ -2,15 +2,24 @@
 landmarks and segmentation masks."""
 
 import sys
+import types
 from pathlib import Path
 
 import cv2
-import mediapipe as mp
-import numpy as np
-from mediapipe.tasks.python import BaseOptions
-from mediapipe.tasks.python.vision import PoseLandmarker, PoseLandmarkerOptions, RunningMode
 
-from pipeline import Pose
+# MediaPipe's package imports its drawing helpers, which import matplotlib at once; the bridge never
+# draws with them, and the bundle leaves matplotlib out. An empty module stands in for it.
+if "matplotlib" not in sys.modules:
+    _matplotlib = types.ModuleType("matplotlib")
+    _matplotlib.pyplot = types.ModuleType("matplotlib.pyplot")
+    sys.modules["matplotlib"], sys.modules["matplotlib.pyplot"] = _matplotlib, _matplotlib.pyplot
+
+import mediapipe as mp  # noqa: E402
+import numpy as np  # noqa: E402
+from mediapipe.tasks.python import BaseOptions  # noqa: E402
+from mediapipe.tasks.python.vision import PoseLandmarker, PoseLandmarkerOptions, RunningMode  # noqa: E402
+
+from pipeline import Pose  # noqa: E402
 
 INFERENCE_WIDTH = 640  # frames are scaled down to this width for the model
 
