@@ -927,7 +927,7 @@ labels = [
 [[switch]]
 base = 0x829468D0
 r = 17
-default = 0x0
+default = 0x82947E10
 table = 0x829468D4
 table_size = 0x74
 labels = [

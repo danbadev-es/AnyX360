@@ -1603,6 +1603,44 @@ labels = [
 ]
 
 [[switch]]
+base = 0x826DB92C
+r = 19
+default = 0x826DCA98
+table = 0x820AA4B0
+table_size = 0x3A
+labels = [
+    0x826DB930,
+    0x826DBA88,
+    0x826DBB0C,
+    0x826DBB84,
+    0x826DBBC8,
+    0x826DBC40,
+    0x826DBCA8,
+    0x826DBD0C,
+    0x826DBD70,
+    0x826DBE04,
+    0x826DBE44,
+    0x826DBE70,
+    0x826DBE7C,
+    0x826DBF48,
+    0x826DBFB0,
+    0x826DC034,
+    0x826DC100,
+    0x826DC3C0,
+    0x826DC488,
+    0x826DC644,
+    0x826DC6AC,
+    0x826DC800,
+    0x826DC888,
+    0x826DC930,
+    0x826DC954,
+    0x826DCA30,
+    0x826DCAD4,
+    0x826DCADC,
+    0x826DCC34,
+]
+
+[[switch]]
 base = 0x826FBFD8
 r = 11
 default = 0x826FE630
@@ -6773,6 +6811,31 @@ labels = [
 ]
 
 [[switch]]
+base = 0x82AF564C
+r = 29
+default = 0x82AF5390
+table = 0x821EB8E0
+table_size = 0x20
+labels = [
+    0x82AF5650,
+    0x82AF5650,
+    0x82AF5144,
+    0x82AF5650,
+    0x82AF5650,
+    0x82AF5650,
+    0x82AF5650,
+    0x82AF5144,
+    0x82AF5144,
+    0x82AF5650,
+    0x82AF5144,
+    0x82AF5144,
+    0x82AF5650,
+    0x82AF5650,
+    0x82AF5650,
+    0x82AF5650,
+]
+
+[[switch]]
 base = 0x82B1DB94
 r = 11
 default = 0x82B1E158
@@ -6965,6 +7028,50 @@ labels = [
     0x82B83488,
     0x82B83450,
     0x82B8345C,
+]
+
+[[switch]]
+base = 0x82B85AA0
+r = 11
+default = 0x82B8DFAC
+table = 0x821EC5B8
+table_size = 0x46
+labels = [
+    0x82B85AA4,
+    0x82B85AC4,
+    0x82B85B6C,
+    0x82B85B6C,
+    0x82B85AA4,
+    0x82B85AA4,
+    0x82B85AFC,
+    0x82B85AA4,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B38,
+    0x82B85B88,
+    0x82B85B88,
+    0x82B85B14,
+    0x82B85AB4,
+    0x82B85E0C,
+    0x82B85E84,
+    0x82B85BAC,
+    0x82B85BAC,
+    0x82B8DFA0,
 ]
 
 [[switch]]
@@ -8516,9 +8623,6 @@ labels = [
     0x82CFB840,
 ]
 
-# unresolved table-driven bctr at 0x826DB92C
 # unresolved table-driven bctr at 0x8284C730
-# unresolved table-driven bctr at 0x82AF564C
-# unresolved table-driven bctr at 0x82B85AA0
 # unresolved table-driven bctr at 0x82BEAD10
 # unresolved table-driven bctr at 0x82BECB20

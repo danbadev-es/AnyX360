@@ -3,9 +3,9 @@
 # launcher and packaging facts), the XenonRecomp output and the host sources.
 #
 # The recompiled sources are generated locally from the player's own copy of the game and are never
-# committed. Their folder is the cache variable <ID>_PPC_DIR (default games/<id>/recomp): XenonRecomp
-# never deletes old files, so a regeneration goes into a new empty folder and the build is pointed at
-# it with -D<ID>_PPC_DIR=<folder>. Games without generated sources are skipped.
+# committed. Their folder is out_directory_path in games/<id>/config.toml (or -D<ID>_PPC_DIR=<folder>):
+# XenonRecomp never deletes old files, so a regeneration goes into a new empty folder (change
+# out_directory_path, e.g. recomp2) and the build follows. Games without generated sources are skipped.
 #
 # Generates game_info.h (namespace game_info: kTitle, kUserDir, kDevGameDir, kTitleId) for the host
 # sources, and the game's launcher <id>_launcher.
@@ -21,8 +21,15 @@ function(anyx360_add_game id)
   string(JSON dev_game_dir GET "${json}" dev_game_dir)
 
   string(TOUPPER ${id} ID)
-  set(${ID}_PPC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/recomp CACHE PATH "XenonRecomp output folder of ${title}")
-  set(ppc_dir ${${ID}_PPC_DIR})
+  if(DEFINED ${ID}_PPC_DIR)
+    set(ppc_dir ${${ID}_PPC_DIR})
+  else()
+    set(config_path ${CMAKE_CURRENT_SOURCE_DIR}/config.toml)
+    file(STRINGS ${config_path} out_line REGEX "^out_directory_path *=")
+    string(REGEX REPLACE "^out_directory_path *= *\"([^\"]*)\".*" "\\1" out_dir "${out_line}")
+    set(ppc_dir ${CMAKE_CURRENT_SOURCE_DIR}/${out_dir})
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${config_path})
+  endif()
   if(NOT EXISTS ${ppc_dir}/ppc_config.h)
     message(STATUS "${id}: ${ppc_dir} not generated yet, skipping (run XenonRecomp first)")
     return()
