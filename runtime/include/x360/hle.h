@@ -27,6 +27,8 @@ namespace x360::hle {
 
 // Logs the first call of an unimplemented export (thread-safe).
 void unimplemented(const char* name);
+// Logs the first call of a replaced guest function: name, arguments r3-r6 and the caller.
+void guest_function_called(uint32_t address, const char* name, const PPCContext& ctx);
 // Records the export the current guest thread is executing (for thread dumps).
 extern void (*g_note_import)(const char* name);
 
@@ -177,4 +179,39 @@ using UNICODE_STRING = ANSI_STRING;  // same layout; Buffer points to big-endian
     if (::x360::hle::g_note_import) ::x360::hle::g_note_import(#name);   \
     ::x360::hle::invoke<fn>(ctx, base);                                  \
     if (::x360::hle::g_note_import) ::x360::hle::g_note_import(nullptr); \
+  }
+
+// Replacing functions of the recompiled title (for example a library linked into it). XenonRecomp
+// emits each function as a weak sub_<address> aliasing __imp__sub_<address>, used by direct calls
+// and the function table alike, so a strong sub_<address> takes over every caller. Each macro keeps
+// a reference to __imp__sub_<address>: a wrong address is a link error, not an unused definition.
+#define X360_GUEST_ORIGINAL(address)                \
+  extern "C" PPC_FUNC(__imp__sub_##address);        \
+  __attribute__((used)) static void (*const x360_original_sub_##address)(PPCContext&, uint8_t*) = \
+      __imp__sub_##address;
+
+// sub_<address> runs `fn`, called like an export (arguments from r3.., result to r3/f1).
+#define X360_GUEST_FUNCTION(address, fn)                                 \
+  X360_GUEST_ORIGINAL(address)                                           \
+  PPC_FUNC(sub_##address) {                                              \
+    ::x360::hle::guest_function_called(0x##address, #fn, ctx);           \
+    if (::x360::hle::g_note_import) ::x360::hle::g_note_import(#fn);     \
+    ::x360::hle::invoke<fn>(ctx, base);                                  \
+    if (::x360::hle::g_note_import) ::x360::hle::g_note_import(nullptr); \
+  }
+
+// sub_<address> does nothing and returns `result` in r3.
+#define X360_GUEST_STUB(address, name, result)                    \
+  X360_GUEST_ORIGINAL(address)                                    \
+  PPC_FUNC(sub_##address) {                                       \
+    ::x360::hle::guest_function_called(0x##address, name, ctx);   \
+    ctx.r3.u64 = uint64_t(result);                                \
+  }
+
+// sub_<address> logs its first call and runs the original code.
+#define X360_GUEST_TRACE(address, name)                           \
+  X360_GUEST_ORIGINAL(address)                                    \
+  PPC_FUNC(sub_##address) {                                       \
+    ::x360::hle::guest_function_called(0x##address, name, ctx);   \
+    __imp__sub_##address(ctx, base);                              \
   }
