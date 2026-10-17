@@ -40,11 +40,27 @@ struct PacingSettings {
   bool mmcss = false;             // MMCSS "Games" class for the vblank and audio threads
 };
 
+// Kinect titles: the virtual sensor (x360/nui.h). Only games that use it write this section.
+struct KinectSettings {
+  bool enabled = false;  // set by the game's defaults, not saved
+  // Where the players' skeletons come from: "webcam" (the pose bridge), "mouse" (the right hand
+  // follows the mouse), "synthetic" (scripted test poses, ANYX360_NUI_SCRIPT) or "none".
+  std::string source = "webcam";
+  uint32_t camera = 0;         // webcam index
+  bool mirror = false;         // the webcam already mirrors its image
+  float fov = 60.0f;           // the webcam's horizontal field of view in degrees
+  float smoothing = 0.5f;      // 0 raw, 1 heavy
+  uint32_t players = 2;        // bodies tracked at once (1-2)
+  float camera_height = 0.8f;  // the virtual sensor's height above the floor, in metres
+  std::string model = "full";  // pose model: lite, full, heavy
+};
+
 struct Settings {
   int version = 1;
   gpu::DisplayConfig display;
   bool show_stats = false;
   InputSettings input;
+  KinectSettings kinect;
   PlayerSettings players[4] = {{"keyboard_mouse", "Player"}, {"pad", "Player 2"}, {"none", "Player 3"},
                                {"none", "Player 4"}};
   // When local players sign in: "on_demand" (when the title asks), "at_start" (every player with a

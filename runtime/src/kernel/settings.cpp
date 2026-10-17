@@ -91,6 +91,20 @@ void Parse(const toml::table& t, Settings& s) {
   Read(pacing["display_lock"], s.pacing.display_lock);
   Read(pacing["thread_priorities"], s.pacing.thread_priorities);
   Read(pacing["mmcss"], s.pacing.mmcss);
+
+  auto kinect = t["kinect"];
+  Read(kinect["source"], s.kinect.source);
+  Read(kinect["camera"], s.kinect.camera);
+  Read(kinect["mirror"], s.kinect.mirror);
+  Read(kinect["fov"], s.kinect.fov);
+  Read(kinect["smoothing"], s.kinect.smoothing);
+  Read(kinect["players"], s.kinect.players);
+  Read(kinect["camera_height"], s.kinect.camera_height);
+  Read(kinect["model"], s.kinect.model);
+  s.kinect.fov = std::clamp(s.kinect.fov, 30.0f, 120.0f);
+  s.kinect.smoothing = std::clamp(s.kinect.smoothing, 0.0f, 1.0f);
+  s.kinect.players = std::clamp(s.kinect.players, 1u, 2u);
+  s.kinect.camera_height = std::clamp(s.kinect.camera_height, 0.2f, 2.0f);
 }
 
 std::string Float(float v) {
@@ -145,6 +159,17 @@ std::string Serialize(const Settings& s) {
     << "display_lock = " << (s.pacing.display_lock ? "true" : "false") << "\n"
     << "thread_priorities = " << (s.pacing.thread_priorities ? "true" : "false") << "\n"
     << "mmcss = " << (s.pacing.mmcss ? "true" : "false") << "\n";
+  if (s.kinect.enabled) {
+    o << "\n[kinect]\n"
+      << "source = " << Quote(s.kinect.source) << "  # webcam, mouse, synthetic, none\n"
+      << "camera = " << s.kinect.camera << "  # webcam index\n"
+      << "mirror = " << (s.kinect.mirror ? "true" : "false") << "  # the webcam already mirrors its image\n"
+      << "fov = " << Float(s.kinect.fov) << "  # the webcam's horizontal field of view, degrees\n"
+      << "smoothing = " << Float(s.kinect.smoothing) << "  # 0 raw - 1 heavy\n"
+      << "players = " << s.kinect.players << "  # 1 or 2\n"
+      << "camera_height = " << Float(s.kinect.camera_height) << "  # metres above the floor\n"
+      << "model = " << Quote(s.kinect.model) << "  # lite, full, heavy\n";
+  }
   return o.str();
 }
 

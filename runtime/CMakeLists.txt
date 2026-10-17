@@ -24,7 +24,8 @@ file(GLOB ANYX360_HLE_SOURCES CONFIGURE_DEPENDS
   ${CMAKE_CURRENT_SOURCE_DIR}/src/hle/*.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/kernel/*.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/gpu/*.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/input/*.cpp)
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/input/*.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/nui/*.cpp)
 set(ANYX360_HLE_SOURCES ${ANYX360_HLE_SOURCES} CACHE INTERNAL "")
 # tools/x360tool/src comes first: XenonUtils also has an xex.h.
 set(ANYX360_HLE_INCLUDES
