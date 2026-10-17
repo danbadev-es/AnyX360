@@ -156,6 +156,10 @@ class BridgeSource : public Source {
     if (!channel_.header()) return;
     Supervise(time);
     message_ = Describe();
+    if (const uint32_t state = channel_.header()->state; state != logged_state_ && process_.Running()) {
+      logged_state_ = state;
+      KLOG_I("nui: pose bridge: %s", message_.c_str());
+    }
     if (!Live()) {  // nobody in view; the newest frame is read again when the bridge recovers
       snapshot_ = Snapshot{};
       last_frame_ = 0;
@@ -321,6 +325,7 @@ class BridgeSource : public Source {
   std::unique_ptr<Slot> slot_;  // the copy of the newest frame (1.4 MB)
   double frequency_ = 1;
   uint32_t last_frame_ = 0;
+  uint32_t logged_state_ = ~0u;
   Snapshot snapshot_;
   double latency_ms_ = 0;
 

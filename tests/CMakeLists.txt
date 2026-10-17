@@ -21,3 +21,10 @@ find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)
   add_test(NAME find_helpers COMMAND ${Python3_EXECUTABLE} -I ${CMAKE_CURRENT_SOURCE_DIR}/test_find_helpers.py)
 endif()
+
+# The pose bridge's tests need its packages: they run once tools/pose_bridge/build_bridge.ps1 has
+# made the venv (reconfigure after it).
+set(POSE_BRIDGE_PYTHON ${CMAKE_BINARY_DIR}/pose_bridge/venv/Scripts/python.exe)
+if(EXISTS ${POSE_BRIDGE_PYTHON})
+  add_test(NAME pose_bridge COMMAND ${POSE_BRIDGE_PYTHON} -I ${PROJECT_SOURCE_DIR}/tools/pose_bridge/run_tests.py)
+endif()
