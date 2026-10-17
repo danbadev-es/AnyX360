@@ -786,8 +786,15 @@ uint32_t XamShowNuiDeviceSelectorUI(uint32_t tracking_id, uint32_t user_index, u
   (void)tracking_id;
   XamShowDirtyDiscErrorUI(user_index);
 }
-// The Kinect guide is a system overlay; it isn't available.
-uint32_t XamShowNuiGuideUI() { return X_ERROR_ACCESS_DENIED; }
+// The Kinect Guide (a Kinect title shows it when a player holds the guide gesture, the left arm
+// down at 45 degrees): there is no overlay here, but the title still sees the system UI open and
+// close, and pauses as it would on the console.
+uint32_t XamShowNuiGuideUI(uint32_t tracking_id) {
+  KLOG_I("XamShowNuiGuideUI(%u)", tracking_id);
+  Broadcast(kNotifySystemUi, 1);
+  Broadcast(kNotifySystemUi, 0);
+  return X_ERROR_SUCCESS;
+}
 uint32_t XamIsUIActive() { return 0; }
 
 // ---- sessions, voice, messaging, misc --------------------------------------------------------
