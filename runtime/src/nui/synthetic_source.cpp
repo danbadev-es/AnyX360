@@ -1,6 +1,9 @@
 // Scripted test poses for the virtual Kinect (ANYX360_NUI_SCRIPT), to drive a Kinect title without a
 // camera: "seconds:action[/duration][@player],...", player 0 or 1 (default 0).
 //
+// "@<file>" reads the script from a file and keeps reading what is appended to it while the game
+// runs; an appended action without "seconds:" happens when it's read (driving the game live).
+//
 // Actions:
 //   enter, leave             the player walks into / out of view
 //   menu_right, menu_left    that arm held out to the side at shoulder height (the menu pose)
@@ -15,6 +18,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <vector>
 
 #include "source.h"
@@ -57,31 +61,19 @@ void Set(Body& b, Joint j, float x, float y, float z) {
 class SyntheticSource : public Source {
  public:
   SyntheticSource(const std::string& script, float camera_height) : camera_height_(camera_height) {
-    for (size_t start = 0; start < script.size();) {
-      size_t end = script.find(',', start);
-      if (end == std::string::npos) end = script.size();
-      std::string item = script.substr(start, end - start);
-      start = end + 1;
-      Event e;
-      size_t colon = item.find(':');
-      if (colon == std::string::npos) continue;
-      e.at = std::atof(item.substr(0, colon).c_str());
-      std::string rest = item.substr(colon + 1);
-      if (size_t at = rest.find('@'); at != std::string::npos) {
-        e.player = std::clamp(std::atoi(rest.substr(at + 1).c_str()), 0, 1);
-        rest = rest.substr(0, at);
-      }
-      if (size_t slash = rest.find('/'); slash != std::string::npos) {
-        e.duration = std::atof(rest.substr(slash + 1).c_str());
-        rest = rest.substr(0, slash);
-      }
-      e.action = rest;
-      events_.push_back(e);
+    if (!script.empty() && script[0] == '@') {
+      file_ = script.substr(1);
+      ReadFile(0);
+    } else {
+      Parse(script, 0, false);
     }
-    std::stable_sort(events_.begin(), events_.end(), [](const Event& a, const Event& b) { return a.at < b.at; });
   }
 
   void Poll(double time, Snapshot& out) override {
+    if (!file_.empty() && time >= next_read_) {
+      next_read_ = time + 0.2;
+      ReadFile(time);
+    }
     // Each action starts at its scheduled time, whenever the poll that applies it comes.
     while (next_ < events_.size() && events_[next_].at <= time) {
       const Event& e = events_[next_++];
@@ -98,6 +90,53 @@ class SyntheticSource : public Source {
   std::string Message() const override { return "scripted poses"; }
 
  private:
+  // Items separated by commas or lines; without "seconds:" an item happens at `now` (live only).
+  void Parse(const std::string& script, double now, bool live) {
+    for (size_t start = 0; start < script.size();) {
+      size_t end = script.find_first_of(",\r\n", start);
+      if (end == std::string::npos) end = script.size();
+      std::string item = script.substr(start, end - start);
+      start = end + 1;
+      while (!item.empty() && item.back() == ' ') item.pop_back();
+      while (!item.empty() && item.front() == ' ') item.erase(0, 1);
+      if (item.empty()) continue;
+      Event e;
+      size_t colon = item.find(':');
+      if (colon == std::string::npos && !live) continue;
+      e.at = colon == std::string::npos ? now : std::atof(item.substr(0, colon).c_str());
+      std::string rest = colon == std::string::npos ? item : item.substr(colon + 1);
+      if (size_t at = rest.find('@'); at != std::string::npos) {
+        e.player = std::clamp(std::atoi(rest.substr(at + 1).c_str()), 0, 1);
+        rest = rest.substr(0, at);
+      }
+      if (size_t slash = rest.find('/'); slash != std::string::npos) {
+        e.duration = std::atof(rest.substr(slash + 1).c_str());
+        rest = rest.substr(0, slash);
+      }
+      e.action = rest;
+      events_.push_back(e);
+    }
+    std::stable_sort(events_.begin() + next_, events_.end(),
+                     [](const Event& a, const Event& b) { return a.at < b.at; });
+  }
+
+  // What was appended to the script file since the last read (whole lines).
+  void ReadFile(double now) {
+    FILE* f = _wfopen(std::filesystem::path(file_).c_str(), L"rb");
+    if (!f) return;
+    std::string text;
+    if (std::fseek(f, long(read_), SEEK_SET) == 0) {
+      char buffer[4096];
+      for (size_t n; (n = std::fread(buffer, 1, sizeof(buffer), f)) > 0;) text.append(buffer, n);
+    }
+    std::fclose(f);
+    const size_t complete = text.find_last_of('\n');
+    if (complete == std::string::npos) return;
+    text.resize(complete + 1);
+    read_ += complete + 1;
+    Parse(text, now, true);
+  }
+
   void Apply(const Event& e, double time) {
     Player& p = players_[e.player];
     auto duration = [&](double fallback) { return e.duration >= 0 ? e.duration : fallback; };
@@ -207,6 +246,9 @@ class SyntheticSource : public Source {
   std::vector<Event> events_;
   size_t next_ = 0;
   Player players_[2];
+  std::string file_;  // a live script
+  size_t read_ = 0;   // bytes of it read
+  double next_read_ = 0;
 };
 
 }  // namespace

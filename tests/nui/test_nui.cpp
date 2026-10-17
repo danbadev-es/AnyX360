@@ -4,6 +4,9 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
+#include <process.h>
+#include <string>
 
 #include "../../runtime/src/nui/image_stream.h"
 #include "../../runtime/src/nui/source.h"
@@ -69,6 +72,31 @@ int main() {
     CHECK(s.bodies[0].joints[nui::kHandRight][2] < s.bodies[0].joints[nui::kSpine][2] - 0.2f);
     source->Poll(3.5, s);  // back to the side
     CHECK(s.bodies[0].joints[nui::kHandRight][0] > s.bodies[0].joints[nui::kShoulderRight][0] + 0.4f);
+  }
+
+  {  // A live script file: what is appended while the game runs happens when it's read.
+    const auto path = std::filesystem::temp_directory_path() / ("anyx360_nui_live_" + std::to_string(_getpid()) + ".txt");
+    std::FILE* f = _wfopen(path.c_str(), L"wb");
+    std::fputs("0:enter\n", f);
+    std::fclose(f);
+    auto source = nui::MakeSyntheticSource("@" + path.string(), 0.8f);
+    nui::Snapshot s;
+    source->Poll(0.1, s);
+    CHECK(s.body_count == 1);
+    const float down = s.bodies[0].joints[nui::kHandRight][1];
+    f = _wfopen(path.c_str(), L"ab");
+    std::fputs("menu_right\nhand_u", f);  // the second line isn't complete yet
+    std::fclose(f);
+    source->Poll(0.5, s);
+    CHECK(s.bodies[0].joints[nui::kHandRight][1] > down + 0.3f);
+    const float raised = s.bodies[0].joints[nui::kHandRight][1];
+    f = _wfopen(path.c_str(), L"ab");
+    std::fputs("p\n", f);
+    std::fclose(f);
+    source->Poll(0.8, s);
+    source->Poll(1.5, s);
+    CHECK(s.bodies[0].joints[nui::kHandRight][1] > raised + 0.05f);  // hand_up
+    std::filesystem::remove(path);
   }
 
   {  // Images drawn from a body: its pixels carry its slot and its depth; its arm is on the mirrored side.
