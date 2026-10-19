@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -26,5 +27,8 @@ std::optional<std::vector<uint8_t>> parse_hex(std::string_view text);
 // AES-128-CBC decryption with a zero IV, in place. `data.size()` must be a multiple of 16.
 // A single 16-byte block is equivalent to AES-128-ECB.
 void aes128_cbc_decrypt(std::span<const uint8_t, 16> key, std::span<uint8_t> data);
+
+// An XEX key file: 16 bytes, or 32 hex characters. Missing: nullopt, or an error if `required`.
+std::optional<std::array<uint8_t, 16>> load_key(const fs::path& path, bool required);
 
 }  // namespace x360tool

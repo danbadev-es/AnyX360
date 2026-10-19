@@ -19,6 +19,19 @@ ENTRY = 0x82001000
 IMAGE_SIZE = 0x3000
 TEST_RETAIL_KEY = bytes(range(0x10, 0x20))  # NOT a real key, test-only
 SESSION_KEY = bytes(range(0xA0, 0xB0))
+TITLE_IMAGE = bytes.fromhex("89504e470d0a1a0a") + bytes(range(40))  # stands in for the title's PNG icon
+XDBF_AT = 0x2010  # image offset of the title's XDBF resource (in .rdata)
+
+
+def make_xdbf():
+    """XDBF with a string table (section 3) and two images (section 2): another one and the title's."""
+    entries = [(3, 0x0000000000000001, b"XSTR" + bytes(12)), (2, 0x10, b"other image"), (2, 0x8000, TITLE_IMAGE)]
+    table, data = b"", b""
+    for section, entry_id, blob in entries:
+        table += struct.pack(">HQII", section, entry_id, len(data), len(blob))
+        data += blob
+    free = struct.pack(">II", len(data), 0)
+    return b"XDBF" + struct.pack(">IIIII", 0x10000, len(entries), len(entries), 1, 1) + table + free + data
 
 
 def aes_ecb_encrypt(key, data):
@@ -45,6 +58,8 @@ def make_pe():
     # Import records (big-endian): var + thunk for ordinal 0x0A, thunk for 0x1B (xboxkrnl), thunk 0x2C (xam)
     for i, rec in enumerate([0x0000000A, 0x0100000A, 0x0100001B, 0x0101002C]):
         struct.pack_into(">I", img, 0x2000 + i * 4, rec)
+    xdbf = make_xdbf()
+    img[XDBF_AT:XDBF_AT + len(xdbf)] = xdbf
     return bytes(img)
 
 
@@ -52,7 +67,7 @@ def make_xex(pe, compression, key):
     """compression: 0 none, 1 basic. key: None (unencrypted) or 16-byte key."""
     if compression == 1:
         # data/zero pairs that rebuild the image; data sizes are multiples of 16 for AES
-        blocks = [(0x200, 0xE00), (0x100, 0xF00), (0x100, 0xF00)]
+        blocks = [(0x200, 0xE00), (0x100, 0xF00), (0x200, 0xE00)]
         payload = b"".join(pe[sum(d + z for d, z in blocks[:i]):][:d] for i, (d, z) in enumerate(blocks))
         ffi = struct.pack(">IHH", 8 + 8 * len(blocks), 1 if key else 0, 1)
         ffi += b"".join(struct.pack(">II", d, z) for d, z in blocks)
@@ -75,8 +90,12 @@ def make_xex(pe, compression, key):
     pe_name = struct.pack(">I", 4 + len(pe_name)) + pe_name
     statics = struct.pack(">I", 4 + 16) + struct.pack(">8sHHHH", b"XAPILIB", 2, 0, 20871, 0x4001)
 
+    # RESOURCE_INFO: the title's XDBF, named after the title ID.
+    resources = struct.pack(">8sII", b"4D5308AB", BASE + XDBF_AT, len(make_xdbf()))
+    resources = struct.pack(">I", 4 + len(resources)) + resources
+
     records = [  # (key, data or None for inline value, inline value)
-        (0x000003FF, ffi), (0x00010100, ENTRY), (0x00010201, BASE), (0x000103FF, imports),
+        (0x000002FF, resources), (0x000003FF, ffi), (0x00010100, ENTRY), (0x00010201, BASE), (0x000103FF, imports),
         (0x000183FF, pe_name), (0x000200FF, statics), (0x00040006, exec_info),
     ]
     header_len = 0x18 + 8 * len(records)
@@ -224,6 +243,11 @@ def main():
         with open(out_bin + ".sections.txt") as f:
             sections = f.read()
         check(f"{name}: sections", ".text" in sections and "0x82001000" in sections and "[code]" in sections, sections)
+
+        out_png = os.path.join(work, name + ".png")
+        out = run(tool, *(["xex-icon", p, out_png] + args[3:]))
+        with open(out_png, "rb") as f:
+            check(f"{name}: xex-icon writes the title image", f.read() == TITLE_IMAGE, out)
 
     # Encrypted with a retail key but no key given -> clear error
     out = run(tool, "xex-extract", os.path.join(work, "basic_retail.xex"), os.path.join(work, "x.bin"),

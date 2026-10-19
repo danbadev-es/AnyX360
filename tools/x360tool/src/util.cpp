@@ -100,4 +100,22 @@ void aes128_cbc_decrypt(std::span<const uint8_t, 16> key, std::span<uint8_t> dat
   BCryptCloseAlgorithmProvider(alg, 0);
 }
 
+std::optional<std::array<uint8_t, 16>> load_key(const fs::path& path, bool required) {
+  if (!fs::exists(path)) {
+    if (required) throw Error("key file not found: " + path.string());
+    return std::nullopt;
+  }
+  auto raw = read_file(path);
+  std::vector<uint8_t> key;
+  if (raw.size() == 16) {
+    key = raw;
+  } else if (auto parsed = parse_hex(std::string_view(reinterpret_cast<const char*>(raw.data()), raw.size()))) {
+    key = *parsed;
+  }
+  if (key.size() != 16) throw Error("key file must contain 16 bytes or 32 hex characters: " + path.string());
+  std::array<uint8_t, 16> out;
+  std::copy(key.begin(), key.end(), out.begin());
+  return out;
+}
+
 }  // namespace x360tool

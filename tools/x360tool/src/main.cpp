@@ -7,6 +7,8 @@
 //   xex-extract <file.xex> <out.bin> [--key <file>]
 //                                             Decrypt + decompress the PE image and write
 //                                             <out.bin>.imports.txt and <out.bin>.sections.txt
+//   xex-icon    <file.xex> <out.png> [--key <file>]
+//                                             Write the title image (the dashboard icon)
 #include <cstdio>
 #include <fstream>
 #include <map>
@@ -15,6 +17,7 @@
 
 #include "exports.h"
 #include "util.h"
+#include "xdbf.h"
 #include "x360/endian.h"
 #include "xdvdfs.h"
 #include "xex.h"
@@ -30,7 +33,8 @@ int usage() {
       "  x360tool iso-list    <image.iso>\n"
       "  x360tool iso-extract <image.iso> <out_dir> [path ...]\n"
       "  x360tool xex-info    <default.xex>\n"
-      "  x360tool xex-extract <default.xex> <out.bin> [--key <xex2_retail.key>]\n",
+      "  x360tool xex-extract <default.xex> <out.bin> [--key <xex2_retail.key>]\n"
+      "  x360tool xex-icon    <default.xex> <out.png> [--key <xex2_retail.key>]\n",
       stderr);
   return 2;
 }
@@ -159,23 +163,6 @@ int cmd_xex_info(const fs::path& path) {
   return 0;
 }
 
-std::optional<std::array<uint8_t, 16>> load_key(const fs::path& path, bool required) {
-  if (!fs::exists(path)) {
-    if (required) throw Error("key file not found: " + path.string());
-    return std::nullopt;
-  }
-  auto raw = read_file(path);
-  std::vector<uint8_t> key;
-  if (raw.size() == 16) {
-    key = raw;
-  } else if (auto parsed = parse_hex(std::string_view(reinterpret_cast<const char*>(raw.data()), raw.size()))) {
-    key = *parsed;
-  }
-  if (key.size() != 16) throw Error("key file must contain 16 bytes or 32 hex characters: " + path.string());
-  std::array<uint8_t, 16> out;
-  std::copy(key.begin(), key.end(), out.begin());
-  return out;
-}
 
 void write_sections(const std::vector<uint8_t>& img, uint32_t base, const fs::path& out) {
   std::ostringstream s;
@@ -255,6 +242,17 @@ int cmd_xex_extract(const fs::path& path, const fs::path& out, const std::option
   return 0;
 }
 
+int cmd_xex_icon(const fs::path& path, const fs::path& out, const std::optional<fs::path>& key_path) {
+  Xex xex(read_file(path));
+  auto key = load_key(key_path.value_or("keys/xex2_retail.key"), key_path.has_value());
+  auto img = xex.extract_image(key);
+  auto png = xex_title_image(xex, img);
+  if (!png) throw Error("the XEX has no title image");
+  write_file(out, *png);
+  std::printf("wrote %s (%s)\n", out.string().c_str(), fmt_size(png->size()).c_str());
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -274,6 +272,13 @@ int main(int argc, char** argv) {
         if (std::string(argv[i]) == "--key") key = argv[i + 1];
       }
       return cmd_xex_extract(argv[2], argv[3], key);
+    }
+    if (cmd == "xex-icon" && argc >= 4) {
+      std::optional<fs::path> key;
+      for (int i = 4; i + 1 < argc; ++i) {
+        if (std::string(argv[i]) == "--key") key = argv[i + 1];
+      }
+      return cmd_xex_icon(argv[2], argv[3], key);
     }
   } catch (const std::exception& e) {
     std::fprintf(stderr, "error: %s\n", e.what());
