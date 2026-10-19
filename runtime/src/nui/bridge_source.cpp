@@ -151,6 +151,9 @@ class BridgeSource : public Source {
     h->fov_deg = settings.fov;
     h->smoothing = settings.smoothing;
     h->camera_height_m = settings.camera_height;
+    h->tilt_mode = settings.tilt_manual ? 1 : 0;
+    h->tilt_pitch_manual_deg = settings.tilt_pitch;
+    h->tilt_roll_manual_deg = settings.tilt_roll;
     std::atomic_thread_fence(std::memory_order_seq_cst);
     h->control_seq = h->control_seq + 1;
   }
@@ -200,6 +203,10 @@ class BridgeSource : public Source {
     status.inference_ms = h->inference_ms;
     status.latency_ms = float(latency_ms_);
     status.restarts = restarts_;
+    status.tilt_pitch = h->tilt_pitch_deg;
+    status.tilt_roll = h->tilt_roll_deg;
+    status.tilt_source = h->tilt_source;
+    status.floor_height = h->floor_height_m;
   }
 
  private:

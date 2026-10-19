@@ -129,6 +129,11 @@ struct Status {
   float inference_ms = 0;  // pose estimation per frame
   float latency_ms = 0;    // from the camera's capture to the sensor's frame
   uint32_t restarts = 0;   // times the bridge was started again
+  // The webcam's tilt the bridge corrects, and where it comes from (0 none yet, 1 the player's
+  // body, 2 the floor, 3 set in the settings); the camera's height it measured (0: not yet).
+  float tilt_pitch = 0, tilt_roll = 0;
+  uint32_t tilt_source = 0;
+  float floor_height = 0;
 };
 Status GetStatus();
 

@@ -30,7 +30,7 @@ namespace x360::nui::bridge {
 
 constexpr uint32_t kMagic = 0x49554E41;  // "ANUI" in memory
 constexpr uint16_t kVersionMajor = 1;    // a different major version is incompatible
-constexpr uint16_t kVersionMinor = 0;
+constexpr uint16_t kVersionMinor = 1;  // 1.1: tilt, timings and the streams in use
 constexpr uint32_t kSlotCount = 3;
 constexpr uint32_t kMaxBodies = 6;
 constexpr uint32_t kJoints = 20;
@@ -79,8 +79,29 @@ struct alignas(8) Header {
   // Producer: the protocol version it speaks (it refuses a layout it doesn't know).
   uint16_t producer_version_major;
   uint16_t producer_version_minor;
-  uint8_t reserved[4096 - 232];
+  // 1.1, producer: the webcam's tilt the bridge corrects (degrees; pitch > 0 looking down, roll >
+  // 0 turned clockwise as seen from behind it), where the estimate comes from, and the camera's
+  // height above the floor it measured (0: not yet).
+  float tilt_pitch_deg;
+  float tilt_roll_deg;
+  uint32_t tilt_source;  // TiltSource
+  float floor_height_m;
+  // 1.1, consumer: the tilt to correct, measured (0) or set (1: the manual angles).
+  uint32_t tilt_mode;
+  float tilt_pitch_manual_deg;
+  float tilt_roll_manual_deg;
+  // 1.1, consumer: the images the title uses (1 color, 2 depth; 0: both, as 1.0 consumers).
+  uint32_t stream_mask;
+  // 1.1, producer: where a frame's time goes (milliseconds, smoothed) and the frames it skipped.
+  float capture_ms;  // from the camera's exposure to the bridge having the image
+  float detect_ms;   // pose estimation
+  float process_ms;  // mapping, filtering
+  float render_ms;   // the images
+  uint32_t dropped_frames;
+  uint8_t reserved[4096 - 284];
 };
+
+enum TiltSource : uint32_t { kTiltNone = 0, kTiltBody = 1, kTiltFloor = 2, kTiltManual = 3 };
 
 struct Body {
   uint32_t id;     // stable while the person stays in view, never 0
@@ -133,7 +154,12 @@ static_assert(offsetof(Header, calibrate) == 220);
 static_assert(offsetof(Header, quit) == 224);
 static_assert(offsetof(Header, producer_version_major) == 228);
 static_assert(offsetof(Header, producer_version_minor) == 230);
-static_assert(offsetof(Header, reserved) == 232);
+static_assert(offsetof(Header, tilt_pitch_deg) == 232);
+static_assert(offsetof(Header, tilt_mode) == 248);
+static_assert(offsetof(Header, stream_mask) == 260);
+static_assert(offsetof(Header, capture_ms) == 264);
+static_assert(offsetof(Header, dropped_frames) == 280);
+static_assert(offsetof(Header, reserved) == 284);
 static_assert(sizeof(Body) == 368);
 static_assert(offsetof(Body, position) == 8);
 static_assert(offsetof(Body, joints) == 24);

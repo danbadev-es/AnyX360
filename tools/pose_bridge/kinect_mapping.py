@@ -107,7 +107,7 @@ def solve_translation(world, normalized, visibility, width, height, focal):
     b[n:] = dv * world[:, 2] - focal * world[:, 1]
     w = np.sqrt(np.concatenate([weights, weights]))
     t, *_ = np.linalg.lstsq(a * w[:, None], b * w, rcond=None)
-    if t[2] < 0.3:  # behind or touching the camera: not a person in front of it
+    if not np.all(np.isfinite(t)) or t[2] < 0.3:  # behind or touching the camera: not a person in front of it
         return None
     return t
 
@@ -123,46 +123,58 @@ class PlaySpace:
     """Moves the scene so a player stands centred, `distance` metres from the virtual sensor, on its floor.
 
     It's set from the player in view when asked (calibrate), or automatically from the first
-    player once they have been in view for a second.
+    player: a first guess at once, then the median of a second of frames. Only frames where the
+    whole body is in view, at a distance a player stands from the webcam, count: someone sitting at
+    the desk doesn't set it. The floor is the measured one when the camera's height is known
+    (level.py), else a leg's length below the hips.
     """
 
     DISTANCE = 2.3
     SETTLE_FRAMES = 30
+    MIN_DISTANCE, MAX_DISTANCE = 1.2, 4.5  # metres from the webcam
+    _BODY = (HEAD, SHOULDER_LEFT, SHOULDER_RIGHT, HIP_LEFT, HIP_RIGHT, KNEE_LEFT, KNEE_RIGHT, ANKLE_LEFT, ANKLE_RIGHT)
 
     def __init__(self, camera_height):
         self.camera_height = camera_height
         self.offset = None
         self._pending = True
-        self._seen = 0
+        self._samples = []
 
     def request(self):
         self._pending = True
-        self._seen = 0
+        self._samples = []
 
-    def update(self, joints):
-        """joints: the main player's joints before the offset, or None. Returns the offset."""
-        if self._pending and joints is not None:
-            self._seen += 1
-            if self.offset is None:  # a first guess at once, settled a second later
-                self._set(joints, final=False)
-            elif self._seen >= self.SETTLE_FRAMES:
-                self._set(joints, final=True)
-        elif joints is None:
-            self._seen = 0
+    def update(self, joints, states=None, floor_height=0.0):
+        """joints: the main player's joints (level frame, before the offset) or None; states: their
+        states (None: all tracked); floor_height: the camera's measured height above the floor (0:
+        unknown). Returns the offset."""
+        if self._pending and joints is not None and self._plausible(joints, states):
+            self._samples.append(self._target(joints, floor_height))
+            if self.offset is None:
+                self.offset = self._samples[-1]
+            if len(self._samples) >= self.SETTLE_FRAMES:
+                self.offset = np.median(np.array(self._samples), axis=0)
+                self._pending = False
+                self._samples = []
         return self.current()
 
     def current(self):
         return self.offset if self.offset is not None else np.zeros(3)
 
-    def _set(self, joints, final):
+    def _plausible(self, joints, states):
+        if not np.all(np.isfinite(joints)):
+            return False
+        if states is not None and any(states[j] != JOINT_TRACKED for j in self._BODY):
+            return False
+        return self.MIN_DISTANCE < joints[HIP_CENTER][2] < self.MAX_DISTANCE
+
+    def _target(self, joints, floor_height):
         hip = joints[HIP_CENTER]
-        # The hip centre sits a leg (plus ankle height and the raise above the hip joints) above the floor.
-        above_floor = leg_length(joints) + 0.08 + 0.05
-        target = np.array([0.0, -self.camera_height + above_floor, self.DISTANCE])
-        self.offset = target - hip
-        if final:
-            self._pending = False
-            self._seen = 0
+        if floor_height > 0:  # the measured floor (camera at the origin, level frame) to the virtual one
+            dy = floor_height - self.camera_height
+        else:  # the hip centre sits a leg (plus ankle height and the raise above the hip joints) above it
+            dy = -self.camera_height + leg_length(joints) + 0.08 + 0.05 - hip[1]
+        return np.array([-hip[0], dy, self.DISTANCE - hip[2]])
 
 
 def clipping(joints, focal=camera_model.DEPTH_FOCAL, size=camera_model.DEPTH_SIZE):

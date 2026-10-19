@@ -12,7 +12,7 @@ from ctypes import wintypes
 import numpy as np
 
 MAGIC = 0x49554E41
-VERSION_MAJOR, VERSION_MINOR = 1, 0
+VERSION_MAJOR, VERSION_MINOR = 1, 1  # 1.1: tilt, timings and the streams in use
 SLOT_COUNT, MAX_BODIES, JOINTS = 3, 6, 20
 COLOR_WIDTH, COLOR_HEIGHT = 640, 480
 DEPTH_WIDTH, DEPTH_HEIGHT = 320, 240
@@ -55,7 +55,23 @@ class Header(ctypes.Structure):
         ("quit", ctypes.c_uint32),
         ("producer_version_major", ctypes.c_uint16),
         ("producer_version_minor", ctypes.c_uint16),
-        ("reserved", ctypes.c_uint8 * (4096 - 232)),
+        # 1.1, producer: the webcam's tilt being corrected, its source, the measured camera height.
+        ("tilt_pitch_deg", ctypes.c_float),
+        ("tilt_roll_deg", ctypes.c_float),
+        ("tilt_source", ctypes.c_uint32),
+        ("floor_height_m", ctypes.c_float),
+        # 1.1, consumer: measured tilt (0) or the manual angles (1); the images the title uses.
+        ("tilt_mode", ctypes.c_uint32),
+        ("tilt_pitch_manual_deg", ctypes.c_float),
+        ("tilt_roll_manual_deg", ctypes.c_float),
+        ("stream_mask", ctypes.c_uint32),
+        # 1.1, producer: where a frame's time goes (ms, smoothed) and the frames it skipped.
+        ("capture_ms", ctypes.c_float),
+        ("detect_ms", ctypes.c_float),
+        ("process_ms", ctypes.c_float),
+        ("render_ms", ctypes.c_float),
+        ("dropped_frames", ctypes.c_uint32),
+        ("reserved", ctypes.c_uint8 * (4096 - 284)),
     ]
 
 
@@ -249,4 +265,6 @@ class Channel:
             "model": ("lite", "full", "heavy")[min(h.model, 2)], "fov": h.fov_deg or 60.0,
             "smoothing": min(max(h.smoothing, 0.0), 1.0), "camera_height": h.camera_height_m or 0.8,
             "calibrate": h.calibrate, "quit": bool(h.quit),
+            "tilt_manual": h.tilt_mode == 1, "tilt_pitch": h.tilt_pitch_manual_deg, "tilt_roll": h.tilt_roll_manual_deg,
+            "streams": h.stream_mask or 3,
         }

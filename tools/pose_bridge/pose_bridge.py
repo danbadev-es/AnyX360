@@ -93,7 +93,7 @@ def standalone_settings(args):
     return {
         "seq": 0, "camera": args.camera, "mirror": args.mirror, "players": args.players, "model": args.model,
         "fov": args.fov, "smoothing": args.smoothing, "camera_height": args.camera_height, "calibrate": 0,
-        "quit": False,
+        "quit": False, "tilt_manual": False, "tilt_pitch": 0.0, "tilt_roll": 0.0, "streams": 3,
     }
 
 
@@ -172,7 +172,8 @@ class Bridge:
             log("the game asked the bridge to quit")
             return False
         if control["seq"] != self.settings["seq"]:
-            keys = ("camera", "mirror", "players", "model", "fov", "smoothing", "camera_height")
+            keys = ("camera", "mirror", "players", "model", "fov", "smoothing", "camera_height", "tilt_manual",
+                    "tilt_pitch", "tilt_roll")
             changed = {k for k in keys if control[k] != self.settings[k]}
             self.settings = control
             pipeline.configure(control)
@@ -192,11 +193,15 @@ class Bridge:
             log("recentring the play space on the player")
         return True
 
-    def publish(self, capture_qpc, bodies, color, depth, seconds):
+    def publish(self, capture_qpc, bodies, color, depth, seconds, pipeline=None):
         self.frame_number += 1
         if self.channel:
             h = self.channel.header
             self.channel.publish(self.frame_number, capture_qpc, bodies, color, depth)
+            if pipeline is not None:  # the tilt being corrected, for the settings panel
+                h.tilt_pitch_deg, h.tilt_roll_deg = pipeline.level.angles()
+                h.tilt_source = pipeline.level.source
+                h.floor_height_m = pipeline.level.floor_height
             if self.source:
                 h.camera_fps = self.source.fps
                 h.camera_width, h.camera_height = self.source.size
@@ -285,7 +290,7 @@ class Bridge:
                     if failures >= MAX_FRAME_FAILURES:
                         raise
                     continue
-                if not self.publish(frame.qpc, bodies, color, depth, frame.seconds):
+                if not self.publish(frame.qpc, bodies, color, depth, frame.seconds, pipeline):
                     break
         finally:
             if self.source:

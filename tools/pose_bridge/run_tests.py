@@ -18,6 +18,7 @@ import camera_model  # noqa: E402
 import capture  # noqa: E402
 import depth_synth  # noqa: E402
 import kinect_mapping as km  # noqa: E402
+import level  # noqa: E402
 import protocol  # noqa: E402
 import synthetic  # noqa: E402
 from filters import OneEuro  # noqa: E402
@@ -93,7 +94,7 @@ class ProtocolLayout(unittest.TestCase):
             bridge.publish(5, protocol.qpc(), [body])  # skeleton only
             self.assertIsNone(game.read_latest()[2])
             game.header.version_major = protocol.VERSION_MAJOR + 1
-            self.assertIn("protocol 2.0", bridge.check_layout())
+            self.assertIn(f"protocol {protocol.VERSION_MAJOR + 1}.{protocol.VERSION_MINOR}", bridge.check_layout())
         finally:
             bridge.close()
             game.close()
@@ -255,6 +256,82 @@ class Tracking(unittest.TestCase):
         (id_a,) = t.update([np.array([-1.0, 0, 2.3])], 0.0)
         (id_b,) = t.update([np.array([1.0, 0, 2.3])], 1 / 30)
         self.assertNotEqual(id_a, id_b)
+
+
+def tilted_view(joints, pitch, roll):
+    """Joints of a level room as a camera pitched down `pitch` and rolled `roll` degrees sees them."""
+    to_camera = level.rotation_between(level.UP, level.up_from_angles(pitch, roll))
+    return np.asarray(joints) @ to_camera.T
+
+
+class Levelling(unittest.TestCase):
+    def test_angles_round_trip(self):
+        for pitch, roll in ((0, 0), (15, 0), (0, -8), (22, 6)):
+            got = level.angles_from_up(level.up_from_angles(pitch, roll))
+            self.assertAlmostEqual(got[0], pitch, places=6)
+            self.assertAlmostEqual(got[1], roll, places=6)
+        up = level.up_from_angles(20, 0)
+        self.assertLess(up[2], 0)  # pitched down: up leans towards the camera
+        self.assertTrue(np.allclose(level.rotation_between(up, level.UP) @ up, level.UP))
+
+    def test_a_tilted_camera_is_levelled_from_a_still_player(self):
+        width, height = 1280, 720
+        focal = camera_model.webcam_focal(width, 60.0)
+        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8})
+        seen = tilted_view(synthetic.standing(z=2.4), 15, 5)
+        normalized, world, visibility = synthetic.landmarks(seen, width, height, focal)
+        for i in range(60):
+            bodies, _ = pipeline.process([Pose(normalized, world, visibility)], (width, height), i / 30)
+        pitch, roll = pipeline.level.angles()
+        self.assertEqual(pipeline.level.source, level.SOURCE_BODY)
+        self.assertLess(abs(pitch - 15), 2.0, (pitch, roll))
+        self.assertLess(abs(roll - 5), 2.0, (pitch, roll))
+        joints = bodies[0]["joints"]
+        axis = joints[km.SHOULDER_CENTER] - (joints[km.ANKLE_LEFT] + joints[km.ANKLE_RIGHT]) / 2
+        tilt = math.degrees(math.acos(axis[1] / np.linalg.norm(axis)))
+        self.assertLess(tilt, 2.5)  # standing straight up in the game's space
+        self.assertLess(abs(joints[km.FOOT_LEFT][1] - (-0.8)), 0.1)  # on the virtual floor
+
+    def test_walking_about_a_tilted_room_measures_the_floor(self):
+        width, height = 1280, 720
+        focal = camera_model.webcam_focal(width, 70.0)
+        pipeline = Pipeline({"fov": 70.0, "smoothing": 0.0, "camera_height": 0.8})
+        hips = []
+        for i in range(400):  # walking about: across and towards and away from the camera
+            x = 0.6 * math.sin(i / 23.0)
+            z = 2.4 + 0.6 * math.sin(i / 37.0)
+            seen = tilted_view(synthetic.standing(x=x, z=z, camera_height=1.1), 20, 0)
+            normalized, world, visibility = synthetic.landmarks(seen, width, height, focal)
+            bodies, _ = pipeline.process([Pose(normalized, world, visibility)], (width, height), i / 30)
+            if i >= 300:
+                hips.append(bodies[0]["joints"][km.HIP_CENTER][1])
+        self.assertEqual(pipeline.level.source, level.SOURCE_FLOOR)
+        pitch, roll = pipeline.level.angles()
+        self.assertLess(abs(pitch - 20), 1.5, (pitch, roll))
+        self.assertLess(abs(roll), 1.5, (pitch, roll))
+        # The synthetic person's ankles are 5 cm above the floor; ANKLE_HEIGHT assumes 8.
+        self.assertLess(abs(pipeline.level.floor_height - 1.1), 0.06, pipeline.level.floor_height)
+        self.assertLess(max(hips) - min(hips), 0.03)  # walking towards the camera doesn't change the height
+
+    def test_a_manual_tilt_replaces_the_estimate(self):
+        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8, "tilt_manual": True,
+                             "tilt_pitch": 12.0, "tilt_roll": -3.0})
+        self.assertEqual(pipeline.level.source, level.SOURCE_MANUAL)
+        pitch, roll = pipeline.level.angles()
+        self.assertAlmostEqual(pitch, 12.0, places=5)
+        self.assertAlmostEqual(roll, -3.0, places=5)
+
+    def test_calibration_waits_for_a_player_standing_back(self):
+        play = km.PlaySpace(0.8)
+        close = synthetic.standing(z=0.7)  # at the desk
+        for _ in range(40):
+            self.assertTrue(np.allclose(play.update(close), 0.0))
+        states = np.full(km.JOINTS, km.JOINT_TRACKED, np.uint8)
+        states[km.ANKLE_LEFT] = km.JOINT_INFERRED  # feet out of view
+        for _ in range(40):
+            self.assertTrue(np.allclose(play.update(synthetic.standing(z=2.0), states), 0.0))
+        offset = play.update(synthetic.standing(z=2.0))
+        self.assertAlmostEqual((synthetic.standing(z=2.0) + offset)[km.HIP_CENTER][2], km.PlaySpace.DISTANCE)
 
 
 class Stability(unittest.TestCase):

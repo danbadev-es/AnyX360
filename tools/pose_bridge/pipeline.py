@@ -1,5 +1,6 @@
 """One webcam frame's poses to the virtual Kinect's bodies and images."""
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -8,6 +9,7 @@ import camera_model
 import depth_synth
 import kinect_mapping as km
 from filters import OneEuro
+from level import Leveler
 from protocol import BODY_TRACKED
 from tracker import Tracker
 
@@ -29,15 +31,28 @@ class Pipeline:
     def __init__(self, settings):
         self.tracker = Tracker()
         self.play = km.PlaySpace(settings["camera_height"])
+        self.level = Leveler()
+        self._level_up = None  # the up direction the play space was set with
+        self._offset = None  # the play space's offset the filters' values are in
         self._filters = {}
         self._last = {}  # body ID -> (joints, quality, time) of their last published pose
         self._reference = None  # the main player's distance from the webcam (smoothed)
         self.configure(settings)
 
     def configure(self, settings):
+        # The field of view scales every distance, and the virtual camera's height moves the floor:
+        # both measure the room again.
+        if (getattr(self, "fov", None) not in (None, settings["fov"])
+                or getattr(self, "camera_height", None) not in (None, settings["camera_height"])):
+            self.level.reset()
+            self.play.request()
         self.fov = settings["fov"]
         self.camera_height = settings["camera_height"]
         self.play.camera_height = self.camera_height
+        if settings.get("tilt_manual"):
+            self.level.set_manual(settings.get("tilt_pitch", 0.0), settings.get("tilt_roll", 0.0))
+        else:
+            self.level.set_manual(None, None)
         if getattr(self, "smoothing", None) != settings["smoothing"]:
             self.smoothing = settings["smoothing"]
             self._filters = {}
@@ -56,13 +71,30 @@ class Pipeline:
                 continue
             camera = pose.world + translation
             joints, states = km.kinect_joints(camera_model.opencv_to_kinect(camera), pose.visibility)
+            if not np.all(np.isfinite(joints)):
+                continue
             found.append((joints, states, pose.mask, float(translation[2])))
         ids = self.tracker.update([f[0][km.HIP_CENTER] for f in found], time)
         order = self.tracker.order(ids)
         main = found[order[0]] if found else None
         if main:
             self._reference = main[3] if self._reference is None else 0.8 * self._reference + 0.2 * main[3]
-        offset = self.play.update(main[0] if main else None)
+        # The webcam's tilt, from the main player in the camera's space; then every body level.
+        self.level.update(main[0] if main else None, main[1] if main else None)
+        if self._level_up is None or np.dot(self.level.up, self._level_up) < math.cos(math.radians(2.0)):
+            # A new estimate of the tilt (the first one, or the floor's replacing the body's): the
+            # play space measured in the old frame is off; measure it again.
+            if self._level_up is not None:
+                self.play.request()
+            self._level_up = self.level.up.copy()
+        rotation = self.level.rotation
+        found = [((joints @ rotation.T), states, mask, depth) for joints, states, mask, depth in found]
+        main = found[order[0]] if found else None
+        offset = self.play.update(main[0] if main else None, main[1] if main else None, self.level.floor_height)
+        if self._offset is not None and np.linalg.norm(offset - self._offset) > 0.05:
+            # Recentred: the filters would glide across the jump; start them again.
+            self._filters, self._last = {}, {}
+        self._offset = offset.copy()
 
         bodies, joints_list, masks = [], [], []
         for i in order:
@@ -99,16 +131,17 @@ class Pipeline:
                 if body_id not in known:
                     del table[body_id]
         return bodies, {"joints": joints_list, "masks": masks, "offset": offset, "frame_size": frame_size,
-                        "focal": focal}
+                        "focal": focal, "rotation": rotation}
 
     def render(self, frame_bgr, info):
         """The color (640x480 BGRA) and depth (320x240) images for this frame."""
         offset, (width, height), focal = info["offset"], info["frame_size"], info["focal"]
+        rotation = info.get("rotation", np.eye(3))
         reference = self._reference or km.PlaySpace.DISTANCE
         color = None
         if frame_bgr is not None:
-            transform = depth_synth.image_transform((width, height), focal, reference, offset,
-                                                    camera_model.COLOR_FOCAL, camera_model.COLOR_SIZE)
+            transform = depth_synth.image_homography((width, height), focal, reference, offset, rotation,
+                                                     camera_model.COLOR_FOCAL, camera_model.COLOR_SIZE)
             color = depth_synth.color_image(frame_bgr, transform)
         transforms = []
         for mask in info["masks"]:
@@ -116,7 +149,7 @@ class Pipeline:
                 transforms.append(None)
                 continue
             mh, mw = mask.shape[:2]
-            transforms.append(depth_synth.image_transform((mw, mh), focal * mw / width, reference, offset,
-                                                          camera_model.DEPTH_FOCAL, camera_model.DEPTH_SIZE))
+            transforms.append(depth_synth.image_homography((mw, mh), focal * mw / width, reference, offset, rotation,
+                                                           camera_model.DEPTH_FOCAL, camera_model.DEPTH_SIZE))
         depth = depth_synth.depth_image(info["joints"], self.camera_height, info["masks"], transforms)
         return color, depth

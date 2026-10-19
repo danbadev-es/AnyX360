@@ -230,7 +230,7 @@ int main() {
     nui::Snapshot s;
     source->Poll(0, s);
     CHECK(s.body_count == 0);
-    CHECK(Contains(source->Message(), "protocol 2.0"));
+    CHECK(Contains(source->Message(), ("protocol " + std::to_string(bridge::kVersionMajor + 1) + ".").c_str()));
     producer.channel.header()->producer_version_major = bridge::kVersionMajor;
     source->Poll(0.1, s);
     CHECK(s.body_count == 0);

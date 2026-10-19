@@ -395,6 +395,10 @@ Status GetStatus() {
   status.inference_ms = g_source_stats.inference_ms;
   status.latency_ms = g_source_stats.latency_ms;
   status.restarts = g_source_stats.restarts;
+  status.tilt_pitch = g_source_stats.tilt_pitch;
+  status.tilt_roll = g_source_stats.tilt_roll;
+  status.tilt_source = g_source_stats.tilt_source;
+  status.floor_height = g_source_stats.floor_height;
   return status;
 }
 

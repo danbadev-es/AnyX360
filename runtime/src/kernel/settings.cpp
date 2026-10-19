@@ -101,6 +101,11 @@ void Parse(const toml::table& t, Settings& s) {
   Read(kinect["players"], s.kinect.players);
   Read(kinect["camera_height"], s.kinect.camera_height);
   Read(kinect["model"], s.kinect.model);
+  Read(kinect["tilt_manual"], s.kinect.tilt_manual);
+  Read(kinect["tilt_pitch"], s.kinect.tilt_pitch);
+  Read(kinect["tilt_roll"], s.kinect.tilt_roll);
+  s.kinect.tilt_pitch = std::clamp(s.kinect.tilt_pitch, -35.0f, 35.0f);
+  s.kinect.tilt_roll = std::clamp(s.kinect.tilt_roll, -35.0f, 35.0f);
   s.kinect.fov = std::clamp(s.kinect.fov, 30.0f, 120.0f);
   s.kinect.smoothing = std::clamp(s.kinect.smoothing, 0.0f, 1.0f);
   s.kinect.players = std::clamp(s.kinect.players, 1u, 2u);
@@ -168,7 +173,11 @@ std::string Serialize(const Settings& s) {
       << "smoothing = " << Float(s.kinect.smoothing) << "  # 0 raw - 1 heavy\n"
       << "players = " << s.kinect.players << "  # 1 or 2\n"
       << "camera_height = " << Float(s.kinect.camera_height) << "  # metres above the floor\n"
-      << "model = " << Quote(s.kinect.model) << "  # lite, full, heavy\n";
+      << "model = " << Quote(s.kinect.model) << "  # lite, full, heavy\n"
+      << "tilt_manual = " << (s.kinect.tilt_manual ? "true" : "false")
+      << "  # false: the bridge measures the webcam's tilt; true: tilt_pitch and tilt_roll\n"
+      << "tilt_pitch = " << Float(s.kinect.tilt_pitch) << "  # degrees, > 0 looking down\n"
+      << "tilt_roll = " << Float(s.kinect.tilt_roll) << "  # degrees, > 0 turned clockwise (seen from behind)\n";
   }
   return o.str();
 }

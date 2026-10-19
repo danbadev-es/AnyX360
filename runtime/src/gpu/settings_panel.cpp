@@ -431,6 +431,33 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
     changed |= ImGui::RadioButton("Accurate", &model, 1);
     if (changed) UpdateKinect([model](settings::KinectSettings& kk) { kk.model = model ? "full" : "lite"; });
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Fast uses less CPU; Accurate tracks better.");
+    // The webcam's tilt: a camera pitched down or rolled makes a standing player look like they're
+    // leaning; the bridge measures it (from the player's body, then the floor) and corrects it.
+    ImGui::TextUnformatted("Camera tilt");
+    ImGui::SameLine(140);
+    int tilt_mode = k.tilt_manual ? 1 : 0;
+    changed = ImGui::RadioButton("Measured", &tilt_mode, 0);
+    ImGui::SameLine();
+    changed |= ImGui::RadioButton("Set by hand", &tilt_mode, 1);
+    if (changed) UpdateKinect([tilt_mode](settings::KinectSettings& kk) { kk.tilt_manual = tilt_mode == 1; });
+    if (tilt_mode == 0) {
+      static const char* const kTiltSources[] = {"measuring...", "from your body", "from the floor", "set by hand"};
+      ImGui::SameLine();
+      if (status.tilt_source == 0)
+        ImGui::TextDisabled("  measuring: stand still, all of you in view");
+      else
+        ImGui::TextDisabled("  %.0f%s down, %.0f%s roll (%s)", status.tilt_pitch, "\xC2\xB0", status.tilt_roll,
+                            "\xC2\xB0", kTiltSources[std::min<uint32_t>(status.tilt_source, 3)]);
+    } else {
+      float pitch = k.tilt_pitch, roll = k.tilt_roll;
+      ImGui::SetNextItemWidth(300);
+      if (ImGui::SliderFloat("Pitch (down)", &pitch, -35.0f, 35.0f, "%.0f degrees"))
+        UpdateKinect([pitch](settings::KinectSettings& kk) { kk.tilt_pitch = pitch; });
+      ImGui::SetNextItemWidth(300);
+      if (ImGui::SliderFloat("Roll (clockwise)", &roll, -35.0f, 35.0f, "%.0f degrees"))
+        UpdateKinect([roll](settings::KinectSettings& kk) { kk.tilt_roll = roll; });
+    }
+    if (status.floor_height > 0) ImGui::TextDisabled("Your webcam is %.2f m above the floor.", status.floor_height);
     if (ImGui::Button("Recentre on me")) nui::Calibrate();
     if (ImGui::IsItemHovered())
       ImGui::SetTooltip("Stand where you'll play: the game then sees you centred, at the Kinect's distance.");

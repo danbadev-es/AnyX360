@@ -34,10 +34,32 @@ def image_transform(source_size, source_focal, reference_depth, offset, focal, s
     ], dtype=np.float64)
 
 
+def image_homography(source_size, source_focal, reference_depth, offset, rotation, focal, size):
+    """3x3 homography from the unmirrored webcam image to a virtual camera's mirrored image, with
+    the level frame's rotation (level.py): exact for points at the reference depth (in the webcam's
+    space). Without a rotation it is image_transform's affine map."""
+    w, h = source_size
+    corners = np.array([[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float32)
+    mapped = []
+    for u, v in corners:
+        x = (u - w / 2) * reference_depth / source_focal
+        y = (v - h / 2) * reference_depth / source_focal
+        point = np.asarray(rotation) @ np.array([-x, -y, reference_depth]) + offset  # Kinect axes
+        mapped.append(camera_model.project(point, focal, size))
+    return cv2.getPerspectiveTransform(corners, np.array(mapped, dtype=np.float32))
+
+
+def _warp(image, transform, size, border):
+    if transform.shape == (3, 3):
+        return cv2.warpPerspective(image, transform, size, flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT,
+                                   borderValue=border)
+    return cv2.warpAffine(image, transform, size, flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT,
+                          borderValue=border)
+
+
 def color_image(frame_bgr, transform):
-    """640x480 BGRA."""
-    color = cv2.warpAffine(frame_bgr, transform, camera_model.COLOR_SIZE, flags=cv2.INTER_LINEAR,
-                           borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
+    """640x480 BGRA (transform: image_transform's 2x3 or image_homography's 3x3)."""
+    color = _warp(frame_bgr, transform, camera_model.COLOR_SIZE, (0, 0, 0))
     return cv2.cvtColor(color, cv2.COLOR_BGR2BGRA)
 
 
@@ -97,8 +119,7 @@ def depth_image(bodies, camera_height, masks=None, mask_transforms=None):
         layer[layer == 0] = np.inf
         mask = masks[i] if masks else None
         if mask is not None and mask_transforms is not None and mask_transforms[i] is not None:
-            silhouette = cv2.warpAffine(mask.astype(np.float32), mask_transforms[i], camera_model.DEPTH_SIZE,
-                                        flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0) > 0.5
+            silhouette = _warp(mask.astype(np.float32), mask_transforms[i], camera_model.DEPTH_SIZE, 0) > 0.5
             spine_mm = float(joints[km.SPINE][2]) * 1000.0
             layer = np.where(silhouette & ~np.isfinite(layer), spine_mm, layer).astype(np.float32)
         closer = layer < depth

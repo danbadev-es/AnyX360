@@ -53,6 +53,11 @@ struct KinectSettings {
   uint32_t players = 2;        // bodies tracked at once (1-2)
   float camera_height = 0.8f;  // the virtual sensor's height above the floor, in metres
   std::string model = "full";  // pose model: lite, full, heavy
+  // The webcam's tilt: measured by the pose bridge, or set here (degrees; pitch > 0 looking down,
+  // roll > 0 turned clockwise as seen from behind it).
+  bool tilt_manual = false;
+  float tilt_pitch = 0.0f;
+  float tilt_roll = 0.0f;
   bool operator==(const KinectSettings&) const = default;
 };
 
