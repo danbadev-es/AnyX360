@@ -1,0 +1,16 @@
+{
+  "id": "ka",
+  "title": "Kinect Adventures",
+  "exe": "KinectAdventures",
+  "user_dir": "KinectAdventures",
+  "title_id": "4D5308ED",
+  "dev_game_dir": "extracted/ka/game",
+  "launcher_name": "AnyX360 Kinect Adventures",
+  "size_gb": 8,
+  "archive_hint": "Kinect Adventures (Games on Demand)",
+  "input": "webcam",
+  "required_files": ["SpringfieldGame/Xbox360TOC.txt"],
+  "owners": "Microsoft Corporation, Xbox Game Studios, Good Science Studio",
+  "trademarks": ["Xbox", "Xbox 360", "Kinect", "Kinect Adventures"],
+  "components": ["MediaPipe (Apache 2.0)", "OpenCV (Apache 2.0)", "NumPy (BSD)", "Python (PSF)"]
+}
