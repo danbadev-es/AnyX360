@@ -4,7 +4,7 @@ Developed by danbadev-es.
 
 Xbox 360's Gears of War 3, recompiled to run natively on Windows.
 This folder does NOT include the game: you need your own legal copy of Gears of War 3
-(the .7z archive with the disc).
+(an archive with the disc: .7z, .rar or .zip).
 
 By using this software you accept the terms of use in TERMS.txt, which the launcher shows
 you the first time you open it. The changes in each version are listed in CHANGELOG.md.
@@ -14,7 +14,7 @@ REQUIREMENTS
 - 64-bit Windows 10 or 11.
 - A DirectX 12 graphics card with up-to-date drivers.
 - About 8 GB free on the drive where this folder is (the game is extracted into it).
-- The .7z archive of your copy of the game ("Gears Of War 3.7z").
+- The archive of your copy of the game, for example "Gears Of War 3.7z" (.7z, .rar or .zip).
 
 
 FIRST TIME
@@ -25,8 +25,8 @@ FIRST TIME
    "Run anyway" (the program is not digitally signed).
    The first time you will see the terms of use: read and accept them to continue.
    The launcher is in English and Spanish: switch the language in the window's footer.
-3. Click "Prepare the game…", then "From a .7z archive…", and select the game's .7z. It is
-   extracted into the "game" folder (a few minutes); you can delete the .7z afterwards if you want.
+3. Click "Prepare the game…", then "From an archive…", and select the game's archive. It is
+   extracted into the "game" folder (a few minutes); you can delete the archive afterwards.
    If your copy is already a folder (the one with default.xex), choose "From a game folder…"
    instead: it is used where it is.
 4. Click "Play".

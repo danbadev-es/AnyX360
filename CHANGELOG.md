@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Changed
+
+- Launcher: the game can be prepared from a `.rar` or `.zip` archive as well as a `.7z`. The game
+  is found inside whatever folders the archive has, so a Gears of War 3 disc and a Dance Central 3
+  copy both work as they come.
+
 ## [0.2.0] - 2026-10-17
 
 Second target: Dance Central 3 (title 373307D9, base disc executable), the Kinect dance game,

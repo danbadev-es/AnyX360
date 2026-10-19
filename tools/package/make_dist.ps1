@@ -2,7 +2,7 @@
 # holds the launcher, the recompiled executable (with its .pdb, so crash reports name functions),
 # 7-Zip, the XEX key, the shader cache, the README, the terms of use (TERMS.txt; the launcher shows
 # them in English or Spanish), the changelog and the third-party licenses - no game data: the launcher
-# extracts the player's own disc archive (.7z) next to itself, or uses the folder of their copy.
+# extracts the player's own disc archive (.7z, .rar or .zip) next to itself, or uses the folder of their copy.
 #
 # The game's facts come from games\<id>\game.json; its README is tools\package\<id>\README.txt, and
 # tools\package\<id>\extra.ps1 (optional) adds the game's own files to the folder.

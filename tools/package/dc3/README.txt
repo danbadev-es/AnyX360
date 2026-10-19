@@ -4,8 +4,8 @@ Developed by danbadev-es.
 
 Xbox 360's Dance Central 3, recompiled to run natively on Windows, with a webcam in place of
 the Kinect.
-This folder does NOT include the game: you need your own legal copy of Dance Central 3 (the .7z
-archive with the disc, or a folder with the disc's files).
+This folder does NOT include the game: you need your own legal copy of Dance Central 3 (an
+archive with the disc - .7z, .rar or .zip - or a folder with the disc's files).
 
 By using this software you accept the terms of use in TERMS.txt, which the launcher shows you the
 first time you open it. The changes in each version are listed in CHANGELOG.md.
@@ -17,7 +17,7 @@ REQUIREMENTS
 - A processor with 4 or more cores: the pose estimation that replaces the Kinect runs on it.
 - A webcam (USB or built in), 720p at 30 FPS or better.
 - Room to dance: 2-3 m (7-10 ft) clear in front of the webcam, and good light.
-- About 7 GB free on the drive where this folder is, if you prepare the game from a .7z archive
+- About 7 GB free on the drive where this folder is, if you prepare the game from an archive
   (it is extracted into it).
 
 
@@ -30,7 +30,7 @@ FIRST TIME
    The first time you will see the terms of use: read and accept them to continue.
    The launcher is in English and Spanish: switch the language in the window's footer.
 3. Click "Prepare the game…" and choose where your copy is:
-   - "From a .7z archive": it is extracted into the "game" folder (a few minutes);
+   - "From an archive (.7z, .rar, .zip)": it is extracted into the "game" folder (a few minutes);
    - "From a game folder": the folder is used where it is (nothing is copied).
 4. Click "Play".
 

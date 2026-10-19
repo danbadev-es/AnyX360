@@ -1,6 +1,6 @@
 // Windows launcher for a distribution folder: prepares the game files from the player's disc
-// archive (.7z) or from a folder where their copy already is, and starts the recompiled game,
-// logging to logs\.
+// archive (.7z, .rar or .zip) or from a folder where their copy already is, and starts the
+// recompiled game, logging to logs\.
 //
 //   <launcher>.exe           this program
 //   bin\<game>.exe (+ .pdb)  the recompiled game (the .pdb names functions in crash reports)
@@ -13,7 +13,7 @@
 //
 // Either way the copy must be the right game: default.xex's title ID and the game's required files
 // are checked. Run from the build folder (game executable next to the launcher, no bin\) it works
-// the same. `--archive <file.7z>` and `--folder <dir>` start preparing without asking (unattended
+// the same. `--archive <file>` and `--folder <dir>` start preparing without asking (unattended
 // tests).
 //
 // The text is in English and Spanish: Windows' display language picks one, the footer switches
@@ -97,7 +97,7 @@ enum Text {
   kTextMenuFolder,
   kTextDialogTitle,  // {0} game
   kTextFolderTitle,  // {0} game
-  kTextFilter7z,
+  kTextFilterArchive,
   kTextFilterAll,
   kTextMissing7Zip,
   kTextConfirmPrepareAgain,
@@ -135,19 +135,19 @@ const wchar_t* const kEnglish[kTextCount] = {
     L"Ready to play. Keyboard and mouse or an Xbox controller; F2 opens the settings in game.",
     L"Ready to play. Stand 2-3 m from your webcam with your whole body in view; F2 opens the settings in "
     L"game.",
-    L"First the game has to be prepared: choose the .7z archive with your {0} disc (it is extracted into "
-    L"this folder, about {1} GB) or the folder where your copy already is.",
+    L"First the game has to be prepared: choose the archive (.7z, .rar or .zip) with your {0} disc (it is "
+    L"extracted into this folder, about {1} GB) or the folder where your copy already is.",
     L"Play",
     L"Prepare the game…",
     L"Prepare again…",
     L"Cancel",
     L"Logs",
     L"Developed by danbadev-es  ·  <a>Terms of use</a>  ·  <a>Español</a>",
-    L"From a .7z archive…",
+    L"From an archive (.7z, .rar, .zip)…",
     L"From a game folder…",
-    L"Choose the .7z archive of {0}",
+    L"Choose the archive of {0} (.7z, .rar or .zip)",
     L"Choose the folder of {0} (the one with default.xex)",
-    L"7z archive",
+    L"Game archive (.7z, .rar, .zip)",
     L"All files",
     L"7-Zip is missing (bin\\7z.exe). Extract the whole folder again.",
     L"The game is already prepared. Prepare it again? The current setup will be replaced.",
@@ -155,7 +155,7 @@ const wchar_t* const kEnglish[kTextCount] = {
     L"The game is ready.",
     L"The game is ready. It is played from {0}: don't move or delete that folder.",
     L"Extraction cancelled.",
-    L"7-Zip could not read the archive (code {0}). Check that it is the game's .7z and that it is complete.",
+    L"7-Zip could not read the archive (code {0}). Check that it is the game's archive and that it is complete.",
     L"That archive has no default.xex: it doesn't look like the {0} disc.",
     L"That folder has no default.xex: choose the folder of your {0} copy.",
     L"That copy is another game (title {1}), not {0}.",
@@ -186,19 +186,19 @@ const wchar_t* const kSpanish[kTextCount] = {
     L"Listo para jugar. Teclado y ratón o mando de Xbox; F2 abre los ajustes durante la partida.",
     L"Listo para jugar. Ponte a 2-3 m de la webcam, con todo el cuerpo a la vista; F2 abre los ajustes "
     L"durante la partida.",
-    L"Primero hay que preparar el juego: elige el archivo .7z con tu disco de {0} (se extrae en esta "
-    L"carpeta, unos {1} GB) o la carpeta donde ya tienes tu copia.",
+    L"Primero hay que preparar el juego: elige el archivo comprimido (.7z, .rar o .zip) con tu disco de {0} "
+    L"(se extrae en esta carpeta, unos {1} GB) o la carpeta donde ya tienes tu copia.",
     L"Jugar",
     L"Preparar el juego…",
     L"Volver a preparar…",
     L"Cancelar",
     L"Registros",
     L"Desarrollado por danbadev-es  ·  <a>Términos y condiciones de uso</a>  ·  <a>English</a>",
-    L"Desde un archivo .7z…",
+    L"Desde un archivo comprimido (.7z, .rar, .zip)…",
     L"Desde una carpeta del juego…",
-    L"Elige el archivo .7z de {0}",
+    L"Elige el archivo comprimido de {0} (.7z, .rar o .zip)",
     L"Elige la carpeta de {0} (la que tiene default.xex)",
-    L"Archivo 7z",
+    L"Archivo del juego (.7z, .rar, .zip)",
     L"Todos los archivos",
     L"Falta 7-Zip (bin\\7z.exe). Vuelve a descomprimir la carpeta completa.",
     L"El juego ya está preparado. ¿Prepararlo otra vez? Se reemplazará la preparación actual.",
@@ -206,7 +206,7 @@ const wchar_t* const kSpanish[kTextCount] = {
     L"El juego está preparado.",
     L"El juego está preparado. Se juega desde {0}: no muevas ni borres esa carpeta.",
     L"Extracción cancelada.",
-    L"7-Zip no pudo leer el archivo (código {0}). Comprueba que es el .7z del juego y que está completo.",
+    L"7-Zip no pudo leer el archivo (código {0}). Comprueba que es el archivo del juego y que está completo.",
     L"Ese archivo no contiene default.xex: no parece el disco de {0}.",
     L"Esa carpeta no contiene default.xex: elige la carpeta de tu copia de {0}.",
     L"Esa copia es de otro juego (título {1}), no de {0}.",
@@ -798,8 +798,8 @@ fs::path ChooseArchive() {
   IFileOpenDialog* dialog = nullptr;
   if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog))))
     return chosen;
-  std::wstring filter_7z = Tr(kTextFilter7z), filter_all = Tr(kTextFilterAll);
-  COMDLG_FILTERSPEC types[] = {{filter_7z.c_str(), L"*.7z"}, {filter_all.c_str(), L"*.*"}};
+  std::wstring filter_archive = Tr(kTextFilterArchive), filter_all = Tr(kTextFilterAll);
+  COMDLG_FILTERSPEC types[] = {{filter_archive.c_str(), L"*.7z;*.rar;*.zip"}, {filter_all.c_str(), L"*.*"}};
   dialog->SetFileTypes(2, types);
   std::wstring title = Tr(kTextDialogTitle, {kGameTitle});
   dialog->SetTitle(title.c_str());
@@ -834,7 +834,7 @@ fs::path ChooseFolder() {
   return chosen;
 }
 
-// `from_folder`: the player's folder, used in place; otherwise a .7z archive extracted here.
+// `from_folder`: the player's folder, used in place; otherwise an archive (.7z, .rar or .zip) extracted here.
 void StartPreparing(const fs::path& source, bool from_folder) {
   g_state = State::kPreparing;
   g_percent = -1;

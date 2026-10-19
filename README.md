@@ -48,7 +48,9 @@ the sensor.
    if you prepare it from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3.
 3. Run the launcher, **`AnyX360 <game>.exe`**, and accept the terms of use.
 4. Click **Prepare the game…** and choose where your copy of the disc is:
-   - **From a .7z archive**: the launcher extracts it next to itself.
+   - **From an archive** (.7z, .rar or .zip): the launcher extracts it next to itself. It finds
+     the game inside whatever folders the archive has, so a Gears of War 3 disc and a Dance
+     Central 3 copy both work as they come.
    - **From a game folder**: the launcher uses the folder that contains `default.xex` where it is.
 
    Either way the launcher checks that it is the right game.
