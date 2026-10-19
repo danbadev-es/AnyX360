@@ -68,6 +68,8 @@ Rect FrontCoverRect(uint32_t width, uint32_t height) {
     const uint32_t x = uint32_t(std::lround(width * (144.0 / 273.4)));
     return {x, 0, width - x, height};
   }
+  // The front alone (case fronts are 129:183, scans and shop pictures 2:3 to 3:4): all of it.
+  if (aspect >= 0.6 && aspect <= 0.8) return {0, 0, width, height};
   // Anything else: the centre at 2:3.
   if (aspect > 2.0 / 3.0) {
     const uint32_t w = uint32_t(std::lround(height * 2.0 / 3.0));

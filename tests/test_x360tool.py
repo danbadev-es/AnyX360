@@ -445,9 +445,17 @@ def main():
     front = os.path.join(work, "front.bmp")
     with open(front, "wb") as f:
         f.write(make_bmp(400, 600, lambda x, y: (30, 160, 30)))
+    page = os.path.join(work, "page.bmp")  # a shop's front picture, 219x300: kept whole
+    with open(page, "wb") as f:
+        f.write(make_bmp(219, 300, lambda x, y: (160, 160, 30)))
+    square = os.path.join(work, "square.bmp")
+    with open(square, "wb") as f:
+        f.write(make_bmp(300, 300, lambda x, y: (30, 160, 160)))
     for name, source, args, size in (("wraparound", wrap, [], (600, 847)),
                                      ("wraparound, no upscale", wrap, ["--size", "2000x2000"], (708, 1000)),
-                                     ("front alone", front, ["--size", "2000x2000"], (400, 600))):
+                                     ("front alone", front, ["--size", "2000x2000"], (400, 600)),
+                                     ("front page, whole", page, [], (219, 300)),
+                                     ("square, centre at 2:3", square, [], (200, 300))):
         out_jpg = os.path.join(work, "cover.jpg")
         out = run(tool, "cover", source, out_jpg, *args)
         got = jpeg_size(out_jpg)

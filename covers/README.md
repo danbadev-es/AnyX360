@@ -10,8 +10,9 @@ to the front cover and compressed, to identify the games AnyX360 plays or will p
   its words joined by hyphens, without platform, region, edition or IDs: `gears-of-war-3.jpg`,
   `kinect-sports-ultimate-collection.jpg`, `call-of-duty-black-ops-ii.jpg`, `fifa-19.jpg`.
 - A full wraparound scan (back, spine and front of the Xbox 360 case, about 1.49:1, any size), or
-  the front cover alone (2:3). The launcher and the packaging take the front from a wraparound:
-  the right 47.3 % of it.
+  the front cover alone, one page (between 3:5 and 4:5, kept whole; Xbox Live Arcade titles only
+  have this). The launcher and the packaging take the front from a wraparound: the right 47.3 % of
+  it. Any other shape is cropped to its centre at 2:3.
 - The slug is what `games/<id>/game.json` (`"cover"`) and `tools/launcher/upcoming.json` name.
 
 `tools/package/make_dist.ps1` writes each named cover into the release as a 600x900 JPEG
