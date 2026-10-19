@@ -929,8 +929,13 @@ uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_
         default:
           return kHrSuccess;
       }
-    case 0xFE:  // XAM: Kinect title support
+    case 0xFE:  // XAM: title support, Kinect
       switch (message) {
+        case 0x00021012:  // XEnableGuestSignin {enabled} (Kinect Adventures, every frame)
+          return kHrSuccess;
+        case 0x00022005:  // XTitleGetDeploymentType {type*, overlapped}: from the disc
+          if (uint32_t type = Load<uint32_t>(buffer)) Store<uint32_t>(type, 0);
+          return kHrSuccess;
         case 0x0002B001:  // XNuiDelayUI {milliseconds}
         case 0x0002B003:  // XNuiTitleInitialize {xam version, XTL version, flags}
         case 0x0002B004:  // XNuiTitleShutdown

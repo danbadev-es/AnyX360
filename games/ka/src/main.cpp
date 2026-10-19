@@ -5,6 +5,10 @@
 #include "game_info.h"
 #include "x360/host.h"
 
+namespace ka {
+void InstallNui();
+}
+
 int main(int argc, char** argv) {
   x360::host::GameDescriptor game;
   game.title_name = game_info::kTitle;
@@ -18,5 +22,6 @@ int main(int argc, char** argv) {
     s.players[0].device = "pad";
     s.players[1].device = "none";
   };
+  ka::InstallNui();
   return x360::host::RunHost(argc, argv, game);
 }
