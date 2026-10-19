@@ -5,6 +5,7 @@
 // the sign-in UI (players.sign_in = "on_demand"), at startup ("at_start") or from the settings
 // panel, if their slot has a connected device. Player 1 keeps the original paths (<user>\profile,
 // <user>\content); the others use <user>\players\<XUID>\.
+#include <atomic>
 #include <chrono>
 #include <deque>
 #include <fstream>
@@ -816,7 +817,8 @@ uint32_t XamShowNuiGuideUI(uint32_t tracking_id) {
   Broadcast(kNotifySystemUi, 0);
   return X_ERROR_SUCCESS;
 }
-uint32_t XamIsUIActive() { return 0; }
+std::atomic<bool> g_kinect_guide_open{false};  // SetKinectGuideOpen
+uint32_t XamIsUIActive() { return g_kinect_guide_open ? 1 : 0; }
 
 // ---- sessions, voice, messaging, misc --------------------------------------------------------
 
@@ -1029,6 +1031,12 @@ void SignInUser(uint32_t user_index) {
   if (!g_in_signin_ui) Broadcast(kNotifySystemUi, 1);
   Broadcast(kNotifySigninChanged, SignedInMask());
   if (!g_in_signin_ui) Broadcast(kNotifySystemUi, 0);
+}
+
+void SetKinectGuideOpen(bool open) {
+  if (g_kinect_guide_open.exchange(open) == open) return;
+  KLOG_I("nui: the Kinect guide gesture: the system UI %s", open ? "opens" : "closes");
+  Broadcast(kNotifySystemUi, open ? 1 : 0);
 }
 
 void SignOutUser(uint32_t user_index) {

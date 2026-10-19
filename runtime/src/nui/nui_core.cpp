@@ -146,6 +146,16 @@ std::unique_ptr<Source> MakeSource(const settings::KinectSettings& kinect, std::
   return nullptr;  // none
 }
 
+GuideGesture g_guide;
+
+// The player whose gestures count: the first the title chose to track, else the first in view.
+const Body* MainBody(const Snapshot& snapshot) {
+  for (uint32_t i = 0; i < snapshot.body_count; ++i)
+    if (snapshot.bodies[i].id && (snapshot.bodies[i].id == g_chosen[0] || snapshot.bodies[i].id == g_chosen[1]))
+      return &snapshot.bodies[i];
+  return snapshot.body_count ? &snapshot.bodies[0] : nullptr;
+}
+
 void ClockThread() {
   SetThreadDescription(GetCurrentThread(), L"NUI clock");
   SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
@@ -173,6 +183,7 @@ void ClockThread() {
     uint32_t slots[kSkeletonCount];  // frame slot of each body in `snapshot`
     uint32_t number;
     uint64_t time_ms;
+    GuideGesture::Change guide = GuideGesture::kNone;
     {
       std::lock_guard lock(g_mutex);
       if (g_stop) break;
@@ -187,7 +198,9 @@ void ClockThread() {
           if (g_slots[s] == snapshot.bodies[i].id) slots[i] = s;
       }
       if (g_tracking) skeleton_event = g_skeleton_event;
+      guide = g_guide.Update(g_tracking ? MainBody(snapshot) : nullptr, now);
     }
+    if (guide != GuideGesture::kNone) SetKinectGuideOpen(guide == GuideGesture::kOpen);
     g_frame_cv.notify_all();
     if (skeleton_event)
       if (uint32_t body = ObjectFromHandle(skeleton_event)) SetEvent(body);
@@ -198,6 +211,46 @@ void ClockThread() {
 }
 
 }  // namespace
+
+bool IsGuidePose(const Body& b) {
+  struct V {
+    float x, y, z;
+    V operator-(const V& o) const { return {x - o.x, y - o.y, z - o.z}; }
+    float dot(const V& o) const { return x * o.x + y * o.y + z * o.z; }
+    float length() const { return std::sqrt(dot(*this)); }
+    V unit() const {
+      const float l = std::max(length(), 1e-6f);
+      return {x / l, y / l, z / l};
+    }
+  };
+  auto at = [&](Joint j) { return V{b.joints[j][0], b.joints[j][1], b.joints[j][2]}; };
+  // Measured against the torso, not the room: leaning sideways with the arms down isn't the gesture.
+  const V up = (at(kShoulderCenter) - at(kHipCenter)).unit();
+  const V left = (at(kShoulderLeft) - at(kShoulderRight)).unit();  // the player's left
+  const V arm = at(kHandLeft) - at(kShoulderLeft);
+  if (arm.length() < 0.40f) return false;  // bent, or the hand on the body
+  const V dir = arm.unit();
+  const float down = -dir.dot(up), out = dir.dot(left);
+  // Out to the side and down at 45 degrees from the body (30-60), in the body's plane.
+  if (down < 0.50f || down > 0.87f || out < 0.50f) return false;
+  // The right arm relaxed: the hand hanging at the side, below the chest.
+  const V right = at(kHandRight) - at(kShoulderRight);
+  return right.length() > 0.30f && -right.unit().dot(up) > 0.80f;
+}
+
+GuideGesture::Change GuideGesture::Update(const Body* body, double time) {
+  if (!body || !IsGuidePose(*body)) {
+    held_since_ = -1;
+    if (!open_) return kNone;
+    open_ = false;
+    return kClose;
+  }
+  if (open_) return kNone;
+  if (held_since_ < 0) held_since_ = time;
+  if (time - held_since_ < kHoldSeconds) return kNone;
+  open_ = true;
+  return kOpen;
+}
 
 void SetTitleSupport(TitleSupport support) {
   std::lock_guard lock(g_mutex);

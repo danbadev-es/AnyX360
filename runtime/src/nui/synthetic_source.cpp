@@ -15,6 +15,12 @@
 //   arm_left_<az>_<el>,      that arm held straight at an azimuth and elevation in degrees (see
 //   arm_right_<az>_<el>      ArmPose), raised from the side over the duration (default at once)
 //   dance                    a looping routine of arm, hip and knee movement (default 30 s)
+//   jump                     the whole body rises 30 cm and lands (default 0.6 s)
+//   crouch                   drops 35 cm, knees bent, and stands up again (default 1.2 s)
+//   lean_left, lean_right    the torso tilts 20 degrees to that side and back (default 1.5 s)
+//   step_left, step_right    moves 45 cm to that side and stays there (default 0.4 s)
+//   walk_in, walk_out        moves 50 cm towards / away from the sensor and stays (default 0.8 s)
+//   hands_up, arms_out       both arms up over the head / out to the sides
 //   idle                     stops any movement in progress
 #include <algorithm>
 #include <cmath>
@@ -54,7 +60,32 @@ struct Player {
   double dance_start = -1, dance_end = -1;
   float azimuth[2] = {}, elevation[2] = {};  // kAngle, per arm (0 right, 1 left)
   double raise_start[2] = {}, raise_end[2] = {};
+  // Whole-body moves (Kinect Adventures: jumping, ducking, leaning, stepping).
+  float x = 0, from_x = 0, to_x = 0;  // sideways position (steps), metres
+  double step_start = -1, step_end = -1;
+  float z = 0, from_z = 0, to_z = 0;  // towards (-) or away from (+) the sensor
+  double walk_start = -1, walk_end = -1;
+  double jump_start = -1, jump_end = -1;
+  double crouch_start = -1, crouch_end = -1;
+  double lean_start = -1, lean_end = -1;
+  float lean_direction = 0;  // -1 the player's left, +1 their right
 };
+
+// 0 -> 1 -> 0 over [start, end): eased in over the first fifth, held, eased out over the last.
+float HoldProfile(double t, double start, double end) {
+  if (t < start || t >= end) return 0;
+  const float k = float((t - start) / std::max(end - start, 1e-3));
+  auto ease = [](float v) { return 0.5f - 0.5f * std::cos(std::clamp(v, 0.0f, 1.0f) * kPi); };
+  return k < 0.2f ? ease(k / 0.2f) : k > 0.8f ? ease((1.0f - k) / 0.2f) : 1.0f;
+}
+
+// A move from `from` to `to` over [start, end), eased; `to` after it.
+float Glide(double t, double start, double end, float from, float to) {
+  if (t >= end) return to;
+  if (t < start) return from;
+  const float k = float((t - start) / std::max(end - start, 1e-3));
+  return from + (to - from) * (0.5f - 0.5f * std::cos(k * kPi));
+}
 
 void Set(Body& b, Joint j, float x, float y, float z) {
   b.joints[j][0] = x;
@@ -187,8 +218,38 @@ class SyntheticSource : public Source {
     } else if (e.action == "dance") {
       p.dance_start = time;
       p.dance_end = time + duration(30.0);
+    } else if (e.action == "jump") {
+      p.jump_start = time;
+      p.jump_end = time + duration(0.6);
+    } else if (e.action == "crouch") {
+      p.crouch_start = time;
+      p.crouch_end = time + duration(1.2);
+    } else if (e.action == "lean_left" || e.action == "lean_right") {
+      p.lean_direction = e.action == "lean_left" ? -1.0f : 1.0f;
+      p.lean_start = time;
+      p.lean_end = time + duration(1.5);
+    } else if (e.action == "step_left" || e.action == "step_right") {
+      p.from_x = Glide(time, p.step_start, p.step_end, p.from_x, p.to_x);
+      p.to_x = p.from_x + (e.action == "step_left" ? -0.45f : 0.45f);
+      p.step_start = time;
+      p.step_end = time + duration(0.4);
+    } else if (e.action == "walk_in" || e.action == "walk_out") {
+      p.from_z = Glide(time, p.walk_start, p.walk_end, p.from_z, p.to_z);
+      p.to_z = p.from_z + (e.action == "walk_in" ? -0.5f : 0.5f);
+      p.walk_start = time;
+      p.walk_end = time + duration(0.8);
+    } else if (e.action == "hands_up" || e.action == "arms_out") {
+      const float elevation = e.action == "hands_up" ? 80.0f : 0.0f;
+      for (int arm = 0; arm < 2; ++arm) {
+        (arm ? p.left : p.right) = Arm::kAngle;
+        p.azimuth[arm] = e.action == "hands_up" ? 10.0f : 0.0f;
+        p.elevation[arm] = elevation;
+        p.raise_start[arm] = time;
+        p.raise_end[arm] = time + std::max(duration(0.0), 0.0);
+      }
     } else if (e.action == "idle") {
       p.wave_end = p.dance_end = p.swipe_end = p.move_end = time;
+      p.jump_end = p.crouch_end = p.lean_end = time;
     } else {
       std::fprintf(stderr, "[nui] script: unknown action %s\n", e.action.c_str());
     }
@@ -196,8 +257,9 @@ class SyntheticSource : public Source {
 
   void Pose(int index, double t, Body& body) {
     Player& p = players_[index];
-    float x0 = index == 0 ? 0.0f : 0.6f;
-    StandingPose(body, x0, 2.3f, camera_height_);
+    float x0 = (index == 0 ? 0.0f : 0.6f) + Glide(t, p.step_start, p.step_end, p.from_x, p.to_x);
+    float z0 = 2.3f + Glide(t, p.walk_start, p.walk_end, p.from_z, p.to_z);
+    StandingPose(body, x0, z0, camera_height_);
     body.id = 1001 + index;
 
     // hand_up / hand_down in progress
@@ -256,6 +318,41 @@ class SyntheticSource : public Source {
       float bend = 0.06f * (0.5f + 0.5f * std::sin(beat * 2));
       for (uint32_t j = 0; j < kJointCount; ++j)
         if (j != kAnkleLeft && j != kAnkleRight && j != kFootLeft && j != kFootRight) body.joints[j][1] -= bend;
+    }
+
+    auto is_foot = [](uint32_t j) { return j == kAnkleLeft || j == kAnkleRight || j == kFootLeft || j == kFootRight; };
+    auto is_leg = [&](uint32_t j) { return is_foot(j) || j == kKneeLeft || j == kKneeRight; };
+
+    // Crouch: everything above the knees drops 35 cm, the knees bend forward and the hips go back.
+    if (float c = HoldProfile(t, p.crouch_start, p.crouch_end); c > 0) {
+      for (uint32_t j = 0; j < kJointCount; ++j) {
+        if (is_foot(j)) continue;
+        if (j == kKneeLeft || j == kKneeRight) {
+          body.joints[j][1] -= 0.15f * c;
+          body.joints[j][2] -= 0.18f * c;
+        } else {
+          body.joints[j][1] -= 0.35f * c;
+          body.joints[j][2] += 0.10f * c;
+        }
+      }
+    }
+
+    // Lean: the torso, head and arms tilt 20 degrees sideways about the hips.
+    if (float l = HoldProfile(t, p.lean_start, p.lean_end); l > 0) {
+      const float angle = 20.0f * kPi / 180 * l * p.lean_direction;
+      const float hx = body.joints[kHipCenter][0], hy = body.joints[kHipCenter][1];
+      for (uint32_t j = 0; j < kJointCount; ++j) {
+        if (is_leg(j) || j == kHipCenter || j == kHipLeft || j == kHipRight) continue;
+        const float dx = body.joints[j][0] - hx, dy = body.joints[j][1] - hy;
+        body.joints[j][0] = hx + dx * std::cos(angle) + dy * std::sin(angle);
+        body.joints[j][1] = hy - dx * std::sin(angle) + dy * std::cos(angle);
+      }
+    }
+
+    // Jump: the whole body rises 30 cm and comes down.
+    if (t >= p.jump_start && t < p.jump_end) {
+      const float h = 0.30f * std::sin(float((t - p.jump_start) / (p.jump_end - p.jump_start)) * kPi);
+      for (uint32_t j = 0; j < kJointCount; ++j) body.joints[j][1] += h;
     }
 
     std::memcpy(body.position, body.joints[kSpine], sizeof(body.position));

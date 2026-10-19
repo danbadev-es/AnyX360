@@ -374,6 +374,10 @@ void InitXam();
 bool IsUserSignedIn(uint32_t user_index);
 void SignInUser(uint32_t user_index);   // any thread
 void SignOutUser(uint32_t user_index);  // players 2-4
+// The Kinect Guide opens (the virtual Kinect recognised the guide gesture) or closes (the player
+// lowered their arm): the title sees the system UI open while it is, and pauses as it would on the
+// console. There is no overlay. Any thread.
+void SetKinectGuideOpen(bool open);
 void InitVideo();
 void InitAudio();
 

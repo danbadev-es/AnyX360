@@ -86,6 +86,68 @@ int main() {
     CHECK(std::abs((hand[0] - shoulder[0]) - 0.445f) < 0.02f);  // out to the player's right
   }
 
+  {  // Whole-body moves (Kinect Adventures): jump, crouch, lean, steps, walking, both arms.
+    auto source = nui::MakeSyntheticSource(
+        "0:enter,1:jump/0.6,2:crouch/1,4:lean_left/1,6:step_right,7:step_right,8:walk_in,9:hands_up,10:arms_out",
+        0.8f);
+    nui::Snapshot s;
+    source->Poll(0.5, s);
+    const auto standing = s.bodies[0];
+    auto joint = [&](nui::Joint j, int axis) { return s.bodies[0].joints[j][axis]; };
+    source->Poll(1.3, s);  // the top of the jump: everything 30 cm up, feet too
+    CHECK(std::abs(joint(nui::kHead, 1) - standing.joints[nui::kHead][1] - 0.30f) < 0.01f);
+    CHECK(std::abs(joint(nui::kFootLeft, 1) - standing.joints[nui::kFootLeft][1] - 0.30f) < 0.01f);
+    source->Poll(2.5, s);  // crouched: the head 35 cm lower, the feet where they were
+    CHECK(std::abs(standing.joints[nui::kHead][1] - joint(nui::kHead, 1) - 0.35f) < 0.01f);
+    CHECK(std::abs(joint(nui::kFootLeft, 1) - standing.joints[nui::kFootLeft][1]) < 0.001f);
+    CHECK(joint(nui::kKneeLeft, 2) < standing.joints[nui::kKneeLeft][2] - 0.1f);  // knees forward
+    source->Poll(3.5, s);  // standing again
+    CHECK(std::abs(joint(nui::kHead, 1) - standing.joints[nui::kHead][1]) < 0.001f);
+    source->Poll(4.75, s);  // leaning left: the head over the player's left, the hips still
+    CHECK(joint(nui::kHead, 0) < standing.joints[nui::kHead][0] - 0.2f);
+    CHECK(std::abs(joint(nui::kHipCenter, 0) - standing.joints[nui::kHipCenter][0]) < 0.001f);
+    source->Poll(7.5, s);  // two steps right: 0.9 m over, and they stay
+    CHECK(std::abs(joint(nui::kHipCenter, 0) - standing.joints[nui::kHipCenter][0] - 0.9f) < 0.01f);
+    source->Poll(8.9, s);  // half a metre closer to the sensor
+    CHECK(std::abs(standing.joints[nui::kHipCenter][2] - joint(nui::kHipCenter, 2) - 0.5f) < 0.01f);
+    source->Poll(9.5, s);  // both hands over the head
+    CHECK(joint(nui::kHandRight, 1) > joint(nui::kHead, 1) && joint(nui::kHandLeft, 1) > joint(nui::kHead, 1));
+    source->Poll(10.5, s);  // arms out at shoulder height
+    CHECK(std::abs(joint(nui::kHandLeft, 1) - joint(nui::kShoulderLeft, 1)) < 0.01f);
+    CHECK(joint(nui::kHandLeft, 0) < joint(nui::kShoulderLeft, 0) - 0.6f);
+  }
+
+  {  // The Kinect guide gesture: the scripted pose is it, other poses aren't; it fires once per hold.
+    auto source = nui::MakeSyntheticSource("0:enter,1:guide,5:lower,6:arm_left_0_0,7:arm_left_0_-80,8:guide", 0.8f);
+    nui::Snapshot s;
+    source->Poll(0.5, s);
+    CHECK(!nui::IsGuidePose(s.bodies[0]));  // standing, arms down
+    source->Poll(1.5, s);
+    CHECK(nui::IsGuidePose(s.bodies[0]));
+    source->Poll(6.5, s);
+    CHECK(!nui::IsGuidePose(s.bodies[0]));  // arm out at shoulder height
+    source->Poll(7.5, s);
+    CHECK(!nui::IsGuidePose(s.bodies[0]));  // arm hanging down
+    auto leaning = nui::MakeSyntheticSource("0:enter,1:lean_right/2,4:lean_left/2,7:crouch,9:jump", 0.8f);
+    for (double t : {1.5, 2.0, 4.5, 5.0, 7.6, 9.3}) {  // leaning, crouching, jumping with the arms down
+      leaning->Poll(t, s);
+      CHECK(!nui::IsGuidePose(s.bodies[0]));
+    }
+    nui::GuideGesture gesture;
+    int opened = 0, closed = 0;
+    source = nui::MakeSyntheticSource("0:enter,1:guide,5:lower,6:arm_left_0_0,7:arm_left_0_-80,8:guide", 0.8f);
+    for (double t = 0; t < 10; t += 1.0 / 30) {
+      source->Poll(t, s);
+      auto change = gesture.Update(&s.bodies[0], t);
+      opened += change == nui::GuideGesture::kOpen;
+      closed += change == nui::GuideGesture::kClose;
+      if (t > 2.3 && t < 2.45) CHECK(opened == 0);  // not yet: held for less than 1.5 s
+      if (t > 2.6 && t < 2.8) CHECK(opened == 1 && gesture.open());  // 1.5 s after the pose began
+      if (t > 5.2 && t < 5.4) CHECK(closed == 1 && !gesture.open());  // the arm came down at 5 s
+    }
+    CHECK(opened == 2 && closed == 1);  // opened for each hold (1-5 s, 8 s on), still open at the end
+  }
+
   {  // A live script file: what is appended while the game runs happens when it's read.
     const auto path = std::filesystem::temp_directory_path() / ("anyx360_nui_live_" + std::to_string(_getpid()) + ".txt");
     std::FILE* f = _wfopen(path.c_str(), L"wb");
