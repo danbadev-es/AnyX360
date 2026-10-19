@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-19
+
 ### Changed
 
 - Launcher: the game can be prepared from a `.rar` or `.zip` archive as well as a `.7z`. The game
@@ -99,6 +101,7 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/danielbarretoes/AnyX360/releases/tag/v0.1.0
