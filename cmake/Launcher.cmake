@@ -37,7 +37,7 @@ function(anyx360_add_launcher)
     return()
   endif()
 
-  # The catalog: one entry per game (tools/launcher/launcher.cpp, struct CatalogGame). dev_exe is
+  # The catalog: one entry per game (struct CatalogGame). dev_exe is
   # where the build puts the game, used when the launcher runs from the build folder.
   set(entries "")
   set(titles "")
@@ -203,13 +203,36 @@ constexpr char kTermsEsUtf8[] = R\"terms(@ANYX360_TERMS_es@)terms\";
 "
     @ONLY)
 
+  # The launcher's logic, without a window: the library, adding and removing games, the text, the
+  # terms, starting a game (tools/launcher/core). Tested by test_launcher_core.
+  set(core ${PROJECT_SOURCE_DIR}/tools/launcher/core)
+  add_library(launcher_core STATIC
+    ${core}/catalog.cpp
+    ${core}/install.cpp
+    ${core}/jobs.cpp
+    ${core}/launch.cpp
+    ${core}/library.cpp
+    ${core}/paths.cpp
+    ${core}/probe.cpp
+    ${core}/sevenzip.cpp
+    ${core}/strings.cpp
+    ${core}/terms.cpp)
+  target_compile_definitions(launcher_core PUBLIC UNICODE _UNICODE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
+  target_compile_options(launcher_core PRIVATE /utf-8)
+  target_include_directories(launcher_core PUBLIC ${PROJECT_SOURCE_DIR}/tools/launcher ${dir} ${dir}/$<CONFIG>)
+  target_link_libraries(launcher_core PUBLIC x360_formats ole32 shell32 shlwapi)
+
+  add_executable(test_launcher_core ${PROJECT_SOURCE_DIR}/tests/launcher/test_launcher_core.cpp)
+  target_compile_options(test_launcher_core PRIVATE /utf-8)
+  target_link_libraries(test_launcher_core PRIVATE launcher_core)
+  add_test(NAME launcher_core COMMAND test_launcher_core)
+
   add_executable(anyx360_launcher WIN32
     ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.cpp
     ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.manifest)
   set_target_properties(anyx360_launcher PROPERTIES OUTPUT_NAME AnyX360 RUNTIME_OUTPUT_DIRECTORY ${dir}/$<CONFIG>)
-  target_compile_definitions(anyx360_launcher PRIVATE UNICODE _UNICODE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
   target_compile_options(anyx360_launcher PRIVATE /utf-8)
-  target_include_directories(anyx360_launcher PRIVATE ${dir} ${dir}/$<CONFIG> ${ANYX360_GENERATED_DIR})
-  target_link_libraries(anyx360_launcher PRIVATE x360_formats comctl32 ole32 shell32 shlwapi uuid gdiplus)
+  target_include_directories(anyx360_launcher PRIVATE ${ANYX360_GENERATED_DIR})
+  target_link_libraries(anyx360_launcher PRIVATE launcher_core comctl32 ole32 shell32 shlwapi uuid gdiplus)
   anyx360_add_version_resource(anyx360_launcher "AnyX360 launcher" "AnyX360.exe")
 endfunction()

@@ -1,29 +1,13 @@
 // AnyX360's launcher (AnyX360.exe): a gallery of the games the player has added to the release, from
-// their own copies, and the place to start them. A game is added from its disc archive (.7z, .rar or
-// .zip, extracted here) or from the folder where the copy already is; which game it is comes from
-// default.xex's title ID, matched against the games this release was built with (games_catalog.h).
+// their own copies, and the place to start them. The logic (the library, adding and removing games,
+// the text, the terms, starting a game) is in core/ (launcher_core); this file is the window.
 //
-//   AnyX360.exe                 this program
-//   bin\<game>.exe (+ .pdb)     each recompiled game (the .pdb names functions in crash reports)
-//   bin\7z.exe, bin\7z.dll      7-Zip, to extract archives
-//   bin\shader_cache\<id>\      Xenia shader storage, copied once to the player's cache
-//   keys\xex2_retail.key
-//   games\<id>\game\            a copy extracted from an archive (the folder holding default.xex)
-//   games\<id>\location.txt     or the folder of the player's copy, used where it is (UTF-8)
-//   games\<id>\icon.png         the game's dashboard icon, read from default.xex when it is added
-//   games\<id>\cover.png|.jpg   a cover the player chose instead
-//   logs\<id>\                  last_run.log (the game's output) and previous_run.log
-//
-// A copy must be one of the catalog's games and complete: default.xex's title ID and the game's
-// required files are checked. Run from the build folder the games are found where the build puts
-// them. `--archive <file>` and `--folder <dir>` add a game without asking (unattended tests),
-// `--select <id>` selects one.
+// `--archive <file>` and `--folder <dir>` add a game without asking (unattended tests), `--select
+// <id>` selects one.
 //
 // The text is in English and Spanish: Windows' display language picks one, the footer switches
-// (remembered in %LOCALAPPDATA%\AnyX360\launcher_language.txt). The terms of use
-// (tools/launcher/terms_en.txt and terms_es.txt naming every game, compiled in) must be accepted
-// before the first use, and again whenever either text changes (%LOCALAPPDATA%\AnyX360\
-// terms_accepted.txt holds a hash).
+// (remembered). The terms of use must be accepted before the first use, and again whenever they
+// change.
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -36,15 +20,12 @@
 #include <windowsx.h>
 
 #include <algorithm>
-#include <atomic>
 #include <cwctype>
 #include <filesystem>
-#include <fstream>
 #include <functional>
+#include <future>
 #include <initializer_list>
-#include <iterator>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -56,17 +37,17 @@ using std::min;
 #include <gdiplus.h>
 
 #include "anyx360_version.h"
-#include "content.h"
-#include "games_catalog.h"
-#include "launcher_terms.h"
-#include "stfs.h"
-#include "svod.h"
+#include "core/catalog.h"
+#include "core/jobs.h"
+#include "core/launch.h"
+#include "core/library.h"
+#include "core/paths.h"
+#include "core/strings.h"
+#include "core/terms.h"
 #include "util.h"
-#include "xdbf.h"
-#include "xex.h"
 
-namespace fs = std::filesystem;
 namespace gp = Gdiplus;
+using namespace anyx360::launcher;
 
 #define ANYX360_WIDEN2(x) L##x
 #define ANYX360_WIDEN(x) ANYX360_WIDEN2(x)
@@ -75,10 +56,10 @@ namespace {
 
 const wchar_t* const kVersion = ANYX360_WIDEN(ANYX360_VERSION_FULL);
 
-constexpr UINT kMsgProgress = WM_APP + 1;    // wParam: percent (-1 while checking)
+constexpr UINT kMsgProgress = WM_APP + 1;    // wParam: Step, lParam: percent (-1 when unknown)
 constexpr UINT kMsgDone = WM_APP + 2;        // lParam: Outcome* of the job
 constexpr UINT kMsgGameExited = WM_APP + 3;  // wParam: exit code
-constexpr UINT kMsgAskReplace = WM_APP + 4;  // lParam: const CatalogGame*; returns IDYES to replace it
+constexpr UINT kMsgAskReplace = WM_APP + 4;  // wParam: std::promise<bool>* answered, lParam: const CatalogGame*
 constexpr UINT kMsgJobGame = WM_APP + 5;     // lParam: const CatalogGame* the job turned out to be
 constexpr UINT kMsgIconReady = WM_APP + 6;   // a game's icon was read
 
@@ -88,247 +69,11 @@ enum MenuCommand { kMenuArchive = 1, kMenuFolder, kMenuPlay, kMenuCover, kMenuRe
                    kMenuRemove };
 enum class State { kIdle, kWorking, kRunning };
 
-// ---- text -------------------------------------------------------------------------------------
-
-enum class Language { kEnglish, kSpanish };
-Language g_language = Language::kEnglish;
-
-enum Text {
-  kTextSubtitle,  // {0} version
-  kTextChecking,
-  kTextFinishing,
-  kTextExtracting,  // {0} game, {1} percent
-  kTextRemoving,    // {0} game
-  kTextReadyPad,    // {0} game
-  kTextReadyWebcam,  // {0} game
-  kTextAddHint,     // {0} supported games
-  kTextAlsoSupported,  // {0} games
-  kTextPlay,
-  kTextAddGame,
-  kTextAddTile,
-  kTextCancel,
-  kTextLogs,
-  kTextFooter,
-  kTextMenuArchive,
-  kTextMenuFolder,
-  kTextMenuPlay,
-  kTextMenuCover,
-  kTextMenuRestoreCover,
-  kTextMenuLogs,
-  kTextMenuPrepareAgain,
-  kTextMenuRemove,
-  kTextDialogTitle,
-  kTextFolderTitle,
-  kTextCoverTitle,  // {0} game
-  kTextFilterArchive,
-  kTextFilterImages,
-  kTextFilterAll,
-  kTextMissing7Zip,
-  kTextConfirmReplace,  // {0} game
-  kTextConfirmRemove,   // {0} game
-  kTextConfirmCancelExit,
-  kTextAdded,        // {0} game
-  kTextAddedFolder,  // {0} game, {1} folder
-  kTextRemoved,      // {0} game
-  kTextCancelled,
-  kTextErrorList,         // {0} 7-Zip exit code
-  kTextErrorNotGame,
-  kTextErrorNoXexFolder,
-  kTextErrorUnsupported,  // {0} title ID found, {1} supported games
-  kTextErrorMissingFile,  // {0} file
-  kTextErrorLocationGone,  // {0} game, {1} folder
-  kTextErrorSpace,        // {0} needed, {1} free
-  kTextErrorExtract,      // {0} 7-Zip exit code
-  kTextErrorNoXex,
-  kTextErrorMove,         // {0} reason
-  kTextErrorNoExe,        // {0} executable
-  kTextErrorStart,        // {0} Windows error
-  kTextErrorExited,       // {0} game, {1} exit code
-  kTextErrorCover,
-  kTextAddedContent,  // {0} game, {1} number of downloadable content packs
-  kTextErrorConvert,  // {0} reason
-  kTextTermsTitle,
-  kTextTermsHeading,
-  kTextTermsCheck,
-  kTextTermsAccept,
-  kTextTermsDecline,
-  kTextTermsClose,
-  kTextCount
-};
-
-const wchar_t* const kEnglish[] = {
-    L"{0} · Xbox 360 games recompiled for PC",
-    L"Checking the game…",
-    L"Finishing…",
-    L"Extracting {0}… {1} %",
-    L"Removing {0}…",
-    L"{0} is ready to play. Keyboard and mouse or an Xbox controller; F2 opens the settings in game.",
-    L"{0} is ready to play. Stand 2-3 m from your webcam with your whole body in view; F2 opens the "
-    L"settings in game.",
-    L"Add a game: choose the archive of your disc (.7z, .rar or .zip, it is extracted into this folder) or "
-    L"the folder where your copy already is. This release plays {0}.",
-    L"Also supported: {0}",
-    L"Play",
-    L"Add game…",
-    L"Add game",
-    L"Cancel",
-    L"Logs",
-    L"Developed by danbadev-es  ·  <a>Terms of use</a>  ·  <a>Español</a>",
-    L"From an archive (.7z, .rar, .zip)…",
-    L"From a game folder…",
-    L"Play",
-    L"Change cover…",
-    L"Restore the game's cover",
-    L"Open logs",
-    L"Prepare again…",
-    L"Remove from the library…",
-    L"Choose the archive of your game (.7z, .rar or .zip)",
-    L"Choose the folder of your game (the one with default.xex)",
-    L"Choose an image for {0}",
-    L"Game archive (.7z, .rar, .zip)",
-    L"Images",
-    L"All files",
-    L"7-Zip is missing (bin\\7z.exe). Extract the whole folder again.",
-    L"{0} is already in the library. Replace it with this copy?",
-    L"Remove {0} from the library? A copy extracted into the games folder is deleted; a folder of yours is "
-    L"left as it is. Your saves and settings stay.",
-    L"Cancel and exit?",
-    L"{0} is ready.",
-    L"{0} is ready. It is played from {1}: don't move or delete that folder.",
-    L"{0} was removed from the library.",
-    L"Cancelled.",
-    L"7-Zip could not read the archive (code {0}). Check that it is the game's archive and that it is complete.",
-    L"That archive has no default.xex: it doesn't look like an Xbox 360 game disc.",
-    L"That folder has no default.xex: choose the folder of your copy of the game.",
-    L"That copy is not one of this release's games (title {0}). It plays {1}.",
-    L"The copy is incomplete: {0} is missing.",
-    L"The folder of {0} is no longer available ({1}). Add the game again, or remove it from the library.",
-    L"Not enough space on this drive: {0} needed, {1} free. Move this folder to another drive or free up "
-    L"space.",
-    L"The extraction failed (7-Zip code {0}). Check the free space and that the archive isn't damaged.",
-    L"default.xex was not found after extracting.",
-    L"The game could not be moved to the games folder ({0}).",
-    L"{0} was not found in the bin folder.",
-    L"The game could not be started (error {0}).",
-    L"{0} closed with an error (code {1}). Press Logs and send the last_run.log file to whoever gave you "
-    L"the game.",
-    L"That image could not be opened.",
-    L"{0} is ready, with its downloadable content ({1}).",
-    L"The Games on Demand copy could not be read ({0}).",
-    L"Terms of use (AnyX360)",
-    L"Terms of use",
-    L"I have read and accept the terms of use",
-    L"Accept",
-    L"Decline",
-    L"Close",
-};
-
-const wchar_t* const kSpanish[] = {
-    L"{0} · juegos de Xbox 360 recompilados para PC",
-    L"Comprobando el juego…",
-    L"Terminando…",
-    L"Extrayendo {0}… {1} %",
-    L"Quitando {0}…",
-    L"{0} está listo para jugar. Teclado y ratón o mando de Xbox; F2 abre los ajustes durante la partida.",
-    L"{0} está listo para jugar. Ponte a 2-3 m de la webcam, con todo el cuerpo a la vista; F2 abre los "
-    L"ajustes durante la partida.",
-    L"Añade un juego: elige el archivo comprimido de tu disco (.7z, .rar o .zip, se extrae en esta carpeta) o "
-    L"la carpeta donde ya tienes tu copia. Esta versión juega a {0}.",
-    L"También compatible: {0}",
-    L"Jugar",
-    L"Añadir juego…",
-    L"Añadir juego",
-    L"Cancelar",
-    L"Registros",
-    L"Desarrollado por danbadev-es  ·  <a>Términos y condiciones de uso</a>  ·  <a>English</a>",
-    L"Desde un archivo comprimido (.7z, .rar, .zip)…",
-    L"Desde una carpeta del juego…",
-    L"Jugar",
-    L"Cambiar portada…",
-    L"Recuperar la portada del juego",
-    L"Abrir registros",
-    L"Volver a preparar…",
-    L"Quitar de la biblioteca…",
-    L"Elige el archivo comprimido de tu juego (.7z, .rar o .zip)",
-    L"Elige la carpeta de tu juego (la que tiene default.xex)",
-    L"Elige una imagen para {0}",
-    L"Archivo del juego (.7z, .rar, .zip)",
-    L"Imágenes",
-    L"Todos los archivos",
-    L"Falta 7-Zip (bin\\7z.exe). Vuelve a descomprimir la carpeta completa.",
-    L"{0} ya está en la biblioteca. ¿Reemplazarlo por esta copia?",
-    L"¿Quitar {0} de la biblioteca? Se borra la copia extraída en la carpeta games; una carpeta tuya se queda "
-    L"como está. Tus partidas guardadas y ajustes se conservan.",
-    L"¿Cancelar y salir?",
-    L"{0} está preparado.",
-    L"{0} está preparado. Se juega desde {1}: no muevas ni borres esa carpeta.",
-    L"{0} se ha quitado de la biblioteca.",
-    L"Cancelado.",
-    L"7-Zip no pudo leer el archivo (código {0}). Comprueba que es el archivo del juego y que está completo.",
-    L"Ese archivo no contiene default.xex: no parece un disco de un juego de Xbox 360.",
-    L"Esa carpeta no contiene default.xex: elige la carpeta de tu copia del juego.",
-    L"Esa copia no es de ninguno de los juegos de esta versión (título {0}). Juega a {1}.",
-    L"La copia está incompleta: falta {0}.",
-    L"La carpeta de {0} ya no está disponible ({1}). Vuelve a añadir el juego o quítalo de la biblioteca.",
-    L"No hay espacio suficiente en esta unidad: hacen falta {0} y hay {1}. Mueve esta carpeta a otro disco "
-    L"o libera espacio.",
-    L"La extracción falló (código de 7-Zip {0}). Comprueba el espacio libre y que el archivo no esté dañado.",
-    L"Después de extraer no se encontró default.xex.",
-    L"No se pudo mover el juego a la carpeta games ({0}).",
-    L"No se encuentra {0} en la carpeta bin.",
-    L"No se pudo iniciar el juego (error {0}).",
-    L"{0} se cerró con un error (código {1}). Pulsa Registros y envía el archivo last_run.log a quien te "
-    L"pasó el juego.",
-    L"No se pudo abrir esa imagen.",
-    L"{0} está preparado, con su contenido descargable ({1}).",
-    L"No se pudo leer la copia Games on Demand ({0}).",
-    L"Términos y condiciones de uso (AnyX360)",
-    L"Términos y condiciones de uso",
-    L"He leído y acepto los términos y condiciones de uso",
-    L"Aceptar",
-    L"No acepto",
-    L"Cerrar",
-};
-static_assert(std::size(kEnglish) == kTextCount && std::size(kSpanish) == kTextCount);
-
-std::wstring Format(std::wstring text, const std::vector<std::wstring>& args) {
-  for (size_t i = 0; i < args.size(); ++i) {
-    std::wstring marker = L"{" + std::to_wstring(i) + L"}";
-    for (size_t at = 0; (at = text.find(marker, at)) != std::wstring::npos; at += args[i].size())
-      text.replace(at, marker.size(), args[i]);
-  }
-  return text;
-}
-
-// A text in the current language with {0}, {1}... replaced.
-std::wstring Tr(Text id, const std::vector<std::wstring>& args = {}) {
-  return Format((g_language == Language::kSpanish ? kSpanish : kEnglish)[id], args);
-}
-
-// The outcome of the last action, kept untranslated so it follows language changes.
-struct Message {
-  Text id = kTextCount;  // none
-  std::vector<std::wstring> args;
-  bool error = false;
-  std::wstring Render() const { return id == kTextCount ? std::wstring() : Tr(id, args); }
-};
-
-// What a job (adding or removing a game) ends with.
-struct Outcome {
-  Message message;
-  std::wstring select;  // the game to select afterwards
-};
-
 // ---- state ------------------------------------------------------------------------------------
 
-// A catalog game whose executable this release has, with what the player has done with it.
-struct Game {
-  const CatalogGame* info = nullptr;
-  fs::path exe;
-  bool installed = false;
-  fs::path dir;               // the folder holding default.xex
-  bool location_gone = false;  // added from a folder that is no longer there
-  std::unique_ptr<gp::Bitmap> icon, cover;
+// A library game with its pictures decoded.
+struct Game : LibraryGame {
+  std::unique_ptr<gp::Bitmap> icon_image, cover_image;
   gp::Color color{255, 62, 70, 92};
 };
 
@@ -342,196 +87,33 @@ int g_hover = -1;
 int g_scroll = 0;
 State g_state = State::kIdle;
 Message g_message;  // shown above the status
+Step g_step = Step::kChecking;
 int g_percent = -1;
 const CatalogGame* g_job_game = nullptr;  // the game being added or removed, once known
-std::thread g_worker;
-std::atomic<bool> g_cancel{false};
+Worker g_worker;
 bool g_close_after_cancel = false;
-std::mutex g_extractor_mutex;
-HANDLE g_extractor = nullptr;  // the running 7-Zip process
 const CatalogGame* g_running = nullptr;
 
-// ---- paths ------------------------------------------------------------------------------------
-
-fs::path Root() {
-  static const fs::path root = [] {
-    wchar_t path[MAX_PATH];
-    GetModuleFileNameW(nullptr, path, MAX_PATH);
-    return fs::path(path).parent_path();
-  }();
-  return root;
-}
-
-bool Exists(const fs::path& path) {
-  std::error_code ec;
-  return fs::exists(path, ec);
-}
-
-fs::path GamesDir() { return Root() / L"games"; }
-fs::path GameRoot(const CatalogGame& game) { return GamesDir() / game.id; }
-fs::path ExtractedDir(const CatalogGame& game) { return GameRoot(game) / L"game"; }
-fs::path LocationFile(const CatalogGame& game) { return GameRoot(game) / L"location.txt"; }
-fs::path IconFile(const CatalogGame& game) { return GameRoot(game) / L"icon.png"; }
-fs::path LogDir(const CatalogGame& game) { return Root() / L"logs" / game.id; }
-
-// The player's cover for the game, if they chose one.
-fs::path CoverFile(const CatalogGame& game) {
-  for (const wchar_t* name : {L"cover.png", L"cover.jpg"})
-    if (Exists(GameRoot(game) / name)) return GameRoot(game) / name;
-  return {};
-}
-
-// `relative` in `start` or the closest folder above it that has it (the build folder is inside the
-// repository, next to keys\).
-fs::path FindUpwards(fs::path start, const fs::path& relative) {
-  for (fs::path dir = start; !dir.empty(); dir = dir.parent_path()) {
-    if (Exists(dir / relative)) return dir / relative;
-    if (dir == dir.root_path()) break;
+// The job's reports, passed to the window's thread.
+class WindowObserver : public JobObserver {
+ public:
+  void OnProgress(Step step, int percent) override { PostMessageW(g_window, kMsgProgress, WPARAM(step), percent); }
+  void OnGame(const CatalogGame& game) override { PostMessageW(g_window, kMsgJobGame, 0, LPARAM(&game)); }
+  bool AskReplace(const CatalogGame& game) override {
+    std::promise<bool> answer;
+    std::future<bool> answered = answer.get_future();
+    PostMessageW(g_window, kMsgAskReplace, WPARAM(&answer), LPARAM(&game));
+    return answered.get();
   }
-  return {};
-}
-
-fs::path KeyFile() { return FindUpwards(Root(), L"keys/xex2_retail.key"); }
-
-// A one-line UTF-8 text file (paths may have any characters).
-std::wstring ReadUtf8(const fs::path& path) {
-  std::ifstream in(path, std::ios::binary);
-  std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-  if (bytes.rfind("\xEF\xBB\xBF", 0) == 0) bytes.erase(0, 3);  // saved by an editor with a BOM
-  while (!bytes.empty() && (bytes.back() == '\n' || bytes.back() == '\r')) bytes.pop_back();
-  int length = MultiByteToWideChar(CP_UTF8, 0, bytes.data(), int(bytes.size()), nullptr, 0);
-  std::wstring text(size_t(std::max(length, 0)), L'\0');
-  MultiByteToWideChar(CP_UTF8, 0, bytes.data(), int(bytes.size()), text.data(), length);
-  return text;
-}
-
-bool WriteUtf8(const fs::path& path, const std::wstring& text) {
-  int length = WideCharToMultiByte(CP_UTF8, 0, text.data(), int(text.size()), nullptr, 0, nullptr, nullptr);
-  std::string bytes(size_t(std::max(length, 0)), '\0');
-  WideCharToMultiByte(CP_UTF8, 0, text.data(), int(text.size()), bytes.data(), length, nullptr, nullptr);
-  std::ofstream out(path, std::ios::binary | std::ios::trunc);
-  out << bytes << "\n";
-  return bool(out);
-}
-
-// The folder of a copy added in place, or empty.
-fs::path StoredLocation(const CatalogGame& game) {
-  return Exists(LocationFile(game)) ? fs::path(ReadUtf8(LocationFile(game))) : fs::path();
-}
-
-// bin\ in a release, next to the launcher otherwise.
-fs::path FindProgram(const wchar_t* name) {
-  for (const fs::path& path : {Root() / L"bin" / name, Root() / name})
-    if (Exists(path)) return path;
-  return {};
-}
-
-// The game's executable: the release's, else (running from the build folder) the build's.
-fs::path FindGameExe(const CatalogGame& game) {
-  fs::path exe = FindProgram(game.exe);
-  if (exe.empty() && Exists(game.dev_exe)) exe = fs::path(game.dev_exe).make_preferred();
-  return exe;
-}
-
-fs::path SevenZip() {
-  fs::path bundled = FindProgram(L"7z.exe");
-  if (!bundled.empty()) return bundled;
-  wchar_t* program_files = nullptr;
-  fs::path installed;
-  if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_ProgramFiles, 0, nullptr, &program_files)))
-    installed = fs::path(program_files) / L"7-Zip" / L"7z.exe";
-  CoTaskMemFree(program_files);
-  return Exists(installed) ? installed : fs::path();
-}
-
-// %LOCALAPPDATA%, as the game resolves it.
-fs::path LocalAppData() {
-  wchar_t path[MAX_PATH];
-  DWORD length = GetEnvironmentVariableW(L"LOCALAPPDATA", path, MAX_PATH);
-  if (length && length < MAX_PATH) return path;
-  wchar_t* known = nullptr;
-  fs::path result;
-  if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &known))) result = known;
-  CoTaskMemFree(known);
-  return result;
-}
-
-// The launcher's settings (the games keep theirs, and their saves, in their own folders there).
-fs::path SettingsFile(const wchar_t* name) { return LocalAppData() / L"AnyX360" / name; }
-
-std::wstring ReadSetting(const fs::path& path) {
-  std::wifstream in(path);
-  std::wstring value;
-  std::getline(in, value);
-  return value;
-}
-
-void WriteSetting(const fs::path& path, const std::wstring& value) {
-  std::error_code ec;
-  fs::create_directories(path.parent_path(), ec);
-  std::wofstream(path) << value << L"\n";
-}
-
-std::wstring Quote(const fs::path& path) { return L"\"" + path.wstring() + L"\""; }
-
-// A path short enough for one line of a message ("C:\Users\...\Disc\Game").
-std::wstring ShortPath(const fs::path& path) {
-  wchar_t shortened[MAX_PATH];
-  return PathCompactPathExW(shortened, path.c_str(), 56, 0) ? shortened : path.wstring();
-}
-
-std::wstring Gigabytes(uint64_t bytes) {
-  wchar_t text[32];
-  swprintf(text, 32, L"%.1f GB", double(bytes) / (1024.0 * 1024.0 * 1024.0));
-  return text;
-}
-
-std::wstring Hex32(uint32_t value) {
-  wchar_t text[16];
-  swprintf(text, 16, L"%08X", value);
-  return text;
-}
-
-void LoadLanguage() {
-  std::wstring saved = ReadSetting(SettingsFile(L"launcher_language.txt"));
-  if (saved == L"es" || saved == L"en")
-    g_language = saved == L"es" ? Language::kSpanish : Language::kEnglish;
-  else
-    g_language = PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_SPANISH ? Language::kSpanish : Language::kEnglish;
-}
-
-// "a", "a and b", "a, b and c" in the current language.
-std::wstring JoinTitles(const std::vector<const CatalogGame*>& games) {
-  std::wstring text;
-  for (size_t i = 0; i < games.size(); ++i) {
-    if (i) text += i + 1 == games.size() ? (g_language == Language::kSpanish ? L" y " : L" and ") : L", ";
-    text += games[i]->title;
+  void OnDone(const Outcome& outcome) override {
+    PostMessageW(g_window, kMsgDone, 0, LPARAM(new Outcome(outcome)));
   }
-  return text;
-}
-
-// The catalog games this release can run (their executable is there).
-std::vector<const CatalogGame*> AvailableGames() {
-  std::vector<const CatalogGame*> games;
-  for (const CatalogGame& game : kCatalog)
-    if (!FindGameExe(game).empty()) games.push_back(&game);
-  return games;
-}
-
-const CatalogGame* FindAvailableGame(uint32_t title_id) {
-  for (const CatalogGame* game : AvailableGames())
-    if (game->title_id == title_id) return game;
-  return nullptr;
-}
-
-bool IsInstalled(const CatalogGame& game) {
-  return Exists(ExtractedDir(game) / L"default.xex") || Exists(LocationFile(game));
-}
+} g_observer;
 
 // ---- images -----------------------------------------------------------------------------------
 
 // An image file decoded into memory (GDI+ keeps a file it loads open, and a cover can be replaced).
-std::unique_ptr<gp::Bitmap> LoadImage(const fs::path& path) {
+std::unique_ptr<gp::Bitmap> DecodeImage(const fs::path& path) {
   std::vector<uint8_t> bytes;
   try {
     bytes = x360tool::read_file(path);
@@ -583,23 +165,6 @@ gp::Color TileColor(gp::Bitmap* icon) {
   return gp::Color(255, channel(r), channel(g), channel(b));
 }
 
-// Reads the dashboard icon from the copy's default.xex into games\<id>\icon.png.
-bool SaveIcon(const CatalogGame& game, const fs::path& game_dir) {
-  try {
-    x360tool::Xex xex(x360tool::read_file(game_dir / L"default.xex"));
-    fs::path key = KeyFile();
-    auto image = xex.extract_image(key.empty() ? std::nullopt : x360tool::load_key(key, false));
-    auto png = x360tool::xex_title_image(xex, image);
-    if (!png) return false;
-    std::error_code ec;
-    fs::create_directories(GameRoot(game), ec);
-    x360tool::write_file(IconFile(game), *png);
-    return true;
-  } catch (const std::exception&) {
-    return false;
-  }
-}
-
 // ---- the library ------------------------------------------------------------------------------
 
 int SelectedGame() {
@@ -607,30 +172,19 @@ int SelectedGame() {
 }
 
 // Reads what the player has added; keeps the selection on the same game (or `select`).
-void LoadLibrary(std::wstring select = {}) {
+void LoadGames(std::wstring select = {}) {
   if (select.empty() && SelectedGame() >= 0) select = g_games[size_t(SelectedGame())].info->id;
   g_games.clear();
-  for (const CatalogGame& info : kCatalog) {
+  for (LibraryGame& read : ReadLibrary()) {
     Game game;
-    game.info = &info;
-    game.exe = FindGameExe(info);
-    if (game.exe.empty()) continue;
-    if (Exists(ExtractedDir(info) / L"default.xex")) {
-      game.installed = true;
-      game.dir = ExtractedDir(info);
-    } else if (Exists(LocationFile(info))) {
-      game.installed = true;
-      game.dir = StoredLocation(info);
-      game.location_gone = !Exists(game.dir / L"default.xex");
-    }
+    static_cast<LibraryGame&>(game) = std::move(read);
     if (game.installed) {
-      game.icon = LoadImage(IconFile(info));
-      fs::path cover = CoverFile(info);
-      if (!cover.empty()) game.cover = LoadImage(cover);
-      game.color = TileColor(game.icon.get());
+      if (!game.icon.empty()) game.icon_image = DecodeImage(game.icon);
+      if (!game.cover.empty()) game.cover_image = DecodeImage(game.cover);
+      game.color = TileColor(game.icon_image.get());
       // A copy added before icons were read: read it now, the tile is redrawn when it is ready.
-      if (!game.icon && !game.location_gone && !Exists(IconFile(info))) {
-        std::thread([info = &info, dir = game.dir] {
+      if (game.needs_icon) {
+        std::thread([info = game.info, dir = game.dir] {
           if (SaveIcon(*info, dir)) PostMessageW(g_window, kMsgIconReady, 0, 0);
         }).detach();
       }
@@ -646,645 +200,14 @@ void LoadLibrary(std::wstring select = {}) {
     if (g_tiles[t] >= 0 && g_games[size_t(g_tiles[t])].info->id == select) g_selected = int(t);
 }
 
-// ---- 7-Zip ------------------------------------------------------------------------------------
-
-// Runs a console program without a window and passes its output (stdout and stderr) to `output`
-// as it arrives. Returns the exit code, or -1 if the program could not start.
-int RunCaptured(std::wstring command, const std::function<void(const std::string&)>& output,
-                bool track_as_extractor) {
-  SECURITY_ATTRIBUTES inherit{sizeof(inherit), nullptr, TRUE};
-  HANDLE read = nullptr, write = nullptr;
-  if (!CreatePipe(&read, &write, &inherit, 0)) return -1;
-  SetHandleInformation(read, HANDLE_FLAG_INHERIT, 0);
-  HANDLE input = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &inherit, OPEN_EXISTING, 0,
-                             nullptr);
-  STARTUPINFOW startup{sizeof(startup)};
-  startup.dwFlags = STARTF_USESTDHANDLES;
-  startup.hStdInput = input;
-  startup.hStdOutput = write;
-  startup.hStdError = write;
-  PROCESS_INFORMATION process{};
-  BOOL started = CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr,
-                                &startup, &process);
-  CloseHandle(write);
-  CloseHandle(input);
-  if (!started) {
-    CloseHandle(read);
-    return -1;
-  }
-  if (track_as_extractor) {
-    std::lock_guard lock(g_extractor_mutex);
-    g_extractor = process.hProcess;
-  }
-  char buffer[4096];
-  DWORD length = 0;
-  while (ReadFile(read, buffer, sizeof(buffer), &length, nullptr) && length) output(std::string(buffer, length));
-  WaitForSingleObject(process.hProcess, INFINITE);
-  DWORD code = 1;
-  GetExitCodeProcess(process.hProcess, &code);
-  if (track_as_extractor) {
-    std::lock_guard lock(g_extractor_mutex);
-    g_extractor = nullptr;
-  }
-  CloseHandle(process.hThread);
-  CloseHandle(process.hProcess);
-  CloseHandle(read);
-  return int(code);
-}
-
-struct ArchiveInfo {
-  uint64_t size = 0;      // uncompressed
-  bool has_game = false;  // contains default.xex
-  // A Games on Demand copy (<TitleID>\00007000\<package>): its title, and the folders to extract
-  // (the package and the title's downloadable content, not other titles' demos or updates).
-  uint32_t god_title = 0;
-  std::vector<std::string> god_folders;
-};
-
-// "...\4D5308ED\00007000\..." in an archive's file name: the title ID and the path up to the
-// content type's folder.
-bool ParseContentPath(const std::string& name, const char* type_folder, uint32_t& title_id, std::string& folder) {
-  std::string lower = name;
-  std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return char(std::tolower(c)); });
-  std::replace(lower.begin(), lower.end(), '/', '\\');
-  std::string needle = std::string("\\") + type_folder + "\\";
-  size_t at = lower.find(needle);
-  if (at == std::string::npos || at < 8) return false;
-  size_t start = at - 8;
-  if (start > 0 && lower[start - 1] != '\\') return false;
-  for (size_t i = start; i < at; ++i)
-    if (!std::isxdigit(static_cast<unsigned char>(lower[i]))) return false;
-  title_id = uint32_t(std::stoul(lower.substr(start, 8), nullptr, 16));
-  folder = name.substr(0, at + 1 + std::strlen(type_folder));
-  return true;
-}
-
-bool ListArchive(const fs::path& archive, ArchiveInfo& info, Message& error) {
-  std::string output;
-  int code = RunCaptured(Quote(SevenZip()) + L" l -sccUTF-8 " + Quote(archive),
-                         [&](const std::string& text) { output += text; }, false);
-  if (code != 0) {
-    error = {kTextErrorList, {std::to_wstring(code)}, true};
-    return false;
-  }
-  std::vector<std::string> lines;
-  for (size_t start = 0; start < output.size();) {
-    size_t end = output.find('\n', start);
-    if (end == std::string::npos) end = output.size();
-    std::string line = output.substr(start, end - start);
-    if (!line.empty() && line.back() == '\r') line.pop_back();
-    lines.push_back(line);
-    start = end + 1;
-  }
-  size_t summary = 0;
-  for (size_t i = 0; i < lines.size(); ++i) {
-    std::string lower = lines[i];
-    std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return char(std::tolower(c)); });
-    if (lower.size() >= 11 && lower.compare(lower.size() - 11, 11, "default.xex") == 0) info.has_game = true;
-    if (lines[i].rfind("-------------------", 0) == 0) summary = i + 1;
-    // File lines: "<date> <time> <attributes> <size> <compressed>  <name>", the name at column 53.
-    uint32_t title = 0;
-    std::string folder;
-    if (lines[i].size() > 53 && ParseContentPath(lines[i].substr(53), "00007000", title, folder)) {
-      info.god_title = title;
-      if (std::find(info.god_folders.begin(), info.god_folders.end(), folder) == info.god_folders.end())
-        info.god_folders.push_back(folder);
-    }
-  }
-  // The title's downloadable content goes with it.
-  if (info.god_title) {
-    for (const std::string& line : lines) {
-      uint32_t title = 0;
-      std::string folder;
-      if (line.size() > 53 && ParseContentPath(line.substr(53), "00000002", title, folder) &&
-          title == info.god_title &&
-          std::find(info.god_folders.begin(), info.god_folders.end(), folder) == info.god_folders.end())
-        info.god_folders.push_back(folder);
-    }
-  }
-  // Totals line after the last separator: "<date> <time> <size> <compressed> <n> files, ...".
-  if (summary && summary < lines.size()) {
-    std::vector<std::string> tokens;
-    for (size_t start = 0; start < lines[summary].size();) {
-      size_t begin = lines[summary].find_first_not_of(' ', start);
-      if (begin == std::string::npos) break;
-      size_t end = lines[summary].find(' ', begin);
-      if (end == std::string::npos) end = lines[summary].size();
-      tokens.push_back(lines[summary].substr(begin, end - begin));
-      start = end;
-    }
-    if (tokens.size() > 2 && !tokens[2].empty() &&
-        std::all_of(tokens[2].begin(), tokens[2].end(), [](char c) { return c >= '0' && c <= '9'; }))
-      info.size = std::stoull(tokens[2]);
-  }
-  if (!info.size) {
-    std::error_code ec;
-    info.size = fs::file_size(archive, ec);
-  }
-  return true;
-}
-
-void RemoveAll(const fs::path& path) {
-  std::error_code ec;
-  fs::remove_all(path, ec);
-}
-
-// Removes a folder quickly: renamed out of the way first, so a half-deleted copy never looks ready.
-void RemoveFolder(const fs::path& path) {
-  if (!Exists(path)) return;
-  std::error_code ec;
-  fs::path old = GamesDir() / (L".old-" + path.filename().wstring());
-  RemoveAll(old);
-  fs::rename(path, old, ec);
-  RemoveAll(ec ? path : old);
-}
-
-// The folder holding default.xex: `folder` itself or one up to 4 levels below it (archives and copies
-// often have the disc inside a folder or two).
-fs::path FindGameRoot(const fs::path& folder) {
-  if (Exists(folder / L"default.xex")) return folder;
-  std::error_code ec;
-  for (auto it = fs::recursive_directory_iterator(folder, ec); !ec && it != fs::recursive_directory_iterator();
-       it.increment(ec)) {
-    if (it.depth() > 4) {
-      it.disable_recursion_pending();
-      continue;
-    }
-    std::wstring name = it->path().filename().wstring();
-    std::transform(name.begin(), name.end(), name.begin(), ::towlower);
-    if (name == L"default.xex" && it->is_regular_file(ec)) return it->path().parent_path();
-  }
-  return {};
-}
-
-// The title ID in default.xex's header: the execution info (optional header 0x00040006) holds it at
-// offset 0xC. All big-endian.
-bool ReadTitleId(const fs::path& xex, uint32_t& title_id) {
-  std::ifstream in(xex, std::ios::binary);
-  std::vector<uint8_t> header(0x10000);
-  in.read(reinterpret_cast<char*>(header.data()), std::streamsize(header.size()));
-  size_t size = size_t(in.gcount());
-  auto be32 = [&](size_t at) -> uint32_t {
-    if (at + 4 > size) return 0;
-    return uint32_t(header[at]) << 24 | uint32_t(header[at + 1]) << 16 | uint32_t(header[at + 2]) << 8 | header[at + 3];
-  };
-  if (be32(0) != 0x58455832) return false;  // 'XEX2'
-  uint32_t count = std::min<uint32_t>(be32(0x14), 256);
-  for (uint32_t i = 0; i < count; ++i) {
-    if (be32(0x18 + i * 8) != 0x00040006) continue;
-    uint32_t info = be32(0x1C + i * 8);
-    if (size_t(info) + 0x10 > size) return false;
-    title_id = be32(info + 0xC);
-    return true;
-  }
-  return false;
-}
-
-// Which of this release's games the copy in `root` is, or an error.
-const CatalogGame* IdentifyCopy(const fs::path& root, Message& error) {
-  uint32_t title_id = 0;
-  if (!ReadTitleId(root / L"default.xex", title_id)) {
-    error = {kTextErrorNotGame, {}, true};
-    return nullptr;
-  }
-  const CatalogGame* game = FindAvailableGame(title_id);
-  if (!game) error = {kTextErrorUnsupported, {Hex32(title_id), JoinTitles(AvailableGames())}, true};
-  return game;
-}
-
-// A copy must be complete: the game's required files are there.
-bool CheckCopy(const fs::path& root, const CatalogGame& game, Message& error) {
-  std::wstring files = game.required_files;
-  for (size_t start = 0; start < files.size();) {
-    size_t end = files.find(L'|', start);
-    if (end == std::wstring::npos) end = files.size();
-    std::wstring file = files.substr(start, end - start);
-    start = end + 1;
-    if (!file.empty() && !Exists(root / file)) {
-      error = {kTextErrorMissingFile, {file}, true};
-      return false;
-    }
-  }
-  return true;
-}
-
-// Asks the player (on the window's thread) whether an installed game is replaced.
-bool ConfirmReplace(const CatalogGame& game) {
-  return !IsInstalled(game) || SendMessageW(g_window, kMsgAskReplace, 0, LPARAM(&game)) == IDYES;
-}
-
-void PostDone(Outcome outcome) { PostMessageW(g_window, kMsgDone, 0, LPARAM(new Outcome(std::move(outcome)))); }
-
-std::wstring Widen(const std::string& utf8) {
-  int length = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), int(utf8.size()), nullptr, 0);
-  std::wstring text(size_t(std::max(length, 0)), L'\0');
-  MultiByteToWideChar(CP_UTF8, 0, utf8.data(), int(utf8.size()), text.data(), length);
-  return text;
-}
-
-// Extracts `archive` (only the folders `only`, when given) into `out`, posting its progress scaled
-// into [from, to] percent. Returns 7-Zip's exit code.
-int ExtractArchive(const fs::path& archive, const fs::path& out, const std::vector<std::string>& only, int from,
-                   int to) {
-  std::wstring command =
-      Quote(SevenZip()) + L" x -y -bsp1 -bso0 -bse1 -sccUTF-8 -o" + Quote(out) + L" " + Quote(archive);
-  for (const std::string& folder : only) command += L" " + Quote(Widen(folder));
-  int last = 0;
-  std::string tail;
-  return RunCaptured(
-      command,
-      [&](const std::string& text) {
-        // Progress lines ("  42% 120 - <file>") overwrite each other with backspaces.
-        std::string chunk = tail + text;
-        int percent = -1;
-        for (size_t i = 0; i < chunk.size(); ++i) {
-          if (chunk[i] != '%') continue;
-          size_t begin = i;
-          while (begin > 0 && i - begin < 3 && std::isdigit(static_cast<unsigned char>(chunk[begin - 1]))) --begin;
-          if (begin < i) percent = std::stoi(chunk.substr(begin, i - begin));
-        }
-        tail = chunk.size() > 8 ? chunk.substr(chunk.size() - 8) : chunk;
-        // Only forward: the bar fills once even if 7-Zip's count restarts (multi-volume archives).
-        if (percent > last) {
-          last = percent;
-          PostMessageW(g_window, kMsgProgress, WPARAM(std::min(from + percent * (to - from) / 100, 99)), 0);
-        }
-      },
-      true);
-}
-
-// Moves a checked copy (the folder holding default.xex) to games\<id>\game, replacing an earlier
-// copy, extracted or used in place, but keeping the player's cover.
-bool InstallCopy(const CatalogGame& game, const fs::path& found, Message& error) {
-  RemoveFolder(ExtractedDir(game));
-  std::error_code ec;
-  fs::remove(LocationFile(game), ec);
-  fs::create_directories(GameRoot(game), ec);
-  fs::rename(found, ExtractedDir(game), ec);
-  if (ec) {
-    error = {kTextErrorMove, {Widen(ec.message())}, true};
-    return false;
-  }
-  return true;
-}
-
-// ---- Games on Demand copies ---------------------------------------------------------------------
-// A Games on Demand copy is the console's HDD content: <TitleID>\00007000\<package>, with the disc's
-// files in <package>.data\Data0000... (x360tool's svod.cpp reads them), and maybe the title's
-// downloadable content in <TitleID>\00000002\. The game can't run from the package, so its files
-// are always written out to games\<id>\game; the content goes to the game's own content folder.
-
-// The Games on Demand package in `folder` (up to 4 levels down), or empty.
-fs::path FindGamesOnDemand(const fs::path& folder, x360tool::ContentPackage* package = nullptr) {
-  std::error_code ec;
-  for (auto it = fs::recursive_directory_iterator(folder, ec); !ec && it != fs::recursive_directory_iterator();
-       it.increment(ec)) {
-    if (it.depth() > 4) {
-      it.disable_recursion_pending();
-      continue;
-    }
-    if (!it->is_regular_file(ec) || it->path().parent_path().filename() != L"00007000") continue;
-    fs::path data = it->path();
-    data += L".data";
-    if (!Exists(data)) continue;
-    auto header = x360tool::read_content_header(it->path());
-    if (!header || header->content_type != x360tool::content_type::kGamesOnDemand ||
-        header->volume_type != x360tool::kVolumeSvod)
-      continue;
-    if (package) *package = *header;
-    return it->path();
-  }
-  return {};
-}
-
-// The title's downloadable content packages in `folder` (<TitleID>\00000002\*).
-std::vector<fs::path> FindDownloadableContent(const fs::path& folder, uint32_t title_id) {
-  std::vector<fs::path> packages;
-  std::error_code ec;
-  for (auto it = fs::recursive_directory_iterator(folder, ec); !ec && it != fs::recursive_directory_iterator();
-       it.increment(ec)) {
-    if (it.depth() > 4) {
-      it.disable_recursion_pending();
-      continue;
-    }
-    if (!it->is_regular_file(ec) || it->path().parent_path().filename() != L"00000002") continue;
-    auto header = x360tool::read_content_header(it->path());
-    if (header && header->content_type == x360tool::content_type::kMarketplace && header->title_id == title_id &&
-        header->volume_type == x360tool::kVolumeStfs)
-      packages.push_back(it->path());
-  }
-  return packages;
-}
-
-// Writes the disc's files of a Games on Demand package to `out`, posting progress in [from, to].
-bool ExtractGamesOnDemand(const fs::path& header, const fs::path& out, int from, int to, Message& error) {
-  try {
-    auto image = x360tool::open_games_on_demand(header);
-    std::vector<x360tool::XdvdfsEntry> files;
-    uint64_t total = 0;
-    image->walk([&](const x360tool::XdvdfsEntry& e) {
-      if (!e.is_dir) files.push_back(e), total += e.size;
-    });
-    uint64_t done = 0;
-    int last = -1;
-    for (const x360tool::XdvdfsEntry& e : files) {
-      if (g_cancel) return false;
-      image->extract(e, out / fs::path(Widen(e.path)));
-      done += e.size;
-      int percent = from + int(total ? done * uint64_t(to - from) / total : uint64_t(to - from));
-      if (percent > last) {
-        last = percent;
-        PostMessageW(g_window, kMsgProgress, WPARAM(std::min(percent, 99)), 0);
-      }
-    }
-    return true;
-  } catch (const std::exception& e) {
-    error = {kTextErrorConvert, {Widen(e.what())}, true};
-    return false;
-  }
-}
-
-// Extracts downloadable content packages where the runtime looks for them:
-// %LOCALAPPDATA%\AnyX360\<user dir>\content\00000002\<package name>\. Returns how many.
-int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::path>& packages) {
-  int installed = 0;
-  for (const fs::path& path : packages) {
-    try {
-      x360tool::StfsPackage package(path);
-      fs::path out = LocalAppData() / L"AnyX360" / game.user_dir / L"content" / L"00000002" / path.filename();
-      RemoveAll(out);
-      for (const x360tool::StfsEntry& e : package.entries())
-        if (!e.is_dir) package.extract(e, out / fs::path(Widen(e.path)));
-      ++installed;
-    } catch (const std::exception&) {
-      // A damaged pack is skipped: the game runs without it.
-    }
-  }
-  return installed;
-}
-
-// Converts the Games on Demand copy at `header` (in `source`, an extracted archive or the player's
-// folder) into games\<id>\game, with its downloadable content. Progress goes from `from` to 99.
-Outcome AddGamesOnDemand(const fs::path& source, const fs::path& header, const x360tool::ContentPackage& package,
-                         int from) {
-  Message error;
-  const CatalogGame* game = FindAvailableGame(package.title_id);
-  if (!game) return {{kTextErrorUnsupported, {Hex32(package.title_id), JoinTitles(AvailableGames())}, true}};
-  PostMessageW(g_window, kMsgJobGame, 0, LPARAM(game));
-  fs::path converted = GamesDir() / L".converted";
-  RemoveAll(converted);
-  if (!ExtractGamesOnDemand(header, converted, from, 99, error) || g_cancel) {
-    RemoveAll(converted);
-    return {error};
-  }
-  fs::path found = FindGameRoot(converted);
-  if (found.empty()) {
-    RemoveAll(converted);
-    return {{kTextErrorNoXex, {}, true}};
-  }
-  if (IdentifyCopy(found, error) != game || !CheckCopy(found, *game, error) || !InstallCopy(*game, found, error)) {
-    RemoveAll(converted);
-    return {error};
-  }
-  RemoveAll(converted);
-  SaveIcon(*game, ExtractedDir(*game));
-  int content = InstallDownloadableContent(*game, FindDownloadableContent(source, package.title_id));
-  if (content) return {{kTextAddedContent, {game->title, std::to_wstring(content)}, false}, game->id};
-  return {{kTextAdded, {game->title}, false}, game->id};
-}
-
-bool EnoughSpace(uint64_t needed, Message& error) {
-  ULARGE_INTEGER free_bytes{};
-  if (GetDiskFreeSpaceExW(Root().c_str(), &free_bytes, nullptr, nullptr) && free_bytes.QuadPart < needed) {
-    error = {kTextErrorSpace, {Gigabytes(needed), Gigabytes(free_bytes.QuadPart)}, true};
-    return false;
-  }
-  return true;
-}
-
-// Worker thread: a Games on Demand archive. Its title comes from the listing; only that title's
-// folders are extracted (into games\.partial), then the package is converted.
-void AddGamesOnDemandArchive(const fs::path& archive, const ArchiveInfo& info) {
-  Message error;
-  const CatalogGame* game = FindAvailableGame(info.god_title);
-  if (!game) return PostDone({{kTextErrorUnsupported, {Hex32(info.god_title), JoinTitles(AvailableGames())}, true}});
-  if (!ConfirmReplace(*game)) return PostDone({{kTextCancelled, {}, false}});
-  PostMessageW(g_window, kMsgJobGame, 0, LPARAM(game));
-  // The extracted package and the game's files written out from it.
-  if (!EnoughSpace(info.size * 2 + (512ull << 20), error)) return PostDone({error});
-  fs::path partial = GamesDir() / L".partial";
-  RemoveAll(partial);
-  PostMessageW(g_window, kMsgProgress, 0, 0);
-  int code = ExtractArchive(archive, partial, info.god_folders, 0, 60);
-  if (g_cancel || code != 0) {
-    RemoveAll(partial);
-    return PostDone(g_cancel ? Outcome{} : Outcome{{kTextErrorExtract, {std::to_wstring(code)}, true}});
-  }
-  x360tool::ContentPackage package;
-  fs::path header = FindGamesOnDemand(partial, &package);
-  if (header.empty()) {
-    RemoveAll(partial);
-    return PostDone({{kTextErrorNoXex, {}, true}});
-  }
-  Outcome outcome = AddGamesOnDemand(partial, header, package, 60);
-  RemoveAll(partial);
-  PostDone(g_cancel ? Outcome{} : outcome);
-}
-
-// Worker thread: identifies the game in the archive (only default.xex is extracted for that),
-// extracts it into games\.partial and moves the folder holding default.xex to games\<id>\game.
-void AddArchiveWorker(fs::path archive) {
-  ArchiveInfo info;
-  Message error;
-  if (!ListArchive(archive, info, error)) return PostDone({error});
-  if (!info.has_game && info.god_title) return AddGamesOnDemandArchive(archive, info);
-  if (!info.has_game) return PostDone({{kTextErrorNotGame, {}, true}});
-
-  fs::path probe = GamesDir() / L".probe";
-  RemoveAll(probe);
-  int code = RunCaptured(Quote(SevenZip()) + L" x -y -r -bso0 -bse1 -sccUTF-8 -o" + Quote(probe) + L" " +
-                             Quote(archive) + L" default.xex",
-                         [](const std::string&) {}, true);
-  if (g_cancel) {
-    RemoveAll(probe);
-    return PostDone({});
-  }
-  fs::path probe_root = code == 0 ? FindGameRoot(probe) : fs::path();
-  if (probe_root.empty()) {
-    RemoveAll(probe);
-    return PostDone({code == 0 ? Message{kTextErrorNotGame, {}, true}
-                               : Message{kTextErrorExtract, {std::to_wstring(code)}, true}});
-  }
-  const CatalogGame* game = IdentifyCopy(probe_root, error);
-  RemoveAll(probe);
-  if (!game) return PostDone({error});
-  if (!ConfirmReplace(*game)) return PostDone({{kTextCancelled, {}, false}});
-  PostMessageW(g_window, kMsgJobGame, 0, LPARAM(game));
-
-  if (!EnoughSpace(info.size + (512ull << 20), error)) return PostDone({error});
-
-  fs::path partial = GamesDir() / L".partial";
-  RemoveAll(partial);  // a previous attempt
-  PostMessageW(g_window, kMsgProgress, 0, 0);
-  code = ExtractArchive(archive, partial, {}, 0, 100);
-  if (g_cancel) {
-    RemoveAll(partial);
-    return PostDone({});
-  }
-  if (code != 0) {
-    RemoveAll(partial);
-    return PostDone({{kTextErrorExtract, {std::to_wstring(code)}, true}});
-  }
-  PostMessageW(g_window, kMsgProgress, 100, 0);
-
-  fs::path found = FindGameRoot(partial);
-  if (found.empty()) {
-    RemoveAll(partial);
-    return PostDone({{kTextErrorNoXex, {}, true}});
-  }
-  if (IdentifyCopy(found, error) != game || !CheckCopy(found, *game, error) || !InstallCopy(*game, found, error)) {
-    RemoveAll(partial);
-    return PostDone({error});
-  }
-  RemoveAll(partial);
-  SaveIcon(*game, ExtractedDir(*game));
-  PostDone({{kTextAdded, {game->title}, false}, game->id});
-}
-
-// Worker thread: identifies the copy in the player's folder and remembers it; it is played where it is.
-// A Games on Demand copy is converted instead (written out to games\<id>\game).
-void AddFolderWorker(fs::path folder) {
-  fs::path root = FindGameRoot(folder);
-  Message error;
-  if (root.empty()) {
-    x360tool::ContentPackage package;
-    fs::path header = FindGamesOnDemand(folder, &package);
-    if (header.empty()) return PostDone({{kTextErrorNoXexFolder, {}, true}});
-    const CatalogGame* game = FindAvailableGame(package.title_id);
-    if (game && !ConfirmReplace(*game)) return PostDone({{kTextCancelled, {}, false}});
-    std::error_code ec;
-    if (!EnoughSpace(fs::file_size(header, ec) + uint64_t(package.data_file_count) * 0xA290000, error))
-      return PostDone({error});
-    PostMessageW(g_window, kMsgProgress, 0, 0);
-    Outcome outcome = AddGamesOnDemand(folder, header, package, 0);
-    return PostDone(g_cancel ? Outcome{} : outcome);
-  }
-  const CatalogGame* game = IdentifyCopy(root, error);
-  if (!game) return PostDone({error});
-  PostMessageW(g_window, kMsgJobGame, 0, LPARAM(game));
-  if (!CheckCopy(root, *game, error)) return PostDone({error});
-  std::error_code ec;
-  root = fs::absolute(root, ec);
-  auto relative = root.lexically_relative(fs::absolute(ExtractedDir(*game), ec));
-  if (!relative.empty() && *relative.begin() != L"..") {  // the extracted copy itself
-    fs::remove(LocationFile(*game), ec);
-    return PostDone({{kTextAdded, {game->title}, false}, game->id});
-  }
-  if (!ConfirmReplace(*game)) return PostDone({{kTextCancelled, {}, false}});
-  RemoveFolder(ExtractedDir(*game));
-  fs::create_directories(GameRoot(*game), ec);
-  if (!WriteUtf8(LocationFile(*game), root.wstring())) return PostDone({{kTextErrorMove, {L"location.txt"}, true}});
-  SaveIcon(*game, root);
-  PostDone({{kTextAddedFolder, {game->title, ShortPath(root)}, false}, game->id});
-}
-
-// Worker thread: forgets a game. Only games\<id> is deleted: a folder of the player's is never in it.
-void RemoveWorker(const CatalogGame* game) {
-  RemoveFolder(GameRoot(*game));
-  PostDone({{kTextRemoved, {game->title}, false}});
-}
-
-// ---- terms of use -----------------------------------------------------------------------------
-
-std::wstring TermsText() {
-  const char* utf8 = g_language == Language::kSpanish ? kTermsEsUtf8 : kTermsEnUtf8;
-  int length = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, nullptr, 0);
-  std::wstring text(size_t(std::max(length, 1)), L'\0');
-  MultiByteToWideChar(CP_UTF8, 0, utf8, -1, text.data(), length);
-  text.resize(wcslen(text.c_str()));
-  std::wstring crlf;  // the edit control needs \r\n (the generated header may already have \r\n)
-  for (wchar_t c : text) {
-    if (c == L'\r') continue;
+// The terms for the read-only edit control, which needs \r\n.
+std::wstring TermsEditText() {
+  std::wstring crlf;
+  for (wchar_t c : TermsText(CurrentLanguage())) {
     if (c == L'\n') crlf += L'\r';
     crlf += c;
   }
   return crlf;
-}
-
-// FNV-1a of both texts: a new version of either must be accepted again.
-std::wstring TermsHash() {
-  uint64_t hash = 14695981039346656037ull;
-  for (const char* text : {kTermsEnUtf8, kTermsEsUtf8})
-    for (const char* c = text; *c; ++c) hash = (hash ^ uint8_t(*c)) * 1099511628211ull;
-  wchar_t text[20];
-  swprintf(text, 20, L"%016llx", static_cast<unsigned long long>(hash));
-  return text;
-}
-
-bool TermsAccepted() { return ReadSetting(SettingsFile(L"terms_accepted.txt")) == TermsHash(); }
-
-// ---- running a game ---------------------------------------------------------------------------
-
-// Shaders and pipelines found while testing: the player's first run stutters less.
-void SeedShaderCache(const CatalogGame& game) {
-  fs::path source = Root() / L"bin" / L"shader_cache" / game.id;
-  fs::path local = LocalAppData();
-  if (!Exists(source) || local.empty()) return;
-  fs::path target = local / L"AnyX360" / game.user_dir / L"cache" / L"shaders";
-  std::error_code ec;
-  for (auto it = fs::recursive_directory_iterator(source, ec); !ec && it != fs::recursive_directory_iterator();
-       it.increment(ec)) {
-    if (!it->is_regular_file(ec)) continue;
-    fs::path destination = target / fs::relative(it->path(), source, ec);
-    if (Exists(destination)) continue;  // never replace the player's own (larger) cache
-    fs::create_directories(destination.parent_path(), ec);
-    fs::copy_file(it->path(), destination, ec);
-  }
-}
-
-// Starts the game; returns an error message, or one with no id on success.
-Message StartGame(const Game& game) {
-  if (game.exe.empty() || !Exists(game.exe)) return {kTextErrorNoExe, {game.info->exe}, true};
-  SeedShaderCache(*game.info);
-  std::error_code ec;
-  fs::path logs = LogDir(*game.info);
-  fs::create_directories(logs, ec);
-  fs::path log_path = logs / L"last_run.log";
-  if (Exists(log_path)) {
-    fs::remove(logs / L"previous_run.log", ec);
-    fs::rename(log_path, logs / L"previous_run.log", ec);
-  }
-  SECURITY_ATTRIBUTES inherit{sizeof(inherit), nullptr, TRUE};
-  HANDLE log = CreateFileW(log_path.c_str(), GENERIC_WRITE, FILE_SHARE_READ, &inherit, CREATE_ALWAYS,
-                           FILE_ATTRIBUTE_NORMAL, nullptr);
-  HANDLE input = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &inherit, OPEN_EXISTING, 0,
-                             nullptr);
-  std::wstring command = Quote(game.exe) + L" --game " + Quote(game.dir);
-  fs::path key = KeyFile();
-  if (!key.empty()) command += L" --key " + Quote(key);
-  STARTUPINFOW startup{sizeof(startup)};
-  if (log != INVALID_HANDLE_VALUE) {
-    startup.dwFlags = STARTF_USESTDHANDLES;
-    startup.hStdInput = input;
-    startup.hStdOutput = log;
-    startup.hStdError = log;
-  }
-  PROCESS_INFORMATION process{};
-  BOOL started = CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr,
-                                Root().c_str(), &startup, &process);
-  DWORD error = GetLastError();
-  if (log != INVALID_HANDLE_VALUE) CloseHandle(log);
-  CloseHandle(input);
-  if (!started) return {kTextErrorStart, {std::to_wstring(error)}, true};
-  CloseHandle(process.hThread);
-  std::thread([handle = process.hProcess] {
-    WaitForSingleObject(handle, INFINITE);
-    DWORD code = 0;
-    GetExitCodeProcess(handle, &code);
-    CloseHandle(handle);
-    PostMessageW(g_window, kMsgGameExited, code, 0);
-  }).detach();
-  return {};
 }
 
 // ---- gallery ----------------------------------------------------------------------------------
@@ -1369,9 +292,9 @@ void DrawGameTile(gp::Graphics& g, const gp::RectF& r, const Game& game, bool ho
   float caption_h = ScaleF(54);
   gp::RectF picture(r.X, r.Y, r.Width, r.Height - caption_h);
   g.SetInterpolationMode(gp::InterpolationModeHighQualityBicubic);
-  if (game.cover) {
-    DrawCover(g, game.cover.get(), picture);
-  } else if (game.icon) {
+  if (game.cover_image) {
+    DrawCover(g, game.cover_image.get(), picture);
+  } else if (game.icon_image) {
     float size = ScaleF(128);
     gp::RectF icon(picture.X + (picture.Width - size) / 2, picture.Y + (picture.Height - size) / 2 + ScaleF(4), size,
                    size);
@@ -1382,11 +305,11 @@ void DrawGameTile(gp::Graphics& g, const gp::RectF& r, const Game& game, bool ho
     gp::GraphicsPath icon_path;
     RoundedRect(icon_path, icon, ScaleF(10));
     g.SetClip(&icon_path, gp::CombineModeIntersect);
-    g.DrawImage(game.icon.get(), icon);
+    g.DrawImage(game.icon_image.get(), icon);
     g.SetClip(&tile);
   }
   gp::RectF caption(r.X, r.GetBottom() - caption_h, r.Width, caption_h);
-  gp::SolidBrush caption_brush(gp::Color(game.cover ? 170 : 70, 0, 0, 0));
+  gp::SolidBrush caption_brush(gp::Color(game.cover_image ? 170 : 70, 0, 0, 0));
   g.FillRectangle(&caption_brush, caption);
   gp::Font font(L"Segoe UI Semibold", ScaleF(15), gp::FontStyleRegular, gp::UnitPixel);
   gp::StringFormat format;
@@ -1497,9 +420,10 @@ void UpdateUi() {
   bool status_error = false;
   if (g_state == State::kWorking) {
     std::wstring title = g_job_game ? g_job_game->title : L"";
-    status = g_percent < 0 || !g_job_game ? Tr(kTextChecking)
-             : g_percent >= 100           ? Tr(kTextFinishing)
-                                          : Tr(kTextExtracting, {title, std::to_wstring(g_percent)});
+    status = g_step == Step::kRemoving                      ? Tr(kTextRemoving, {title})
+             : g_step == Step::kFinishing                   ? Tr(kTextFinishing)
+             : g_step == Step::kExtracting && g_job_game     ? Tr(kTextExtracting, {title, std::to_wstring(std::max(g_percent, 0))})
+                                                            : Tr(kTextChecking);
   } else if (!game) {
     status = Tr(kTextAddHint, {JoinTitles(AvailableGames())});
   } else if (game->location_gone) {
@@ -1515,7 +439,7 @@ void UpdateUi() {
   SetDlgItemTextW(g_window, kMessage, g_message.Render().c_str());
   SetDlgItemTextW(g_window, kStatus, status.c_str());
   SetWindowLongPtrW(GetDlgItem(g_window, kStatus), GWLP_USERDATA, status_error);
-  ShowWindow(GetDlgItem(g_window, kMessage), g_message.id == kTextCount ? SW_HIDE : SW_SHOW);
+  ShowWindow(GetDlgItem(g_window, kMessage), g_message.empty() ? SW_HIDE : SW_SHOW);
   HWND progress = GetDlgItem(g_window, kProgress);
   ShowWindow(progress, g_state == State::kWorking ? SW_SHOW : SW_HIDE);
   if (g_percent < 0) {
@@ -1568,28 +492,22 @@ fs::path ChooseFile(const std::wstring& title, const std::vector<std::pair<std::
   return chosen;
 }
 
-void StartJob(std::thread worker) {
+void StartJob(std::function<Outcome(Job&)> work) {
   g_state = State::kWorking;
+  g_step = Step::kChecking;
   g_percent = -1;
   g_message = {};
   g_job_game = nullptr;
-  g_cancel = false;
-  std::error_code ec;
-  fs::create_directories(GamesDir(), ec);
-  g_worker = std::move(worker);
+  g_worker.Start(g_observer, std::move(work));
   UpdateUi();
 }
 
 // `from_folder`: the player's folder, used in place; otherwise an archive (.7z, .rar or .zip) extracted here.
 void StartAdding(const fs::path& source, bool from_folder) {
-  StartJob(from_folder ? std::thread(AddFolderWorker, source) : std::thread(AddArchiveWorker, source));
+  StartJob([source, from_folder](Job& job) { return from_folder ? AddFolder(job, source) : AddArchive(job, source); });
 }
 
-void CancelJob() {
-  g_cancel = true;
-  std::lock_guard lock(g_extractor_mutex);
-  if (g_extractor) TerminateProcess(g_extractor, 1);
-}
+void CancelJob() { g_worker.Cancel(); }
 
 // "Add game": where the copy comes from, in a menu at `at` (screen coordinates).
 void OnAdd(HWND anchor, POINT at) {
@@ -1625,8 +543,8 @@ void OnAddButton() {
 void OnPlay() {
   const Game* game = SelectedGamePtr();
   if (!game || game->location_gone || g_state != State::kIdle) return;
-  Message error = StartGame(*game);
-  if (error.id != kTextCount) {
+  Message error = StartGame(*game, [](uint32_t code) { PostMessageW(g_window, kMsgGameExited, code, 0); });
+  if (!error.empty()) {
     g_message = error;
     UpdateUi();
     return;
@@ -1641,19 +559,13 @@ void ChangeCover(const Game& game) {
   fs::path image = ChooseFile(Tr(kTextCoverTitle, {game.info->title}),
                               {{Tr(kTextFilterImages), L"*.png;*.jpg;*.jpeg"}, {Tr(kTextFilterAll), L"*.*"}}, false);
   if (image.empty()) return;
-  if (!LoadImage(image)) {
+  if (!DecodeImage(image) || !SetPlayerCover(*game.info, image)) {
     g_message = {kTextErrorCover, {}, true};
     UpdateUi();
     return;
   }
-  std::wstring extension = image.extension().wstring();
-  std::transform(extension.begin(), extension.end(), extension.begin(), ::towlower);
-  fs::path target = GameRoot(*game.info) / (extension == L".png" ? L"cover.png" : L"cover.jpg");
-  std::error_code ec;
-  for (const wchar_t* name : {L"cover.png", L"cover.jpg"}) fs::remove(GameRoot(*game.info) / name, ec);
-  fs::copy_file(image, target, fs::copy_options::overwrite_existing, ec);
   g_message = {};
-  LoadLibrary();
+  LoadGames();
   UpdateUi();
 }
 
@@ -1676,7 +588,7 @@ void ShowTileMenu(int tile, POINT at) {
   HMENU menu = CreatePopupMenu();
   for (const auto& [id, text] : items) {
     UINT flags = id ? MF_STRING : MF_SEPARATOR;
-    if ((id == kMenuPlay && game.location_gone) || (id == kMenuRestoreCover && !game.cover) ||
+    if ((id == kMenuPlay && game.location_gone) || (id == kMenuRestoreCover && game.cover.empty()) ||
         (id == kMenuLogs && !Exists(LogDir(*game.info))))
       flags |= MF_GRAYED;
     AppendMenuW(menu, flags, UINT_PTR(id), text.c_str());
@@ -1685,13 +597,13 @@ void ShowTileMenu(int tile, POINT at) {
   int choice = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_LEFTALIGN | TPM_TOPALIGN, at.x, at.y, 0,
                               g_gallery, nullptr);
   DestroyMenu(menu);
-  std::error_code ec;
+  const CatalogGame* info = game.info;
   switch (choice) {
     case kMenuPlay: OnPlay(); break;
     case kMenuCover: ChangeCover(game); break;
     case kMenuRestoreCover:
-      for (const wchar_t* name : {L"cover.png", L"cover.jpg"}) fs::remove(GameRoot(*game.info) / name, ec);
-      LoadLibrary();
+      RestoreCover(*info);
+      LoadGames();
       UpdateUi();
       break;
     case kMenuLogs: ShellExecuteW(g_window, L"open", LogDir(*game.info).c_str(), nullptr, nullptr, SW_SHOWNORMAL); break;
@@ -1699,9 +611,7 @@ void ShowTileMenu(int tile, POINT at) {
     case kMenuRemove:
       if (MessageBoxW(g_window, Tr(kTextConfirmRemove, {game.info->title}).c_str(), L"AnyX360",
                       MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) == IDYES) {
-        StartJob(std::thread(RemoveWorker, game.info));
-        g_job_game = game.info;
-        UpdateUi();
+        StartJob([info](Job& job) { return RemoveGame(job, *info); });
       }
       break;
   }
@@ -1931,7 +841,7 @@ bool ShowTerms(bool require_acceptance) {
     return control;
   };
   add(L"STATIC", Tr(kTextTermsHeading), SS_LEFT | SS_NOPREFIX, kTermsHeading, 24, 16, 592, 32, g_title_font);
-  add(L"EDIT", TermsText(), WS_BORDER | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | WS_TABSTOP,
+  add(L"EDIT", TermsEditText(), WS_BORDER | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | WS_TABSTOP,
       kTermsText, 24, 58, 592, 370, g_text_font);
   HWND focus;
   if (require_acceptance) {
@@ -1965,7 +875,7 @@ bool ShowTerms(bool require_acceptance) {
     EnableWindow(g_window, TRUE);
     SetForegroundWindow(g_window);
   }
-  if (require_acceptance && g_terms.accepted) WriteSetting(SettingsFile(L"terms_accepted.txt"), TermsHash());
+  if (require_acceptance && g_terms.accepted) AcceptTerms();
   return g_terms.accepted;
 }
 
@@ -1977,8 +887,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
       if (link->item.iLink == 0) {
         ShowTerms(false);
       } else {  // the other language
-        g_language = g_language == Language::kSpanish ? Language::kEnglish : Language::kSpanish;
-        WriteSetting(SettingsFile(L"launcher_language.txt"), g_language == Language::kSpanish ? L"es" : L"en");
+        SaveLanguage(CurrentLanguage() == Language::kSpanish ? Language::kEnglish : Language::kSpanish);
         ApplyLanguage();
       }
       return 0;
@@ -1996,7 +905,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
       }
       break;
     case kMsgProgress:
-      g_percent = int(wparam);
+      g_step = Step(wparam);
+      g_percent = int(lparam);
       UpdateUi();
       return 0;
     case kMsgJobGame:
@@ -2005,29 +915,29 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
       return 0;
     case kMsgAskReplace: {
       const CatalogGame* game = reinterpret_cast<const CatalogGame*>(lparam);
-      return MessageBoxW(hwnd, Tr(kTextConfirmReplace, {game->title}).c_str(), L"AnyX360",
-                         MB_YESNO | MB_ICONQUESTION);
+      reinterpret_cast<std::promise<bool>*>(wparam)->set_value(
+          MessageBoxW(hwnd, Tr(kTextConfirmReplace, {game->title}).c_str(), L"AnyX360", MB_YESNO | MB_ICONQUESTION) ==
+          IDYES);
+      return 0;
     }
     case kMsgDone: {
-      if (g_worker.joinable()) g_worker.join();
+      g_worker.Join();
       std::unique_ptr<Outcome> outcome(reinterpret_cast<Outcome*>(lparam));
       g_state = State::kIdle;
-      g_message = outcome->message.id != kTextCount ? outcome->message
-                                                    : Message{g_cancel ? kTextCancelled : kTextCount, {}, false};
-      g_cancel = false;
+      g_message = outcome->message;
       g_job_game = nullptr;
       if (g_close_after_cancel) {
         DestroyWindow(hwnd);
         return 0;
       }
-      LoadLibrary(outcome->select);
+      LoadGames(outcome->select);
       EnsureVisible(g_selected);
       UpdateUi();
       return 0;
     }
     case kMsgIconReady:
       if (g_state == State::kIdle) {
-        LoadLibrary();
+        LoadGames();
         UpdateUi();
       }
       return 0;
@@ -2143,7 +1053,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
   for (int i = 1; i + 1 < argc; ++i)
     if (std::wstring(argv[i]) == L"--select") select = argv[i + 1];
-  LoadLibrary(select);
+  LoadGames(select);
   Layout();
   ApplyLanguage();
   if (!TermsAccepted() && !ShowTerms(true)) {
@@ -2167,7 +1077,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     TranslateMessage(&msg);
     DispatchMessageW(&msg);
   }
-  if (g_worker.joinable()) g_worker.join();
+  g_worker.Join();
   g_games.clear();  // the bitmaps go before GDI+ does
   gp::GdiplusShutdown(gdiplus);
   CoUninitialize();
