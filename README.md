@@ -5,7 +5,7 @@
 **An unofficial, fan-made project that ports Xbox 360 games natively to PC through static recompilation.**
 
 [![Unofficial](https://img.shields.io/badge/unofficial-fan%20project-critical)](#legal-and-disclaimer)
-[![Version](https://img.shields.io/badge/version-0.4.0-2ea44f)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.5.0-2ea44f)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?logo=windows)](#system-requirements)
 [![Graphics](https://img.shields.io/badge/graphics-Direct3D%2012-5C2D91)](#how-it-works)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus)](#building)
@@ -18,8 +18,8 @@
 
 > [!CAUTION]
 > **AnyX360 is an unofficial fan project.** It is not affiliated with, authorized, sponsored or
-> endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games, Harmonix or any other rights
-> holder.
+> endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games, Harmonix, Good Science Studio
+> or any other rights holder.
 > It contains **no game code, assets or files**: you must own a legally acquired copy of the game,
 > and you provide its files yourself.
 
@@ -35,6 +35,8 @@ the sensor.
   screen at 60 FPS.
 - **Dance Central 3** (in testing): the Kinect dance game, played with a webcam. A pose estimator
   turns the webcam's image into the Kinect's skeletons, color image and depth image.
+- **Kinect Adventures** (in testing): the game that came with the Kinect, played with the same
+  webcam, from a Games on Demand copy with its downloadable content.
 
 <!-- Screenshot: add docs/images/gow3.png and uncomment.
 <img width="1920" height="1080" alt="Gears of War 3 running on AnyX360" src="docs/images/gow3.png" />
@@ -45,12 +47,16 @@ the sensor.
 1. Download the release from [Releases](https://github.com/danielbarretoes/AnyX360/releases):
    `AnyX360-<version>.zip`. One release has every game.
 2. Extract it to a regular folder (not inside _Program Files_), on a drive with room for the games
-   you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3.
+   you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3 and 8 GB for
+   Kinect Adventures.
 3. Run **`AnyX360.exe`** and accept the terms of use.
 4. Click **Add game…** (or the **+** tile) and choose where your copy of the disc is:
    - **From an archive** (.7z, .rar or .zip): the launcher extracts it into its `games` folder. It
      finds the game inside whatever folders the archive has.
    - **From a game folder**: the launcher uses the folder that contains `default.xex` where it is.
+   - **A Games on Demand copy** (a `<title ID>\00007000\` package, in an archive or a folder) is
+     converted to a game folder. Downloadable content for the same game, next to it, is installed
+     too; a title update and other games' content are skipped.
 
    The launcher recognises the game by its title ID and checks the copy is complete. Add each
    game you have the same way: they appear in the gallery with the game's own icon.
@@ -58,7 +64,7 @@ the sensor.
 
 Settings can be changed while playing in the **F2** panel. They are saved to
 `%LOCALAPPDATA%\AnyX360\<game>\settings.toml`, next to your saves. The release's `README.txt`
-explains each game's controls and how to set up the webcam for Dance Central 3.
+explains each game's controls and how to set up the webcam for the Kinect games.
 
 > [!NOTE]
 > Release packages contain no game data. The game files always come from your own copy.
@@ -108,15 +114,23 @@ explains each game's controls and how to set up the webcam for Dance Central 3.
   first play.
 - **Saves and Profiles** - Stored in `%LOCALAPPDATA%\AnyX360\<game>`, kept across versions.
 
-### Kinect (Dance Central 3)
+### Kinect (Dance Central 3, Kinect Adventures)
 
 - **Webcam as the Kinect** - MediaPipe pose estimation turns the webcam's image into Kinect
   skeletons for up to two players. It also makes the Kinect's color and depth images, so the game's
   silhouettes and photos work.
-- **Play Space** - The player is placed where a Kinect expects them: centred, 2.3 m away. **Recentre
-  on me** sets it again.
-- **Kinect Tab** - F2 shows what the camera sees, its frame rate and latency, and lets you pick the
-  webcam and change mirroring, field of view, smoothing, players and the pose model.
+- **Precise Joints** - Each joint is placed from the image (the pose model's most precise output),
+  filtered per joint with a little prediction, and planted feet are held still. The skeleton
+  reaches the game as soon as the webcam's frame is processed.
+- **Tilted Webcams** - A webcam pitched down from a monitor or rolled is measured from your body and
+  the floor, and corrected, so you don't look like you're leaning. It can also be set by hand.
+- **Play Space** - The player is placed where a Kinect expects them: centred, 2.3 m away, on the
+  floor. **Recentre on me** sets it again.
+- **Kinect Tab** - F2 shows the image the game gets with your skeleton over it (each joint by how
+  sure the tracking is), the frame rate, where the latency goes, and the measured tilt. It picks
+  the webcam and changes mirroring, field of view, smoothing, players, the pose model and the tilt.
+- **Kinect Guide Gesture** - The left arm held out and down at 45 degrees pauses the game, as on
+  the console.
 - **Mouse Mode** - Without a webcam, the mouse drives the menus: the right hand follows the cursor.
 - **Private** - The webcam's images are processed on your computer in real time, and never saved
   or sent.
@@ -137,6 +151,15 @@ explains each game's controls and how to set up the webcam for Dance Central 3.
 | Webcam tracking                  | 🧪 In testing                                  |
 | Two players                      | 🧪 In testing                                  |
 | Voice commands                   | ❌ Not available: no microphone support        |
+
+| Kinect Adventures                | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Menus (hand cursor)              | ✅ Working                                     |
+| Rallyball, River Rush            | ✅ Playable with the scripted player           |
+| Reflex Ridge, Space Pop          | 🧪 They load; starting them needs a person     |
+| 20,000 Leaks                     | 🧪 Not tried yet                               |
+| Downloadable content             | ✅ Installed by the launcher                   |
+| Avatars, voice, online           | ❌ Not available (the game uses its stand-ins) |
 
 ## Controls
 
@@ -163,7 +186,16 @@ explains each game's controls and how to set up the webcam for Dance Central 3.
 | Point at a menu item     | Right arm out to the side; move the hand up and down         |
 | Select                   | Swipe the arm across your body                               |
 | "Left hand" items (back) | The same with the left arm                                   |
-| Pause during a song      | Right arm up at 45°, as the game shows; or a controller's Start |
+| Pause during a song      | Left arm out and down at 45° for a moment (the Kinect Guide gesture); or a controller's Start |
+
+### Kinect Adventures
+
+| Action               | Gesture                                                          |
+| -------------------- | ---------------------------------------------------------------- |
+| Point at an item     | Raise a hand: the cursor follows it                              |
+| Select               | Hold the hand over the item until the circle fills               |
+| Play                 | Your whole body: jump, duck, lean and step, as each activity shows |
+| Pause                | Left arm out and down at 45° for a moment (the Kinect Guide gesture) |
 
 ### Program Keys
 
@@ -186,8 +218,15 @@ Dance Central 3:
 
 - A webcam has no depth camera: turning your back to it, very fast moves and two overlapping
   players can be misread, and there is a little more latency than with a Kinect.
-- The pause gesture hasn't been confirmed with a webcam yet; a controller's Start pauses.
 - Voice commands don't work.
+- With the F2 panel open during a song, the game runs at 20 FPS; close it to dance.
+
+Kinect Adventures:
+
+- Reflex Ridge and Space Pop wait at their start ("grab bars", "flap your arms") for the scripted
+  test player; they haven't been tried by a person yet.
+- There are no avatars: the game shows its stand-ins.
+- Same webcam limits as Dance Central 3.
 
 Found something else? Open an issue with the version (shown in the launcher) and the game's
 `logs\<game>\last_run.log` file.
@@ -204,7 +243,7 @@ Found something else? Open an issue with the version (shown in the launcher) and
 - **GPU** with Direct3D 12 support (feature level 11_0) and up-to-date drivers
 - **Storage**
   - About 8 GB for the game files, plus saves and the shader cache
-- **For Dance Central 3**
+- **For the Kinect games**
   - A webcam, 720p at 30 FPS or better
   - A 4-core CPU: the pose estimation runs on it
   - 2-3 m of clear space in front of the webcam
@@ -243,19 +282,22 @@ environment with pinned, hash-checked packages.
 - Gears of War 3: put the `.7z` of your disc in `Raw/` and extract it to `extracted/gow3/`.
 - Dance Central 3: copy its `default.xex` to `extracted/dc3/` and make `extracted/dc3/game` a
   directory junction to your disc folder (see [docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing)).
+- Kinect Adventures: extract the Games on Demand package's disc files to `extracted/ka/game/` with
+  `x360tool god-extract` (see [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing)).
 - Put the XEX2 retail key in `keys/xex2_retail.key` (see [keys/README.md](keys/README.md)).
 
 Both folders are git-ignored.
 
 > [!IMPORTANT]
-> The targets are the base disc executables, without title updates: Gears of War 3 (title
-> `4D5308AB`) and Dance Central 3 (title `373307D9`).
+> The targets are the base executables, without title updates: Gears of War 3 (title
+> `4D5308AB`), Dance Central 3 (title `373307D9`) and Kinect Adventures (title `4D5308ED`).
 
 ### 4. Recompile the Game
 
 Build the tools, analyse the executable and generate the C++ sources in the folder `config.toml`
-names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing-from-the-7z-in-raw) and
-[docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing). For Gears of War 3:
+names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing-from-the-7z-in-raw),
+[docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing) and
+[docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing). For Gears of War 3:
 
 ```bat
 build.bat
@@ -272,10 +314,10 @@ cd games\gow3
 
 - Run `build.bat` again. The first build compiles the whole recompiled game and takes a while.
 - When it finishes, run `build\games\gow3\Release\GearsOfWar3.exe` (or
-  `build\games\dc3\Release\DanceCentral3.exe`). It finds `extracted/` and `keys/` on its own, or
-  use `--game` and `--key`. The launcher, `build\launcher\Release\AnyX360.exe`, also runs from the
-  build folder and finds the games there.
-- For Dance Central 3's webcam, build the pose bridge:
+  `build\games\dc3\Release\DanceCentral3.exe`, `build\games\ka\Release\KinectAdventures.exe`). It
+  finds `extracted/` and `keys/` on its own, or use `--game` and `--key`. The launcher,
+  `build\launcher\Release\AnyX360.exe`, also runs from the build folder and finds the games there.
+- For the Kinect games' webcam, build the pose bridge:
   `powershell -ExecutionPolicy Bypass -File tools\pose_bridge\build_bridge.ps1` (see
   [tools/pose_bridge](tools/pose_bridge/README.md)).
 - Optionally, package a release with the launcher and every game built:
@@ -307,7 +349,8 @@ flowchart LR
   [MediaPipe](https://ai.google.dev/edge/mediapipe) on the webcam, or from the mouse.
 
 More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/GEARS3.md](docs/GEARS3.md),
-[docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
+[docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md), [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md)
+and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Versioning
 
@@ -337,6 +380,9 @@ To release a version:
 | `xex-info <xex>`                        | Headers, title ID, version, compression, imports, XDK libraries, page map         |
 | `xex-extract <xex> <out.bin> [--key f]` | Decrypts and decompresses the PE image; writes `.imports.txt` and `.sections.txt` |
 | `xex-icon <xex> <out.png> [--key f]`    | Writes the title image: the dashboard icon the launcher shows                     |
+| `content-info <package>`                | A content package's header (type, title, volume) and its files                    |
+| `god-extract <header> <dir> [paths…]`   | Extracts a Games on Demand package's disc files                                   |
+| `stfs-extract <package> <dir>`          | Extracts an STFS package (downloadable content)                                   |
 
 ## Project Layout
 
@@ -344,6 +390,7 @@ To release a version:
 docs/             Architecture, roadmap, format notes, per-game notes
 games/gow3/       Gears of War 3: recompiler config, entry point, game-specific hooks
 games/dc3/        Dance Central 3: recompiler config, entry point, Kinect bindings, notes
+games/ka/         Kinect Adventures: recompiler config, entry point, Kinect bindings, notes
 runtime/          Kernel and XAM reimplementation, input, settings, GPU and audio glue,
                   and the virtual Kinect (runtime/src/nui)
 tools/x360tool/   Disc and XEX tooling
@@ -360,7 +407,8 @@ Raw/, extracted/ Your game files (git-ignored)
 
 - **AnyX360 is an unofficial, independent, non-commercial fan project.** It is not affiliated with,
   authorized, sponsored or endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games,
-  Harmonix or any other rights holder, and it is not an official product or port of any game.
+  Harmonix, Good Science Studio or any other rights holder, and it is not an official product or
+  port of any game.
 - This repository contains **no game code, assets or console keys**, and never will. The
   third-party XenonRecomp submodule (like Xenia) embeds the publicly known XEX2 retail key in its
   source to load executables; AnyX360's own tools read the key from `keys/` instead.
@@ -369,8 +417,8 @@ Raw/, extracted/ Your game files (git-ignored)
   is derived from the game's code.
 - Release packages contain no game data and are covered by the [terms of use](tools/launcher/terms_en.txt)
   the launcher shows before first use.
-- Gears of War, Dance Central, Harmonix, Kinect, Xbox and Xbox 360 are trademarks of their
-  respective owners, used here only to identify the games AnyX360 is compatible with.
+- Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Xbox and Xbox 360 are trademarks
+  of their respective owners, used here only to identify the games AnyX360 is compatible with.
 - Rights holders can reach the developer through this repository's issues to request a review.
 
 ## Credits

@@ -8,6 +8,74 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-20
+
+Third game: Kinect Adventures. The virtual Kinect is steadier, quicker and more precise, and
+corrects a tilted webcam.
+
+### Added
+
+- **Kinect Adventures** (title `4D5308ED`, base executable and its "Exclusive Pre-order Pack"),
+  recompiled whole. It boots at 60 FPS; its menus, Rallyball and River Rush were played with the
+  scripted player. Reflex Ridge and Space Pop load; a person has yet to try them.
+- **Games on Demand copies**: `x360tool content-info`, `god-extract` (SVOD disc images) and
+  `stfs-extract` (STFS packages). The launcher converts a Games on Demand copy, from an archive or
+  a folder, into a game folder and installs the game's downloadable content; title updates and
+  other games' content next to it are skipped.
+- **The Kinect Guide gesture**: the left arm out and down at 45 degrees for 1.5 s opens the system
+  UI, as on the console. Dance Central 3 and Kinect Adventures pause and show their menus.
+- **The webcam's tilt**: a webcam pitched down or rolled is measured, from the player's body while
+  they stand still and then from the floor under their feet (which also gives the webcam's height),
+  and every joint is levelled. F2 shows it; it can be set by hand.
+- **F2 > Kinect**: the color image the game gets with the skeleton over it and each joint's state,
+  where the latency goes (waiting, pose model, mapping, images, reaching the game), the frames the
+  bridge dropped. The bridge's log gets a summary every 30 s.
+- A benchmark of the pose bridge on noisy synthetic landmarks (`tools/pose_bridge/benchmark.py`),
+  with limits in its tests.
+- The scripted player's whole-body moves: jump, crouch, lean, step, walk in and out, hands up,
+  arms out, flap.
+- `ANYX360_NUI_BRIDGE`: attach a pose bridge started by hand.
+
+### Changed
+
+- Joint precision, measured with the benchmark against 0.4.0: lag 60-76 ms → 3-17 ms; error while
+  dancing 71 → 48 mm (200 → 50 mm with the webcam 15 degrees down); a reach towards the camera
+  84 → 33 mm; a planted foot's jitter 31 → 17 mm. Each joint's x and y come from the image
+  landmarks, the body's distance is filtered on its own, each joint has its own filter with a
+  little prediction, and planted feet are held still. Walking towards the webcam lags more
+  (55 → 95 ms).
+- Skeleton frames follow the pose bridge's: a frame reaches the game 1-3 ms after the bridge
+  publishes it instead of up to 33 ms, stamped with the camera's capture time.
+- The play space is measured only with the whole body in view at 1.2-4.5 m, from a second of
+  frames, on the measured floor.
+- Joint states don't flicker between tracked and inferred; a body cut off by the webcam's own view
+  is reported as clipped (the game asks the player to step back); two players crossing keep their
+  IDs.
+- Kinect Adventures' own skeleton smoothing is skipped: the bridge filters already, and filtering
+  twice only added lag.
+- Images aren't converted again when the webcam has no new frame, and per-frame buffers are reused.
+- Pose bridge protocol 1.1 (tilt, timings, the streams the game uses).
+
+### Fixed
+
+- Pose bridge: changing camera or mirroring no longer freezes the skeleton; a slow model load
+  isn't taken for a hang; a frame that fails is skipped instead of ending the bridge; a person
+  missed for a moment keeps their pose instead of vanishing.
+- The game's Kinect calls no longer wait while the bridge's frame is copied or the bridge starts.
+- A new tilt estimate no longer moves the player across the play space.
+- Downloadable content: 42-character package names (they were cut to 41), shared by every player;
+  folders deeper than 260 characters.
+- Notification listeners can be waited on (Kinect Adventures spun on one).
+- Avatar calls fail cleanly instead of claiming success: Reflex Ridge no longer crashes loading.
+- Kinect Adventures' identity request is answered, so "IDENTIFYING" goes away.
+- XEX import libraries whose names are padded (`x360tool xex-info`).
+
+### Known issues
+
+- With the F2 panel open during a Dance Central 3 song the game runs at 20 FPS.
+- Kinect Adventures has no avatars, and Reflex Ridge and Space Pop haven't been started by the
+  scripted player.
+
 ## [0.4.0] - 2026-10-19
 
 One release for every game, with a launcher that shows the player's games as a gallery.
@@ -127,7 +195,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.1.0...v0.2.0

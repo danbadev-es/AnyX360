@@ -2,7 +2,8 @@
 
 Milestones are measured by what a game does, not by lines of code. The first target was
 **Gears of War 3** ([GEARS3.md](GEARS3.md)), released to testers as 0.1.0. The second is
-**Dance Central 3** ([DANCECENTRAL3.md](DANCECENTRAL3.md)), a Kinect game played with a webcam.
+**Dance Central 3** ([DANCECENTRAL3.md](DANCECENTRAL3.md)), a Kinect game played with a webcam, and
+the third **Kinect Adventures** ([KINECTADVENTURES.md](KINECTADVENTURES.md)).
 
 ## Gears of War 3
 
@@ -84,6 +85,33 @@ Milestones are measured by what a game does, not by lines of code. The first tar
 - [ ] Verified by people with webcams: left and right, feel, scoring, latency, two players, pause
 
 ### Next
-- [ ] The pause gesture, once a webcam test shows how the title reads it
+- [x] The pause gesture: the Kinect Guide gesture opens the system UI and the title pauses
 - [ ] Voice commands from a microphone (speech recognition)
-- [ ] Other Kinect titles on the same virtual sensor
+- [x] Other Kinect titles on the same virtual sensor (Kinect Adventures, 0.5.0)
+
+## Kinect Adventures (0.5.0)
+
+### Games on Demand and DLC (done)
+- [x] `x360tool content-info`, `god-extract` (SVOD), `stfs-extract` (STFS), with synthetic fixtures
+- [x] The launcher converts a Games on Demand copy and installs its DLC; skips title updates and
+      other games' content
+
+### Boot and play (done, in testing)
+- [x] Recompiled whole (new instructions, 243 jump tables); boots at 60 FPS
+- [x] Its NUI library (2.0.11775) bound to the virtual sensor; identity answered
+- [x] Waitable notification listeners, DLC content names and long paths, avatars that fail cleanly
+- [x] Rallyball and River Rush played by the scripted player; Kinect Guide gesture pauses
+- [ ] Reflex Ridge, Space Pop and 20,000 Leaks played by a person
+- [ ] Avatars
+
+## A better virtual Kinect (0.5.0)
+- [x] Stability: a frame that fails is skipped, a short miss holds the pose, the source polled off
+      the sensor's lock, a slow model load isn't taken for a hang
+- [x] The webcam's tilt measured (body, then floor) and corrected; set by hand in F2
+- [x] Joints from the image landmarks, per-joint filters with prediction, the distance filtered on
+      its own, planted feet held, joint state hysteresis, clipping from the webcam's view
+- [x] A benchmark on noisy synthetic landmarks, with limits in the tests
+- [x] Frames on the bridge's pace with capture time stamps; F2 shows the image with the skeleton
+      and where the latency goes
+- [ ] Verified by people: the precision against the 30-60 % of steps recognised before
+- [ ] One pose model run when only one player plays (the second person is looked for every frame)

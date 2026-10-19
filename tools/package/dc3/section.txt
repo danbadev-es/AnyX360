@@ -17,16 +17,21 @@ on "Camera access" and "Let desktop apps access your camera".
 The game sees you through "pose_bridge" (in bin\pose_bridge), a helper program that turns the
 webcam's image into the Kinect's skeleton. The game starts it and closes it by itself.
 
-If the game doesn't see you, press F2 and open the "Kinect" tab: it shows what the camera sees
-and lets you adjust it:
+If the game doesn't see you, press F2 and open the "Kinect" tab: it shows the picture the game
+gets with your skeleton over it (green joints are tracked, amber ones guessed) and where the delay
+goes, and lets you adjust it:
   Camera                           which webcam, if you have more than one
   My camera already mirrors        turn it on if raising your right hand moves the skeleton's left
   Field of view                    your webcam's (most are 60-78 degrees)
   Smoothing                        more: steadier but later; less: quicker but jittery
   Players                          1 or 2
   Pose model                       Fast uses less of the processor; Accurate tracks better
+  Camera tilt                      "Measured": a webcam pointing down or turned is measured while
+                                   you stand still with all of you in view, and corrected (so you
+                                   don't look like you're leaning); "Set by hand" if you know it
   Recentre on me                   stand where you will dance and press it
   Restart camera                   if the camera stopped (for example another program took it)
+Close the panel (F2 or Esc) before you dance: with it open the game runs slower.
 
 MENUS (as with a Kinect)
 - Raise your right arm out to the side: the cursor follows your hand. Move the hand up and down
@@ -34,8 +39,9 @@ MENUS (as with a Kinect)
 - Swipe your arm across your body to select.
 - Items marked "LEFT HAND" (back, options): raise your left arm instead and swipe it across your
   body.
-- Pause during a song: hold your right arm up and out at 45 degrees, as the game's tutorial shows.
-  With an Xbox controller connected, its Start button also pauses.
+- Pause during a song: hold your left arm out and down at 45 degrees, away from your body, with
+  the right arm relaxed, for a moment (the Kinect Guide gesture). With an Xbox controller
+  connected, its Start button also pauses.
 
 Without a webcam you can still use the menus with the mouse: F2 > Kinect > Source "Mouse". The
 right hand follows the cursor, left click selects, right click goes back.
@@ -50,8 +56,8 @@ sent anywhere. The game shows them on screen, for example in the photos it takes
 dance, as it did with the Kinect.
 
 KNOWN ISSUES
-- The pause gesture hasn't been confirmed with a webcam yet. If it doesn't pause, use a
-  controller's Start button, or let the song end.
+- The pause gesture works with the test player but hasn't been confirmed with a webcam yet. If
+  it doesn't pause, use a controller's Start button, or let the song end.
 - Voice commands don't work ("Say Xbox"): there is no microphone support.
 - A webcam is not a Kinect: it has no depth camera, so the depth is estimated. Turning your back
   to the camera, very fast moves, and two players overlapping can be misread.

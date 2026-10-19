@@ -1,0 +1,33 @@
+KINECT ADVENTURES
+==========================================================
+Played with a webcam in place of the Kinect.
+Your copy: the Games on Demand package (in an archive or a folder) or a folder with the disc's
+files. The "Exclusive Pre-order Pack" downloadable content is installed if it is next to it.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\KinectAdventures
+
+THE WEBCAM
+Set it up as for Dance Central 3 (see its section): Windows must let desktop programs use the
+camera, the webcam goes under or over your screen pointing at where you play, and you stand
+2-3 m away with all of you in view. Kinect Adventures needs more room than dancing: you jump,
+duck, lean and step to the sides, so leave space around you.
+
+If you jump and the game doesn't react, press F2 > Kinect: the picture shows your skeleton over
+what the camera sees. Check that all of you, feet included, is in it.
+
+PLAYING
+- Menus: raise a hand and the cursor follows it; hold it over an item until the circle fills.
+- Rallyball: hit the balls with your hands, feet, head or body.
+- River Rush: jump to start and to jump, lean or step to the sides to steer the raft.
+- Reflex Ridge: jump, duck and step to dodge the obstacles.
+- Space Pop: flap your arms to fly up, move around the room to pop the bubbles.
+- 20,000 Leaks: plug the leaks with your hands, feet and head.
+- Pause: hold your left arm out and down at 45 degrees, away from your body, with the right arm
+  relaxed, for a moment (the Kinect Guide gesture). The pause menu has "Leave activity".
+
+KNOWN ISSUES
+- There are no avatars: the game shows its stand-ins instead of your Xbox avatar.
+- Reflex Ridge and Space Pop haven't been tried by a person yet: if they don't start ("grab
+  bars", "flap your arms to start"), tell us with the logs.
+- No voice, no online play, no uploading photos.
+- The webcam limits are the same as in Dance Central 3: no depth camera, a little more delay
+  than a Kinect.

@@ -52,7 +52,9 @@ camera. It replaces the library at its API boundary and feeds a virtual sensor i
 | `0x82800000`–`0x82870000` | NUI library (1782 functions); about 48 entry points are called from the game |
 
 ### The virtual sensor
-- **Skeletons**: a 30 Hz clock produces `NUI_SKELETON_FRAME`s in the XDK layout, big-endian.
+- **Skeletons**: `NUI_SKELETON_FRAME`s in the XDK layout, big-endian, one for each of the pose
+  bridge's frames (at most every 28 ms, at least every 50) or on a 30 Hz clock for the other
+  sources.
   - It sets the title's skeleton event.
   - A body keeps its slot while it stays in view.
   - Up to `players` bodies are tracked. When the title chooses with `SetTrackedSkeletons`, its two
@@ -81,19 +83,25 @@ control block that carries the game's settings.
 The bridge works in four stages:
 
 1. MediaPipe's Pose Landmarker estimates up to two people.
-2. Their metric 3D poses are placed in front of the webcam, turned into the Kinect's 20 joints and
-   axes, and moved to where a Kinect expects a player (the play space).
-3. Each joint is filtered (One-Euro).
-4. The color and depth images are synthesized from the webcam image and the segmentation masks.
+2. Their poses are placed in front of the webcam (x and y from the image landmarks, depth from the
+   metric pose) and turned into the Kinect's 20 joints and axes.
+3. Each joint is filtered (One-Euro per joint, with prediction; planted feet held).
+4. The webcam's tilt is measured and corrected, and the scene moved to where a Kinect expects a
+   player (the play space).
+5. The color and depth images are synthesized from the webcam image and the segmentation masks.
+
+The details and a benchmark are in [tools/pose_bridge/README.md](../tools/pose_bridge/README.md).
 
 ### Settings and tools
 - **F2 > Kinect** shows:
   - the sensor's state;
-  - the camera's frame rate, pose time and latency;
-  - the skeletons as the sensor sees them.
+  - the camera's frame rate and latency, and where it goes (waiting, pose, mapping, images,
+    reaching the game);
+  - the color image the game gets with the skeletons over it, each joint by its state;
+  - the webcam's measured tilt and height.
 
-  It also changes the source, the camera, mirroring, field of view, smoothing, players and the
-  pose model, and has "Recentre on me" and "Restart camera".
+  It also changes the source, the camera, mirroring, field of view, smoothing, players, the pose
+  model and the tilt (measured or by hand), and has "Recentre on me" and "Restart camera".
 - **F1** adds a Kinect line.
 - **Debugging environment variables**:
 
@@ -103,6 +111,7 @@ The bridge works in four stages:
 | `ANYX360_NUI_SOURCE` | `webcam`, `mouse`, `synthetic` or `none` for this run |
 | `ANYX360_NUI_TRACE` | Logs the NUI calls |
 | `ANYX360_POSE_BRIDGE` | The command that starts the bridge (e.g. the venv's `python.exe -I ...\pose_bridge.py --synthetic`); the game appends its arguments |
+| `ANYX360_NUI_BRIDGE` | A channel name: the game creates it and doesn't start the bridge, so one started by hand (`--shm <name> --event <name>-frame`, e.g. in a debugger) attaches |
 
 **Automated runs never open the webcam.** They use `ANYX360_NUI_SCRIPT`, `ANYX360_NUI_SOURCE=none`
 or a bridge in `--synthetic` mode.
@@ -157,6 +166,13 @@ before it runs. To regenerate, point `out_directory_path` at a new folder, or pa
   controller mode. The in-song menu gesture, which the Rehearse tutorial shows as the right arm up
   at 45°, didn't trigger with the scripted skeleton at any angle tried. Neither did the left arm
   down at 45°.
+  - Since 0.5.0 the virtual sensor recognises the Kinect Guide gesture (the left arm out and
+    down at 45° for 1.5 s, measured against the torso) and opens the system UI, as the console
+    does: the song pauses and its menu (Continue, Rehearse, Game guide…) appears. Verified with
+    the scripted player.
+- **0.5.0 check**: with the scripted player, "Better Off Alone" on Easy scored 121,314 after a
+  minute of dancing, at 60 FPS. With the F2 panel open during a song the game runs at 20 FPS (the
+  0.4.0 build too); closed, 60.
 - **Webcam**: the bridge runs end to end in synthetic mode, both from the build and from the
   packaged distribution. The game tracks the dancer, renders its depth silhouette, and restarts
   the bridge when it is killed.

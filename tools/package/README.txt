@@ -29,6 +29,9 @@ FIRST TIME
    - "From an archive (.7z, .rar, .zip)": it is extracted into the "games" folder (a few
      minutes); you can delete the archive afterwards;
    - "From a game folder": the folder is used where it is (nothing is copied).
+   A Games on Demand copy (a folder named after the game's title ID, with "00007000" inside), in
+   an archive or a folder, is converted into a game folder, and the game's downloadable content
+   next to it is installed too.
    The launcher recognises which game it is. Add each game you have the same way.
 4. Choose a game in the gallery and click "Play" (or double-click it).
 
