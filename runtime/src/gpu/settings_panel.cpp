@@ -566,7 +566,18 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
 };
 
 SettingsPanel* g_panel = nullptr;  // lives until exit; registered with the drawer while open
-bool g_open = false;
+std::atomic<bool> g_open = false;
+
+// The panel is drawn with the game's frames: repainting it continuously added vsynced presents
+// between them, which filled the swap chain's queue and held Dance Central 3 at 20 FPS. While the
+// game presents nothing (loading), this keeps it alive at 10 frames a second; input repaints it
+// too (ImGuiDrawer::OnInputWithoutContinuousRepaint).
+void IdleRepaintThread() {
+  for (;;) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    if (g_open) PostToUIThread([] { SharedImGuiDrawer()->RequestPaintIfIdle(0.1); });
+  }
+}
 
 void CenterCursor() {
   auto* window = static_cast<xe::ui::Win32Window*>(GameWindow());
@@ -582,7 +593,6 @@ void OpenSettingsPanel() {
   g_open = true;
   g_restart_error.clear();
   SharedImGuiDrawer()->AddDialog(g_panel);
-  SharedImGuiDrawer()->SetContinuousRepaint(true);  // interactive: repaint at the UI rate
   bool was_captured = input::IsCursorCaptured();
   input::SetGameInputEnabled(false);
   if (was_captured) CenterCursor();
@@ -636,6 +646,7 @@ void RunSettingsTest(std::string spec) {
 void StartSettingsPanel() {
   g_panel = new SettingsPanel(SharedImGuiDrawer());  // registers itself
   SharedImGuiDrawer()->RemoveDialog(g_panel);
+  std::thread(IdleRepaintThread).detach();
   if (const char* spec = std::getenv("ANYX360_SETTINGS_TEST")) std::thread(RunSettingsTest, std::string(spec)).detach();
 }
 
@@ -652,7 +663,6 @@ void CloseSettingsPanel() {
   if (!g_open) return;
   g_open = false;
   SharedImGuiDrawer()->RemoveDialog(g_panel);
-  SharedImGuiDrawer()->SetContinuousRepaint(false);
   input::SetGameInputEnabled(true);
   KLOG_I("settings panel closed");
 }
