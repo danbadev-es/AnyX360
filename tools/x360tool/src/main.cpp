@@ -9,13 +9,20 @@
 //                                             <out.bin>.imports.txt and <out.bin>.sections.txt
 //   xex-icon    <file.xex> <out.png> [--key <file>]
 //                                             Write the title image (the dashboard icon)
+//   content-info <package>                    A content package's header and contents
+//                                             (Games on Demand, downloadable content, updates)
+//   god-extract <header> <out_dir> [path...]  Extract a Games on Demand package's disc files
+//   stfs-extract <package> <out_dir>          Extract an STFS package (downloadable content)
 #include <cstdio>
 #include <fstream>
 #include <map>
 #include <set>
 #include <sstream>
 
+#include "content.h"
 #include "exports.h"
+#include "stfs.h"
+#include "svod.h"
 #include "util.h"
 #include "xdbf.h"
 #include "x360/endian.h"
@@ -34,7 +41,10 @@ int usage() {
       "  x360tool iso-extract <image.iso> <out_dir> [path ...]\n"
       "  x360tool xex-info    <default.xex>\n"
       "  x360tool xex-extract <default.xex> <out.bin> [--key <xex2_retail.key>]\n"
-      "  x360tool xex-icon    <default.xex> <out.png> [--key <xex2_retail.key>]\n",
+      "  x360tool xex-icon    <default.xex> <out.png> [--key <xex2_retail.key>]\n"
+      "  x360tool content-info <package>\n"
+      "  x360tool god-extract <header> <out_dir> [path ...]\n"
+      "  x360tool stfs-extract <package> <out_dir>\n",
       stderr);
   return 2;
 }
@@ -50,8 +60,7 @@ std::string fmt_size(uint64_t n) {
 
 // ---- ISO -------------------------------------------------------------------------------------
 
-int cmd_iso_info(const fs::path& image) {
-  XdvdfsImage iso(image);
+int print_volume_info(XdvdfsImage& iso) {
   uint64_t files = 0, dirs = 0, bytes = 0;
   iso.walk([&](const XdvdfsEntry& e) {
     if (e.is_dir) ++dirs;
@@ -64,8 +73,12 @@ int cmd_iso_info(const fs::path& image) {
   return 0;
 }
 
-int cmd_iso_list(const fs::path& image) {
+int cmd_iso_info(const fs::path& image) {
   XdvdfsImage iso(image);
+  return print_volume_info(iso);
+}
+
+int list_volume(XdvdfsImage& iso) {
   iso.walk([&](const XdvdfsEntry& e) {
     if (e.is_dir) std::printf("%12s  %s/\n", "<dir>", e.path.c_str());
     else std::printf("%12u  %s\n", e.size, e.path.c_str());
@@ -73,8 +86,12 @@ int cmd_iso_list(const fs::path& image) {
   return 0;
 }
 
-int cmd_iso_extract(const fs::path& image, const fs::path& out, const std::set<std::string>& only) {
+int cmd_iso_list(const fs::path& image) {
   XdvdfsImage iso(image);
+  return list_volume(iso);
+}
+
+int extract_volume(XdvdfsImage& iso, const fs::path& out, const std::set<std::string>& only) {
   uint64_t count = 0, bytes = 0;
   iso.walk([&](const XdvdfsEntry& e) {
     if (e.is_dir) return;
@@ -87,6 +104,55 @@ int cmd_iso_extract(const fs::path& image, const fs::path& out, const std::set<s
   std::printf("extracted %llu files, %s -> %s\n", (unsigned long long)count, fmt_size(bytes).c_str(),
               out.string().c_str());
   return count || only.empty() ? 0 : 1;
+}
+
+int cmd_iso_extract(const fs::path& image, const fs::path& out, const std::set<std::string>& only) {
+  XdvdfsImage iso(image);
+  return extract_volume(iso, out, only);
+}
+
+// ---- content packages (Games on Demand, downloadable content, title updates) ---------------------
+
+int cmd_content_info(const fs::path& path) {
+  auto package = read_content_header(path);
+  if (!package) throw Error("not a content package: " + path.string());
+  std::printf("magic:            %s\n", package->magic.c_str());
+  std::printf("content type:     0x%08X (%s)\n", package->content_type, content_type_name(package->content_type));
+  std::printf("title ID:         %08X\n", package->title_id);
+  std::printf("name:             %s\n", package->display_name.c_str());
+  std::printf("volume:           %s\n", package->volume_type == kVolumeSvod ? "SVOD" : "STFS");
+  if (package->volume_type == kVolumeSvod) std::printf("data files:       %u\n", package->data_file_count);
+  std::printf("thumbnail:        %s\n", package->thumbnail.empty() ? "none" : fmt_size(package->thumbnail.size()).c_str());
+  if (package->volume_type == kVolumeSvod) {
+    auto god = open_games_on_demand(path);
+    return print_volume_info(*god);
+  }
+  StfsPackage stfs(path);
+  uint64_t files = 0, bytes = 0;
+  for (const StfsEntry& e : stfs.entries())
+    if (!e.is_dir) ++files, bytes += e.size;
+  std::printf("contents:         %llu files, %s\n", (unsigned long long)files, fmt_size(bytes).c_str());
+  return 0;
+}
+
+int cmd_god_extract(const fs::path& header, const fs::path& out, const std::set<std::string>& only) {
+  auto god = open_games_on_demand(header);
+  return extract_volume(*god, out, only);
+}
+
+int cmd_stfs_extract(const fs::path& path, const fs::path& out) {
+  StfsPackage stfs(path);
+  uint64_t count = 0, bytes = 0;
+  for (const StfsEntry& e : stfs.entries()) {
+    if (e.is_dir) continue;
+    std::printf("  %s (%s)\n", e.path.c_str(), fmt_size(e.size).c_str());
+    stfs.extract(e, out / fs::path(e.path));
+    ++count;
+    bytes += e.size;
+  }
+  std::printf("extracted %llu files, %s -> %s\n", (unsigned long long)count, fmt_size(bytes).c_str(),
+              out.string().c_str());
+  return 0;
 }
 
 // ---- XEX -------------------------------------------------------------------------------------
@@ -280,6 +346,12 @@ int main(int argc, char** argv) {
       }
       return cmd_xex_icon(argv[2], argv[3], key);
     }
+    if (cmd == "content-info") return cmd_content_info(argv[2]);
+    if (cmd == "god-extract" && argc >= 4) {
+      std::set<std::string> only(argv + 4, argv + argc);
+      return cmd_god_extract(argv[2], argv[3], only);
+    }
+    if (cmd == "stfs-extract" && argc >= 4) return cmd_stfs_extract(argv[2], argv[3]);
   } catch (const std::exception& e) {
     std::fprintf(stderr, "error: %s\n", e.what());
     return 1;

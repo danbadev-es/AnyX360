@@ -31,6 +31,31 @@ constexpr Layout kLayouts[] = {
 uint16_t le16(const uint8_t* p) { return uint16_t(p[0] | (p[1] << 8)); }
 uint32_t le32(const uint8_t* p) { return uint32_t(p[0] | (p[1] << 8) | (p[2] << 16) | (uint32_t(p[3]) << 24)); }
 
+// A disc image file; the partition starts at `base`.
+class FileDevice final : public XdvdfsDevice {
+ public:
+  explicit FileDevice(const fs::path& path) : file_(path, std::ios::binary) {
+    if (!file_) throw Error("cannot open " + path.string());
+    file_.seekg(0, std::ios::end);
+    size_ = static_cast<uint64_t>(file_.tellg());
+  }
+  uint64_t size() const { return size_; }
+  uint64_t base = 0;
+
+  void read(uint64_t offset, void* out, size_t size) override {
+    offset += base;
+    if (offset + size > size_) throw Error("read past end of image");
+    file_.clear();
+    file_.seekg(static_cast<std::streamoff>(offset));
+    file_.read(static_cast<char*>(out), static_cast<std::streamsize>(size));
+    if (!file_) throw Error("image read failed");
+  }
+
+ private:
+  std::ifstream file_;
+  uint64_t size_ = 0;
+};
+
 }  // namespace
 
 bool is_safe_name(const std::string& name) {
@@ -43,33 +68,28 @@ bool is_safe_name(const std::string& name) {
   return true;
 }
 
-XdvdfsImage::XdvdfsImage(const fs::path& path) : file_(path, std::ios::binary) {
-  if (!file_) throw Error("cannot open " + path.string());
-  file_.seekg(0, std::ios::end);
-  file_size_ = static_cast<uint64_t>(file_.tellg());
-
+XdvdfsImage::XdvdfsImage(const fs::path& path) {
+  auto file = std::make_unique<FileDevice>(path);
   for (const Layout& l : kLayouts) {
     uint64_t vd = l.offset + uint64_t(kVolumeDescriptorSector) * kSectorSize;
-    if (vd + kSectorSize > file_size_) continue;
+    if (vd + kSectorSize > file->size()) continue;
     uint8_t buf[kSectorSize];
-    read_at(vd, buf, sizeof(buf));
+    file->read(vd, buf, sizeof(buf));
     if (std::memcmp(buf, kMagic, kMagicLen) != 0 || std::memcmp(buf + 0x7EC, kMagic, kMagicLen) != 0) continue;
     partition_offset_ = l.offset;
     layout_ = l.name;
     root_sector_ = le32(buf + 0x14);
     root_size_ = le32(buf + 0x18);
+    file->base = l.offset;
+    device_ = std::move(file);
     return;
   }
   throw Error("no XDVDFS volume found (not an Xbox/Xbox 360 disc image, or an unsupported layout)");
 }
 
-void XdvdfsImage::read_at(uint64_t offset, void* out, size_t size) {
-  if (offset + size > file_size_) throw Error("read past end of image");
-  file_.clear();
-  file_.seekg(static_cast<std::streamoff>(offset));
-  file_.read(static_cast<char*>(out), static_cast<std::streamsize>(size));
-  if (!file_) throw Error("image read failed");
-}
+XdvdfsImage::XdvdfsImage(std::unique_ptr<XdvdfsDevice> device, uint32_t root_sector, uint32_t root_size,
+                         const char* layout)
+    : device_(std::move(device)), layout_(layout), root_sector_(root_sector), root_size_(root_size) {}
 
 void XdvdfsImage::walk(const std::function<void(const XdvdfsEntry&)>& visit) {
   walk_dir(root_sector_, root_size_, "", 0, visit);
@@ -82,7 +102,7 @@ void XdvdfsImage::walk_dir(uint32_t sector, uint32_t size, const std::string& pr
   if (size > 64u * 1024 * 1024) throw Error("directory table too large (corrupt image?)");
 
   std::vector<uint8_t> table(size);
-  read_at(partition_offset_ + uint64_t(sector) * kSectorSize, table.data(), size);
+  device_->read(uint64_t(sector) * kSectorSize, table.data(), size);
 
   // Entries form a binary tree; offsets are in 4-byte units from the start of the table.
   std::set<uint32_t> seen;
@@ -118,11 +138,11 @@ void XdvdfsImage::extract(const XdvdfsEntry& entry, const fs::path& dest) {
   if (!out) throw Error("cannot write " + dest.string());
 
   std::vector<char> buf(4 * 1024 * 1024);
-  uint64_t pos = partition_offset_ + uint64_t(entry.sector) * kSectorSize;
+  uint64_t pos = uint64_t(entry.sector) * kSectorSize;
   uint64_t left = entry.size;
   while (left) {
     size_t n = static_cast<size_t>(std::min<uint64_t>(left, buf.size()));
-    read_at(pos, buf.data(), n);
+    device_->read(pos, buf.data(), n);
     out.write(buf.data(), static_cast<std::streamsize>(n));
     pos += n;
     left -= n;

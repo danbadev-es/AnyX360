@@ -8,12 +8,15 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang")
   target_compile_options(mspack_lzxd PRIVATE -w)
 endif()
 
-# Console file formats (XDVDFS, XEX2, XDBF, export names), shared by x360tool and the runtime loader.
+# Console file formats (XDVDFS, Games on Demand/SVOD, STFS packages, XEX2, XDBF, export names), shared by x360tool and the runtime loader.
 add_library(x360_formats STATIC
   src/util.cpp
   src/xdvdfs.cpp
   src/xex.cpp
   src/xdbf.cpp
+  src/content.cpp
+  src/svod.cpp
+  src/stfs.cpp
   src/lzx.cpp
   src/exports.cpp
 )

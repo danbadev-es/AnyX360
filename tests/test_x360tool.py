@@ -77,7 +77,7 @@ def make_xex(pe, compression, key):
     if key:
         payload = aes_cbc_encrypt(SESSION_KEY, payload)
 
-    strings = b"xboxkrnl.exe\0xam.xex\0\0\0\0"  # padded to 4
+    strings = b"xboxkrnl.exe\0\0E\0xam.xex\0"  # each name 4-byte aligned; padding not always zero
     def lib(idx, records):
         body = struct.pack(">I20sIIIHH", 0, bytes(20), 0x12345678, 0x20000A00 | (idx << 8) * 0, 0x20000000, idx, len(records))
         body += b"".join(struct.pack(">I", r) for r in records)
@@ -127,10 +127,14 @@ def make_xex(pe, compression, key):
     return bytes(out)
 
 
-def make_iso(files):
-    """files: {"path": bytes}; one level of subdirectory supported. Returns XGD3-layout image."""
-    SECTOR = 2048
-    part = 0x02080000
+SECTOR = 2048
+
+
+def make_partition(files, at=None):
+    """files: {"path": bytes}; one level of subdirectory supported. at: {"path": first sector} to
+    place files at chosen sectors. Returns ({sector: bytes}, total sectors), with the volume
+    descriptor at sector 32."""
+    at = at or {}
     root = {k: v for k, v in files.items() if "/" not in k}
     subdirs = {}
     for k, v in files.items():
@@ -159,31 +163,163 @@ def make_iso(files):
         raw += b"\xff" * ((-len(raw)) % SECTOR)
         return bytes(raw)
 
+    def place(path, v):
+        if path in at:
+            data[at[path]] = v
+            return at[path]
+        s = alloc(len(v))
+        data[s] = v
+        return s
+
     root_sector = alloc(SECTOR)
     entries = []
     for d, content in subdirs.items():
         tsec = alloc(SECTOR)
         sub = []
         for n, v in content.items():
-            fs_ = alloc(len(v))
-            data[fs_] = v
-            sub.append((n, fs_, len(v), 0x20))
+            sub.append((n, place(d + "/" + n, v), len(v), 0x20))
         data[tsec] = build_table(sub)
         entries.append((d, tsec, SECTOR, 0x10))
     for n, v in root.items():
-        fs_ = alloc(len(v))
-        data[fs_] = v
-        entries.append((n, fs_, len(v), 0x20))
+        entries.append((n, place(n, v), len(v), 0x20))
     data[root_sector] = build_table(entries)
 
-    img = bytearray(part + next_sector[0] * SECTOR)
-    vd = part + 32 * SECTOR
-    img[vd:vd + 20] = b"MICROSOFT*XBOX*MEDIA"
-    struct.pack_into("<II", img, vd + 20, root_sector, SECTOR)
-    img[vd + 0x7EC:vd + 0x800] = b"MICROSOFT*XBOX*MEDIA"
+    vd = bytearray(SECTOR)
+    vd[0:20] = b"MICROSOFT*XBOX*MEDIA"
+    struct.pack_into("<II", vd, 20, root_sector, SECTOR)
+    vd[0x7EC:0x800] = b"MICROSOFT*XBOX*MEDIA"
+    data[32] = bytes(vd)
+    total = max(s + (len(v) + SECTOR - 1) // SECTOR for s, v in data.items())
+    return data, total
+
+
+def make_iso(files):
+    """Returns an XGD3-layout image holding `files`."""
+    part = 0x02080000
+    data, total = make_partition(files)
+    img = bytearray(part + total * SECTOR)
     for s, v in data.items():
         img[part + s * SECTOR:part + s * SECTOR + len(v)] = v
     return bytes(img)
+
+
+def content_header(magic, content_type, title_id, name, volume_type, descriptor, data_file_count=0):
+    """An Xbox 360 content package header (0xB000 bytes, header size 0x971A)."""
+    h = bytearray(0xB000)
+    h[0:4] = magic
+    struct.pack_into(">I", h, 0x340, 0x971A)
+    struct.pack_into(">I", h, 0x344, content_type)
+    struct.pack_into(">I", h, 0x360, title_id)
+    h[0x379:0x379 + len(descriptor)] = descriptor
+    struct.pack_into(">I", h, 0x39D, data_file_count)
+    struct.pack_into(">I", h, 0x3A9, volume_type)
+    encoded = name.encode("utf-16-be")
+    h[0x411:0x411 + len(encoded)] = encoded
+    struct.pack_into(">II", h, 0x1712, len(TITLE_IMAGE), len(TITLE_IMAGE))
+    h[0x171A:0x171A + len(TITLE_IMAGE)] = TITLE_IMAGE
+    return h
+
+
+GOD_BLOCKS_PER_FILE = 0x14388
+GOD_FILE_SIZE = 0xA290000
+
+
+def god_map(block, start, egdf):
+    """Games on Demand: (data file, offset) of a partition sector (Xenia's BlockToOffset)."""
+    true_block = block - start * 2 + (2 if egdf else 0)
+    file_block = true_block % GOD_BLOCKS_PER_FILE
+    index = true_block // GOD_BLOCKS_PER_FILE
+    l0 = file_block // 0x198 + 1
+    l1 = l0 // 0xA1C4 + 1
+    address = file_block * 0x800 + (l0 + l1) * 0x1000
+    if address >= GOD_FILE_SIZE:
+        index, address = index + 1, address % GOD_FILE_SIZE + 0x2000
+    return index, address
+
+
+def make_god(folder, files, egdf, at=None):
+    """Writes a Games on Demand package (header + <header>.data\\DataNNNN) holding `files`.
+    The data files are full size (sparse zeros) so sectors can be placed in the second one."""
+    start = 17 if egdf else 16  # puts sector 32, the volume descriptor, at Data0000+0x2000
+    data, total = make_partition(files, at)
+    by_file = {}
+    for s, v in data.items():
+        for i in range(0, max(len(v), 1), SECTOR):
+            index, address = god_map(s + i // SECTOR, start, egdf)
+            by_file.setdefault(index, []).append((address, v[i:i + SECTOR]))
+    count = max(by_file) + 1
+    descriptor = bytearray(0x24)
+    descriptor[0] = 0x24
+    descriptor[0x18] = 0x40 if egdf else 0
+    descriptor[0x19:0x1C] = total.to_bytes(3, "little")
+    descriptor[0x1C:0x1F] = start.to_bytes(3, "little")
+    header = os.path.join(folder, "4D5308AB", "00007000", "0123456789ABCDEF0123")
+    os.makedirs(header + ".data", exist_ok=True)
+    with open(header, "wb") as f:
+        f.write(content_header(b"LIVE", 0x7000, 0x4D5308AB, "Test Game", 1, descriptor, count))
+    for index in range(count):
+        with open(os.path.join(header + ".data", "Data%04d" % index), "wb") as f:
+            for address, chunk in by_file.get(index, []):
+                f.seek(address)
+                f.write(chunk)
+            if index + 1 < count:
+                f.truncate(GOD_FILE_SIZE)
+    return header
+
+
+def make_stfs(files):
+    """A read-only STFS package (downloadable content) with `files` {"path": bytes} (one level of
+    subdirectory). File blocks are chained out of order to exercise the hash-table links."""
+    BLOCK = 0x1000
+    entries = []  # (name, parent index, is_dir, blocks, length)
+    dirs = {}
+    for path in files:
+        if "/" in path and path.split("/")[0] not in dirs:
+            dirs[path.split("/")[0]] = len(entries)
+            entries.append((path.split("/")[0], 0xFFFF, True, [], 0))
+    next_block = 1  # block 0 is the file table
+    for path, content in files.items():
+        count = max(1, (len(content) + BLOCK - 1) // BLOCK)
+        blocks = list(range(next_block, next_block + count))
+        next_block += count
+        if len(blocks) >= 3:  # 1, 3, 2, 4...: the chain decides the order
+            blocks[1], blocks[2] = blocks[2], blocks[1]
+        parent = dirs[path.split("/")[0]] if "/" in path else 0xFFFF
+        entries.append((path.split("/")[-1], parent, False, blocks, len(content)))
+    assert next_block <= 170, "keep the fixture under one level-0 hash table"
+    table = bytearray(BLOCK)
+    for i, (name, parent, is_dir, blocks, length) in enumerate(entries):
+        e = i * 0x40
+        table[e:e + len(name)] = name.encode()
+        table[e + 0x28] = len(name) | (0x80 if is_dir else 0)
+        table[e + 0x29:e + 0x2C] = len(blocks).to_bytes(3, "little")
+        table[e + 0x2C:e + 0x2F] = len(blocks).to_bytes(3, "little")
+        table[e + 0x2F:e + 0x32] = (blocks[0] if blocks else 0).to_bytes(3, "little")
+        struct.pack_into(">HI", table, e + 0x32, parent, length)
+    links = {0: 0xFFFFFF}
+    content_blocks = {0: bytes(table)}
+    for path, (name, parent, is_dir, blocks, length) in zip([None] * len(dirs) + list(files), entries):
+        if is_dir:
+            continue
+        for k, b in enumerate(blocks):
+            links[b] = blocks[k + 1] if k + 1 < len(blocks) else 0xFFFFFF
+            content_blocks[b] = files[path][k * BLOCK:(k + 1) * BLOCK]
+    # Read-only format: one level-0 hash table (physical block 0) before data blocks 0..169.
+    hashes = bytearray(BLOCK)
+    for b, nxt in links.items():
+        struct.pack_into(">I", hashes, b * 0x18 + 0x14, 0x80000000 | nxt)
+    data = bytearray(BLOCK * (next_block + 1))
+    data[0:BLOCK] = hashes
+    for b, v in content_blocks.items():
+        data[(b + 1) * BLOCK:(b + 1) * BLOCK + len(v)] = v
+    descriptor = bytearray(0x24)
+    descriptor[0] = 0x24
+    descriptor[2] = 1  # read-only format
+    struct.pack_into("<H", descriptor, 3, 1)  # file table: one block, block 0
+    struct.pack_into(">II", descriptor, 0x1C, next_block, 0)
+    header = content_header(b"LIVE", 0x2, 0x4D5308AB, "Test Pack", 0, descriptor)
+    header = header[:0xA000]  # the data starts at the header size (0x971A) rounded up to 0x1000
+    return bytes(header) + bytes(data)
 
 
 failures = 0
@@ -269,6 +405,38 @@ def main():
     run(tool, "iso-extract", iso, os.path.join(work, "iso_one"), "default.xex")
     check("iso-extract single file", os.path.exists(os.path.join(work, "iso_one", "default.xex"))
           and not os.path.exists(os.path.join(work, "iso_one", "z.txt")))
+
+    # Games on Demand: one file crosses a level-0 hash table, another the end of Data0000.
+    across_hash = bytes((i * 7) & 0xFF for i in range(5 * SECTOR + 100))
+    across_files = bytes((i * 13) & 0xFF for i in range(6 * SECTOR))
+    god_files = {"default.xex": cases["plain"], "media/a.bin": across_hash, "media/big.bin": across_files,
+                 "z.txt": b"z"}
+    for egdf in (False, True):
+        start = 17 if egdf else 16
+        # Sectors whose blocks straddle the boundaries (true block = sector - 2*start [+2 for EGDF]).
+        to_true = (lambda t: t + start * 2 - (2 if egdf else 0))
+        at = {"media/a.bin": to_true(0x198 * 3 - 2), "media/big.bin": to_true(GOD_BLOCKS_PER_FILE - 3)}
+        folder = os.path.join(work, "god_egdf" if egdf else "god")
+        header = make_god(folder, god_files, egdf, at)
+        name = "god (enhanced GDF)" if egdf else "god"
+        info = run(tool, "content-info", header)
+        check(f"{name}: content-info", "Games on Demand" in info and "4D5308AB" in info and "Test Game" in info
+              and "4 files" in info, info)
+        out_dir = os.path.join(folder, "out")
+        run(tool, "god-extract", header, out_dir)
+        ok = all(open(os.path.join(out_dir, *p.split("/")), "rb").read() == v for p, v in god_files.items())
+        check(f"{name}: god-extract content (across a hash table and two data files)", ok)
+
+    # STFS (downloadable content): a three-block file chained out of order, a file in a folder.
+    stfs_files = {"a.bin": bytes((i * 3) & 0xFF for i in range(0x2800)), "sub/b.txt": b"hello"}
+    pack = os.path.join(work, "dlc.stfs")
+    with open(pack, "wb") as f:
+        f.write(make_stfs(stfs_files))
+    info = run(tool, "content-info", pack)
+    check("stfs: content-info", "downloadable content" in info and "Test Pack" in info and "2 files" in info, info)
+    run(tool, "stfs-extract", pack, os.path.join(work, "dlc_out"))
+    ok = all(open(os.path.join(work, "dlc_out", *p.split("/")), "rb").read() == v for p, v in stfs_files.items())
+    check("stfs: stfs-extract content (chained blocks, subfolder)", ok)
 
     print(f"\n{'OK' if failures == 0 else str(failures) + ' FAILURE(S)'}")
     return 1 if failures else 0

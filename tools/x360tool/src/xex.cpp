@@ -172,8 +172,9 @@ std::vector<XexImportLibrary> Xex::import_libraries() const {
     const char* s = reinterpret_cast<const char*>(file_.data() + strings + p);
     size_t len = strnlen(s, strings_size - p);
     names.emplace_back(s, len);
-    p += uint32_t(len) + 1;
-    while (p < strings_size && file_[strings + p] == 0) ++p;  // strings are padded to 4 bytes
+    // Each name starts on a 4-byte boundary. The padding isn't always zero (Kinect Adventures has
+    // "xboxkrnl.exe\0\0E\0xam.xex\0"), so align rather than skip zeros, as Xenia does.
+    p = (p + uint32_t(len) + 1 + 3) & ~3u;
   }
 
   const uint32_t end = *off + total;
