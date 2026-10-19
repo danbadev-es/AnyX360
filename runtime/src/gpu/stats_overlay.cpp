@@ -200,6 +200,8 @@ bool IsStatsOverlayVisible() { return g_overlay_visible; }
 
 xe::ui::ImGuiDrawer* SharedImGuiDrawer() { return g_imgui.get(); }
 
+xe::ui::ImmediateDrawer* SharedImmediateDrawer() { return g_immediate.get(); }
+
 void NotifySwap(uint32_t frontbuffer_width, uint32_t frontbuffer_height) {
   g_frontbuffer_width = frontbuffer_width;
   g_frontbuffer_height = frontbuffer_height;

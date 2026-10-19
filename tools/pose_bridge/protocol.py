@@ -20,6 +20,7 @@ DEPTH_WIDTH, DEPTH_HEIGHT = 320, 240
 STARTING, RUNNING, NO_CAMERA, CAMERA_DENIED, ERROR, STOPPED = range(6)
 BODY_NONE, BODY_POSITION_ONLY, BODY_TRACKED = range(3)
 SLOT_HAS_IMAGES = 1
+STREAM_COLOR, STREAM_DEPTH, STREAMS_NONE = 1, 2, 4  # Header.stream_mask (0: both)
 EXIT_INCOMPATIBLE = 3  # the game knows this exit code: don't restart, the versions don't match
 
 

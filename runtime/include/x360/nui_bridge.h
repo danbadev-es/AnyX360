@@ -90,7 +90,8 @@ struct alignas(8) Header {
   uint32_t tilt_mode;
   float tilt_pitch_manual_deg;
   float tilt_roll_manual_deg;
-  // 1.1, consumer: the images the title uses (1 color, 2 depth; 0: both, as 1.0 consumers).
+  // 1.1, consumer: the images the title uses (1 color, 2 depth, 4 none; 0: both, as 1.0
+  // consumers). With none the bridge publishes skeletons without images.
   uint32_t stream_mask;
   // 1.1, producer: where a frame's time goes (milliseconds, smoothed) and the frames it skipped.
   float capture_ms;  // from the camera's exposure to the bridge having the image

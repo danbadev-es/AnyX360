@@ -25,6 +25,7 @@
 #include "x360/settings.h"
 #include "xenia/ui/imgui_dialog.h"
 #include "xenia/ui/imgui_drawer.h"
+#include "xenia/ui/immediate_drawer.h"
 #include "xenia/ui/window_win.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -360,9 +361,20 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
       ImGui::SameLine();
       ImGui::TextWrapped("- %s", status.message.c_str());
     }
-    if (camera)
-      ImGui::Text("Camera %ux%u at %.0f fps   pose %.0f ms   latency %.0f ms", status.camera_width,
-                  status.camera_height, status.camera_fps, status.inference_ms, status.latency_ms);
+    if (camera) {
+      ImGui::Text("Camera %ux%u at %.0f fps   latency %.0f ms", status.camera_width, status.camera_height,
+                  status.camera_fps, status.latency_ms);
+      if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("From the bridge getting the camera's image to the game's frame (the camera's own\n"
+                          "delay, before that, isn't measured).");
+      ImGui::TextDisabled("  waiting %.0f + pose %.0f + mapping %.0f + images %.0f + to the game %.0f ms%s",
+                          status.capture_ms, status.detect_ms, status.process_ms, status.render_ms,
+                          status.transfer_ms, status.dropped_frames ? "" : ", no frames dropped");
+      if (status.dropped_frames) {
+        ImGui::SameLine(0, 0);
+        ImGui::TextDisabled(", %u camera frames dropped", status.dropped_frames);
+      }
+    }
     ImGui::Text("People in view: %u (%u tracked)", status.bodies, status.tracked);
     if (status.restarts) {
       ImGui::SameLine();
@@ -466,27 +478,69 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
     ImGui::TextDisabled("Stand 2-3 m from the webcam, in good light, with all of you in view.");
   }
 
-  // The latest skeletons as the sensor sees them (mirrored), in a 320x240 frame.
+  // What the game sees, mirrored like a Kinect's view: the camera's color image (when the source
+  // has a camera) and the skeletons over it, where the virtual color camera sees them. Each joint
+  // is drawn by its state: tracked green, inferred amber. A skeleton off the person in the image
+  // means a wrong field of view or tilt.
   void DrawSkeletons() {
     const ImVec2 size(320, 240);
     const ImVec2 o = ImGui::GetCursorScreenPos();
+    const ImVec2 end(o.x + size.x, o.y + size.y);
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(o, ImVec2(o.x + size.x, o.y + size.y), IM_COL32(18, 18, 26, 255));
-    draw->AddRect(o, ImVec2(o.x + size.x, o.y + size.y), IM_COL32(90, 90, 110, 255));
+    UpdatePreview();
+    if (preview_)
+      draw->AddImage(reinterpret_cast<ImTextureID>(preview_.get()), o, end);
+    else
+      draw->AddRectFilled(o, end, IM_COL32(18, 18, 26, 255));
+    draw->AddRect(o, end, IM_COL32(90, 90, 110, 255));
+    const float focal = nui::kColorFocal * size.x / nui::kColorWidth;
     auto project = [&](const float* j) {
       const float z = std::max(j[2], 0.2f);
-      return ImVec2(o.x + size.x / 2 + j[0] * nui::kDepthFocal / z, o.y + size.y / 2 - j[1] * nui::kDepthFocal / z);
+      return ImVec2(o.x + size.x / 2 + j[0] * focal / z, o.y + size.y / 2 - j[1] * focal / z);
     };
-    draw->PushClipRect(o, ImVec2(o.x + size.x, o.y + size.y), true);
+    draw->PushClipRect(o, end, true);
     for (const nui::PreviewBody& body : nui::GetBodies()) {
       const ImU32 color = body.tracked ? IM_COL32(90, 220, 130, 255) : IM_COL32(150, 150, 160, 255);
       for (const auto& bone : nui::kSkeletonBones)
         draw->AddLine(project(body.joints[bone[0]]), project(body.joints[bone[1]]), color, 3.0f);
       draw->AddCircleFilled(project(body.joints[nui::kHead]), 7.0f, color);
+      if (!body.tracked) continue;
+      for (uint32_t j = 0; j < nui::kJointCount; ++j) {
+        const ImU32 state = body.joint_state[j] == nui::kJointTracked ? IM_COL32(40, 160, 80, 255)
+                            : body.joint_state[j] == nui::kJointInferred ? IM_COL32(240, 170, 40, 255)
+                                                                          : IM_COL32(220, 60, 60, 255);
+        draw->AddCircleFilled(project(body.joints[j]), 3.5f, state);
+      }
     }
     draw->PopClipRect();
     ImGui::Dummy(size);
   }
+
+  // The camera's image as a 320x240 texture, made again 10 times a second while the tab shows it.
+  void UpdatePreview() {
+    std::shared_ptr<const std::vector<uint8_t>> color = nui::GetPreviewColor();
+    xe::ui::ImmediateDrawer* drawer = SharedImmediateDrawer();
+    if (!color || !drawer || color->size() < size_t(nui::kColorWidth) * nui::kColorHeight * 4) {
+      preview_.reset();
+      return;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (preview_ && now - preview_time_ < std::chrono::milliseconds(100)) return;
+    preview_time_ = now;
+    constexpr uint32_t kW = nui::kColorWidth / 2, kH = nui::kColorHeight / 2;
+    std::vector<uint8_t> rgba(size_t(kW) * kH * 4);
+    for (uint32_t y = 0; y < kH; ++y) {
+      for (uint32_t x = 0; x < kW; ++x) {
+        const uint8_t* p = color->data() + (size_t(y * 2) * nui::kColorWidth + x * 2) * 4;  // BGRA
+        uint8_t* q = &rgba[(size_t(y) * kW + x) * 4];
+        q[0] = p[2], q[1] = p[1], q[2] = p[0], q[3] = 0xFF;
+      }
+    }
+    preview_ = drawer->CreateTexture(kW, kH, xe::ui::ImmediateTextureFilter::kLinear, false, rgba.data());
+  }
+
+  std::unique_ptr<xe::ui::ImmediateTexture> preview_;
+  std::chrono::steady_clock::time_point preview_time_;
 
   void DrawPerformance() {
     timing::Summary t = timing::Summarize(2.0);

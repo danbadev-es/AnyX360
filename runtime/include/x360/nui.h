@@ -74,6 +74,7 @@ struct Snapshot {
   // index of the body in `bodies`, 0 for none). Without them the images are drawn from the bodies.
   std::shared_ptr<const std::vector<uint8_t>> color;
   std::shared_ptr<const std::vector<uint16_t>> depth;
+  int64_t capture_qpc = 0;  // QueryPerformanceCounter when the camera captured it (0: now)
 };
 
 // The format of an image stream, from the title's NUI tables.
@@ -104,6 +105,11 @@ uint32_t SkeletonTrackingDisable();
 uint32_t SkeletonGetNextFrame(uint32_t timeout_ms, uint32_t frame);
 // ids: two tracking IDs (0 or 0xFFFFFFFF: none) when the title chooses whom to track.
 uint32_t SkeletonSetTrackedSkeletons(uint32_t ids);
+// NuiTransformSmooth(frame, params): the library's skeleton filter (double exponential smoothing
+// with a jitter radius, 5 cm by default). The virtual Kinect's skeletons come filtered already,
+// with prediction, for the pose model's noise; filtering them again only adds lag (the jitter
+// radius alone holds a hand moving at 1 m/s some 4 cm behind), so the frame stays as it is.
+uint32_t TransformSmooth(uint32_t frame, uint32_t params);
 
 uint32_t ImageStreamOpen(PPCContext* ctx, uint32_t type, uint32_t resolution, uint32_t flags, uint32_t frame_limit,
                          uint32_t event, uint32_t stream_ptr);
@@ -134,6 +140,10 @@ struct Status {
   float tilt_pitch = 0, tilt_roll = 0;
   uint32_t tilt_source = 0;
   float floor_height = 0;
+  // Where a frame's time goes (milliseconds): the bridge waiting for the image after the camera
+  // gave it, the pose model, mapping and filtering, drawing the images, then reaching the game.
+  float capture_ms = 0, detect_ms = 0, process_ms = 0, render_ms = 0, transfer_ms = 0;
+  uint32_t dropped_frames = 0;  // camera frames the bridge had no time for
 };
 Status GetStatus();
 
@@ -142,8 +152,12 @@ struct PreviewBody {
   uint32_t id = 0;
   bool tracked = false;
   float joints[kJointCount][3] = {};
+  uint8_t joint_state[kJointCount] = {};
 };
 std::vector<PreviewBody> GetBodies();
+// The latest color image from the source's camera (640x480 BGRA, mirrored as the title sees it),
+// or nullptr (no camera).
+std::shared_ptr<const std::vector<uint8_t>> GetPreviewColor();
 
 // The [kinect] settings changed: another source starts if it changed, else the source applies them.
 void ApplySettings(const settings::KinectSettings& kinect);

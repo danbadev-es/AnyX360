@@ -1,19 +1,27 @@
 // Virtual Kinect: the skeleton frame in the XDK layout (big-endian), slots and tracking IDs, the
 // title choosing whom to track, and the scripted source's gestures.
+#include <algorithm>
 #include <bit>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <process.h>
 #include <string>
+#include <thread>
 
+#include "../../runtime/src/nui/bridge.h"
 #include "../../runtime/src/nui/image_stream.h"
 #include "../../runtime/src/nui/source.h"
 #include "x360/hle.h"
 #include "x360/kernel.h"
 #include "x360/memory.h"
 #include "x360/nui.h"
+
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
 
 PPCFuncMapping PPCFuncMappings[] = {{0, nullptr}};
 
@@ -243,6 +251,77 @@ int main() {
 
   nui::Shutdown();
   CHECK(!nui::GetStatus().initialized);
+
+  {  // A webcam source sets the pace: each of the bridge's frames becomes the title's at once (not at
+     // the next tick of a 30 Hz clock), stamped with the time the camera captured it.
+    _putenv_s("ANYX360_NUI_SCRIPT", "");
+    _putenv_s("ANYX360_NUI_SOURCE", "webcam");
+    const std::string channel = "Local\\AnyX360-Nui-test-" + std::to_string(_getpid()) + "-clock";
+    _putenv_s("ANYX360_NUI_BRIDGE", channel.c_str());  // the game creates it, a producer attaches
+    CHECK(nui::Initialize(0x4049, 0xFFFFFFFF) == nui::kOk);
+    CHECK(nui::SkeletonTrackingEnable(0, 0) == nui::kOk);
+    nui::BridgeChannel producer;
+    CHECK(producer.Open(std::wstring(channel.begin(), channel.end())));
+    namespace bridge = nui::bridge;
+    bridge::Header* h = producer.header();
+    h->producer_version_major = bridge::kVersionMajor;
+    h->producer_version_minor = bridge::kVersionMinor;
+    h->state = bridge::kRunning;
+    LARGE_INTEGER frequency;
+    QueryPerformanceFrequency(&frequency);
+    auto qpc = [] {
+      LARGE_INTEGER t;
+      QueryPerformanceCounter(&t);
+      return t.QuadPart;
+    };
+    double worst_ms = 0;
+    uint64_t previous_stamp = 0;
+    int64_t previous_published = 0;
+    bool stamps_follow_capture = true;
+    for (uint32_t frame = 1; frame <= 12; ++frame) {
+      // Slower than the 30 Hz cap, and about the clock's own 50 ms (Windows sleeps 40-50 ms).
+      std::this_thread::sleep_for(std::chrono::milliseconds(40));
+      h->heartbeat_qpc = qpc();
+      const int64_t published = qpc();
+      // Captured 10 ms (frame 1) to 21 ms (frame 12) before: each stamp 1 ms less after the last
+      // than the frame was published after the last.
+      const int64_t age = int64_t(frequency.QuadPart * (0.009 + 0.001 * frame));
+      producer.Publish([&](bridge::Slot& s) {
+        s.frame_number = frame;
+        s.capture_qpc = published - age;
+        s.publish_qpc = published;
+        s.body_count = 1;
+        s.bodies[0].id = 5;
+        s.bodies[0].state = bridge::kBodyTracked;
+        for (uint32_t j = 0; j < bridge::kJoints; ++j) {
+          s.bodies[0].joints[j][0] = float(frame);
+          s.bodies[0].joints[j][2] = 2.0f;
+          s.bodies[0].joint_state[j] = 2;
+        }
+      });
+      // The title waits for the frame with this bridge frame's skeleton in it.
+      bool seen = false;
+      while (!seen && double(qpc() - published) / double(frequency.QuadPart) < 0.2)
+        if (nui::SkeletonGetNextFrame(100, kFrame) == nui::kOk)
+          seen = LoadFloat(Skeleton(0) + 0x20) == float(frame);
+      const double ms = double(qpc() - published) * 1000 / double(frequency.QuadPart);
+      CHECK(seen);
+      if (frame > 2) {
+        worst_ms = std::max(worst_ms, ms);
+        const double step = double(Load<uint64_t>(kFrame) - previous_stamp);
+        const double expected = double(published - previous_published) * 1000 / double(frequency.QuadPart) - 1;
+        stamps_follow_capture &= std::abs(step - expected) <= 2.5;
+      }
+      previous_stamp = Load<uint64_t>(kFrame);
+      previous_published = published;
+    }
+    std::printf("slowest bridge frame to the title: %.1f ms\n", worst_ms);
+    CHECK(worst_ms < 12.0);  // a 30 Hz clock: up to 33 ms
+    CHECK(stamps_follow_capture);
+    nui::Shutdown();
+    _putenv_s("ANYX360_NUI_SOURCE", "");
+    _putenv_s("ANYX360_NUI_BRIDGE", "");
+  }
 
   std::printf("\n%s\n", failures ? "FAILED" : "OK");
   return failures ? 1 : 0;

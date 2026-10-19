@@ -1,8 +1,11 @@
-// Virtual Kinect sensor (x360/nui.h): the NUI API on a 30 Hz clock fed by a source.
+// Virtual Kinect sensor (x360/nui.h): the NUI API, its frames made as the source has them (30 a
+// second at most, and at least 20) or on a 30 Hz clock.
 //
 // Debugging: ANYX360_NUI_TRACE logs the API calls; ANYX360_NUI_SCRIPT drives the sensor with
 // scripted poses (synthetic_source.cpp) whatever the settings say; ANYX360_NUI_SOURCE picks the
-// source (webcam, mouse, synthetic, none) for this run.
+// source (webcam, mouse, synthetic, none) for this run; ANYX360_NUI_BRIDGE=<name> makes the webcam
+// source create its channel under that name and not start the bridge (start one by hand with
+// --shm <name> --event <name>-frame, e.g. in a debugger).
 #include "x360/nui.h"
 
 #include <algorithm>
@@ -48,6 +51,7 @@ bool g_initialized = false;
 // g_mutex. Taken before g_mutex when both are needed.
 std::mutex g_source_mutex;
 std::unique_ptr<Source> g_source;
+uint32_t g_source_generation = 0;  // counts the sources (g_source_mutex): the clock watches its event
 std::string g_source_message;  // the source's message and numbers after the last poll (g_mutex)
 Status g_source_stats;
 std::string g_source_name;
@@ -148,7 +152,14 @@ std::unique_ptr<Source> MakeSource(const settings::KinectSettings& kinect, std::
   if (const char* source = std::getenv("ANYX360_NUI_SOURCE")) name = source;  // debugging switch
   if (name == "synthetic") return MakeSyntheticSource("0:enter", kinect.camera_height);
   if (name == "mouse") return MakeMouseSource(kinect.camera_height);
-  if (name == "webcam") return MakeBridgeSource(kinect);
+  if (name == "webcam") {
+    BridgeOptions options;
+    if (const char* channel = std::getenv("ANYX360_NUI_BRIDGE")) {  // a bridge started by hand (or a test's)
+      options.name = std::wstring(channel, channel + std::strlen(channel));
+      options.launch = false;
+    }
+    return MakeBridgeSource(kinect, options);
+  }
   return nullptr;  // none
 }
 
@@ -162,27 +173,82 @@ const Body* MainBody(const Snapshot& snapshot) {
   return snapshot.body_count ? &snapshot.bodies[0] : nullptr;
 }
 
+using Clock = std::chrono::steady_clock;
+
+Clock::duration Seconds(double seconds) {
+  return std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(seconds));
+}
+
+// Waits until `due`, or until `event` is signalled (if given). True if the event was.
+bool WaitUntil(HANDLE timer, Clock::time_point due, HANDLE event = nullptr) {
+  const auto wait = due - Clock::now();
+  if (wait.count() <= 0) return event && WaitForSingleObject(event, 0) == WAIT_OBJECT_0;
+  if (!timer) {
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(wait).count() + 1;
+    if (event) return WaitForSingleObject(event, DWORD(ms)) == WAIT_OBJECT_0;
+    std::this_thread::sleep_until(due);
+    return false;
+  }
+  LARGE_INTEGER relative;
+  relative.QuadPart = -std::max<int64_t>(1, std::chrono::duration_cast<std::chrono::nanoseconds>(wait).count() / 100);
+  SetWaitableTimer(timer, &relative, 0, nullptr, nullptr, FALSE);
+  if (!event) return WaitForSingleObject(timer, INFINITE), false;
+  const HANDLE both[2] = {event, timer};
+  return WaitForMultipleObjects(2, both, FALSE, INFINITE) == WAIT_OBJECT_0;
+}
+
+// The frame's time stamp (ms on NowMs' clock): when the camera captured it, if the source knows.
+uint64_t FrameTimeMs(int64_t capture_qpc) {
+  const uint64_t now = NowMs();
+  if (!capture_qpc) return now;
+  LARGE_INTEGER qpc, frequency;
+  QueryPerformanceCounter(&qpc);
+  QueryPerformanceFrequency(&frequency);
+  const double age_ms = double(qpc.QuadPart - capture_qpc) * 1000.0 / double(frequency.QuadPart);
+  return age_ms >= 0 && age_ms < 1000 && uint64_t(age_ms) < now ? now - uint64_t(age_ms) : now;
+}
+
+// A source with a frame event (the pose bridge publishing one) sets the pace: a frame as soon as
+// its new one is there, rather than at the next tick of a clock of its own (up to a frame's time
+// later). New frames not sooner than kMinPeriod after the last new one, though (a Kinect gives 30 a
+// second, and titles count on about that), and a frame anyway kMaxPeriod after the last, so the
+// title's frames and the guide gesture go on while the source has nothing new. Other sources: a
+// frame every 1/30 s.
+constexpr double kMinPeriod = 0.028, kMaxPeriod = 0.050;
+
 void ClockThread() {
   SetThreadDescription(GetCurrentThread(), L"NUI clock");
   SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
   HANDLE timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
-  const auto start = std::chrono::steady_clock::now();
-  const auto period = std::chrono::duration<double>(1.0 / kFrameRate);
-  for (uint64_t tick = 1;; ++tick) {
-    auto due = start + std::chrono::duration_cast<std::chrono::steady_clock::duration>(period * double(tick));
-    auto wait = due - std::chrono::steady_clock::now();
-    if (wait.count() > 0) {
-      if (timer) {
-        LARGE_INTEGER relative;
-        relative.QuadPart = -std::max<int64_t>(
-            1, std::chrono::duration_cast<std::chrono::nanoseconds>(wait).count() / 100);
-        SetWaitableTimer(timer, &relative, 0, nullptr, nullptr, FALSE);
-        WaitForSingleObject(timer, INFINITE);
-      } else {
-        std::this_thread::sleep_until(due);
+  const auto start = Clock::now();
+  const auto period = Seconds(1.0 / kFrameRate);
+  auto last = start, last_new = start, due = start;
+  HANDLE frame_event = nullptr;  // a duplicate of the source's: it outlives a source being replaced
+  uint32_t generation = ~0u;
+  for (;;) {
+    {
+      std::lock_guard source_lock(g_source_mutex);
+      if (generation != g_source_generation) {
+        generation = g_source_generation;
+        if (frame_event) CloseHandle(frame_event);
+        frame_event = nullptr;
+        if (HANDLE event = g_source ? HANDLE(g_source->FrameEvent()) : nullptr)
+          DuplicateHandle(GetCurrentProcess(), event, GetCurrentProcess(), &frame_event,
+                          SYNCHRONIZE | EVENT_MODIFY_STATE, FALSE, 0);
       }
     }
-    const double now = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    if (frame_event) {
+      WaitUntil(timer, last_new + Seconds(kMinPeriod));
+      const bool fresh = WaitUntil(timer, last + Seconds(kMaxPeriod), frame_event);
+      ResetEvent(frame_event);  // the poll below reads the newest frame, whichever signalled
+      due = Clock::now();
+      if (fresh) last_new = due;
+    } else {
+      due = std::max(due + period, Clock::now() - period);  // after a source with an event: no catching up
+      WaitUntil(timer, due);
+    }
+    last = Clock::now();
+    const double now = std::chrono::duration<double>(last - start).count();
 
     uint32_t skeleton_event = 0;
     Snapshot snapshot;
@@ -192,9 +258,11 @@ void ClockThread() {
     GuideGesture::Change guide = GuideGesture::kNone;
     std::string message;
     Status stats;
+    const uint32_t streams = OpenStreamMask();
     {
       std::lock_guard source_lock(g_source_mutex);
       if (g_source) {
+        g_source->SetStreams(streams);
         g_source->Poll(now, snapshot);
         message = g_source->Message();
         g_source->Stats(stats);
@@ -207,7 +275,7 @@ void ClockThread() {
       g_source_stats = stats;
       g_snapshot = snapshot;
       number = ++g_frame_number;
-      time_ms = g_frame_time_ms = NowMs();
+      time_ms = g_frame_time_ms = std::max(FrameTimeMs(snapshot.capture_qpc), g_frame_time_ms + 1);
       AssignSlots();
       for (uint32_t i = 0; i < kSkeletonCount; ++i) {
         slots[i] = kSkeletonCount;
@@ -224,6 +292,7 @@ void ClockThread() {
     for (uint32_t event : PublishImageFrames(snapshot, slots, number, time_ms))
       if (uint32_t body = ObjectFromHandle(event)) SetEvent(body);
   }
+  if (frame_event) CloseHandle(frame_event);
   if (timer) CloseHandle(timer);
 }
 
@@ -285,6 +354,7 @@ uint32_t Initialize(uint32_t flags, uint32_t hardware_thread) {
   g_camera_height = kinect.camera_height;
   g_players = kinect.players;
   g_source = MakeSource(kinect, g_source_name);
+  ++g_source_generation;
   g_initialized = true;
   g_stop = false;
   g_clock = std::thread(ClockThread);
@@ -304,6 +374,7 @@ void Shutdown() {
   if (g_clock.joinable()) g_clock.join();
   std::scoped_lock lock(g_source_mutex, g_mutex);
   g_source.reset();
+  ++g_source_generation;
   g_source_message.clear();
   CloseImageStreams();
   KLOG_I("nui: shut down");
@@ -364,6 +435,11 @@ uint32_t SkeletonSetTrackedSkeletons(uint32_t ids) {
   return kOk;
 }
 
+uint32_t TransformSmooth(uint32_t frame, uint32_t params) {
+  (void)params;
+  return frame ? kOk : kInvalidArg;
+}
+
 uint32_t CameraElevationGetAngle(uint32_t angle_ptr) {
   std::lock_guard lock(g_mutex);
   if (angle_ptr) Store<int32_t>(angle_ptr, g_elevation);
@@ -399,7 +475,18 @@ Status GetStatus() {
   status.tilt_roll = g_source_stats.tilt_roll;
   status.tilt_source = g_source_stats.tilt_source;
   status.floor_height = g_source_stats.floor_height;
+  status.capture_ms = g_source_stats.capture_ms;
+  status.detect_ms = g_source_stats.detect_ms;
+  status.process_ms = g_source_stats.process_ms;
+  status.render_ms = g_source_stats.render_ms;
+  status.transfer_ms = g_source_stats.transfer_ms;
+  status.dropped_frames = g_source_stats.dropped_frames;
   return status;
+}
+
+std::shared_ptr<const std::vector<uint8_t>> GetPreviewColor() {
+  std::lock_guard lock(g_mutex);
+  return g_snapshot.color;
 }
 
 std::vector<PreviewBody> GetBodies() {
@@ -415,6 +502,7 @@ std::vector<PreviewBody> GetBodies() {
       b.id = slot;
       b.tracked = tracked;
       std::memcpy(b.joints, g_snapshot.bodies[i].joints, sizeof(b.joints));
+      std::memcpy(b.joint_state, g_snapshot.bodies[i].joint_state, sizeof(b.joint_state));
     }
   }
   return bodies;
@@ -435,6 +523,7 @@ void ApplySettings(const settings::KinectSettings& kinect) {
     if (kinect.source != g_source_name) {
       previous = std::move(g_source);
       g_source = MakeSource(kinect, g_source_name);
+      ++g_source_generation;
       KLOG_I("nui: source %s%s", g_source_name.c_str(), g_source ? "" : " (no player)");
     } else if (g_source) {
       g_source->Configure(kinect);

@@ -147,7 +147,7 @@ X360_GUEST_FUNCTION(82D26620, x360::nui::SkeletonTrackingEnable)
 X360_GUEST_FUNCTION(82D25DE0, x360::nui::SkeletonTrackingDisable)
 X360_GUEST_FUNCTION(82D26768, x360::nui::SkeletonGetNextFrame)
 X360_GUEST_FUNCTION(82D25EF8, x360::nui::SkeletonSetTrackedSkeletons)
-X360_GUEST_TRACE(82D26190, "NuiTransformSmooth (pure)")
+X360_GUEST_FUNCTION(82D26190, x360::nui::TransformSmooth)
 X360_GUEST_TRACE(82D28E28, "NUI depth to color pixel coordinates (pure)")
 
 // Image streams and camera.

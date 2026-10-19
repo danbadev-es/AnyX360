@@ -89,6 +89,41 @@ class KeepAlive:
             self._channel.beat()
 
 
+class Timings:
+    """Where a frame's time goes, smoothed, for the game's settings panel (milliseconds: waiting
+    for the bridge after the camera gave the image, the pose model, mapping and filtering, drawing
+    the images), the camera frames the bridge had no time for, and a line in the log every
+    LOG_SECONDS."""
+
+    LOG_SECONDS = 30.0
+
+    def __init__(self):
+        self.average = dict.fromkeys(("capture", "detect", "process", "render"), 0.0)
+        self.dropped = 0
+        self._start = time.perf_counter()
+        self._detect = []
+        self._dropped_before = 0
+
+    def add(self, **ms):
+        for key, value in ms.items():
+            average = self.average[key]
+            self.average[key] = value if not average else 0.9 * average + 0.1 * value
+        self._detect.append(ms["detect"])
+
+    def report(self, camera_fps):
+        """The log line, once every LOG_SECONDS (else None)."""
+        elapsed = time.perf_counter() - self._start
+        if elapsed < self.LOG_SECONDS or not self._detect:
+            return None
+        detect = np.array(self._detect)
+        a = self.average
+        line = (f"{len(detect) / elapsed:.1f} frames/s (camera {camera_fps:.0f}), pose {np.median(detect):.0f} ms "
+                f"(p95 {np.percentile(detect, 95):.0f}), waiting {a['capture']:.1f}, mapping {a['process']:.1f}, "
+                f"images {a['render']:.1f} ms, {self.dropped - self._dropped_before} camera frames dropped")
+        self._start, self._detect, self._dropped_before = time.perf_counter(), [], self.dropped
+        return line
+
+
 def standalone_settings(args):
     return {
         "seq": 0, "camera": args.camera, "mirror": args.mirror, "players": args.players, "model": args.model,
@@ -119,7 +154,7 @@ class Bridge:
         self.preview = None
         self.dump = None
         self.frame_number = 0
-        self.inference_ms = 0.0
+        self.timings = Timings()
         self.calibrated = 0  # the game's calibrate counter last seen
 
     # ---- setup ----
@@ -207,7 +242,10 @@ class Bridge:
                 h.camera_width, h.camera_height = self.source.size
             else:
                 h.camera_fps, h.camera_width, h.camera_height = 30.0, 640, 480
-            h.inference_ms = self.inference_ms
+            t = self.timings.average
+            h.inference_ms = h.detect_ms = t["detect"]
+            h.capture_ms, h.process_ms, h.render_ms = t["capture"], t["process"], t["render"]
+            h.dropped_frames = self.timings.dropped
             self.channel.set_state(protocol.RUNNING)
         if self.dump:
             self.dump.write(json.dumps({
@@ -217,7 +255,7 @@ class Bridge:
             }) + "\n")
         if self.args.preview:
             import preview
-            status = f"{len(bodies)} people, inference {self.inference_ms:.0f} ms"
+            status = f"{len(bodies)} people, inference {self.timings.average['detect']:.0f} ms"
             if not preview.show(color, depth, bodies, status):
                 return False
         return True
@@ -233,6 +271,7 @@ class Bridge:
             self.load_estimator()
             self.open_source()
         start = time.perf_counter()
+        frequency = protocol.qpc_frequency()
         last = 0
         failures = 0
         try:
@@ -272,15 +311,25 @@ class Bridge:
                     if self.args.video and self.source.finished:
                         break
                     continue
+                if last and frame.number > last + 1:
+                    self.timings.dropped += frame.number - last - 1
                 last = frame.number
                 try:
+                    waited = (protocol.qpc() - frame.qpc) * 1000 / frequency
                     began = time.perf_counter()
                     poses = self.estimator.detect(frame.image, frame.seconds)
-                    elapsed = (time.perf_counter() - began) * 1000
-                    self.inference_ms = elapsed if not self.inference_ms else 0.9 * self.inference_ms + 0.1 * elapsed
+                    detected = time.perf_counter()
                     size = (frame.image.shape[1], frame.image.shape[0])
                     bodies, info = pipeline.process(poses, size, frame.seconds)
-                    color, depth = pipeline.render(frame.image, info)
+                    processed = time.perf_counter()
+                    color = depth = None
+                    if self.settings["streams"] != protocol.STREAMS_NONE:  # the game shows its images
+                        color, depth = pipeline.render(frame.image, info)
+                    rendered = time.perf_counter()
+                    self.timings.add(capture=waited, detect=(detected - began) * 1000,
+                                     process=(processed - detected) * 1000, render=(rendered - processed) * 1000)
+                    if report := self.timings.report(self.source.fps):
+                        log(report)
                     failures = 0
                 except Exception:
                     # One bad frame is skipped; only a run of them ends the bridge.

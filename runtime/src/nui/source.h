@@ -12,7 +12,7 @@ namespace x360::nui {
 class Source {
  public:
   virtual ~Source() = default;
-  // The people in view at `time` (seconds since the sensor started). Called at 30 Hz.
+  // The people in view at `time` (seconds since the sensor started). Called for each sensor frame.
   virtual void Poll(double time, Snapshot& out) = 0;
   // The source's state for the settings panel ("ok", "no camera found"...).
   virtual std::string Message() const { return "ok"; }
@@ -24,6 +24,11 @@ class Source {
   virtual void Restart() {}
   // The camera's numbers for the status (webcam).
   virtual void Stats(Status&) const {}
+  // An event (a Windows HANDLE) signalled when the source has a new frame, so the sensor's frame
+  // follows it at once; nullptr: the sensor polls on its 30 Hz clock.
+  virtual void* FrameEvent() const { return nullptr; }
+  // The images the title opened streams for (image_stream.h, OpenStreamMask).
+  virtual void SetStreams(uint32_t) {}
 };
 
 // Scripted test poses: "seconds:action[/duration][@player],..." (see synthetic_source.cpp).

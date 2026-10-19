@@ -207,6 +207,18 @@ class BridgeSource : public Source {
     status.tilt_roll = h->tilt_roll_deg;
     status.tilt_source = h->tilt_source;
     status.floor_height = h->floor_height_m;
+    status.capture_ms = h->capture_ms;
+    status.detect_ms = h->detect_ms;
+    status.process_ms = h->process_ms;
+    status.render_ms = h->render_ms;
+    status.transfer_ms = float(transfer_ms_);
+    status.dropped_frames = h->dropped_frames;
+  }
+
+  void* FrameEvent() const override { return channel_.event(); }
+
+  void SetStreams(uint32_t mask) override {
+    if (Header* h = channel_.header()) h->stream_mask = mask;
   }
 
  private:
@@ -324,14 +336,29 @@ class BridgeSource : public Source {
       to.quality = from.quality;
     }
     if (s.flags & kSlotHasImages) {
-      snapshot.color = std::make_shared<const std::vector<uint8_t>>(std::begin(s.color), std::end(s.color));
-      snapshot.depth = std::make_shared<const std::vector<uint16_t>>(std::begin(s.depth), std::end(s.depth));
+      snapshot.color = Pooled(color_pool_, std::begin(s.color), std::end(s.color));
+      snapshot.depth = Pooled(depth_pool_, std::begin(s.depth), std::end(s.depth));
     }
+    snapshot.capture_qpc = s.capture_qpc;
     snapshot_ = std::move(snapshot);
-    if (s.capture_qpc) {
-      const double latency = double(Qpc() - s.capture_qpc) / frequency_ * 1000;
-      latency_ms_ = latency_ms_ ? latency_ms_ * 0.9 + latency * 0.1 : latency;
-    }
+    const int64_t now = Qpc();
+    auto smooth = [](double& average, double value) { average = average ? average * 0.9 + value * 0.1 : value; };
+    if (s.capture_qpc) smooth(latency_ms_, double(now - s.capture_qpc) / frequency_ * 1000);
+    if (s.publish_qpc) smooth(transfer_ms_, double(now - s.publish_qpc) / frequency_ * 1000);
+  }
+
+  // A copy of an image in a buffer nobody else holds (the previous frame's stays with the snapshot
+  // and the sensor until they move on), instead of a new 1.2 MB allocation per frame. A new frame's
+  // buffer is never the one the previous frame is in.
+  template <typename T, typename It>
+  static std::shared_ptr<const std::vector<T>> Pooled(std::vector<std::shared_ptr<std::vector<T>>>& pool, It first,
+                                                      It last) {
+    std::shared_ptr<std::vector<T>> buffer;
+    for (auto& b : pool)
+      if (b.use_count() == 1) buffer = b;
+    if (!buffer) buffer = pool.emplace_back(std::make_shared<std::vector<T>>());
+    buffer->assign(first, last);
+    return buffer;
   }
 
   std::string Describe() const {
@@ -371,7 +398,10 @@ class BridgeSource : public Source {
   uint32_t last_frame_ = 0;
   uint32_t logged_state_ = ~0u;
   Snapshot snapshot_;
-  double latency_ms_ = 0;
+  std::vector<std::shared_ptr<std::vector<uint8_t>>> color_pool_;
+  std::vector<std::shared_ptr<std::vector<uint16_t>>> depth_pool_;
+  double latency_ms_ = 0;   // capture to the sensor reading the frame
+  double transfer_ms_ = 0;  // the bridge publishing it to the sensor reading it
 
   uint32_t starts_ = 0;    // since the last success or Restart (for the backoff)
   uint32_t restarts_ = 0;  // in all

@@ -8,6 +8,7 @@ class GraphicsSystem;
 }
 namespace ui {
 class ImGuiDrawer;
+class ImmediateDrawer;
 class Window;
 }
 }  // namespace xe
@@ -25,5 +26,7 @@ bool IsStatsOverlayVisible();
 
 // The ImGui drawer shared by the overlay and the settings panel.
 xe::ui::ImGuiDrawer* SharedImGuiDrawer();
+// Its immediate drawer, for textures the panels draw (UI thread).
+xe::ui::ImmediateDrawer* SharedImmediateDrawer();
 
 }  // namespace x360::gpu

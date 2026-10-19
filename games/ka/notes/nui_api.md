@@ -21,7 +21,7 @@ is around `82A50000`-`82A70000` and `82B60000`-`82B80000`.
 | `82D25DE0` | NuiSkeletonTrackingDisable | `()` | 0xB0 bytes, as Dance Central 3's | `nui::SkeletonTrackingDisable` |
 | `82D26768` | NuiSkeletonGetNextFrame | `(timeout up to 33 ms, NUI_SKELETON_FRAME*)` | 82A5531C, frame at `this+0x17D00`, number at +8 | `nui::SkeletonGetNextFrame` |
 | `82D25EF8` | NuiSkeletonSetTrackedSkeletons | `(DWORD ids[2])` | 82B6D838, 82B6D8B0 | `nui::SkeletonSetTrackedSkeletons` |
-| `82D26190` | NuiTransformSmooth | `(NUI_SKELETON_FRAME*, NULL)` | 82A558C0 on the frame; pure | original code |
+| `82D26190` | NuiTransformSmooth | `(NUI_SKELETON_FRAME*, NULL)` | 82A558C0 on the frame; pure | `nui::TransformSmooth` (the frame as it is: the bridge filters already) |
 | `82D28E28` | depth pixel to color pixel | `(color resolution 2, view area, x, y, depth, *x, *y)` | 82B761D0; pure | original code |
 | `82D2AAB0` | NuiImageStreamOpen | `(type, resolution, flags 0, frame limit 1, event 0, HANDLE*)` | `(1, 2)`, `(0, 1)`, `(7, 0)` at 82A53CFC, 82A53FA8, 82A53FF8 | `nui::ImageStreamOpen` |
 | `82D28FB8` | NuiImageStreamGetNextFrame | `(stream, 0 ms, const NUI_IMAGE_FRAME**)` | 82A54308 | `nui::ImageStreamGetNextFrame` |

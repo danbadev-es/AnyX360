@@ -209,10 +209,24 @@ void SetImageTitleSupport(const TitleSupport& support) {
   g_title = support;
 }
 
+uint32_t OpenStreamMask() {
+  std::lock_guard lock(g_mutex);
+  uint32_t mask = 0;
+  for (const auto& s : g_streams)
+    mask |= s->format.kind == StreamFormat::kColorYuv || s->format.kind == StreamFormat::kColorRgb ? 1u : 2u;
+  return mask ? mask : 4u;
+}
+
 std::vector<uint32_t> PublishImageFrames(const Snapshot& snapshot, const uint32_t slots[kSkeletonCount],
                                          uint32_t frame_number, uint64_t time_ms) {
   std::lock_guard lock(g_mutex);
   if (g_streams.empty()) return {};
+  // The camera's images of the last frame again: the title has them already.
+  static const void *last_color = nullptr, *last_depth = nullptr;
+  if ((snapshot.color || snapshot.depth) && snapshot.color.get() == last_color && snapshot.depth.get() == last_depth)
+    return {};
+  last_color = snapshot.color.get();
+  last_depth = snapshot.depth.get();
   // The images: the source's, or drawn from the bodies (only those some stream needs).
   bool want_color = false, want_depth = false;
   for (const auto& s : g_streams) {
