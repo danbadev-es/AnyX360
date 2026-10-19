@@ -1,90 +1,161 @@
-# anyx360_add_launcher(<target> <game.json>)
-# The Windows launcher of a distribution folder (tools/launcher): prepares the player's copy of the
-# game and starts the game executable. Names come from the game's game.json (see cmake/Game.cmake).
-function(anyx360_add_launcher target json_path)
-  file(READ ${json_path} json)
-  string(JSON output_name GET "${json}" launcher_name)
-  string(JSON exe GET "${json}" exe)
-  string(JSON title GET "${json}" title)
-  string(JSON user_dir GET "${json}" user_dir)
-  string(JSON size_gb GET "${json}" size_gb)
-  string(JSON input GET "${json}" input)
-  string(JSON owners GET "${json}" owners)
-  string(JSON title_id GET "${json}" title_id)
-  string(JSON required_count LENGTH "${json}" required_files)
-  set(required_files "")
-  if(required_count GREATER 0)
-    math(EXPR last "${required_count} - 1")
-    foreach(i RANGE ${last})
-      string(JSON file GET "${json}" required_files ${i})
-      if(i GREATER 0)
-        string(APPEND required_files "|")
-      endif()
-      string(APPEND required_files "${file}")
-    endforeach()
-  endif()
-  add_executable(${target} WIN32
-    ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.cpp
-    ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.manifest)
-  set_target_properties(${target} PROPERTIES OUTPUT_NAME "${output_name}")
-  if(input STREQUAL "webcam")
-    set(webcam 1)
-  else()
-    set(webcam 0)
-  endif()
-  target_compile_definitions(${target} PRIVATE
-    UNICODE _UNICODE _WIN32_WINNT=0x0A00 WINVER=0x0A00
-    ANYX360_GAME_EXE="${exe}.exe" ANYX360_GAME_TITLE="${title}" ANYX360_USER_DIR="${user_dir}"
-    ANYX360_GAME_SIZE_GB=${size_gb} ANYX360_GAME_WEBCAM=${webcam} ANYX360_GAME_TITLE_ID=0x${title_id}
-    ANYX360_GAME_REQUIRED_FILES="${required_files}")
-  target_compile_options(${target} PRIVATE /utf-8)
+# anyx360_register_launcher_game(<id> <game.json>)
+# anyx360_add_launcher()
+# The Windows launcher of a release (tools/launcher, AnyX360.exe): a gallery of the games the player
+# has added, from their own copies. Each game registers itself (cmake/Game.cmake); once every game
+# is known, anyx360_add_launcher() builds the one launcher with a catalog of them all.
 
-  # The terms of use in English and Spanish, shown and accepted in the launcher, with the game's name,
-  # rights holders, trademarks and extra components filled in. The filled texts are also written next
-  # to the header (<target>_terms_en.txt, _es.txt): make_dist.ps1 ships the English one as TERMS.txt.
-  string(JSON trademark_count LENGTH "${json}" trademarks)
-  set(trademarks_en "")
-  set(trademarks_es "")
-  if(trademark_count GREATER 0)
-    math(EXPR last "${trademark_count} - 1")
-    foreach(i RANGE ${last})
-      string(JSON mark GET "${json}" trademarks ${i})
-      if(i GREATER 0)
-        string(APPEND trademarks_en ", ")
-        string(APPEND trademarks_es ", ")
+function(anyx360_register_launcher_game id json_path)
+  set_property(GLOBAL APPEND PROPERTY ANYX360_LAUNCHER_GAMES "${id}")
+  set_property(GLOBAL PROPERTY ANYX360_LAUNCHER_JSON_${id} "${json_path}")
+endfunction()
+
+# "a", "a and b", "a, b and c" (`and` is the language's word).
+function(_anyx360_join_list out_var and_word)
+  set(items ${ARGN})
+  list(LENGTH items count)
+  set(text "")
+  set(i 0)
+  foreach(item IN LISTS items)
+    math(EXPR i "${i} + 1")
+    if(i GREATER 1)
+      math(EXPR last "${count}")
+      if(i EQUAL last)
+        string(APPEND text " ${and_word} ")
+      else()
+        string(APPEND text ", ")
       endif()
-      string(APPEND trademarks_en "\"${mark}\"")
-      string(APPEND trademarks_es "«${mark}»")
-    endforeach()
+    endif()
+    string(APPEND text "${item}")
+  endforeach()
+  set(${out_var} "${text}" PARENT_SCOPE)
+endfunction()
+
+function(anyx360_add_launcher)
+  get_property(ids GLOBAL PROPERTY ANYX360_LAUNCHER_GAMES)
+  if(NOT ids)
+    message(STATUS "launcher: no games to offer yet, skipping")
+    return()
   endif()
-  string(JSON component_count LENGTH "${json}" components)
+
+  # The catalog: one entry per game (tools/launcher/launcher.cpp, struct CatalogGame). dev_exe is
+  # where the build puts the game, used when the launcher runs from the build folder.
+  set(entries "")
+  set(titles "")
+  set(owners "")
+  set(trademarks "")
   set(components "")
-  if(component_count GREATER 0)
-    math(EXPR last "${component_count} - 1")
-    foreach(i RANGE ${last})
-      string(JSON component GET "${json}" components ${i})
-      string(APPEND components ", ${component}")
+  foreach(id IN LISTS ids)
+    get_property(json_path GLOBAL PROPERTY ANYX360_LAUNCHER_JSON_${id})
+    file(READ ${json_path} json)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${json_path})
+    foreach(field title exe user_dir title_id size_gb input owners)
+      string(JSON ${field} GET "${json}" ${field})
     endforeach()
-  endif()
+    set(required_files "")
+    string(JSON count LENGTH "${json}" required_files)
+    if(count GREATER 0)
+      math(EXPR last "${count} - 1")
+      foreach(i RANGE ${last})
+        string(JSON file GET "${json}" required_files ${i})
+        if(i GREATER 0)
+          string(APPEND required_files "|")
+        endif()
+        string(APPEND required_files "${file}")
+      endforeach()
+    endif()
+    if(input STREQUAL "webcam")
+      set(webcam true)
+    else()
+      set(webcam false)
+    endif()
+    string(APPEND entries "    {L\"${id}\", L\"${title}\", L\"${exe}.exe\", L\"${user_dir}\", 0x${title_id}, ${size_gb}, ${webcam},\n"
+                          "     L\"${required_files}\", L\"$<TARGET_FILE:${id}>\"},\n")
+    list(APPEND titles "${title}")
+    # Rights holders, trademarks and extra components of every game, each named once.
+    string(REPLACE ", " ";" game_owners "${owners}")
+    list(APPEND all_owners ${game_owners})
+    foreach(list_name trademarks components)
+      string(JSON count LENGTH "${json}" ${list_name})
+      if(count GREATER 0)
+        math(EXPR last "${count} - 1")
+        foreach(i RANGE ${last})
+          string(JSON item GET "${json}" ${list_name} ${i})
+          list(APPEND all_${list_name} "${item}")
+        endforeach()
+      endif()
+    endforeach()
+  endforeach()
+  foreach(list_name owners trademarks components)
+    if(all_${list_name})
+      list(REMOVE_DUPLICATES all_${list_name})
+    endif()
+  endforeach()
+
+  set(dir ${CMAKE_BINARY_DIR}/launcher)
+  # Per configuration: dev_exe names the configuration's build of each game.
+  file(GENERATE OUTPUT ${dir}/$<CONFIG>/games_catalog.h CONTENT "// Generated from games/*/game.json (cmake/Launcher.cmake).
+#pragma once
+#include <cstdint>
+
+struct CatalogGame {
+  const wchar_t* id;
+  const wchar_t* title;
+  const wchar_t* exe;       // in the release's bin folder
+  const wchar_t* user_dir;  // %LOCALAPPDATA%\\AnyX360\\<user_dir>
+  uint32_t title_id;
+  int size_gb;              // free space an extracted copy needs
+  bool webcam;              // played with a webcam (virtual Kinect)
+  const wchar_t* required_files;  // besides default.xex, '|'-separated
+  const wchar_t* dev_exe;   // the build's copy, when the launcher runs from the build folder
+};
+
+inline constexpr CatalogGame kCatalog[] = {
+${entries}};
+")
+
+  # The terms of use in English and Spanish, shown and accepted in the launcher, naming every game,
+  # rights holder, trademark and extra component. The filled texts are also written next to the
+  # header (terms_en.txt, terms_es.txt): make_dist.ps1 ships the English one as TERMS.txt.
+  string(REPLACE ";" ", " owners_text "${all_owners}")
+  set(components_text "")
+  foreach(component IN LISTS all_components)
+    string(APPEND components_text ", ${component}")
+  endforeach()
+  set(quoted_en "")
+  set(quoted_es "")
+  foreach(mark IN LISTS all_trademarks)
+    list(APPEND quoted_en "\"${mark}\"")
+    list(APPEND quoted_es "«${mark}»")
+  endforeach()
+  _anyx360_join_list(games_en "and" ${titles})
+  _anyx360_join_list(games_es "y" ${titles})
+  string(REPLACE ";" ", " trademarks_en "${quoted_en}")
+  string(REPLACE ";" ", " trademarks_es "${quoted_es}")
   foreach(language en es)
     set(source ${PROJECT_SOURCE_DIR}/tools/launcher/terms_${language}.txt)
     file(READ ${source} text)
-    string(REPLACE "{GAME}" "${title}" text "${text}")
-    string(REPLACE "{OWNERS}" "${owners}" text "${text}")
+    string(REPLACE "{GAMES}" "${games_${language}}" text "${text}")
+    string(REPLACE "{OWNERS}" "${owners_text}" text "${text}")
     string(REPLACE "{TRADEMARKS}" "${trademarks_${language}}" text "${text}")
-    string(REPLACE "{COMPONENTS}" "${components}" text "${text}")
+    string(REPLACE "{COMPONENTS}" "${components_text}" text "${text}")
     set(ANYX360_TERMS_${language} "${text}")
-    file(CONFIGURE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${target}_terms_${language}.txt CONTENT "${text}" @ONLY)
+    file(CONFIGURE OUTPUT ${dir}/terms_${language}.txt CONTENT "${text}" @ONLY)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${source})
   endforeach()
-  file(CONFIGURE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${target}_terms.h
+  file(CONFIGURE OUTPUT ${dir}/launcher_terms.h
     CONTENT "// Generated from tools/launcher/terms_en.txt and terms_es.txt.
 constexpr char kTermsEnUtf8[] = R\"terms(@ANYX360_TERMS_en@)terms\";
 constexpr char kTermsEsUtf8[] = R\"terms(@ANYX360_TERMS_es@)terms\";
 "
     @ONLY)
-  target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_BINARY_DIR} ${ANYX360_GENERATED_DIR})
-  target_compile_definitions(${target} PRIVATE ANYX360_TERMS_HEADER="${target}_terms.h")
-  target_link_libraries(${target} PRIVATE comctl32 ole32 shell32 shlwapi uuid)
-  anyx360_add_version_resource(${target} "${title} launcher (AnyX360)" "${output_name}.exe")
+
+  add_executable(anyx360_launcher WIN32
+    ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.cpp
+    ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.manifest)
+  set_target_properties(anyx360_launcher PROPERTIES OUTPUT_NAME AnyX360 RUNTIME_OUTPUT_DIRECTORY ${dir}/$<CONFIG>)
+  target_compile_definitions(anyx360_launcher PRIVATE UNICODE _UNICODE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
+  target_compile_options(anyx360_launcher PRIVATE /utf-8)
+  target_include_directories(anyx360_launcher PRIVATE ${dir} ${dir}/$<CONFIG> ${ANYX360_GENERATED_DIR})
+  target_link_libraries(anyx360_launcher PRIVATE x360_formats comctl32 ole32 shell32 shlwapi uuid gdiplus)
+  anyx360_add_version_resource(anyx360_launcher "AnyX360 launcher" "AnyX360.exe")
 endfunction()

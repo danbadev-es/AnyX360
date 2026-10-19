@@ -8,7 +8,7 @@
 # out_directory_path, e.g. recomp2) and the build follows. Games without generated sources are skipped.
 #
 # Generates game_info.h (namespace game_info: kTitle, kUserDir, kDevGameDir, kTitleId) for the host
-# sources, and the game's launcher <id>_launcher.
+# sources, and registers the game with the launcher (cmake/Launcher.cmake).
 function(anyx360_add_game id)
   cmake_parse_arguments(GAME "" "" "SOURCES" ${ARGN})
   set(json_path ${CMAKE_CURRENT_SOURCE_DIR}/game.json)
@@ -80,6 +80,6 @@ inline constexpr uint32_t kTitleId = 0x${title_id};
   set_target_properties(${id} PROPERTIES OUTPUT_NAME ${exe})
   anyx360_add_version_resource(${id} "${title} (AnyX360 static recompilation)" ${exe}.exe)
 
-  # The distribution's launcher (tools/package/make_dist.ps1 builds the folder around it).
-  anyx360_add_launcher(${id}_launcher ${json_path})
+  # One of the games the release's launcher offers.
+  anyx360_register_launcher_game(${id} ${json_path})
 endfunction()

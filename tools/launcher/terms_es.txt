@@ -1,15 +1,15 @@
 TÉRMINOS Y CONDICIONES DE USO DE ANYX360
-Versión 1.1 · 17 de octubre de 2026
+Versión 1.2 · 19 de octubre de 2026
 
 Lee estos términos antes de usar el software. Al pulsar «Aceptar», o al usar el software de cualquier forma, declaras que los has leído y que los aceptas. Si no estás de acuerdo, no lo uses y elimínalo de tu equipo.
 
 1. QUÉ ES ANYX360
-AnyX360 es un proyecto independiente, experimental y sin ánimo de lucro, desarrollado por danbadev-es, cuyo objetivo es la preservación y la interoperabilidad de videojuegos de Xbox 360 en ordenadores con Windows. Para ello utiliza la recompilación estática: el código del ejecutable de la consola se traduce automáticamente a código nativo de PC, y un entorno propio sustituye a los servicios del sistema de la consola. Este paquete está preparado para {GAME}.
+AnyX360 es un proyecto independiente, experimental y sin ánimo de lucro, desarrollado por danbadev-es, cuyo objetivo es la preservación y la interoperabilidad de videojuegos de Xbox 360 en ordenadores con Windows. Para ello utiliza la recompilación estática: el código del ejecutable de la consola se traduce automáticamente a código nativo de PC, y un entorno propio sustituye a los servicios del sistema de la consola. Este paquete está preparado para estos juegos: {GAMES}.
 
-2. REQUISITO IMPRESCINDIBLE: UNA COPIA LEGAL DEL JUEGO
-Para usar AnyX360 debes ser titular de una copia original y adquirida legalmente de {GAME}. Los archivos del juego que utilices deben proceder de tu propia copia, por ejemplo de una copia de seguridad que tú mismo hayas hecho de tu disco, en la medida en que la ley de tu país lo permita.
+2. REQUISITO IMPRESCINDIBLE: UNA COPIA LEGAL DE CADA JUEGO
+Para usar AnyX360 con un juego debes ser titular de una copia original y adquirida legalmente de ese juego. Los archivos del juego que utilices deben proceder de tu propia copia, por ejemplo de una copia de seguridad que tú mismo hayas hecho de tu disco, en la medida en que la ley de tu país lo permita.
 
-AnyX360 no proporciona, vende ni distribuye el juego ni ninguno de sus archivos o contenidos (datos, niveles, texturas, modelos, audio, vídeos, textos), ni facilita ni indica dónde obtenerlos. Si no posees una copia legal del juego, no estás autorizado a usar este software.
+AnyX360 no proporciona, vende ni distribuye los juegos ni ninguno de sus archivos o contenidos (datos, niveles, texturas, modelos, audio, vídeos, textos), ni facilita ni indica dónde obtenerlos. Si no posees una copia legal de un juego, no estás autorizado a usar este software con él.
 
 3. TUS ARCHIVOS ORIGINALES
 AnyX360 no modifica los archivos del juego que aportas. El lanzador extrae los archivos de tu archivo comprimido en tu propio equipo y el programa los lee tal como son. Nada de tu copia del juego se envía a terceros.
@@ -18,7 +18,7 @@ AnyX360 no modifica los archivos del juego que aportas. El lanzador extrae los a
 Este paquete contiene el lanzador, un ejecutable para Windows generado por recompilación estática y componentes de terceros que se distribuyen bajo sus propias licencias (ver la sección 12). No contiene archivos de datos del juego.
 
 5. AUSENCIA DE AFILIACIÓN Y MARCAS
-AnyX360 no está afiliado, asociado, autorizado, patrocinado ni respaldado por {OWNERS} ni ningún otro titular de derechos sobre el juego. {TRADEMARKS} y el resto de nombres y marcas mencionados pertenecen a sus respectivos titulares y se citan únicamente para identificar el juego con el que el software es compatible.
+AnyX360 no está afiliado, asociado, autorizado, patrocinado ni respaldado por {OWNERS} ni ningún otro titular de derechos sobre los juegos. {TRADEMARKS} y el resto de nombres y marcas mencionados pertenecen a sus respectivos titulares y se citan únicamente para identificar los juegos con los que el software es compatible.
 
 6. USO PERMITIDO
 Se te permite usar el software solo para fines personales, privados y no comerciales, con tu propia copia legal del juego. No puedes:

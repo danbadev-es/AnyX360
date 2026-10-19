@@ -55,4 +55,6 @@ if(ANYX360_BUILD_RUNTIME)
       add_subdirectory(games/${game})
     endif()
   endforeach()
+  # The release's launcher, with every game built above.
+  anyx360_add_launcher()
 endif()
