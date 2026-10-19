@@ -78,24 +78,31 @@ build.bat
 `recomp/` must be empty before regenerating: XenonRecomp does not delete output files from an earlier
 run whose function split was different, which leads to duplicate symbols at link time.
 
-## Distribution for testers
-`powershell -ExecutionPolicy Bypass -File tools\package\make_dist.ps1` builds the game and the
-launcher, then creates `dist\AnyX360-GearsOfWar3-<version>\` and a zip of it (about 55 MB). The
-version is `0.1.0` for a tagged release, or `0.1.0+<commit>` otherwise (see Versioning in the
-README). The package contains no game data. It holds:
-- `AnyX360 Gears of War 3.exe`, the launcher (`tools/launcher`).
-- `bin\`: the game executable and its .pdb, 7-Zip, and the shader cache.
+## Distribution
+Since 0.4.0 one release holds every game: `powershell -ExecutionPolicy Bypass -File
+tools\package\make_dist.ps1` builds the games and the launcher, then creates
+`dist\AnyX360-<version>\` and a zip of it. The version is `0.4.0` for a tagged release, or
+`0.4.0+<commit>` otherwise (see Versioning in the README). The release contains no game data. It
+holds:
+- `AnyX360.exe`, the launcher (`tools/launcher`).
+- `bin\`: each game's executable and its .pdb, 7-Zip, each game's shader cache
+  (`bin\shader_cache\<id>`) and, for the webcam games, the pose bridge.
 - `keys\` and `licenses\` (third-party licenses).
-- `README.txt`, `TERMS.txt` and `CHANGELOG.md`.
+- `README.txt` (`tools/package/README.txt` with each game's `tools/package/<id>/section.txt`),
+  `TERMS.txt` and `CHANGELOG.md`.
 
 What the launcher does:
 - Shows its text in English or Spanish. Windows' display language picks one; a link in the footer
   switches, and the choice is remembered.
-- Shows the terms of use (`tools/launcher/terms_en.txt`, `terms_es.txt`) and requires accepting
-  them. They are asked again whenever either text changes.
-- Asks for the player's `.7z`, checks that it contains `default.xex` and that there is free space,
-  and extracts it to `game\` with a progress bar.
-- Starts the game without a console window, writing its output to `logs\last_run.log`.
+- Shows the terms of use (`tools/launcher/terms_en.txt`, `terms_es.txt`, naming every game) and
+  requires accepting them. They are asked again whenever either text changes.
+- Shows the games the player added as a gallery: each game's dashboard icon, read from its
+  `default.xex` (`x360tool xex-icon` reads the same XDBF resource), or a cover the player chose.
+- Adds a game from an archive (.7z, .rar, .zip) or a folder: it finds `default.xex`, recognises
+  the game by its title ID (only `default.xex` is extracted to check an archive), checks the copy
+  and the free space, and extracts it to `games\<id>\game\` with a progress bar; a folder is used
+  where it is (`games\<id>\location.txt`).
+- Starts the game without a console window, writing its output to `logs\<id>\last_run.log`.
 - If the game exits with an error, shows the launcher again and points to the log.
 
 ## Status (2026-10-16)

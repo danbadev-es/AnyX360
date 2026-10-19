@@ -1,0 +1,35 @@
+GEARS OF WAR 3
+==========================================================
+Your copy: the disc's archive (for example "Gears Of War 3.7z") or its folder.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\GearsOfWar3
+
+CONTROLS
+Player 1: keyboard and mouse. Player 2: Xbox controller.
+To play alone with a controller, open F2 > Players and set Player 1 to "Controller".
+
+  Move                                  W A S D
+  Look                                  Mouse
+  Aim / Fire                            Right click / Left click
+  Cover, roadie run, evade (A)          Space  (also Left Shift or Enter)
+  Melee, chainsaw (B)                   V  (also Backspace)
+  Reload (RB)                           R
+  Use, pick up, revive (X)              E
+  Point of interest (Y)                 F
+  Tac-Com (LB)                          Q
+  Switch weapon (D-pad)                 Arrows, 1 2 3 4 or mouse wheel
+  Scope zoom (R3)                       Middle click
+  L3                                    C
+  Pause (Start)                         Esc
+  Scoreboard (Back)                     Tab
+
+In menus: Space or Enter accepts, V or Backspace goes back.
+
+SPLIT SCREEN (local co-op)
+With a controller connected, player 2 presses Start in the main menu to join the party.
+Then go into Campaign as usual: the screen splits in two.
+
+KNOWN ISSUES
+- Cinematics and videos run at 30 FPS: that is how they are in the original game.
+- In Horde, the counter before the first wave may stay at 0:30.
+- The game may occasionally close while loading Horde maps.
+- Online play doesn't work; campaign, private Horde and split screen do.

@@ -29,7 +29,7 @@ After a build, two things work:
 - A developer build of the game finds the bridge in `build\pose_bridge\dist`.
 - A reconfigure of CMake adds the bridge's Python tests to `ctest`.
 
-`tools\package\make_dist.ps1 -Game dc3` copies the bundle into the distribution, as
+`tools\package\make_dist.ps1` copies the bundle into the release when a game is played with a webcam, as
 `bin\pose_bridge\` and `licenses\pose_bridge\`.
 
 ## Running it on its own

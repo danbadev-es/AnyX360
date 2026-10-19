@@ -8,6 +8,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+One release for every game, with a launcher that shows the player's games as a gallery.
+
+### Added
+
+- One release, `AnyX360-<version>.zip`, with every game and one launcher, `AnyX360.exe`. Its
+  catalog of games is generated from each game's `game.json`, so a new game only needs its own
+  folder under `games/` and a section of the release README (`tools/package/<id>/section.txt`).
+- The launcher's gallery: a tile per game the player added, with the game's dashboard icon (read
+  from `default.xex`) over its color, or a cover the player chooses (right click → Change cover).
+  Right click also plays, opens the game's logs, prepares it again or removes it from the library.
+- "Add game" recognises which game a copy is by its title ID, from an archive (only `default.xex`
+  is extracted to check it) or a folder, and says which games the release plays when it isn't one
+  of them.
+- `x360tool xex-icon`: writes a title's dashboard icon (the XDBF title image).
+
+### Changed
+
+- Games added from an archive are kept in `games\<id>\game`, logs in `logs\<id>`. A copy prepared
+  with a 0.3.0 package is added again with "Add game" → "From a game folder" (its `game` folder).
+- The terms of use (version 1.2) name every game and are accepted once for the launcher.
+- `make_dist.ps1` packages every game the build has (no `-Game`); the pose bridge is included once
+  when a game is played with a webcam.
+- The extraction progress bar only moves forward.
+
 ## [0.3.0] - 2026-10-19
 
 ### Changed

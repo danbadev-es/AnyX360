@@ -50,6 +50,13 @@ Milestones are measured by what a game does, not by lines of code. The first tar
 - [ ] MSAA/SMAA, anisotropic filtering, configurable FOV
 - [ ] LAN multiplayer (a stretch goal; Xbox Live is gone)
 
+## One release for every game (0.4.0, done)
+- [x] One launcher, `AnyX360.exe`, with a catalog of the games the build has (`games_catalog.h`)
+- [x] A gallery of the player's games with each game's dashboard icon (XDBF, `x360tool xex-icon`)
+      or a cover they choose; games recognised by title ID from an archive or a folder
+- [x] `.7z`, `.rar` and `.zip` archives
+- [x] One release folder and zip with every game, one README, one set of terms
+
 ## Dance Central 3
 
 ### Phase A: More than one game (done)

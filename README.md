@@ -42,23 +42,23 @@ the sensor.
 
 ## Installation
 
-1. Download the game's package from [Releases](https://github.com/danielbarretoes/AnyX360/releases):
-   `AnyX360-GearsOfWar3-<version>.zip` or `AnyX360-DanceCentral3-<version>.zip`.
-2. Extract it to a regular folder (not inside _Program Files_), on a drive with room for the game
-   if you prepare it from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3.
-3. Run the launcher, **`AnyX360 <game>.exe`**, and accept the terms of use.
-4. Click **Prepare the game…** and choose where your copy of the disc is:
-   - **From an archive** (.7z, .rar or .zip): the launcher extracts it next to itself. It finds
-     the game inside whatever folders the archive has, so a Gears of War 3 disc and a Dance
-     Central 3 copy both work as they come.
+1. Download the release from [Releases](https://github.com/danielbarretoes/AnyX360/releases):
+   `AnyX360-<version>.zip`. One release has every game.
+2. Extract it to a regular folder (not inside _Program Files_), on a drive with room for the games
+   you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3.
+3. Run **`AnyX360.exe`** and accept the terms of use.
+4. Click **Add game…** (or the **+** tile) and choose where your copy of the disc is:
+   - **From an archive** (.7z, .rar or .zip): the launcher extracts it into its `games` folder. It
+     finds the game inside whatever folders the archive has.
    - **From a game folder**: the launcher uses the folder that contains `default.xex` where it is.
 
-   Either way the launcher checks that it is the right game.
-5. Click **Play**.
+   The launcher recognises the game by its title ID and checks the copy is complete. Add each
+   game you have the same way: they appear in the gallery with the game's own icon.
+5. Choose a game and click **Play**.
 
 Settings can be changed while playing in the **F2** panel. They are saved to
-`%LOCALAPPDATA%\AnyX360\<game>\settings.toml`, next to your saves. Dance Central 3's package
-explains how to set up the webcam in its `README.txt`.
+`%LOCALAPPDATA%\AnyX360\<game>\settings.toml`, next to your saves. The release's `README.txt`
+explains each game's controls and how to set up the webcam for Dance Central 3.
 
 > [!NOTE]
 > Release packages contain no game data. The game files always come from your own copy.
@@ -100,8 +100,10 @@ explains how to set up the webcam in its `README.txt`.
 ### General
 
 - **Settings Panel** - F2 opens an in-game panel; changes apply immediately and are saved.
-- **Launcher** - In English and Spanish. It extracts your disc archive, starts the game without a
-  console, keeps a log and points you to it if the game closes with an error.
+- **Launcher** - One `AnyX360.exe` for every game, in English and Spanish: a gallery of the games
+  you added, with each game's dashboard icon (or a cover you choose). It recognises a copy by its
+  title ID, extracts disc archives, starts the game without a console, keeps a log per game and
+  points you to it if the game closes with an error.
 - **Shader Cache** - Shaders and pipelines are cached between runs, so stutter fades after the
   first play.
 - **Saves and Profiles** - Stored in `%LOCALAPPDATA%\AnyX360\<game>`, kept across versions.
@@ -187,8 +189,8 @@ Dance Central 3:
 - The pause gesture hasn't been confirmed with a webcam yet; a controller's Start pauses.
 - Voice commands don't work.
 
-Found something else? Open an issue with the version (shown in the launcher) and the
-`logs\last_run.log` file.
+Found something else? Open an issue with the version (shown in the launcher) and the game's
+`logs\<game>\last_run.log` file.
 
 ## System Requirements
 
@@ -271,12 +273,13 @@ cd games\gow3
 - Run `build.bat` again. The first build compiles the whole recompiled game and takes a while.
 - When it finishes, run `build\games\gow3\Release\GearsOfWar3.exe` (or
   `build\games\dc3\Release\DanceCentral3.exe`). It finds `extracted/` and `keys/` on its own, or
-  use `--game` and `--key`.
+  use `--game` and `--key`. The launcher, `build\launcher\Release\AnyX360.exe`, also runs from the
+  build folder and finds the games there.
 - For Dance Central 3's webcam, build the pose bridge:
   `powershell -ExecutionPolicy Bypass -File tools\pose_bridge\build_bridge.ps1` (see
   [tools/pose_bridge](tools/pose_bridge/README.md)).
-- Optionally, package a release with the launcher:
-  `powershell -ExecutionPolicy Bypass -File tools\package\make_dist.ps1 -Game gow3` (or `dc3`).
+- Optionally, package a release with the launcher and every game built:
+  `powershell -ExecutionPolicy Bypass -File tools\package\make_dist.ps1`.
 
 ## How It Works
 
@@ -320,7 +323,7 @@ To release a version:
 1. Move the _Unreleased_ entries to a new version section in the changelog.
 2. Update `VERSION`.
 3. Commit and tag `v<version>`.
-4. Run `tools\package\make_dist.ps1`. It names the package after the tag, without build metadata.
+4. Run `tools\package\make_dist.ps1`. It names the release after the tag, without build metadata.
 
 ## Tools
 
@@ -333,6 +336,7 @@ To release a version:
 | `iso-extract <image> <dir> [paths…]`    | Extracts all files, or only the given ones                                        |
 | `xex-info <xex>`                        | Headers, title ID, version, compression, imports, XDK libraries, page map         |
 | `xex-extract <xex> <out.bin> [--key f]` | Decrypts and decompresses the PE image; writes `.imports.txt` and `.sections.txt` |
+| `xex-icon <xex> <out.png> [--key f]`    | Writes the title image: the dashboard icon the launcher shows                     |
 
 ## Project Layout
 
@@ -343,8 +347,8 @@ games/dc3/        Dance Central 3: recompiler config, entry point, Kinect bindin
 runtime/          Kernel and XAM reimplementation, input, settings, GPU and audio glue,
                   and the virtual Kinect (runtime/src/nui)
 tools/x360tool/   Disc and XEX tooling
-tools/launcher/   Windows launcher (English and Spanish) and its terms of use
-tools/package/    Release packaging, with each game's README
+tools/launcher/   Windows launcher with the games' gallery (English and Spanish) and its terms of use
+tools/package/    Release packaging: the release's README and each game's section
 tools/pose_bridge/ The webcam pose bridge (Python, MediaPipe) and its build
 tools/scripts/    Analysis helpers (frame timing, switch helpers, NUI reconnaissance)
 tests/            Synthetic tests (no game data, no camera)

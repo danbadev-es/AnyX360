@@ -42,7 +42,7 @@ realistic for this console (see [Why the Xbox 360 is harder](#why-the-xbox-360-i
 | `runtime/src/input` | Keyboard and mouse, XInput controllers, per-player devices | Working |
 | `runtime/src/nui` | The virtual Kinect: the NUI API on the host, with webcam, mouse and scripted sources | Working (Dance Central 3) |
 | `tools/pose_bridge` | The webcam pose bridge: MediaPipe pose estimation → Kinect skeletons and images | Working; webcam use in testing |
-| `tools/launcher`, `tools/package` | Per-game launcher (English and Spanish) and distribution packaging | Working |
+| `tools/launcher`, `tools/package` | The launcher (a gallery of the player's games, English and Spanish) and the one release for every game | Working |
 | `games/gow3` | Gears of War 3 configuration, hooks and patches | Playable (0.1.0) |
 | `games/dc3` | Dance Central 3 configuration, Milo hooks and NUI bindings | Playable, in testing |
 
