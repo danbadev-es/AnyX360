@@ -438,8 +438,54 @@ def main():
     ok = all(open(os.path.join(work, "dlc_out", *p.split("/")), "rb").read() == v for p, v in stfs_files.items())
     check("stfs: stfs-extract content (chained blocks, subfolder)", ok)
 
+    # Covers: the front of a wraparound (right 47.3 %), a front alone kept, never scaled up.
+    wrap = os.path.join(work, "wrap.bmp")
+    with open(wrap, "wb") as f:
+        f.write(make_bmp(1495, 1000, lambda x, y: (200, 30, 30) if x < 787 else (30, 30, 200)))
+    front = os.path.join(work, "front.bmp")
+    with open(front, "wb") as f:
+        f.write(make_bmp(400, 600, lambda x, y: (30, 160, 30)))
+    for name, source, args, size in (("wraparound", wrap, [], (600, 847)),
+                                     ("wraparound, no upscale", wrap, ["--size", "2000x2000"], (708, 1000)),
+                                     ("front alone", front, ["--size", "2000x2000"], (400, 600))):
+        out_jpg = os.path.join(work, "cover.jpg")
+        out = run(tool, "cover", source, out_jpg, *args)
+        got = jpeg_size(out_jpg)
+        check(f"cover ({name}): {got}", got is not None and abs(got[0] - size[0]) <= 1 and abs(got[1] - size[1]) <= 1, out)
+
     print(f"\n{'OK' if failures == 0 else str(failures) + ' FAILURE(S)'}")
     return 1 if failures else 0
+
+
+def make_bmp(width, height, color):
+    """A 24-bit BMP; color(x, y) -> (r, g, b)."""
+    stride = (width * 3 + 3) & ~3
+    rows = bytearray()
+    for y in range(height - 1, -1, -1):  # bottom-up
+        row = bytearray()
+        for x in range(width):
+            r, g, b = color(x, y)
+            row += bytes((b, g, r))
+        rows += row + bytes(stride - len(row))
+    header = struct.pack("<2sIHHI", b"BM", 54 + len(rows), 0, 0, 54)
+    info = struct.pack("<IiiHHIIiiII", 40, width, height, 1, 24, 0, len(rows), 2835, 2835, 0, 0)
+    return header + info + bytes(rows)
+
+
+def jpeg_size(path):
+    """(width, height) from a JPEG's start-of-frame marker."""
+    with open(path, "rb") as f:
+        data = f.read()
+    i = 2
+    while i + 9 < len(data):
+        if data[i] != 0xFF:
+            return None
+        marker, length = data[i + 1], struct.unpack(">H", data[i + 2:i + 4])[0]
+        if marker in (0xC0, 0xC1, 0xC2):
+            height, width = struct.unpack(">HH", data[i + 5:i + 9])
+            return width, height
+        i += 2 + length
+    return None
 
 
 if __name__ == "__main__":

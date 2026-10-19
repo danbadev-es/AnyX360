@@ -13,14 +13,26 @@
 //                                             (Games on Demand, downloadable content, updates)
 //   god-extract <header> <out_dir> [path...]  Extract a Games on Demand package's disc files
 //   stfs-extract <package> <out_dir>          Extract an STFS package (downloadable content)
+//   cover       <picture> <out.jpg> [--size WxH] [--quality Q]
+//                                             A box picture's front cover, scaled to fit WxH
+//                                             (default 600x900), as a JPEG (quality 0-100, 85)
 #include <cstdio>
 #include <fstream>
 #include <map>
 #include <set>
 #include <sstream>
 
+#include <algorithm>
+#include <cstdlib>
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <objbase.h>
+
 #include "content.h"
 #include "exports.h"
+#include "wic/image.h"
 #include "stfs.h"
 #include "svod.h"
 #include "util.h"
@@ -44,7 +56,8 @@ int usage() {
       "  x360tool xex-icon    <default.xex> <out.png> [--key <xex2_retail.key>]\n"
       "  x360tool content-info <package>\n"
       "  x360tool god-extract <header> <out_dir> [path ...]\n"
-      "  x360tool stfs-extract <package> <out_dir>\n",
+      "  x360tool stfs-extract <package> <out_dir>\n"
+      "  x360tool cover       <picture> <out.jpg> [--size WxH] [--quality 0-100]\n",
       stderr);
   return 2;
 }
@@ -319,6 +332,19 @@ int cmd_xex_icon(const fs::path& path, const fs::path& out, const std::optional<
   return 0;
 }
 
+// The front cover of a box picture (a wraparound scan or the front alone), for the launcher.
+int cmd_cover(const fs::path& in, const fs::path& out, uint32_t width, uint32_t height, int quality) {
+  if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) throw Error("COM is not available");
+  anyx360::ui::Image image;
+  std::string error;
+  if (!anyx360::ui::LoadFrontCover(in, width, height, image, error)) throw Error(in.string() + ": " + error);
+  if (!anyx360::ui::SaveJpeg(image, out, quality / 100.0f, error)) throw Error(out.string() + ": " + error);
+  std::printf("wrote %s (%ux%u, %s)\n", out.string().c_str(), image.width, image.height,
+              fmt_size(fs::file_size(out)).c_str());
+  CoUninitialize();
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -352,6 +378,16 @@ int main(int argc, char** argv) {
       return cmd_god_extract(argv[2], argv[3], only);
     }
     if (cmd == "stfs-extract" && argc >= 4) return cmd_stfs_extract(argv[2], argv[3]);
+    if (cmd == "cover" && argc >= 4) {
+      unsigned width = 600, height = 900;
+      int quality = 85;
+      for (int i = 4; i + 1 < argc; ++i) {
+        const std::string option = argv[i];
+        if (option == "--size" && std::sscanf(argv[i + 1], "%ux%u", &width, &height) != 2) return usage();
+        if (option == "--quality") quality = std::clamp(std::atoi(argv[i + 1]), 1, 100);
+      }
+      return cmd_cover(argv[2], argv[3], width, height, quality);
+    }
   } catch (const std::exception& e) {
     std::fprintf(stderr, "error: %s\n", e.what());
     return 1;

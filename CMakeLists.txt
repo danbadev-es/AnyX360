@@ -36,6 +36,8 @@ if(ANYX360_GPU_D3D12)
   include(cmake/XeniaGpu.cmake)
 endif()
 
+add_subdirectory(ui)
+
 if(ANYX360_BUILD_RUNTIME)
   add_subdirectory(runtime)
 endif()

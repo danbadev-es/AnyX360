@@ -2,8 +2,9 @@
 # the build has (the games registered in the launcher's catalog, build\launcher\Release\
 # games_catalog.h): the launcher (AnyX360.exe), each recompiled executable (with its .pdb, so crash
 # reports name functions), 7-Zip, the XEX key, each game's shader cache, the pose bridge when a game
-# is played with a webcam, the README, the terms of use (TERMS.txt; the launcher shows them in
-# English or Spanish), the changelog and the third-party licenses - no game data: the launcher
+# is played with a webcam, the games' front covers (from covers\, which git doesn't keep), the README,
+# the terms of use (TERMS.txt; the launcher shows them in English or Spanish), the changelog and the
+# third-party licenses - no game data: the launcher
 # extracts the player's own disc archives (.7z, .rar or .zip) next to itself, or uses the folders of
 # their copies.
 #
@@ -31,7 +32,9 @@ function Build([string]$target) {
 }
 
 # The launcher first: configuring the build writes the catalog of the games it has.
-if (-not $NoBuild) { Build 'anyx360_launcher' }
+if (-not $NoBuild) { Build 'anyx360_launcher'; Build 'x360tool' }
+$x360tool = "$root\build\tools\x360tool\Release\x360tool.exe"
+if (-not (Test-Path $x360tool)) { throw "$x360tool is missing: build x360tool first" }
 $catalog = "$launcherDir\games_catalog.h"
 if (-not (Test-Path $catalog)) { throw "$catalog is missing: build anyx360_launcher first" }
 $ids = [regex]::Matches((Get-Content $catalog -Raw), '\{L"([a-z0-9_]+)", L"') | ForEach-Object { $_.Groups[1].Value }
@@ -112,6 +115,18 @@ if ($webcam) {
   Copy-Item $bridge "$dist\bin\pose_bridge" -Recurse
   Copy-Item $bridgeLicenses "$dist\licenses\pose_bridge" -Recurse
 }
+# Box art (covers\, not in git): the front cover of every catalog and upcoming game that has one,
+# at 600x900 at most (x360tool cover).
+$slugs = @($games | ForEach-Object { $_.cover }) +
+  @((Get-Content "$root\tools\launcher\upcoming.json" -Raw | ConvertFrom-Json).games | ForEach-Object { $_.cover })
+$slugs = @($slugs | Where-Object { $_ } | Select-Object -Unique)
+New-Item -ItemType Directory "$dist\covers" | Out-Null
+foreach ($slug in $slugs) {
+  $source = @("$root\covers\$slug.jpg", "$root\covers\$slug.png") | Where-Object { Test-Path $_ } | Select-Object -First 1
+  if (-not $source) { Write-Warning "No cover for $slug (covers\$slug.jpg): its tile will be a placeholder"; continue }
+  & $x360tool cover $source "$dist\covers\$slug.jpg" | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "x360tool cover failed for $source" }
+}
 foreach ($game in $games) {
   Copy-Item "$($game.release)\$($game.exe).exe", "$($game.release)\$($game.exe).pdb" "$dist\bin"
   # Shaders and pipelines collected while testing: the launcher seeds the player's cache with them.
@@ -130,8 +145,10 @@ function Join-List([string[]]$items) {
   if ($items.Count -le 1) { return ($items -join '') }
   return (($items[0..($items.Count - 2)] -join ', ') + ' and ' + $items[-1])
 }
-$owners = @($games | ForEach-Object { $_.owners -split ', ' } | Select-Object -Unique)
-$trademarks = @($games | ForEach-Object { $_.trademarks } | Select-Object -Unique)
+# The upcoming games' too: their box art ships in covers\.
+$upcoming = @((Get-Content "$root\tools\launcher\upcoming.json" -Raw | ConvertFrom-Json).games)
+$owners = @(@($games) + $upcoming | ForEach-Object { $_.owners -split ', ' } | Select-Object -Unique)
+$trademarks = @(@($games) + $upcoming | ForEach-Object { $_.trademarks } | Select-Object -Unique)
 $components = @($games | ForEach-Object { $_.components } | Where-Object { $_ } | ForEach-Object { ($_ -split ' \(')[0] } |
   Select-Object -Unique)
 $sizes = Join-List @($games | ForEach-Object { "$($_.title) about $($_.size_gb) GB" })

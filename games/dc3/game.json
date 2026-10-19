@@ -1,6 +1,8 @@
 {
   "id": "dc3",
   "title": "Dance Central 3",
+  "cover": "dance-central-3",
+  "status": "testing",
   "exe": "DanceCentral3",
   "user_dir": "DanceCentral3",
   "title_id": "373307D9",

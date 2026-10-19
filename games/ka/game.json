@@ -1,6 +1,8 @@
 {
   "id": "ka",
   "title": "Kinect Adventures",
+  "cover": "kinect-adventures",
+  "status": "testing",
   "exe": "KinectAdventures",
   "user_dir": "KinectAdventures",
   "title_id": "4D5308ED",

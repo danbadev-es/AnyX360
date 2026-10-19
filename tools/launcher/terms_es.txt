@@ -1,5 +1,5 @@
 TÉRMINOS Y CONDICIONES DE USO DE ANYX360
-Versión 1.2 · 19 de octubre de 2026
+Versión 1.3 · 20 de octubre de 2026
 
 Lee estos términos antes de usar el software. Al pulsar «Aceptar», o al usar el software de cualquier forma, declaras que los has leído y que los aceptas. Si no estás de acuerdo, no lo uses y elimínalo de tu equipo.
 
@@ -15,10 +15,10 @@ AnyX360 no proporciona, vende ni distribuye los juegos ni ninguno de sus archivo
 AnyX360 no modifica los archivos del juego que aportas. El lanzador extrae los archivos de tu archivo comprimido en tu propio equipo y el programa los lee tal como son. Nada de tu copia del juego se envía a terceros.
 
 4. CONTENIDO DE ESTE PAQUETE
-Este paquete contiene el lanzador, un ejecutable para Windows generado por recompilación estática y componentes de terceros que se distribuyen bajo sus propias licencias (ver la sección 12). No contiene archivos de datos del juego.
+Este paquete contiene el lanzador, un ejecutable para Windows generado por recompilación estática y componentes de terceros que se distribuyen bajo sus propias licencias (ver la sección 12). No contiene archivos de datos del juego. Sí contiene imágenes de la portada de la caja de algunos juegos, que pertenecen a sus editoras y que el lanzador muestra únicamente para identificar los juegos que el software ejecuta o para los que se está preparando; ver la sección 10.
 
 5. AUSENCIA DE AFILIACIÓN Y MARCAS
-AnyX360 no está afiliado, asociado, autorizado, patrocinado ni respaldado por {OWNERS} ni ningún otro titular de derechos sobre los juegos. {TRADEMARKS} y el resto de nombres y marcas mencionados pertenecen a sus respectivos titulares y se citan únicamente para identificar los juegos con los que el software es compatible.
+AnyX360 no está afiliado, asociado, autorizado, patrocinado ni respaldado por {OWNERS} ni ningún otro titular de derechos sobre los juegos. {TRADEMARKS} y el resto de nombres y marcas mencionados pertenecen a sus respectivos titulares y se citan únicamente para identificar los juegos con los que el software es compatible o para los que se está preparando.
 
 6. USO PERMITIDO
 Se te permite usar el software solo para fines personales, privados y no comerciales, con tu propia copia legal del juego. No puedes:

@@ -25,7 +25,7 @@ target_link_libraries(x360_formats PUBLIC x360_runtime mspack_lzxd bcrypt)
 target_compile_definitions(x360_formats PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 add_executable(x360tool src/main.cpp)
-target_link_libraries(x360tool PRIVATE x360_formats)
+target_link_libraries(x360tool PRIVATE x360_formats ui_wic)
 target_compile_definitions(x360tool PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 find_package(Python3 COMPONENTS Interpreter)

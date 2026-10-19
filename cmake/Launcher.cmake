@@ -51,6 +51,17 @@ function(anyx360_add_launcher)
     foreach(field title exe user_dir title_id size_gb input owners)
       string(JSON ${field} GET "${json}" ${field})
     endforeach()
+    # Optional: the cover's slug (covers/<slug>.jpg) and whether the game is playable or in testing.
+    string(JSON cover ERROR_VARIABLE no_cover GET "${json}" cover)
+    if(no_cover)
+      set(cover "")
+    endif()
+    string(JSON status ERROR_VARIABLE no_status GET "${json}" status)
+    if(status STREQUAL "playable")
+      set(playable true)
+    else()
+      set(playable false)
+    endif()
     set(required_files "")
     string(JSON count LENGTH "${json}" required_files)
     if(count GREATER 0)
@@ -69,7 +80,7 @@ function(anyx360_add_launcher)
       set(webcam false)
     endif()
     string(APPEND entries "    {L\"${id}\", L\"${title}\", L\"${exe}.exe\", L\"${user_dir}\", 0x${title_id}, ${size_gb}, ${webcam},\n"
-                          "     L\"${required_files}\", L\"$<TARGET_FILE:${id}>\"},\n")
+                          "     L\"${required_files}\", L\"$<TARGET_FILE:${id}>\", L\"${cover}\", ${playable}},\n")
     list(APPEND titles "${title}")
     # Rights holders, trademarks and extra components of every game, each named once.
     string(REPLACE ", " ";" game_owners "${owners}")
@@ -85,6 +96,37 @@ function(anyx360_add_launcher)
       endif()
     endforeach()
   endforeach()
+  # The games coming soon (tools/launcher/upcoming.json): shown greyed in Compatible with their box
+  # art, so their owners and trademarks are named in the terms too.
+  set(upcoming_path ${PROJECT_SOURCE_DIR}/tools/launcher/upcoming.json)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${upcoming_path})
+  file(READ ${upcoming_path} upcoming_json)
+  set(upcoming_entries "")
+  string(JSON upcoming_count LENGTH "${upcoming_json}" games)
+  if(upcoming_count GREATER 0)
+    math(EXPR last "${upcoming_count} - 1")
+    foreach(i RANGE ${last})
+      string(JSON game GET "${upcoming_json}" games ${i})
+      foreach(field title cover title_id owners)
+        string(JSON ${field} GET "${game}" ${field})
+      endforeach()
+      if(title_id STREQUAL "")
+        set(title_id 0)
+      endif()
+      string(APPEND upcoming_entries "    {L\"${title}\", L\"${cover}\", 0x${title_id}},\n")
+      string(REPLACE ", " ";" game_owners "${owners}")
+      list(APPEND all_owners ${game_owners})
+      string(JSON marks_count LENGTH "${game}" trademarks)
+      if(marks_count GREATER 0)
+        math(EXPR marks_last "${marks_count} - 1")
+        foreach(j RANGE ${marks_last})
+          string(JSON item GET "${game}" trademarks ${j})
+          list(APPEND all_trademarks "${item}")
+        endforeach()
+      endif()
+    endforeach()
+  endif()
+
   foreach(list_name owners trademarks components)
     if(all_${list_name})
       list(REMOVE_DUPLICATES all_${list_name})
@@ -107,10 +149,22 @@ struct CatalogGame {
   bool webcam;              // played with a webcam (virtual Kinect)
   const wchar_t* required_files;  // besides default.xex, '|'-separated
   const wchar_t* dev_exe;   // the build's copy, when the launcher runs from the build folder
+  const wchar_t* cover;     // covers/<cover>.jpg (empty: none)
+  bool playable;            // playable; false: in testing
 };
 
 inline constexpr CatalogGame kCatalog[] = {
 ${entries}};
+
+// Shown greyed as \"Coming soon\" (tools/launcher/upcoming.json).
+struct UpcomingGame {
+  const wchar_t* title;
+  const wchar_t* cover;     // covers/<cover>.jpg (empty: a placeholder)
+  uint32_t title_id;        // 0: not known yet
+};
+
+inline constexpr UpcomingGame kUpcoming[] = {
+${upcoming_entries}};
 ")
 
   # The terms of use in English and Spanish, shown and accepted in the launcher, naming every game,

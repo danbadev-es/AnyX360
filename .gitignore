@@ -8,6 +8,9 @@
 *.xbe
 *.stfs
 *.god
+# Box art (the publishers'): shipped in the release only, see covers/README.md
+/covers/*
+!/covers/README.md
 
 # --- Console keys: NEVER commit ---
 /keys/*

@@ -1,6 +1,8 @@
 {
   "id": "gow3",
   "title": "Gears of War 3",
+  "cover": "gears-of-war-3",
+  "status": "playable",
   "exe": "GearsOfWar3",
   "user_dir": "GearsOfWar3",
   "title_id": "4D5308AB",
