@@ -56,6 +56,18 @@ class FileDevice final : public XdvdfsDevice {
   uint64_t size_ = 0;
 };
 
+// The layout whose volume descriptor `file` has (its sector copied to `descriptor`), or null.
+const Layout* FindLayout(FileDevice& file, uint8_t (&descriptor)[kSectorSize]) {
+  for (const Layout& l : kLayouts) {
+    uint64_t vd = l.offset + uint64_t(kVolumeDescriptorSector) * kSectorSize;
+    if (vd + kSectorSize > file.size()) continue;
+    file.read(vd, descriptor, kSectorSize);
+    if (std::memcmp(descriptor, kMagic, kMagicLen) == 0 && std::memcmp(descriptor + 0x7EC, kMagic, kMagicLen) == 0)
+      return &l;
+  }
+  return nullptr;
+}
+
 }  // namespace
 
 bool is_safe_name(const std::string& name) {
@@ -70,21 +82,25 @@ bool is_safe_name(const std::string& name) {
 
 XdvdfsImage::XdvdfsImage(const fs::path& path) {
   auto file = std::make_unique<FileDevice>(path);
-  for (const Layout& l : kLayouts) {
-    uint64_t vd = l.offset + uint64_t(kVolumeDescriptorSector) * kSectorSize;
-    if (vd + kSectorSize > file->size()) continue;
+  uint8_t buf[kSectorSize];
+  const Layout* layout = FindLayout(*file, buf);
+  if (!layout) throw Error("no XDVDFS volume found (not an Xbox/Xbox 360 disc image, or an unsupported layout)");
+  partition_offset_ = layout->offset;
+  layout_ = layout->name;
+  root_sector_ = le32(buf + 0x14);
+  root_size_ = le32(buf + 0x18);
+  file->base = layout->offset;
+  device_ = std::move(file);
+}
+
+bool XdvdfsImage::is_disc_image(const fs::path& path) {
+  try {
+    FileDevice file(path);
     uint8_t buf[kSectorSize];
-    file->read(vd, buf, sizeof(buf));
-    if (std::memcmp(buf, kMagic, kMagicLen) != 0 || std::memcmp(buf + 0x7EC, kMagic, kMagicLen) != 0) continue;
-    partition_offset_ = l.offset;
-    layout_ = l.name;
-    root_sector_ = le32(buf + 0x14);
-    root_size_ = le32(buf + 0x18);
-    file->base = l.offset;
-    device_ = std::move(file);
-    return;
+    return FindLayout(file, buf) != nullptr;
+  } catch (const std::exception&) {
+    return false;
   }
-  throw Error("no XDVDFS volume found (not an Xbox/Xbox 360 disc image, or an unsupported layout)");
 }
 
 XdvdfsImage::XdvdfsImage(std::unique_ptr<XdvdfsDevice> device, uint32_t root_sector, uint32_t root_size,
@@ -118,7 +134,7 @@ void XdvdfsImage::walk_dir(uint32_t sector, uint32_t size, const std::string& pr
     if (left) node(left);
 
     XdvdfsEntry entry;
-    std::string name(reinterpret_cast<const char*>(e + 14), name_len);
+    std::string name = cp1252_to_utf8(std::string_view(reinterpret_cast<const char*>(e + 14), name_len));
     if (!is_safe_name(name)) throw Error("unsafe file name in image: '" + name + "'");
     entry.path = prefix.empty() ? name : prefix + "/" + name;
     entry.sector = le32(e + 4);
@@ -132,20 +148,23 @@ void XdvdfsImage::walk_dir(uint32_t sector, uint32_t size, const std::string& pr
   node(0);
 }
 
-void XdvdfsImage::extract(const XdvdfsEntry& entry, const fs::path& dest) {
+bool XdvdfsImage::extract(const XdvdfsEntry& entry, const fs::path& dest, const Progress& progress) {
   std::ofstream out = create_file(dest);
 
   std::vector<char> buf(4 * 1024 * 1024);
   uint64_t pos = uint64_t(entry.sector) * kSectorSize;
-  uint64_t left = entry.size;
+  uint64_t left = entry.size, done = 0;
   while (left) {
     size_t n = static_cast<size_t>(std::min<uint64_t>(left, buf.size()));
     device_->read(pos, buf.data(), n);
     out.write(buf.data(), static_cast<std::streamsize>(n));
     pos += n;
     left -= n;
+    done += n;
+    if (progress && !progress(done)) return false;
   }
   if (!out) throw Error("write failed: " + dest.string());
+  return true;
 }
 
 }  // namespace x360tool

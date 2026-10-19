@@ -7,6 +7,7 @@ checks the results. The LZX path is only exercised with real game data.
 usage: python -I tests/test_x360tool.py <path/to/x360tool.exe> <work_dir>
 """
 
+import hashlib
 import os
 import struct
 import subprocess
@@ -267,10 +268,48 @@ def make_god(folder, files, egdf, at=None):
     return header
 
 
-def make_stfs(files):
-    """A read-only STFS package (downloadable content) with `files` {"path": bytes} (one level of
-    subdirectory). File blocks are chained out of order to exercise the hash-table links."""
+STFS_PER_LEVEL = (170, 28900, 4913000)  # data blocks one hash table of each level covers
+
+
+def stfs_layout(tph):
+    """Xenia's StfsContainerDevice formulas (BlockToOffset, BlockToHashBlockNumber), with `tph`
+    tables per hash (1 read-only, 2 otherwise): the physical block, after the header, of data
+    block b and of the hash table of `level` covering it."""
+    step = (170 + tph, 28900 + 171 * tph)
+
+    def data(b):
+        block = b
+        for base in STFS_PER_LEVEL:
+            block += ((b + base) // base) * tph
+            if b < base:
+                break
+        return block
+
+    def table(b, level):
+        if level == 2:
+            return step[1]
+        if b < STFS_PER_LEVEL[level]:
+            return 0 if level == 0 else step[level - 1]
+        block = (b // STFS_PER_LEVEL[level]) * step[level]
+        if level == 0:
+            block += (b // STFS_PER_LEVEL[1] + 1) * tph
+            if b < STFS_PER_LEVEL[1]:
+                return block
+        return block + tph
+
+    return data, table
+
+
+def make_stfs(files, content_type=0x2, name="Test Pack", read_only=True, secondary=False, filler_blocks=0,
+              break_chain=None):
+    """An STFS package with `files` {"path": bytes} (one level of subdirectory, names in
+    Windows-1252) and real hash tables. File blocks are chained out of order to exercise the
+    hash-table links. read_only: one copy of each hash table; otherwise two, the current one named
+    by the level above (`secondary`: always the second, the first filled with junk). filler_blocks:
+    allocated blocks no file uses, so the package needs more hash levels. break_chain: a path whose
+    block chain ends one block early."""
     BLOCK = 0x1000
+    tph = 1 if read_only else 2
     entries = []  # (name, parent index, is_dir, blocks, length)
     dirs = {}
     for path in files:
@@ -286,40 +325,72 @@ def make_stfs(files):
             blocks[1], blocks[2] = blocks[2], blocks[1]
         parent = dirs[path.split("/")[0]] if "/" in path else 0xFFFF
         entries.append((path.split("/")[-1], parent, False, blocks, len(content)))
-    assert next_block <= 170, "keep the fixture under one level-0 hash table"
+    total = next_block + filler_blocks
     table = bytearray(BLOCK)
-    for i, (name, parent, is_dir, blocks, length) in enumerate(entries):
+    for i, (entry_name, parent, is_dir, blocks, length) in enumerate(entries):
         e = i * 0x40
-        table[e:e + len(name)] = name.encode()
-        table[e + 0x28] = len(name) | (0x80 if is_dir else 0)
+        encoded = entry_name.encode("cp1252")
+        table[e:e + len(encoded)] = encoded
+        table[e + 0x28] = len(encoded) | (0x80 if is_dir else 0)
         table[e + 0x29:e + 0x2C] = len(blocks).to_bytes(3, "little")
         table[e + 0x2C:e + 0x2F] = len(blocks).to_bytes(3, "little")
         table[e + 0x2F:e + 0x32] = (blocks[0] if blocks else 0).to_bytes(3, "little")
         struct.pack_into(">HI", table, e + 0x32, parent, length)
     links = {0: 0xFFFFFF}
     content_blocks = {0: bytes(table)}
-    for path, (name, parent, is_dir, blocks, length) in zip([None] * len(dirs) + list(files), entries):
+    for path, (entry_name, parent, is_dir, blocks, length) in zip([None] * len(dirs) + list(files), entries):
         if is_dir:
             continue
         for k, b in enumerate(blocks):
             links[b] = blocks[k + 1] if k + 1 < len(blocks) else 0xFFFFFF
             content_blocks[b] = files[path][k * BLOCK:(k + 1) * BLOCK]
-    # Read-only format: one level-0 hash table (physical block 0) before data blocks 0..169.
-    hashes = bytearray(BLOCK)
-    for b, nxt in links.items():
-        struct.pack_into(">I", hashes, b * 0x18 + 0x14, 0x80000000 | nxt)
-    data = bytearray(BLOCK * (next_block + 1))
-    data[0:BLOCK] = hashes
-    for b, v in content_blocks.items():
-        data[(b + 1) * BLOCK:(b + 1) * BLOCK + len(v)] = v
+        if path == break_chain:
+            links[blocks[-2]] = 0xFFFFFF
+    for b in range(next_block, total):
+        content_blocks[b] = bytes([b & 0xFF, (b >> 8) & 0xFF]) * 8
+
+    def block_bytes(b):
+        return content_blocks.get(b, b"").ljust(BLOCK, b"\0")
+
+    top = 0 if total <= STFS_PER_LEVEL[0] else 1 if total <= STFS_PER_LEVEL[1] else 2
+    tables = {}  # (level, first data block covered): table
+    for first in range(0, total, STFS_PER_LEVEL[0]):
+        t = bytearray(BLOCK)
+        for b in range(first, min(first + STFS_PER_LEVEL[0], total)):
+            e = (b - first) * 0x18
+            t[e:e + 20] = hashlib.sha1(block_bytes(b)).digest()
+            struct.pack_into(">I", t, e + 0x14, 0x80000000 | links.get(b, 0xFFFFFF))
+        tables[(0, first)] = bytes(t)
+    for level in range(1, top + 1):
+        child = STFS_PER_LEVEL[level - 1]
+        for first in range(0, total, STFS_PER_LEVEL[level]):
+            t = bytearray(BLOCK)
+            for k, child_first in enumerate(range(first, min(first + STFS_PER_LEVEL[level], total), child)):
+                t[k * 0x18:k * 0x18 + 20] = hashlib.sha1(tables[(level - 1, child_first)]).digest()
+                struct.pack_into(">I", t, k * 0x18 + 0x14, 0x40000000 if secondary and tph == 2 else 0)
+            tables[(level, first)] = bytes(t)
+
+    data_block, table_block = stfs_layout(tph)
+    last = max([data_block(b) for b in range(total)] +
+               [table_block(first, level) + tph - 1 for level, first in tables])
+    image = bytearray(BLOCK * (last + 1))
+    for b in range(total):
+        image[data_block(b) * BLOCK:(data_block(b) + 1) * BLOCK] = block_bytes(b)
+    for (level, first), t in tables.items():
+        at = table_block(first, level) * BLOCK
+        if tph == 2:
+            image[at:at + 2 * BLOCK] = b"\xEE" * (2 * BLOCK)
+            at += BLOCK if secondary else 0
+        image[at:at + BLOCK] = t
     descriptor = bytearray(0x24)
     descriptor[0] = 0x24
-    descriptor[2] = 1  # read-only format
+    descriptor[2] = (1 if read_only else 0) | (2 if secondary and tph == 2 else 0)
     struct.pack_into("<H", descriptor, 3, 1)  # file table: one block, block 0
-    struct.pack_into(">II", descriptor, 0x1C, next_block, 0)
-    header = content_header(b"LIVE", 0x2, 0x4D5308AB, "Test Pack", 0, descriptor)
+    descriptor[8:28] = hashlib.sha1(tables[(top, 0)]).digest()
+    struct.pack_into(">II", descriptor, 0x1C, total, 0)
+    header = content_header(b"LIVE", content_type, 0x4D5308AB, name, 0, descriptor)
     header = header[:0xA000]  # the data starts at the header size (0x971A) rounded up to 0x1000
-    return bytes(header) + bytes(data)
+    return bytes(header) + bytes(image)
 
 
 failures = 0
@@ -437,6 +508,43 @@ def main():
     run(tool, "stfs-extract", pack, os.path.join(work, "dlc_out"))
     ok = all(open(os.path.join(work, "dlc_out", *p.split("/")), "rb").read() == v for p, v in stfs_files.items())
     check("stfs: stfs-extract content (chained blocks, subfolder)", ok)
+
+    # Bigger packages: level-1 hash tables, Windows-1252 names, two copies of each table, every
+    # hash checked; a damaged block and a short chain are errors.
+    big_files = {"big.bin": bytes((i * 11) & 0xFF for i in range(300 * 0x1000 + 77)),
+                 "café.txt": b"accent", "music/€uro.txt": b"euro"}
+    pack = os.path.join(work, "big.stfs")
+    out_dir = os.path.join(work, "big_out")
+    for name, options in (("read-only, level 1", {}), ("two copies, second current", {"read_only": False, "secondary": True}),
+                          ("two copies, first current", {"read_only": False})):
+        with open(pack, "wb") as f:
+            f.write(make_stfs(big_files, filler_blocks=200, **options))
+        out = run(tool, "stfs-extract", pack, out_dir, "--verify")
+        check(f"stfs ({name}): verified", "0 mismatches" in out and "4 hash tables" in out, out)
+        ok = all(open(os.path.join(out_dir, *p.split("/")), "rb").read() == v for p, v in big_files.items())
+        check(f"stfs ({name}): content and names", ok, out)
+    with open(pack, "r+b") as f:  # one byte of data block 120
+        data_block, _ = stfs_layout(2)
+        f.seek(0xA000 + data_block(120) * 0x1000 + 5)
+        byte = f.read(1)
+        f.seek(-1, 1)
+        f.write(b"\x01" if byte == b"\x00" else b"\x00")
+    out = run(tool, "stfs-extract", pack, out_dir, "--verify", expect_ok=False)
+    check("stfs: a damaged block is found", "mismatch: data block 120" in out and "damaged" in out, out)
+    with open(pack, "wb") as f:
+        f.write(make_stfs(big_files, break_chain="big.bin"))
+    out = run(tool, "stfs-extract", pack, out_dir, expect_ok=False)
+    check("stfs: a chain shorter than its file is an error", "ends early" in out, out)
+
+    # An Xbox Live Arcade game is an STFS package too.
+    pack = os.path.join(work, "arcade.stfs")
+    with open(pack, "wb") as f:
+        f.write(make_stfs({"default.xex": cases["plain"]}, content_type=0xD0000, name="Arcade Game"))
+    info = run(tool, "content-info", pack)
+    check("arcade: content-info", "Xbox Live Arcade game" in info and "Arcade Game" in info, info)
+    run(tool, "stfs-extract", pack, os.path.join(work, "arcade_out"), "--verify")
+    with open(os.path.join(work, "arcade_out", "default.xex"), "rb") as f:
+        check("arcade: default.xex extracted", f.read() == cases["plain"])
 
     # Covers: the front of a wraparound (right 47.3 %), a front alone kept, never scaled up.
     wrap = os.path.join(work, "wrap.bmp")

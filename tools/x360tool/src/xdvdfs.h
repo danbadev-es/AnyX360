@@ -16,7 +16,7 @@
 namespace x360tool {
 
 struct XdvdfsEntry {
-  std::string path;  // '/'-separated, relative to the root
+  std::string path;  // '/'-separated, relative to the root, UTF-8
   uint32_t sector = 0;
   uint32_t size = 0;
   bool is_dir = false;
@@ -33,6 +33,8 @@ class XdvdfsImage {
  public:
   // A disc image file: the layout is detected.
   explicit XdvdfsImage(const fs::path& path);
+  // Whether `path` is a disc image (an XDVDFS volume at one of the known layouts' offsets).
+  static bool is_disc_image(const fs::path& path);
   // A partition read through `device`, whose root directory table is known.
   XdvdfsImage(std::unique_ptr<XdvdfsDevice> device, uint32_t root_sector, uint32_t root_size, const char* layout);
 
@@ -43,8 +45,8 @@ class XdvdfsImage {
   // Walks every entry in directory-tree order. Directories are reported before their contents.
   void walk(const std::function<void(const XdvdfsEntry&)>& visit);
 
-  // Copies a file entry to `dest`.
-  void extract(const XdvdfsEntry& entry, const fs::path& dest);
+  // Copies a file entry to `dest`. Returns false if `progress` stopped it (the file is incomplete).
+  bool extract(const XdvdfsEntry& entry, const fs::path& dest, const Progress& progress = {});
 
  private:
   void walk_dir(uint32_t sector, uint32_t size, const std::string& prefix, int depth,

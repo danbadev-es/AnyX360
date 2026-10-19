@@ -45,6 +45,50 @@ void write_file(const fs::path& path, std::span<const uint8_t> data) {
   }
 }
 
+std::string cp1252_to_utf8(std::string_view name) {
+  // 0x80-0x9F differ from Latin-1 (0 where Windows-1252 has no character); the rest is Latin-1.
+  static constexpr uint16_t k80[32] = {0x20AC, 0, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,
+                                       0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0, 0x017D, 0,
+                                       0, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+                                       0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0, 0x017E, 0x0178};
+  std::string out;
+  for (unsigned char c : name) {
+    uint32_t code = c < 0x80 ? c : c < 0xA0 ? k80[c - 0x80] : c;
+    if (!code) code = 0xFFFD;
+    if (code < 0x80) {
+      out += char(code);
+    } else if (code < 0x800) {
+      out += char(0xC0 | (code >> 6));
+      out += char(0x80 | (code & 0x3F));
+    } else {
+      out += char(0xE0 | (code >> 12));
+      out += char(0x80 | ((code >> 6) & 0x3F));
+      out += char(0x80 | (code & 0x3F));
+    }
+  }
+  return out;
+}
+
+fs::path utf8_path(std::string_view utf8) {
+  int length = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), int(utf8.size()), nullptr, 0);
+  std::wstring text(size_t(length > 0 ? length : 0), L'\0');
+  MultiByteToWideChar(CP_UTF8, 0, utf8.data(), int(utf8.size()), text.data(), length);
+  return fs::path(text);
+}
+
+std::array<uint8_t, 20> sha1(std::span<const uint8_t> data) {
+  static const BCRYPT_ALG_HANDLE alg = [] {
+    BCRYPT_ALG_HANDLE handle = nullptr;
+    if (BCryptOpenAlgorithmProvider(&handle, BCRYPT_SHA1_ALGORITHM, nullptr, 0) < 0) throw Error("BCrypt: open SHA-1");
+    return handle;
+  }();
+  std::array<uint8_t, 20> digest{};
+  if (BCryptHash(alg, nullptr, 0, const_cast<PUCHAR>(data.data()), ULONG(data.size()), digest.data(),
+                 ULONG(digest.size())) < 0)
+    throw Error("BCrypt: SHA-1");
+  return digest;
+}
+
 std::string hex(std::span<const uint8_t> data) {
   static constexpr char kDigits[] = "0123456789ABCDEF";
   std::string s;

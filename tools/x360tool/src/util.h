@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -25,6 +26,17 @@ void write_file(const fs::path& path, std::span<const uint8_t> data);
 fs::path long_path(const fs::path& path);
 // Creates `path` (and its folders) for writing, long paths included; throws if it can't.
 std::ofstream create_file(const fs::path& path);
+
+// Told the bytes an extraction has written so far; returning false stops it.
+using Progress = std::function<bool(uint64_t bytes)>;
+
+// A name as the console stores it (STFS and XDVDFS file names are Windows-1252) in UTF-8.
+std::string cp1252_to_utf8(std::string_view name);
+// A UTF-8 path (an entry's path) as a path.
+fs::path utf8_path(std::string_view utf8);
+
+// SHA-1 of `data`.
+std::array<uint8_t, 20> sha1(std::span<const uint8_t> data);
 
 // Hex helpers.
 std::string hex(std::span<const uint8_t> data);

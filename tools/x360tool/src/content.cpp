@@ -83,6 +83,7 @@ const char* content_type_name(uint32_t type) {
     case content_type::kGamesOnDemand: return "Games on Demand";
     case content_type::kGameDemo: return "game demo";
     case content_type::kInstaller: return "title update";
+    case content_type::kArcadeTitle: return "Xbox Live Arcade game";
     default: return "content";
   }
 }

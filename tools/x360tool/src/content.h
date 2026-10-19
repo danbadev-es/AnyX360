@@ -20,6 +20,7 @@ constexpr uint32_t kMarketplace = 0x00000002;  // downloadable content
 constexpr uint32_t kGamesOnDemand = 0x00007000;
 constexpr uint32_t kGameDemo = 0x00080000;
 constexpr uint32_t kInstaller = 0x000B0000;  // title updates
+constexpr uint32_t kArcadeTitle = 0x000D0000;  // an Xbox Live Arcade game
 }  // namespace content_type
 
 struct ContentPackage {

@@ -12,7 +12,10 @@
 //   content-info <package>                    A content package's header and contents
 //                                             (Games on Demand, downloadable content, updates)
 //   god-extract <header> <out_dir> [path...]  Extract a Games on Demand package's disc files
-//   stfs-extract <package> <out_dir>          Extract an STFS package (downloadable content)
+//   stfs-extract <package> <out_dir> [--verify]
+//                                             Extract an STFS package (downloadable content, an
+//                                             arcade game); --verify checks every block's SHA-1
+//                                             and every hash table first
 //   cover       <picture> <out.jpg> [--size WxH] [--quality Q]
 //                                             A box picture's front cover, scaled to fit WxH
 //                                             (default 600x900), as a JPEG (quality 0-100, 85)
@@ -56,7 +59,7 @@ int usage() {
       "  x360tool xex-icon    <default.xex> <out.png> [--key <xex2_retail.key>]\n"
       "  x360tool content-info <package>\n"
       "  x360tool god-extract <header> <out_dir> [path ...]\n"
-      "  x360tool stfs-extract <package> <out_dir>\n"
+      "  x360tool stfs-extract <package> <out_dir> [--verify]\n"
       "  x360tool cover       <picture> <out.jpg> [--size WxH] [--quality 0-100]\n",
       stderr);
   return 2;
@@ -110,7 +113,7 @@ int extract_volume(XdvdfsImage& iso, const fs::path& out, const std::set<std::st
     if (e.is_dir) return;
     if (!only.empty() && !only.contains(e.path)) return;
     std::printf("  %s (%s)\n", e.path.c_str(), fmt_size(e.size).c_str());
-    iso.extract(e, out / fs::path(e.path));
+    iso.extract(e, out / utf8_path(e.path));
     ++count;
     bytes += e.size;
   });
@@ -153,13 +156,20 @@ int cmd_god_extract(const fs::path& header, const fs::path& out, const std::set<
   return extract_volume(*god, out, only);
 }
 
-int cmd_stfs_extract(const fs::path& path, const fs::path& out) {
+int cmd_stfs_extract(const fs::path& path, const fs::path& out, bool verify) {
   StfsPackage stfs(path);
+  if (verify) {
+    StfsVerifyResult result = stfs.verify();
+    for (const std::string& error : result.errors) std::printf("  mismatch: %s\n", error.c_str());
+    std::printf("verified %u data blocks and %u hash tables: %u mismatches\n", result.blocks, result.tables,
+                result.mismatches);
+    if (result.mismatches) throw Error("the package is damaged");
+  }
   uint64_t count = 0, bytes = 0;
   for (const StfsEntry& e : stfs.entries()) {
     if (e.is_dir) continue;
     std::printf("  %s (%s)\n", e.path.c_str(), fmt_size(e.size).c_str());
-    stfs.extract(e, out / fs::path(e.path));
+    stfs.extract(e, out / utf8_path(e.path));
     ++count;
     bytes += e.size;
   }
@@ -377,7 +387,8 @@ int main(int argc, char** argv) {
       std::set<std::string> only(argv + 4, argv + argc);
       return cmd_god_extract(argv[2], argv[3], only);
     }
-    if (cmd == "stfs-extract" && argc >= 4) return cmd_stfs_extract(argv[2], argv[3]);
+    if (cmd == "stfs-extract" && argc >= 4)
+      return cmd_stfs_extract(argv[2], argv[3], argc >= 5 && std::string(argv[4]) == "--verify");
     if (cmd == "cover" && argc >= 4) {
       unsigned width = 600, height = 900;
       int quality = 85;
