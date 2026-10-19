@@ -1,9 +1,14 @@
 """Frames from the webcam (or a video file), read on their own thread; the bridge takes the newest.
 
 Frames are unmirrored: a camera that mirrors its image (the "mirror" setting) is flipped back, so
-the pose estimator sees people as they are.
+the pose estimator sees people as they are. The mirror setting can change while the camera runs.
+
+Frame numbers and times continue from one camera to the next (changing camera opens a new source):
+the bridge waits for frames numbered above the last one it used, and the estimator needs times that
+only grow.
 """
 
+import itertools
 import threading
 import time
 import winreg
@@ -14,6 +19,9 @@ import protocol
 
 CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 1280, 720, 30
 RETRY_SECONDS = 2.0
+
+_EPOCH = time.perf_counter()     # the time base of every camera source
+_NUMBERS = itertools.count(1)   # their frame numbers
 
 
 class Frame:
@@ -54,8 +62,6 @@ class _Source(threading.Thread):
         self._frame = None
         self._condition = threading.Condition()
         self._stop = threading.Event()
-        self._start_time = time.perf_counter()
-        self._number = 0
 
     def stop(self):
         self._stop.set()
@@ -72,8 +78,7 @@ class _Source(threading.Thread):
     def _deliver(self, image):
         if self.mirror:
             image = cv2.flip(image, 1)
-        self._number += 1
-        frame = Frame(image, self._number, protocol.qpc(), time.perf_counter() - self._start_time)
+        frame = Frame(image, next(_NUMBERS), protocol.qpc(), time.perf_counter() - _EPOCH)
         self.size = (image.shape[1], image.shape[0])
         with self._condition:
             self._frame = frame

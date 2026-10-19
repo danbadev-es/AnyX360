@@ -23,6 +23,7 @@ os.environ.setdefault("OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS", "0")
 import argparse  # noqa: E402
 import ctypes  # noqa: E402
 import json  # noqa: E402
+import threading  # noqa: E402
 import time  # noqa: E402
 import traceback  # noqa: E402
 from ctypes import wintypes  # noqa: E402
@@ -38,7 +39,8 @@ import protocol  # noqa: E402
 import synthetic  # noqa: E402
 from pipeline import Pipeline  # noqa: E402
 
-VERSION = "1.0"
+VERSION = "1.1"
+MAX_FRAME_FAILURES = 60  # consecutive frames that fail before the bridge gives up (the game restarts it)
 
 
 def log(message):
@@ -60,6 +62,31 @@ class Parent:
 
     def gone(self):
         return bool(self._handle) and self._kernel32.WaitForSingleObject(self._handle, 0) == 0
+
+
+class KeepAlive:
+    """Beats the heartbeat from a thread while the bridge does something slow (importing MediaPipe,
+    loading a model, opening or closing a camera), so the game doesn't take it for stuck."""
+
+    def __init__(self, channel):
+        self._channel = channel
+        self._stop = threading.Event()
+        self._thread = None
+
+    def __enter__(self):
+        if self._channel:
+            self._thread = threading.Thread(target=self._run, daemon=True)
+            self._thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._stop.set()
+        if self._thread:
+            self._thread.join()
+
+    def _run(self):
+        while not self._stop.wait(0.2):
+            self._channel.beat()
 
 
 def standalone_settings(args):
@@ -151,11 +178,14 @@ class Bridge:
             pipeline.configure(control)
             if changed:
                 log(f"settings changed: {', '.join(sorted(changed))}")
-            if changed & {"players", "model"}:
-                self.load_estimator()
-            if changed & {"camera", "mirror"} and not self.args.video:
-                self.open_source()
-                pipeline.tracker.reset()
+            with KeepAlive(self.channel):
+                if changed & {"players", "model"}:
+                    self.load_estimator()
+                if "camera" in changed and not self.args.video:
+                    self.open_source()
+                    pipeline.tracker.reset()
+            if "mirror" in changed and "camera" not in changed and self.source:
+                self.source.mirror = control["mirror"]  # takes effect on the next frame
         if control["calibrate"] != self.calibrated:
             self.calibrated = control["calibrate"]
             pipeline.calibrate()
@@ -194,10 +224,12 @@ class Bridge:
         pipeline = Pipeline(self.settings)
         if self.args.dump_jsonl:
             self.dump = open(self.args.dump_jsonl, "w", encoding="utf-8")
-        self.load_estimator()
-        self.open_source()
+        with KeepAlive(self.channel):
+            self.load_estimator()
+            self.open_source()
         start = time.perf_counter()
         last = 0
+        failures = 0
         try:
             while True:
                 now = time.perf_counter() - start
@@ -236,13 +268,23 @@ class Bridge:
                         break
                     continue
                 last = frame.number
-                began = time.perf_counter()
-                poses = self.estimator.detect(frame.image, frame.seconds)
-                elapsed = (time.perf_counter() - began) * 1000
-                self.inference_ms = elapsed if not self.inference_ms else 0.9 * self.inference_ms + 0.1 * elapsed
-                size = (frame.image.shape[1], frame.image.shape[0])
-                bodies, info = pipeline.process(poses, size, frame.seconds)
-                color, depth = pipeline.render(frame.image, info)
+                try:
+                    began = time.perf_counter()
+                    poses = self.estimator.detect(frame.image, frame.seconds)
+                    elapsed = (time.perf_counter() - began) * 1000
+                    self.inference_ms = elapsed if not self.inference_ms else 0.9 * self.inference_ms + 0.1 * elapsed
+                    size = (frame.image.shape[1], frame.image.shape[0])
+                    bodies, info = pipeline.process(poses, size, frame.seconds)
+                    color, depth = pipeline.render(frame.image, info)
+                    failures = 0
+                except Exception:
+                    # One bad frame is skipped; only a run of them ends the bridge.
+                    failures += 1
+                    if failures == 1 or failures % 20 == 0:
+                        log(f"frame {frame.number} failed ({failures} in a row):\n{traceback.format_exc()}")
+                    if failures >= MAX_FRAME_FAILURES:
+                        raise
+                    continue
                 if not self.publish(frame.qpc, bodies, color, depth, frame.seconds):
                     break
         finally:

@@ -22,10 +22,15 @@ class Pose:
 
 
 class Pipeline:
+    # A person the estimator misses for a moment (a fast move, an arm across the body) keeps their
+    # last pose, marked inferred, for this long instead of vanishing from the game.
+    HOLD_SECONDS = 0.3
+
     def __init__(self, settings):
         self.tracker = Tracker()
         self.play = km.PlaySpace(settings["camera_height"])
         self._filters = {}
+        self._last = {}  # body ID -> (joints, quality, time) of their last published pose
         self._reference = None  # the main player's distance from the webcam (smoothed)
         self.configure(settings)
 
@@ -69,15 +74,30 @@ class Pipeline:
                 if filter_ is None:
                     filter_ = self._filters[body_id] = OneEuro.for_smoothing(self.smoothing)
                 joints = filter_(joints, time)
+            quality = km.clipping(joints)
             bodies.append({
                 "id": body_id, "state": BODY_TRACKED, "position": joints[km.SPINE], "joints": joints,
-                "joint_state": states, "quality": km.clipping(joints),
+                "joint_state": states, "quality": quality,
             })
             joints_list.append(joints)
             masks.append(mask)
-        for body_id in list(self._filters):
-            if body_id not in ids:
-                del self._filters[body_id]
+            self._last[body_id] = (joints, quality, time)
+        for body_id, (joints, quality, seen) in sorted(self._last.items()):
+            if body_id in ids or time - seen > self.HOLD_SECONDS:
+                continue
+            bodies.append({
+                "id": body_id, "state": BODY_TRACKED, "position": joints[km.SPINE], "joints": joints,
+                "joint_state": np.full(km.JOINTS, km.JOINT_INFERRED, np.uint8), "quality": quality,
+            })
+            joints_list.append(joints)
+            masks.append(None)
+        # Filters and held poses last as long as the tracker remembers the person, so a short miss
+        # doesn't restart the filter from a raw value (a jump in the skeleton).
+        known = self.tracker.known()
+        for table in (self._filters, self._last):
+            for body_id in list(table):
+                if body_id not in known:
+                    del table[body_id]
         return bodies, {"joints": joints_list, "masks": masks, "offset": offset, "frame_size": frame_size,
                         "focal": focal}
 

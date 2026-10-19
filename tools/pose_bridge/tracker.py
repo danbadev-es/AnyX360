@@ -8,7 +8,7 @@ class Tracker:
     """Matches each frame's poses to the people seen before by the distance between their hips."""
 
     MAX_STEP = 0.6     # metres a hip may move between frames and stay the same person
-    KEEP_SECONDS = 0.5  # a person missing this long is gone (their ID isn't reused)
+    KEEP_SECONDS = 1.0  # a person missing this long is gone (their ID isn't reused)
 
     def __init__(self):
         self._tracks = []  # dicts: id, hip, seen
@@ -39,6 +39,10 @@ class Tracker:
                 self._next_id += 1
                 self._tracks.append({"id": ids[p], "hip": hip, "seen": time})
         return ids
+
+    def known(self):
+        """The IDs of the people still remembered (seen within KEEP_SECONDS of the last update)."""
+        return {t["id"] for t in self._tracks}
 
     def order(self, ids):
         """Indices that sort these IDs oldest first (the first player stays first)."""

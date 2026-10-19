@@ -257,6 +257,52 @@ class Tracking(unittest.TestCase):
         self.assertNotEqual(id_a, id_b)
 
 
+class Stability(unittest.TestCase):
+    def test_frame_numbers_and_times_continue_across_cameras(self):
+        """Changing camera opens a new source: the bridge waits for frames numbered above the last
+        one it used, so numbering and time must not start again."""
+        image = np.zeros((4, 4, 3), np.uint8)
+        first = capture._Source(False)
+        first._deliver(image)
+        a = first.latest(0, 0)
+        second = capture._Source(False)
+        second._deliver(image)
+        b = second.latest(a.number, 0)
+        self.assertIsNotNone(b)
+        self.assertGreater(b.number, a.number)
+        self.assertGreaterEqual(b.seconds, a.seconds)
+
+    def test_mirror_changes_without_reopening(self):
+        image = np.zeros((2, 3, 3), np.uint8)
+        image[:, 0] = 255
+        source = capture._Source(False)
+        source._deliver(image.copy())
+        self.assertEqual(source.latest(0, 0).image[0, 0, 0], 255)
+        source.mirror = True
+        source._deliver(image.copy())
+        self.assertEqual(source._frame.image[0, 2, 0], 255)
+
+    def test_a_short_miss_holds_the_pose_then_lets_go(self):
+        width, height = 1280, 720
+        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.5, "camera_height": 0.8})
+        focal = camera_model.webcam_focal(width, 60.0)
+        normalized, world, visibility = synthetic.landmarks(synthetic.standing(x=0.0, z=2.3), width, height, focal)
+        pose = Pose(normalized, world, visibility)
+        for i in range(3):
+            bodies, _ = pipeline.process([pose], (width, height), i / 30)
+        (seen,) = bodies
+        bodies, info = pipeline.process([], (width, height), 4 / 30)  # missed for one frame
+        self.assertEqual([b["id"] for b in bodies], [seen["id"]])
+        self.assertTrue(np.all(bodies[0]["joint_state"] == km.JOINT_INFERRED))
+        np.testing.assert_allclose(bodies[0]["joints"], seen["joints"])
+        self.assertEqual(len(info["joints"]), 1)
+        bodies, _ = pipeline.process([], (width, height), 0.5)  # gone longer than the hold
+        self.assertEqual(bodies, [])
+        bodies, _ = pipeline.process([pose], (width, height), 0.55)  # back within the tracker's memory
+        self.assertEqual(bodies[0]["id"], seen["id"])
+        self.assertLess(np.abs(bodies[0]["joints"] - seen["joints"]).max(), 0.01)  # the filter wasn't restarted
+
+
 class Images(unittest.TestCase):
     def test_depth_packing_and_players(self):
         near = synthetic.standing(x=0.0, z=2.0)
