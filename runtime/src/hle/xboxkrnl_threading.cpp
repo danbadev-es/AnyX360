@@ -3,6 +3,7 @@
 #include <set>
 #include <bitset>
 #include <chrono>
+#include <mutex>
 #include <thread>
 
 #include "x360/kernel.h"
@@ -394,8 +395,16 @@ uint32_t NtWaitForMultipleObjectsEx(uint32_t count, uint32_t handles_ptr, uint32
   if (count == 0 || count > 64) return X_STATUS_INVALID_PARAMETER;
   uint32_t objects[64];
   for (uint32_t i = 0; i < count; ++i) {
-    objects[i] = ObjectFromHandle(Load<uint32_t>(handles_ptr + i * 4));
-    if (!objects[i]) return X_STATUS_INVALID_HANDLE;
+    uint32_t handle = Load<uint32_t>(handles_ptr + i * 4);
+    objects[i] = ObjectFromHandle(handle);
+    if (!objects[i]) {
+      static std::mutex logged_mutex;
+      static std::set<uint32_t> logged;
+      std::lock_guard lock(logged_mutex);
+      if (logged.insert(handle).second)
+        KLOG_W("NtWaitForMultipleObjectsEx: handle %u of %u is not an object (%08X)", i, count, handle);
+      return X_STATUS_INVALID_HANDLE;
+    }
   }
   int64_t timeout;
   return WaitForObjects(objects, count, wait_type == 0, TimeoutPtr(timeout_ptr, timeout), alertable != 0);

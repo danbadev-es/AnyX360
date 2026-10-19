@@ -531,10 +531,21 @@ uint32_t XamShowDeviceSelectorUI(uint32_t user_index, uint32_t content_type, uin
 
 // ---- notifications ----------------------------------------------------------------------------
 
+// A listener is waitable, as on the console: its guest body is a notification event, signalled
+// while notifications are queued (Kinect Adventures waits on it with the title's other events).
 struct Listener : Object {
+  Listener() {
+    guest = SystemAlloc(sizeof(DispatchHeader));
+    InitializeDispatcher(guest, kEventNotification, 0);
+  }
   const char* TypeName() const override { return "NotifyListener"; }
   uint64_t mask = 0;
   std::deque<std::pair<uint32_t, uint32_t>> queue;
+
+  void Push(uint32_t id, uint32_t param) {
+    queue.push_back({id, param});
+    SetEvent(guest);
+  }
 };
 std::mutex g_listener_mutex;
 std::vector<std::weak_ptr<Listener>> g_listeners;
@@ -546,7 +557,7 @@ void Broadcast(uint32_t id, uint32_t param) {
   std::lock_guard lock(g_listener_mutex);
   std::erase_if(g_listeners, [](const std::weak_ptr<Listener>& l) { return l.expired(); });
   for (const auto& weak : g_listeners)
-    if (auto listener = weak.lock(); listener && (listener->mask & bit)) listener->queue.push_back({id, param});
+    if (auto listener = weak.lock(); listener && (listener->mask & bit)) listener->Push(id, param);
 }
 
 uint32_t XamNotifyCreateListener(uint64_t mask, uint32_t unknown) {
@@ -555,8 +566,8 @@ uint32_t XamNotifyCreateListener(uint64_t mask, uint32_t unknown) {
   listener->mask = mask;
   // A real console reports the signed-in users and storage right after a listener is created.
   if (mask & 1) {
-    listener->queue.push_back({kNotifySigninChanged, SignedInMask()});
-    listener->queue.push_back({kNotifyStorageDevicesChanged, 0});
+    listener->Push(kNotifySigninChanged, SignedInMask());
+    listener->Push(kNotifyStorageDevicesChanged, 0);
   }
   {
     std::lock_guard lock(g_listener_mutex);
@@ -576,6 +587,7 @@ uint32_t XNotifyGetNext(uint32_t handle, uint32_t match_id, uint32_t id_ptr, uin
     if (id_ptr) Store<uint32_t>(id_ptr, it->first);
     if (param_ptr) Store<uint32_t>(param_ptr, it->second);
     listener->queue.erase(it);
+    if (listener->queue.empty()) ResetEvent(listener->guest);
     return 1;
   }
   return 0;
