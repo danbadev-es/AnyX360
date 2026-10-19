@@ -14,6 +14,7 @@ REPO = os.path.dirname(os.path.dirname(HERE))
 
 import numpy as np  # noqa: E402
 
+import benchmark  # noqa: E402
 import camera_model  # noqa: E402
 import capture  # noqa: E402
 import depth_synth  # noqa: E402
@@ -21,6 +22,7 @@ import kinect_mapping as km  # noqa: E402
 import level  # noqa: E402
 import protocol  # noqa: E402
 import synthetic  # noqa: E402
+from feet import FootLock  # noqa: E402
 from filters import OneEuro  # noqa: E402
 from pipeline import Pipeline, Pose  # noqa: E402
 from tracker import Tracker  # noqa: E402
@@ -206,10 +208,116 @@ class Mapping(unittest.TestCase):
         self.assertTrue(km.clipping(close) & km.CLIPPED_BOTTOM)
         self.assertTrue(km.clipping(synthetic.standing(x=1.5)) & km.CLIPPED_RIGHT)
 
+    def test_clipping_by_the_webcams_own_view(self):
+        """The play space puts a player in the virtual view; the webcam not seeing their feet (or
+        their right side, on the left of its unmirrored image) still says so."""
+        width, height = 640, 480
+        focal = camera_model.webcam_focal(width, 60)
+        normalized, _, _ = synthetic.landmarks(synthetic.standing(z=2.5), width, height, focal)
+        self.assertEqual(km.image_clipping(normalized), 0)
+        normalized, _, _ = synthetic.landmarks(synthetic.standing(z=1.2), width, height, focal)
+        self.assertTrue(km.image_clipping(normalized) & km.CLIPPED_BOTTOM)
+        normalized, _, _ = synthetic.landmarks(synthetic.standing(x=1.6, z=2.5), width, height, focal)
+        self.assertEqual(km.image_clipping(normalized) & (km.CLIPPED_LEFT | km.CLIPPED_RIGHT), km.CLIPPED_RIGHT)
+        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.5, "camera_height": 0.8})
+        normalized, world, visibility = synthetic.landmarks(synthetic.standing(z=1.2), width, height, focal)
+        bodies, _ = pipeline.process([Pose(normalized, world, visibility)], (width, height), 0.0)
+        self.assertTrue(bodies[0]["quality"] & km.CLIPPED_BOTTOM)
+
+    def test_joints_are_placed_on_their_image_landmarks(self):
+        """x and y come from the image landmarks: a world pose that's off (the model's world output
+        is noisier) still projects where the image says, at the distance given."""
+        width, height = 640, 480
+        focal = camera_model.webcam_focal(width, 60)
+        normalized, world, visibility = synthetic.landmarks(synthetic.standing(x=0.3, z=2.5), width, height, focal)
+        t = km.solve_translation(world, normalized, visibility, width, height, focal)
+        off = world + np.random.default_rng(4).normal(0, 0.03, world.shape)
+        camera = km.place(off, normalized, visibility, t, t[2], width, height, focal)
+        projected = camera[:, :2] / camera[:, 2:] * focal / (width, height) + 0.5
+        np.testing.assert_allclose(projected, normalized, atol=1e-9)
+        # A landmark the model can't see keeps its world position.
+        visibility = visibility.copy()
+        visibility[km.L_WRIST] = 0.1
+        camera = km.place(off, normalized, visibility, t, t[2], width, height, focal)
+        np.testing.assert_allclose(camera[km.L_WRIST], off[km.L_WRIST] + t)
+
+    def test_joint_states_do_not_flicker(self):
+        states = km.JointStates()
+        seen = np.full(km.JOINTS, 0.9)
+        self.assertTrue((states(seen) == km.JOINT_TRACKED).all())
+        seen[km.KNEE_LEFT] = 0.45  # below 0.5, above the hysteresis' 0.4: still tracked
+        self.assertEqual(states(seen)[km.KNEE_LEFT], km.JOINT_TRACKED)
+        seen[km.KNEE_LEFT] = 0.3
+        self.assertEqual(states(seen)[km.KNEE_LEFT], km.JOINT_INFERRED)
+        seen[km.KNEE_LEFT] = 0.55  # back above 0.5 but not 0.6: still inferred
+        self.assertEqual(states(seen)[km.KNEE_LEFT], km.JOINT_INFERRED)
+        seen[km.KNEE_LEFT] = 0.7
+        self.assertEqual(states(seen)[km.KNEE_LEFT], km.JOINT_TRACKED)
+
+
+class Precision(unittest.TestCase):
+    """The whole pipeline on noisy synthetic landmarks (benchmark.py). The limits leave room above
+    today's numbers; the comments give the pipeline's before the precision work (0.5.0), on the same
+    noise."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.m = benchmark.measure(seed=1)
+
+    def check(self, key, limit):
+        self.assertLess(self.m[key], limit, f"{key}: {self.m[key]:.1f}")
+
+    def test_lag(self):
+        self.check("arm_wave_lag_ms", 30)      # was 76
+        self.check("side_step_lag_ms", 25)     # was 62
+        self.check("side_step_overshoot_mm", 30)
+        self.check("leg_tap_lag_ms", 35)       # was 60
+        self.check("push_lag_ms", 35)          # was 67
+        self.check("walk_in_lag_ms", 150)      # was 55: the distance is smoothed more
+
+    def test_error(self):
+        self.check("dance_error_mm", 55)                # was 71
+        self.check("dance_hands_p95_mm", 95)            # was 157
+        self.check("dance_tilted_15_error_mm", 60)      # was 200
+        self.check("dance_tilted_15_feet_p95_mm", 100)  # was 520
+        self.check("arm_wave_hand_error_mm", 48)        # was 61
+        self.check("push_hand_error_mm", 50)            # was 84
+
+    def test_jitter(self):
+        self.check("still_hands_jitter_mm", 46)          # was 40
+        self.check("still_feet_jitter_mm", 32)           # was 42
+        self.check("still_hip_depth_jitter_mm", 28)      # was 34
+        self.check("leg_tap_planted_foot_jitter_mm", 15)  # was 31
+
+
+class Feet(unittest.TestCase):
+    def test_a_planted_foot_holds_still_and_a_step_moves_it_at_once(self):
+        rng = np.random.default_rng(5)
+        lock = FootLock()
+        planted = synthetic.standing()
+        speeds = np.full(km.JOINTS, 0.05)
+        outs = []
+        for _ in range(60):  # standing, with jitter
+            noisy = planted + rng.normal(0, 0.008, planted.shape)
+            out = lock(noisy, speeds)
+            outs.append(out[km.ANKLE_LEFT])
+        self.assertLess(np.std(outs[30:], axis=0).max(), 0.002)  # the input jitters by 8 mm
+        right = out[km.ANKLE_RIGHT].copy()
+        # A step: the ankle moves 5 cm per frame at 1.5 m/s.
+        joints = planted + rng.normal(0, 0.008, planted.shape)
+        for i in range(1, 4):
+            joints[[km.ANKLE_LEFT, km.FOOT_LEFT], 0] -= 0.05
+            out = lock(joints, np.where(np.arange(km.JOINTS) == km.ANKLE_LEFT, 1.5, 0.05))
+        # After three frames the foot is near the measured one (rejoining, not jumping).
+        self.assertLess(abs(out[km.ANKLE_LEFT, 0] - joints[km.ANKLE_LEFT, 0]), 0.03)
+        self.assertLess(out[km.ANKLE_LEFT, 0], planted[km.ANKLE_LEFT, 0] - 0.1)
+        # The other foot stayed held where it was.
+        self.assertLess(np.abs(out[km.ANKLE_RIGHT] - right).max(), 0.003)
+
 
 class Filters(unittest.TestCase):
     def test_still_values_stay_and_steps_converge(self):
-        f = OneEuro.for_smoothing(0.5)
+        f = OneEuro(1.5, beta=0.4)
         for i in range(30):
             out = f(np.array([1.0, 2.0]), i / 30)
         self.assertTrue(np.allclose(out, [1.0, 2.0]))
@@ -219,18 +327,44 @@ class Filters(unittest.TestCase):
 
     def test_jitter_is_reduced(self):
         rng = np.random.default_rng(1)
-        f = OneEuro.for_smoothing(0.5)
+        f = OneEuro(1.5, beta=0.4)
         noisy = 1.0 + rng.normal(0, 0.02, 300)
         out = np.array([f(np.array([x]), i / 30)[0] for i, x in enumerate(noisy)])
         self.assertLess(out[100:].std(), noisy[100:].std() * 0.5)
 
-    def test_raw_and_lag(self):
-        self.assertIsNone(OneEuro.for_smoothing(0.0))
+    def test_lag(self):
         # A fast movement (1 m/s) lags less than a frame's worth of travel times a few.
-        f = OneEuro.for_smoothing(0.5)
+        f = OneEuro(1.5, beta=0.4)
         for i in range(60):
             out = f(np.array([i / 30.0]), i / 30)
         self.assertLess(59 / 30 - out[0], 0.15)
+
+    def test_a_joint_moving_along_one_axis_opens_its_others(self):
+        """With axis weights a joint's speed is its own (all its axes), so a hand moving sideways
+        isn't held back in height; a weight of 0 leaves that axis out of the speed."""
+        def run(weights):
+            f = OneEuro(np.array([0.3, 0.3, 0.3]), beta=2.0, axis_weights=weights)
+            for i in range(30):
+                out = f(np.array([[i / 30.0, i / 60.0, 0.0]]), i / 30)  # mostly sideways
+            return f.speed[0, 0], (29 / 60) - out[0, 1]  # the speed, the lag in height
+        speed, lag = run((1.0, 1.0, 1.0))
+        self.assertGreater(speed, 0.8)
+        _, lag_alone = run(None)  # each value opens only with its own speed
+        self.assertLess(lag, lag_alone)
+        speed_without_x, _ = run((0.0, 1.0, 1.0))
+        self.assertLess(speed_without_x, speed * 0.6)
+
+    def test_prediction_only_when_moving(self):
+        f = OneEuro(1.0, beta=1.0, axis_weights=(1.0,), lead=1 / 30)
+        g = OneEuro(1.0, beta=1.0, axis_weights=(1.0,))
+        for i in range(30):
+            out, plain = f(np.array([[i / 30.0]]), i / 30), g(np.array([[i / 30.0]]), i / 30)
+        self.assertGreater(out[0, 0], plain[0, 0] + 0.02)  # 1 m/s: about a frame ahead
+        rng = np.random.default_rng(3)
+        for i in range(30, 90):  # at rest with jitter: no prediction
+            value = np.array([[1.0 + rng.normal(0, 0.003)]])
+            out, plain = f(value, i / 30), g(value, i / 30)
+        self.assertAlmostEqual(out[0, 0], plain[0, 0], places=6)
 
 
 class Tracking(unittest.TestCase):
@@ -256,6 +390,21 @@ class Tracking(unittest.TestCase):
         (id_a,) = t.update([np.array([-1.0, 0, 2.3])], 0.0)
         (id_b,) = t.update([np.array([1.0, 0, 2.3])], 1 / 30)
         self.assertNotEqual(id_a, id_b)
+
+    def test_two_players_crossing_keep_their_ids(self):
+        """Two players walking past each other (1.5 m/s each, 15 cm apart in depth): where they
+        were heading tells them apart where their hips come close."""
+        t = Tracker()
+        ids = None
+        for i in range(31):
+            time_ = i / 30
+            a = np.array([-0.75 + 1.5 * time_, 0, 2.3])
+            b = np.array([0.75 - 1.5 * time_, 0, 2.45])
+            got = t.update([a, b] if i % 2 else [b, a], time_)  # in no particular order
+            got = got if i % 2 else got[::-1]
+            if ids is None:
+                ids = got
+            self.assertEqual(got, ids, i)
 
 
 def tilted_view(joints, pitch, roll):

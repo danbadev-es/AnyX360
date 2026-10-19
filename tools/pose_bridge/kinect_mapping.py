@@ -55,6 +55,17 @@ _DIRECT = {
 }
 
 
+def joint_visibility(visibility):
+    """Each Kinect joint's visibility (20,): the least of the landmarks it comes from."""
+    visibility = np.asarray(visibility, dtype=np.float64)
+    seen = np.empty(JOINTS)
+    for joint, sources in _DIRECT.items():
+        seen[joint] = visibility[list(sources)].min()
+    seen[HIP_CENTER] = seen[SPINE] = min(visibility[L_HIP], visibility[R_HIP], visibility[L_SHOULDER],
+                                         visibility[R_SHOULDER])
+    return seen
+
+
 def kinect_joints(points, visibility, threshold=0.5):
     """points: (33, 3) landmark positions in Kinect axes; visibility: (33,).
 
@@ -62,20 +73,34 @@ def kinect_joints(points, visibility, threshold=0.5):
     visible enough, else inferred.
     """
     points = np.asarray(points, dtype=np.float64)
-    visibility = np.asarray(visibility, dtype=np.float64)
     joints = np.empty((JOINTS, 3))
-    seen = np.empty(JOINTS)
     for joint, sources in _DIRECT.items():
         joints[joint] = points[list(sources)].mean(axis=0)
-        seen[joint] = visibility[list(sources)].min()
     hips = (points[L_HIP] + points[R_HIP]) / 2
     shoulders = joints[SHOULDER_CENTER]
     joints[HIP_CENTER] = hips + 0.10 * (shoulders - hips)
     joints[SPINE] = hips + 0.35 * (shoulders - hips)
-    torso = min(visibility[L_HIP], visibility[R_HIP], visibility[L_SHOULDER], visibility[R_SHOULDER])
-    seen[HIP_CENTER] = seen[SPINE] = torso
-    states = np.where(seen >= threshold, JOINT_TRACKED, JOINT_INFERRED).astype(np.uint8)
+    states = np.where(joint_visibility(visibility) >= threshold, JOINT_TRACKED, JOINT_INFERRED).astype(np.uint8)
     return joints, states
+
+
+class JointStates:
+    """Tracked or inferred, with hysteresis: a joint whose visibility hovers about the threshold
+    doesn't flicker between the two (games treat inferred joints differently, some ignore them)."""
+
+    TRACK_ABOVE, INFER_BELOW = 0.6, 0.4
+
+    def __init__(self):
+        self._tracked = None
+
+    def __call__(self, seen):
+        """seen: joint_visibility(). Returns the states (20,)."""
+        if self._tracked is None:
+            tracked = seen >= 0.5
+        else:
+            tracked = np.where(self._tracked, seen >= self.INFER_BELOW, seen >= self.TRACK_ABOVE)
+        self._tracked = tracked
+        return np.where(tracked, JOINT_TRACKED, JOINT_INFERRED).astype(np.uint8)
 
 
 def solve_translation(world, normalized, visibility, width, height, focal):
@@ -110,6 +135,28 @@ def solve_translation(world, normalized, visibility, width, height, focal):
     if not np.all(np.isfinite(t)) or t[2] < 0.3:  # behind or touching the camera: not a person in front of it
         return None
     return t
+
+
+def place(world, normalized, visibility, translation, distance, width, height, focal):
+    """The 33 landmarks in the webcam's space (OpenCV axes), the hips `distance` metres away.
+
+    Depth comes from the world pose; x and y from the image landmarks back-projected at that depth
+    where they're seen (the model's image output is far more precise than its world output's x and
+    y), else from the world pose. distance is the solved translation's, usually filtered: x and y
+    of the translation are scaled with it, as they're proportional to it.
+    """
+    world = np.asarray(world, dtype=np.float64)
+    normalized = np.asarray(normalized, dtype=np.float64)
+    shift = np.array([translation[0], translation[1], translation[2]]) * (distance / translation[2])
+    camera = world + shift
+    z = np.maximum(camera[:, 2], 0.3)
+    image = (normalized - 0.5) * (width, height)
+    back = image * (z / focal)[:, None]
+    inside = (normalized[:, 0] >= 0) & (normalized[:, 0] <= 1) & (normalized[:, 1] >= 0) & (normalized[:, 1] <= 1)
+    weight = (np.clip((np.asarray(visibility, dtype=np.float64) - 0.5) / 0.3, 0.0, 1.0) * inside)[:, None]
+    camera[:, :2] = weight * back + (1 - weight) * camera[:, :2]
+    camera[:, 2] = z
+    return camera
 
 
 def leg_length(joints):
@@ -175,6 +222,29 @@ class PlaySpace:
         else:  # the hip centre sits a leg (plus ankle height and the raise above the hip joints) above it
             dy = -self.camera_height + leg_length(joints) + 0.08 + 0.05 - hip[1]
         return np.array([-hip[0], dy, self.DISTANCE - hip[2]])
+
+
+# The landmarks that say whether the webcam sees the whole body: nose, shoulders to feet.
+_OUTLINE = [0] + list(range(L_SHOULDER, LANDMARKS))
+_EDGE = 0.01  # how far outside the image (a fraction of it) a landmark counts as cut off
+
+
+def image_clipping(normalized):
+    """Clipping flags for the edges of the webcam's own view the body crosses. The play space can
+    put a player well inside the virtual view while the webcam doesn't see their feet; the game
+    should still ask them to step back. normalized: (33, 2), the unmirrored image, where the
+    player's right side is on the left (the Kinect's images are mirrored: CLIPPED_RIGHT)."""
+    points = np.asarray(normalized, dtype=np.float64)[_OUTLINE]
+    flags = 0
+    if (points[:, 0] < -_EDGE).any():
+        flags |= CLIPPED_RIGHT
+    if (points[:, 0] > 1 + _EDGE).any():
+        flags |= CLIPPED_LEFT
+    if (points[:, 1] < -_EDGE).any():
+        flags |= CLIPPED_TOP
+    if (points[:, 1] > 1 + _EDGE).any():
+        flags |= CLIPPED_BOTTOM
+    return flags
 
 
 def clipping(joints, focal=camera_model.DEPTH_FOCAL, size=camera_model.DEPTH_SIZE):
