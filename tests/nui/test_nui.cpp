@@ -96,7 +96,8 @@ int main() {
 
   {  // Whole-body moves (Kinect Adventures): jump, crouch, lean, steps, walking, both arms.
     auto source = nui::MakeSyntheticSource(
-        "0:enter,1:jump/0.6,2:crouch/1,4:lean_left/1,6:step_right,7:step_right,8:walk_in,9:hands_up,10:arms_out",
+        "0:enter,1:jump/0.6,2:crouch/1,4:lean_left/1,6:step_right,7:step_right,8:walk_in,9:hands_up,10:arms_out,"
+        "11:lower,12:flap/2",
         0.8f);
     nui::Snapshot s;
     source->Poll(0.5, s);
@@ -123,6 +124,10 @@ int main() {
     source->Poll(10.5, s);  // arms out at shoulder height
     CHECK(std::abs(joint(nui::kHandLeft, 1) - joint(nui::kShoulderLeft, 1)) < 0.01f);
     CHECK(joint(nui::kHandLeft, 0) < joint(nui::kShoulderLeft, 0) - 0.6f);
+    source->Poll(12.4, s);  // flapping (0.8 s a beat): the top, both hands above the shoulders
+    CHECK(joint(nui::kHandLeft, 1) > joint(nui::kShoulderLeft, 1) && joint(nui::kHandRight, 1) > joint(nui::kShoulderRight, 1));
+    source->Poll(12.8, s);  // and down at the sides again
+    CHECK(joint(nui::kHandLeft, 1) < joint(nui::kHipLeft, 1) && joint(nui::kHandRight, 1) < joint(nui::kHipRight, 1));
   }
 
   {  // The Kinect guide gesture: the scripted pose is it, other poses aren't; it fires once per hold.

@@ -21,6 +21,8 @@
 //   step_left, step_right    moves 45 cm to that side and stays there (default 0.4 s)
 //   walk_in, walk_out        moves 50 cm towards / away from the sensor and stays (default 0.8 s)
 //   hands_up, arms_out       both arms up over the head / out to the sides
+//   flap                     both arms flap like wings, from the sides to above the shoulders,
+//                            1.25 times a second (default 4 s)
 //   idle                     stops any movement in progress
 #include <algorithm>
 #include <cmath>
@@ -69,6 +71,7 @@ struct Player {
   double crouch_start = -1, crouch_end = -1;
   double lean_start = -1, lean_end = -1;
   float lean_direction = 0;  // -1 the player's left, +1 their right
+  double flap_start = -1, flap_end = -1;
 };
 
 // 0 -> 1 -> 0 over [start, end): eased in over the first fifth, held, eased out over the last.
@@ -247,9 +250,12 @@ class SyntheticSource : public Source {
         p.raise_start[arm] = time;
         p.raise_end[arm] = time + std::max(duration(0.0), 0.0);
       }
+    } else if (e.action == "flap") {
+      p.flap_start = time;
+      p.flap_end = time + duration(4.0);
     } else if (e.action == "idle") {
       p.wave_end = p.dance_end = p.swipe_end = p.move_end = time;
-      p.jump_end = p.crouch_end = p.lean_end = time;
+      p.jump_end = p.crouch_end = p.lean_end = p.flap_end = time;
     } else {
       std::fprintf(stderr, "[nui] script: unknown action %s\n", e.action.c_str());
     }
@@ -298,6 +304,13 @@ class SyntheticSource : public Source {
     };
     arm(1.0f, p.right, p.right_y, !p.swipe_left_hand);
     arm(-1.0f, p.left, p.left_y, p.swipe_left_hand);
+
+    // Flap: both arms swing in the body's plane between hanging (-70 degrees) and 20 degrees up.
+    if (t >= p.flap_start && t < p.flap_end) {
+      const float k = 0.5f - 0.5f * std::cos(float(t - p.flap_start) * 2 * kPi * 1.25f);
+      ArmPose(body, 1.0f, 0, -70.0f + 90.0f * k);
+      ArmPose(body, -1.0f, 0, -70.0f + 90.0f * k);
+    }
 
     // Wave: the right hand swings sideways at 2 Hz.
     if (t >= p.wave_start && t < p.wave_end) {

@@ -871,6 +871,42 @@ uint32_t XamLrcSetTitlePort(uint32_t port) {
 }
 uint32_t XamLrcFail() { return 0x80004005; }
 
+// ---- avatars ------------------------------------------------------------------------------------
+// There's no avatar system: initializing it fails (as Xenia's default does) and titles go without
+// avatars. Answered as successes with nothing written, the calls below made Kinect Adventures read
+// asset data that was never there (a crash loading Reflex Ridge); they now say there's none.
+constexpr uint32_t kAvatarFail = 0x80004005;  // E_FAIL, the extended error
+
+uint32_t XamAvatarInitialize() { return 0xFFFFFFFF; }
+void XamAvatarShutdown() {}
+uint32_t AvatarFailed(uint32_t overlapped) {
+  return overlapped ? Complete(overlapped, X_ERROR_FUNCTION_FAILED, 0, kAvatarFail) : kAvatarFail;
+}
+uint32_t XamAvatarGetManifestLocalUser(uint32_t, uint32_t, uint32_t overlapped) { return AvatarFailed(overlapped); }
+uint32_t XamAvatarGetManifestsByXuid(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t overlapped) {
+  return AvatarFailed(overlapped);
+}
+uint32_t XamAvatarGetAssetsResultSize(uint32_t, uint32_t result_size, uint32_t gpu_size) {
+  if (result_size) Store<uint32_t>(result_size, 0);
+  if (gpu_size) Store<uint32_t>(gpu_size, 0);
+  return X_ERROR_SUCCESS;
+}
+uint32_t XamAvatarGetAssets(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t overlapped) {
+  return AvatarFailed(overlapped);
+}
+uint32_t XamAvatarGetMetadataSignedOutProfileCount(uint32_t count, uint32_t overlapped) {
+  if (count) Store<uint32_t>(count, 0);
+  return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
+}
+uint32_t XamAvatarGetMetadataSignedOutProfile(uint32_t, uint32_t, uint32_t overlapped) { return AvatarFailed(overlapped); }
+uint32_t XamAvatarGetMetadataRandom(uint32_t, uint32_t, uint32_t, uint32_t overlapped) { return AvatarFailed(overlapped); }
+uint32_t XamAvatarLoadAnimation(uint32_t, uint32_t, uint32_t, uint32_t overlapped) { return AvatarFailed(overlapped); }
+uint32_t XamAvatarManifestGetBodyType(uint32_t) { return 1; }  // male
+uint32_t XamAvatarGenerateMipMaps(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t overlapped) {
+  return AvatarFailed(overlapped);
+}
+uint32_t XamAvatarSetCustomAsset() { return X_ERROR_SUCCESS; }
+
 // ---- Kinect system services ---------------------------------------------------------------------
 // The skeleton, cameras and microphones belong to the NUI library linked into the title, which the
 // virtual sensor replaces (x360/nui.h). The system only reports a connected sensor and no
@@ -1163,5 +1199,18 @@ X360_EXPORT(XamBackgroundDownloadSetMode, XamBackgroundDownloadSetMode)
 X360_EXPORT(XamLrcSetTitlePort, XamLrcSetTitlePort)
 X360_EXPORT(XamLrcVerifyClientId, XamLrcFail)
 X360_EXPORT(XamLrcEncryptDecryptTitleMessage, XamLrcFail)
+X360_EXPORT(XamAvatarInitialize, XamAvatarInitialize)
+X360_EXPORT(XamAvatarShutdown, XamAvatarShutdown)
+X360_EXPORT(XamAvatarGetManifestLocalUser, XamAvatarGetManifestLocalUser)
+X360_EXPORT(XamAvatarGetManifestsByXuid, XamAvatarGetManifestsByXuid)
+X360_EXPORT(XamAvatarGetAssetsResultSize, XamAvatarGetAssetsResultSize)
+X360_EXPORT(XamAvatarGetAssets, XamAvatarGetAssets)
+X360_EXPORT(XamAvatarGetMetadataSignedOutProfileCount, XamAvatarGetMetadataSignedOutProfileCount)
+X360_EXPORT(XamAvatarGetMetadataSignedOutProfile, XamAvatarGetMetadataSignedOutProfile)
+X360_EXPORT(XamAvatarGetMetadataRandom, XamAvatarGetMetadataRandom)
+X360_EXPORT(XamAvatarLoadAnimation, XamAvatarLoadAnimation)
+X360_EXPORT(XamAvatarManifestGetBodyType, XamAvatarManifestGetBodyType)
+X360_EXPORT(XamAvatarGenerateMipMaps, XamAvatarGenerateMipMaps)
+X360_EXPORT(XamAvatarSetCustomAsset, XamAvatarSetCustomAsset)
 X360_EXPORT(XamNuiGetDeviceStatus, XamNuiGetDeviceStatus)
 X360_EXPORT(XamVoiceGetMicArrayStatus, XamVoiceGetMicArrayStatus)

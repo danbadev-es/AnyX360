@@ -6,8 +6,12 @@
 // are used, what each function reaches and the callers' code (games/ka/notes/nui_api.md). The
 // skeleton and image frame layouts are the same as in Dance Central 3's later library; the image
 // formats are chosen in ImageStreamOpen's code (82D2AAB0) rather than read from a table.
+#include <mutex>
+#include <vector>
+
 #include "x360/endian.h"
 #include "x360/hle.h"
+#include "x360/kernel.h"
 #include "x360/nui.h"
 
 PPC_EXTERN_FUNC(sub_82D713A0);  // XGSetTextureHeaderEx (the title's XG library)
@@ -127,6 +131,47 @@ uint32_t IdentityGetEnrollment(uint32_t index, uint32_t info) {
   return nui::kOk;
 }
 
+// 82D2D840(tracking ID, flags, callback, context): identify the player with that skeleton. The
+// library looks at a few frames on its own thread and reports through the callback (82B67E38),
+// which queues the 20-byte message {message ID, tracking ID, result, enrollment index, flags} for
+// the game (82B69868). Refused, the request was made again and again and the game said
+// "IDENTIFYING" for good; accepted, the answer comes with the next skeleton frame: done (1), S_OK,
+// enrollment index -2 (nobody enrolled is this player), no flags.
+struct IdentityRequest {
+  uint32_t tracking_id, callback, context;
+};
+std::mutex g_identity_mutex;
+std::vector<IdentityRequest> g_identity_requests;
+
+uint32_t IdentityIdentify(uint32_t tracking_id, uint32_t flags, uint32_t callback, uint32_t context) {
+  (void)flags;
+  if (!callback) return nui::kInvalidArg;
+  std::lock_guard lock(g_identity_mutex);
+  g_identity_requests.push_back({tracking_id, callback, context});
+  return nui::kOk;
+}
+
+// 82D26768, on the game's Kinect thread: the identity answers first, then the frame.
+uint32_t SkeletonGetNextFrame(uint32_t timeout_ms, uint32_t frame) {
+  std::vector<IdentityRequest> requests;
+  {
+    std::lock_guard lock(g_identity_mutex);
+    requests.swap(g_identity_requests);
+  }
+  if (!requests.empty()) {
+    static const uint32_t message = x360::kernel::SystemAlloc(32);
+    for (const IdentityRequest& r : requests) {
+      Store32(message + 0, 1);  // done
+      Store32(message + 4, r.tracking_id);
+      Store32(message + 8, nui::kOk);
+      Store32(message + 12, 0xFFFFFFFE);  // not enrolled
+      Store32(message + 16, 0);
+      x360::kernel::CallGuest(r.callback, {r.context, message});
+    }
+  }
+  return nui::SkeletonGetNextFrame(timeout_ms, frame);
+}
+
 }  // namespace
 
 void InstallNui() {
@@ -145,7 +190,7 @@ X360_GUEST_FUNCTION(82D23E30, x360::nui::Shutdown)
 // Skeleton tracking.
 X360_GUEST_FUNCTION(82D26620, x360::nui::SkeletonTrackingEnable)
 X360_GUEST_FUNCTION(82D25DE0, x360::nui::SkeletonTrackingDisable)
-X360_GUEST_FUNCTION(82D26768, x360::nui::SkeletonGetNextFrame)
+X360_GUEST_FUNCTION(82D26768, ka::SkeletonGetNextFrame)
 X360_GUEST_FUNCTION(82D25EF8, x360::nui::SkeletonSetTrackedSkeletons)
 X360_GUEST_FUNCTION(82D26190, x360::nui::TransformSmooth)
 X360_GUEST_TRACE(82D28E28, "NUI depth to color pixel coordinates (pure)")
@@ -167,7 +212,7 @@ X360_GUEST_STUB(82D27608, "NUI 82D27608", x360::nui::kFail)
 // Identity (face recognition): nobody enrolled, nothing recognised.
 X360_GUEST_FUNCTION(82D2D948, ka::IdentityGetEnrollment)
 X360_GUEST_STUB(82D2D6C0, "NUI identity request (with callback)", x360::nui::kFail)
-X360_GUEST_STUB(82D2D840, "NUI identity request (with callback)", x360::nui::kFail)
+X360_GUEST_FUNCTION(82D2D840, ka::IdentityIdentify)
 X360_GUEST_STUB(82D2D6B8, "NUI identity 82D2D6B8", x360::nui::kFail)
 X360_GUEST_STUB(82D2DB58, "NUI identity 82D2DB58", 0)
 X360_GUEST_STUB(82D2DB60, "NUI troubleshooter UI", 0)

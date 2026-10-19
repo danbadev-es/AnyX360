@@ -65,7 +65,8 @@ Texture headers: XGSetTextureHeaderEx `82D713A0`, XGOffsetResourceAddress `82D71
 | Address | Use | Binding |
 |---|---|---|
 | `82D2D948` | enrollment info: `(index, info*)` | nobody enrolled |
-| `82D2D6C0`, `82D2D840` | requests with a callback (`82B67F18`, `82B67E38`) | fail |
+| `82D2D840` | identify a player: `(tracking ID, flags, callback 82B67E38, context)`; the callback queues a 20-byte message `{message ID, tracking ID, result, enrollment index, flags}` that 82B69868 handles (1 done; -2 not enrolled) | accepted, answered with the next skeleton frame: done, S_OK, -2 (refused, the game asked again and showed "IDENTIFYING" for good) |
+| `82D2D6C0` | another request with a callback (`82B67F18`, messages of kind 1 for 82B69C90) | fail |
 | `82D2D6B8`, `82D2DB58` | identity state | fail / 0 |
 | `82D2DB60` | the Kinect troubleshooter (reaches XamShowNuiTroubleshooterUI) | 0 |
 
