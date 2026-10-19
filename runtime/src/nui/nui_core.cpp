@@ -43,7 +43,13 @@ std::condition_variable g_frame_cv;
 TitleSupport g_title;
 
 bool g_initialized = false;
+// The source has its own lock: polling it (a 1.38 MB copy from the pose bridge, starting the
+// bridge) doesn't hold up the title's SkeletonGetNextFrame or the settings panel, which wait on
+// g_mutex. Taken before g_mutex when both are needed.
+std::mutex g_source_mutex;
 std::unique_ptr<Source> g_source;
+std::string g_source_message;  // the source's message and numbers after the last poll (g_mutex)
+Status g_source_stats;
 std::string g_source_name;
 std::thread g_clock;
 bool g_stop = false;
@@ -184,10 +190,21 @@ void ClockThread() {
     uint32_t number;
     uint64_t time_ms;
     GuideGesture::Change guide = GuideGesture::kNone;
+    std::string message;
+    Status stats;
+    {
+      std::lock_guard source_lock(g_source_mutex);
+      if (g_source) {
+        g_source->Poll(now, snapshot);
+        message = g_source->Message();
+        g_source->Stats(stats);
+      }
+    }
     {
       std::lock_guard lock(g_mutex);
       if (g_stop) break;
-      if (g_source) g_source->Poll(now, snapshot);
+      g_source_message = std::move(message);
+      g_source_stats = stats;
       g_snapshot = snapshot;
       number = ++g_frame_number;
       time_ms = g_frame_time_ms = NowMs();
@@ -262,7 +279,7 @@ uint32_t Initialize(uint32_t flags, uint32_t hardware_thread) {
   settings::KinectSettings kinect = settings::Get().kinect;
   static std::once_flag subscribed;  // the settings panel's changes reach the source
   std::call_once(subscribed, [] { settings::Subscribe([](const settings::Settings& s) { ApplySettings(s.kinect); }); });
-  std::lock_guard lock(g_mutex);
+  std::scoped_lock lock(g_source_mutex, g_mutex);
   if (g_initialized) return kOk;
   g_applied = kinect;
   g_camera_height = kinect.camera_height;
@@ -285,8 +302,9 @@ void Shutdown() {
     g_tracking = false;
   }
   if (g_clock.joinable()) g_clock.join();
-  std::lock_guard lock(g_mutex);
+  std::scoped_lock lock(g_source_mutex, g_mutex);
   g_source.reset();
+  g_source_message.clear();
   CloseImageStreams();
   KLOG_I("nui: shut down");
 }
@@ -364,13 +382,19 @@ Status GetStatus() {
   Status status;
   status.initialized = g_initialized;
   status.source = g_source_name;
-  status.message = g_source ? g_source->Message() : (g_initialized ? "no player" : "");
+  status.message = !g_source_message.empty() ? g_source_message : (g_initialized ? "no player" : "");
   status.frames = g_frame_number;
   status.bodies = g_snapshot.body_count;
   uint32_t order = 0;
   for (uint32_t slot : g_slots)
     if (slot && IsTracked(slot, order++)) ++status.tracked;
-  if (g_source) g_source->Stats(status);
+  status.camera_running = g_source_stats.camera_running;
+  status.camera_width = g_source_stats.camera_width;
+  status.camera_height = g_source_stats.camera_height;
+  status.camera_fps = g_source_stats.camera_fps;
+  status.inference_ms = g_source_stats.inference_ms;
+  status.latency_ms = g_source_stats.latency_ms;
+  status.restarts = g_source_stats.restarts;
   return status;
 }
 
@@ -395,7 +419,7 @@ std::vector<PreviewBody> GetBodies() {
 void ApplySettings(const settings::KinectSettings& kinect) {
   std::unique_ptr<Source> previous;
   {
-    std::lock_guard lock(g_mutex);
+    std::scoped_lock lock(g_source_mutex, g_mutex);
     if (kinect == g_applied) return;
     g_applied = kinect;
     g_camera_height = kinect.camera_height;
@@ -417,12 +441,12 @@ void ApplySettings(const settings::KinectSettings& kinect) {
 }
 
 void Calibrate() {
-  std::lock_guard lock(g_mutex);
+  std::lock_guard lock(g_source_mutex);
   if (g_source) g_source->Calibrate();
 }
 
 void RestartSource() {
-  std::lock_guard lock(g_mutex);
+  std::lock_guard lock(g_source_mutex);
   if (g_source) g_source->Restart();
 }
 

@@ -285,11 +285,15 @@ class BridgeSource : public Source {
     KLOG_W("nui: %s", problem_.c_str());
   }
 
-  // No heartbeat for stall_seconds (or none at all since the start, for startup_seconds).
+  // No heartbeat for stall_seconds (or none at all since the start, for startup_seconds). While
+  // the bridge says it's starting (importing MediaPipe, loading the model) it gets startup_seconds
+  // even after its first beat: a slow first load isn't a stuck bridge.
   bool Stale(double time) const {
-    const int64_t beat = channel_.header()->heartbeat_qpc;
+    const Header* h = channel_.header();
+    const int64_t beat = h->heartbeat_qpc;
     if (!beat) return options_.launch && process_.Started() && time - started_ > options_.startup_seconds;
-    return double(Qpc() - beat) / frequency_ > options_.stall_seconds;
+    const double limit = h->state == kStarting ? options_.startup_seconds : options_.stall_seconds;
+    return double(Qpc() - beat) / frequency_ > limit;
   }
 
   bool Live() const {

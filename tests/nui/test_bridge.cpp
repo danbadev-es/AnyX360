@@ -157,6 +157,14 @@ int main() {
     source->Poll(2.7, s);
     CHECK(s.body_count == 1);
 
+    // A bridge still starting (loading its model) gets the startup grace even after its first beat.
+    producer.channel.header()->state = bridge::kStarting;
+    std::this_thread::sleep_for(std::chrono::milliseconds(2200));
+    source->Poll(5.0, s);
+    CHECK(!Contains(source->Message(), "stopped responding"));
+    producer.channel.header()->state = bridge::kRunning;
+    producer.Beat();
+
     // Windows' camera privacy setting.
     producer.channel.header()->state = bridge::kCameraDenied;
     source->Poll(2.8, s);
