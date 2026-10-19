@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -19,6 +20,11 @@ struct Error : std::runtime_error {
 
 std::vector<uint8_t> read_file(const fs::path& path);
 void write_file(const fs::path& path, std::span<const uint8_t> data);
+// The path as Windows' long form (\\?\C:\...), so files deep in a folder tree (a game's content in
+// a deeply installed release) aren't limited to 260 characters.
+fs::path long_path(const fs::path& path);
+// Creates `path` (and its folders) for writing, long paths included; throws if it can't.
+std::ofstream create_file(const fs::path& path);
 
 // Hex helpers.
 std::string hex(std::span<const uint8_t> data);

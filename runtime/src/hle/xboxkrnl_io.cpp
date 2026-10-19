@@ -44,10 +44,19 @@ std::string ReadAnsi(uint32_t ansi_string) {
   return std::string(Ptr<char>(buffer), length);
 }
 
+// Host folders in Windows' long form (\\?\C:\...): a game's files deep in a folder tree (a release
+// installed deep, downloadable content in the user folder) aren't limited to 260 characters.
+fs::path LongPath(const fs::path& path) {
+  std::error_code ec;
+  std::wstring text = fs::absolute(path, ec).lexically_normal().make_preferred().wstring();
+  if (text.rfind(L"\\\\", 0) == 0) return text;  // already \\?\ or a share
+  return L"\\\\?\\" + text;
+}
+
 void AddDevice(const std::string& name, const fs::path& host, bool read_only) {
   std::error_code ec;
   if (!read_only) fs::create_directories(host, ec);
-  g_devices.push_back({Lower(name), host, read_only});
+  g_devices.push_back({Lower(name), LongPath(host), read_only});
 }
 
 void AddLink(const std::string& link, const std::string& target) { g_links[Lower(link)] = target; }
@@ -722,7 +731,7 @@ void MountContent(const std::string& root_name, const std::filesystem::path& hos
                                  [&](const Device& d) { return d.name == Lower(device); }),
                   g_devices.end());
   // Most specific first.
-  g_devices.insert(g_devices.begin(), Device{Lower(device), host, false});
+  g_devices.insert(g_devices.begin(), Device{Lower(device), LongPath(host), false});
   std::error_code ec;
   fs::create_directories(host, ec);
   g_links[Lower(root_name + ":")] = device;

@@ -37,7 +37,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cmath>
 #include <cwctype>
 #include <filesystem>
 #include <fstream>
@@ -57,8 +56,11 @@ using std::min;
 #include <gdiplus.h>
 
 #include "anyx360_version.h"
+#include "content.h"
 #include "games_catalog.h"
 #include "launcher_terms.h"
+#include "stfs.h"
+#include "svod.h"
 #include "util.h"
 #include "xdbf.h"
 #include "xex.h"
@@ -143,6 +145,8 @@ enum Text {
   kTextErrorStart,        // {0} Windows error
   kTextErrorExited,       // {0} game, {1} exit code
   kTextErrorCover,
+  kTextAddedContent,  // {0} game, {1} number of downloadable content packs
+  kTextErrorConvert,  // {0} reason
   kTextTermsTitle,
   kTextTermsHeading,
   kTextTermsCheck,
@@ -209,6 +213,8 @@ const wchar_t* const kEnglish[] = {
     L"{0} closed with an error (code {1}). Press Logs and send the last_run.log file to whoever gave you "
     L"the game.",
     L"That image could not be opened.",
+    L"{0} is ready, with its downloadable content ({1}).",
+    L"The Games on Demand copy could not be read ({0}).",
     L"Terms of use (AnyX360)",
     L"Terms of use",
     L"I have read and accept the terms of use",
@@ -274,6 +280,8 @@ const wchar_t* const kSpanish[] = {
     L"{0} se cerró con un error (código {1}). Pulsa Registros y envía el archivo last_run.log a quien te "
     L"pasó el juego.",
     L"No se pudo abrir esa imagen.",
+    L"{0} está preparado, con su contenido descargable ({1}).",
+    L"No se pudo leer la copia Games on Demand ({0}).",
     L"Términos y condiciones de uso (AnyX360)",
     L"Términos y condiciones de uso",
     L"He leído y acepto los términos y condiciones de uso",
@@ -687,7 +695,29 @@ int RunCaptured(std::wstring command, const std::function<void(const std::string
 struct ArchiveInfo {
   uint64_t size = 0;      // uncompressed
   bool has_game = false;  // contains default.xex
+  // A Games on Demand copy (<TitleID>\00007000\<package>): its title, and the folders to extract
+  // (the package and the title's downloadable content, not other titles' demos or updates).
+  uint32_t god_title = 0;
+  std::vector<std::string> god_folders;
 };
+
+// "...\4D5308ED\00007000\..." in an archive's file name: the title ID and the path up to the
+// content type's folder.
+bool ParseContentPath(const std::string& name, const char* type_folder, uint32_t& title_id, std::string& folder) {
+  std::string lower = name;
+  std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+  std::replace(lower.begin(), lower.end(), '/', '\\');
+  std::string needle = std::string("\\") + type_folder + "\\";
+  size_t at = lower.find(needle);
+  if (at == std::string::npos || at < 8) return false;
+  size_t start = at - 8;
+  if (start > 0 && lower[start - 1] != '\\') return false;
+  for (size_t i = start; i < at; ++i)
+    if (!std::isxdigit(static_cast<unsigned char>(lower[i]))) return false;
+  title_id = uint32_t(std::stoul(lower.substr(start, 8), nullptr, 16));
+  folder = name.substr(0, at + 1 + std::strlen(type_folder));
+  return true;
+}
 
 bool ListArchive(const fs::path& archive, ArchiveInfo& info, Message& error) {
   std::string output;
@@ -712,6 +742,25 @@ bool ListArchive(const fs::path& archive, ArchiveInfo& info, Message& error) {
     std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) { return char(std::tolower(c)); });
     if (lower.size() >= 11 && lower.compare(lower.size() - 11, 11, "default.xex") == 0) info.has_game = true;
     if (lines[i].rfind("-------------------", 0) == 0) summary = i + 1;
+    // File lines: "<date> <time> <attributes> <size> <compressed>  <name>", the name at column 53.
+    uint32_t title = 0;
+    std::string folder;
+    if (lines[i].size() > 53 && ParseContentPath(lines[i].substr(53), "00007000", title, folder)) {
+      info.god_title = title;
+      if (std::find(info.god_folders.begin(), info.god_folders.end(), folder) == info.god_folders.end())
+        info.god_folders.push_back(folder);
+    }
+  }
+  // The title's downloadable content goes with it.
+  if (info.god_title) {
+    for (const std::string& line : lines) {
+      uint32_t title = 0;
+      std::string folder;
+      if (line.size() > 53 && ParseContentPath(line.substr(53), "00000002", title, folder) &&
+          title == info.god_title &&
+          std::find(info.god_folders.begin(), info.god_folders.end(), folder) == info.god_folders.end())
+        info.god_folders.push_back(folder);
+    }
   }
   // Totals line after the last separator: "<date> <time> <size> <compressed> <n> files, ...".
   if (summary && summary < lines.size()) {
@@ -826,12 +875,229 @@ bool ConfirmReplace(const CatalogGame& game) {
 
 void PostDone(Outcome outcome) { PostMessageW(g_window, kMsgDone, 0, LPARAM(new Outcome(std::move(outcome)))); }
 
+std::wstring Widen(const std::string& utf8) {
+  int length = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), int(utf8.size()), nullptr, 0);
+  std::wstring text(size_t(std::max(length, 0)), L'\0');
+  MultiByteToWideChar(CP_UTF8, 0, utf8.data(), int(utf8.size()), text.data(), length);
+  return text;
+}
+
+// Extracts `archive` (only the folders `only`, when given) into `out`, posting its progress scaled
+// into [from, to] percent. Returns 7-Zip's exit code.
+int ExtractArchive(const fs::path& archive, const fs::path& out, const std::vector<std::string>& only, int from,
+                   int to) {
+  std::wstring command =
+      Quote(SevenZip()) + L" x -y -bsp1 -bso0 -bse1 -sccUTF-8 -o" + Quote(out) + L" " + Quote(archive);
+  for (const std::string& folder : only) command += L" " + Quote(Widen(folder));
+  int last = 0;
+  std::string tail;
+  return RunCaptured(
+      command,
+      [&](const std::string& text) {
+        // Progress lines ("  42% 120 - <file>") overwrite each other with backspaces.
+        std::string chunk = tail + text;
+        int percent = -1;
+        for (size_t i = 0; i < chunk.size(); ++i) {
+          if (chunk[i] != '%') continue;
+          size_t begin = i;
+          while (begin > 0 && i - begin < 3 && std::isdigit(static_cast<unsigned char>(chunk[begin - 1]))) --begin;
+          if (begin < i) percent = std::stoi(chunk.substr(begin, i - begin));
+        }
+        tail = chunk.size() > 8 ? chunk.substr(chunk.size() - 8) : chunk;
+        // Only forward: the bar fills once even if 7-Zip's count restarts (multi-volume archives).
+        if (percent > last) {
+          last = percent;
+          PostMessageW(g_window, kMsgProgress, WPARAM(std::min(from + percent * (to - from) / 100, 99)), 0);
+        }
+      },
+      true);
+}
+
+// Moves a checked copy (the folder holding default.xex) to games\<id>\game, replacing an earlier
+// copy, extracted or used in place, but keeping the player's cover.
+bool InstallCopy(const CatalogGame& game, const fs::path& found, Message& error) {
+  RemoveFolder(ExtractedDir(game));
+  std::error_code ec;
+  fs::remove(LocationFile(game), ec);
+  fs::create_directories(GameRoot(game), ec);
+  fs::rename(found, ExtractedDir(game), ec);
+  if (ec) {
+    error = {kTextErrorMove, {Widen(ec.message())}, true};
+    return false;
+  }
+  return true;
+}
+
+// ---- Games on Demand copies ---------------------------------------------------------------------
+// A Games on Demand copy is the console's HDD content: <TitleID>\00007000\<package>, with the disc's
+// files in <package>.data\Data0000... (x360tool's svod.cpp reads them), and maybe the title's
+// downloadable content in <TitleID>\00000002\. The game can't run from the package, so its files
+// are always written out to games\<id>\game; the content goes to the game's own content folder.
+
+// The Games on Demand package in `folder` (up to 4 levels down), or empty.
+fs::path FindGamesOnDemand(const fs::path& folder, x360tool::ContentPackage* package = nullptr) {
+  std::error_code ec;
+  for (auto it = fs::recursive_directory_iterator(folder, ec); !ec && it != fs::recursive_directory_iterator();
+       it.increment(ec)) {
+    if (it.depth() > 4) {
+      it.disable_recursion_pending();
+      continue;
+    }
+    if (!it->is_regular_file(ec) || it->path().parent_path().filename() != L"00007000") continue;
+    fs::path data = it->path();
+    data += L".data";
+    if (!Exists(data)) continue;
+    auto header = x360tool::read_content_header(it->path());
+    if (!header || header->content_type != x360tool::content_type::kGamesOnDemand ||
+        header->volume_type != x360tool::kVolumeSvod)
+      continue;
+    if (package) *package = *header;
+    return it->path();
+  }
+  return {};
+}
+
+// The title's downloadable content packages in `folder` (<TitleID>\00000002\*).
+std::vector<fs::path> FindDownloadableContent(const fs::path& folder, uint32_t title_id) {
+  std::vector<fs::path> packages;
+  std::error_code ec;
+  for (auto it = fs::recursive_directory_iterator(folder, ec); !ec && it != fs::recursive_directory_iterator();
+       it.increment(ec)) {
+    if (it.depth() > 4) {
+      it.disable_recursion_pending();
+      continue;
+    }
+    if (!it->is_regular_file(ec) || it->path().parent_path().filename() != L"00000002") continue;
+    auto header = x360tool::read_content_header(it->path());
+    if (header && header->content_type == x360tool::content_type::kMarketplace && header->title_id == title_id &&
+        header->volume_type == x360tool::kVolumeStfs)
+      packages.push_back(it->path());
+  }
+  return packages;
+}
+
+// Writes the disc's files of a Games on Demand package to `out`, posting progress in [from, to].
+bool ExtractGamesOnDemand(const fs::path& header, const fs::path& out, int from, int to, Message& error) {
+  try {
+    auto image = x360tool::open_games_on_demand(header);
+    std::vector<x360tool::XdvdfsEntry> files;
+    uint64_t total = 0;
+    image->walk([&](const x360tool::XdvdfsEntry& e) {
+      if (!e.is_dir) files.push_back(e), total += e.size;
+    });
+    uint64_t done = 0;
+    int last = -1;
+    for (const x360tool::XdvdfsEntry& e : files) {
+      if (g_cancel) return false;
+      image->extract(e, out / fs::path(Widen(e.path)));
+      done += e.size;
+      int percent = from + int(total ? done * uint64_t(to - from) / total : uint64_t(to - from));
+      if (percent > last) {
+        last = percent;
+        PostMessageW(g_window, kMsgProgress, WPARAM(std::min(percent, 99)), 0);
+      }
+    }
+    return true;
+  } catch (const std::exception& e) {
+    error = {kTextErrorConvert, {Widen(e.what())}, true};
+    return false;
+  }
+}
+
+// Extracts downloadable content packages where the runtime looks for them:
+// %LOCALAPPDATA%\AnyX360\<user dir>\content\00000002\<package name>\. Returns how many.
+int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::path>& packages) {
+  int installed = 0;
+  for (const fs::path& path : packages) {
+    try {
+      x360tool::StfsPackage package(path);
+      fs::path out = LocalAppData() / L"AnyX360" / game.user_dir / L"content" / L"00000002" / path.filename();
+      RemoveAll(out);
+      for (const x360tool::StfsEntry& e : package.entries())
+        if (!e.is_dir) package.extract(e, out / fs::path(Widen(e.path)));
+      ++installed;
+    } catch (const std::exception&) {
+      // A damaged pack is skipped: the game runs without it.
+    }
+  }
+  return installed;
+}
+
+// Converts the Games on Demand copy at `header` (in `source`, an extracted archive or the player's
+// folder) into games\<id>\game, with its downloadable content. Progress goes from `from` to 99.
+Outcome AddGamesOnDemand(const fs::path& source, const fs::path& header, const x360tool::ContentPackage& package,
+                         int from) {
+  Message error;
+  const CatalogGame* game = FindAvailableGame(package.title_id);
+  if (!game) return {{kTextErrorUnsupported, {Hex32(package.title_id), JoinTitles(AvailableGames())}, true}};
+  PostMessageW(g_window, kMsgJobGame, 0, LPARAM(game));
+  fs::path converted = GamesDir() / L".converted";
+  RemoveAll(converted);
+  if (!ExtractGamesOnDemand(header, converted, from, 99, error) || g_cancel) {
+    RemoveAll(converted);
+    return {error};
+  }
+  fs::path found = FindGameRoot(converted);
+  if (found.empty()) {
+    RemoveAll(converted);
+    return {{kTextErrorNoXex, {}, true}};
+  }
+  if (IdentifyCopy(found, error) != game || !CheckCopy(found, *game, error) || !InstallCopy(*game, found, error)) {
+    RemoveAll(converted);
+    return {error};
+  }
+  RemoveAll(converted);
+  SaveIcon(*game, ExtractedDir(*game));
+  int content = InstallDownloadableContent(*game, FindDownloadableContent(source, package.title_id));
+  if (content) return {{kTextAddedContent, {game->title, std::to_wstring(content)}, false}, game->id};
+  return {{kTextAdded, {game->title}, false}, game->id};
+}
+
+bool EnoughSpace(uint64_t needed, Message& error) {
+  ULARGE_INTEGER free_bytes{};
+  if (GetDiskFreeSpaceExW(Root().c_str(), &free_bytes, nullptr, nullptr) && free_bytes.QuadPart < needed) {
+    error = {kTextErrorSpace, {Gigabytes(needed), Gigabytes(free_bytes.QuadPart)}, true};
+    return false;
+  }
+  return true;
+}
+
+// Worker thread: a Games on Demand archive. Its title comes from the listing; only that title's
+// folders are extracted (into games\.partial), then the package is converted.
+void AddGamesOnDemandArchive(const fs::path& archive, const ArchiveInfo& info) {
+  Message error;
+  const CatalogGame* game = FindAvailableGame(info.god_title);
+  if (!game) return PostDone({{kTextErrorUnsupported, {Hex32(info.god_title), JoinTitles(AvailableGames())}, true}});
+  if (!ConfirmReplace(*game)) return PostDone({{kTextCancelled, {}, false}});
+  PostMessageW(g_window, kMsgJobGame, 0, LPARAM(game));
+  // The extracted package and the game's files written out from it.
+  if (!EnoughSpace(info.size * 2 + (512ull << 20), error)) return PostDone({error});
+  fs::path partial = GamesDir() / L".partial";
+  RemoveAll(partial);
+  PostMessageW(g_window, kMsgProgress, 0, 0);
+  int code = ExtractArchive(archive, partial, info.god_folders, 0, 60);
+  if (g_cancel || code != 0) {
+    RemoveAll(partial);
+    return PostDone(g_cancel ? Outcome{} : Outcome{{kTextErrorExtract, {std::to_wstring(code)}, true}});
+  }
+  x360tool::ContentPackage package;
+  fs::path header = FindGamesOnDemand(partial, &package);
+  if (header.empty()) {
+    RemoveAll(partial);
+    return PostDone({{kTextErrorNoXex, {}, true}});
+  }
+  Outcome outcome = AddGamesOnDemand(partial, header, package, 60);
+  RemoveAll(partial);
+  PostDone(g_cancel ? Outcome{} : outcome);
+}
+
 // Worker thread: identifies the game in the archive (only default.xex is extracted for that),
 // extracts it into games\.partial and moves the folder holding default.xex to games\<id>\game.
 void AddArchiveWorker(fs::path archive) {
   ArchiveInfo info;
   Message error;
   if (!ListArchive(archive, info, error)) return PostDone({error});
+  if (!info.has_game && info.god_title) return AddGamesOnDemandArchive(archive, info);
   if (!info.has_game) return PostDone({{kTextErrorNotGame, {}, true}});
 
   fs::path probe = GamesDir() / L".probe";
@@ -855,36 +1121,12 @@ void AddArchiveWorker(fs::path archive) {
   if (!ConfirmReplace(*game)) return PostDone({{kTextCancelled, {}, false}});
   PostMessageW(g_window, kMsgJobGame, 0, LPARAM(game));
 
-  ULARGE_INTEGER free_bytes{};
-  uint64_t needed = info.size + (512ull << 20);
-  if (GetDiskFreeSpaceExW(Root().c_str(), &free_bytes, nullptr, nullptr) && free_bytes.QuadPart < needed)
-    return PostDone({{kTextErrorSpace, {Gigabytes(needed), Gigabytes(free_bytes.QuadPart)}, true}});
+  if (!EnoughSpace(info.size + (512ull << 20), error)) return PostDone({error});
 
   fs::path partial = GamesDir() / L".partial";
   RemoveAll(partial);  // a previous attempt
   PostMessageW(g_window, kMsgProgress, 0, 0);
-  int last = 0;
-  std::string tail;
-  code = RunCaptured(
-      Quote(SevenZip()) + L" x -y -bsp1 -bso0 -bse1 -sccUTF-8 -o" + Quote(partial) + L" " + Quote(archive),
-      [&](const std::string& text) {
-        // Progress lines ("  42% 120 - <file>") overwrite each other with backspaces.
-        std::string chunk = tail + text;
-        int percent = -1;
-        for (size_t i = 0; i < chunk.size(); ++i) {
-          if (chunk[i] != '%') continue;
-          size_t begin = i;
-          while (begin > 0 && i - begin < 3 && std::isdigit(static_cast<unsigned char>(chunk[begin - 1]))) --begin;
-          if (begin < i) percent = std::stoi(chunk.substr(begin, i - begin));
-        }
-        tail = chunk.size() > 8 ? chunk.substr(chunk.size() - 8) : chunk;
-        // Only forward: the bar fills once even if 7-Zip's count restarts (multi-volume archives).
-        if (percent > last) {
-          last = percent;
-          PostMessageW(g_window, kMsgProgress, WPARAM(std::min(percent, 99)), 0);
-        }
-      },
-      true);
+  code = ExtractArchive(archive, partial, {}, 0, 100);
   if (g_cancel) {
     RemoveAll(partial);
     return PostDone({});
@@ -900,20 +1142,9 @@ void AddArchiveWorker(fs::path archive) {
     RemoveAll(partial);
     return PostDone({{kTextErrorNoXex, {}, true}});
   }
-  if (IdentifyCopy(found, error) != game || !CheckCopy(found, *game, error)) {
+  if (IdentifyCopy(found, error) != game || !CheckCopy(found, *game, error) || !InstallCopy(*game, found, error)) {
     RemoveAll(partial);
     return PostDone({error});
-  }
-  // Replaces an earlier copy, extracted or used in place, but keeps the player's cover.
-  RemoveFolder(ExtractedDir(*game));
-  std::error_code ec;
-  fs::remove(LocationFile(*game), ec);
-  fs::create_directories(GameRoot(*game), ec);
-  fs::rename(found, ExtractedDir(*game), ec);
-  if (ec) {
-    std::string reason = ec.message();
-    RemoveAll(partial);
-    return PostDone({{kTextErrorMove, {std::wstring(reason.begin(), reason.end())}, true}});
   }
   RemoveAll(partial);
   SaveIcon(*game, ExtractedDir(*game));
@@ -921,10 +1152,23 @@ void AddArchiveWorker(fs::path archive) {
 }
 
 // Worker thread: identifies the copy in the player's folder and remembers it; it is played where it is.
+// A Games on Demand copy is converted instead (written out to games\<id>\game).
 void AddFolderWorker(fs::path folder) {
   fs::path root = FindGameRoot(folder);
-  if (root.empty()) return PostDone({{kTextErrorNoXexFolder, {}, true}});
   Message error;
+  if (root.empty()) {
+    x360tool::ContentPackage package;
+    fs::path header = FindGamesOnDemand(folder, &package);
+    if (header.empty()) return PostDone({{kTextErrorNoXexFolder, {}, true}});
+    const CatalogGame* game = FindAvailableGame(package.title_id);
+    if (game && !ConfirmReplace(*game)) return PostDone({{kTextCancelled, {}, false}});
+    std::error_code ec;
+    if (!EnoughSpace(fs::file_size(header, ec) + uint64_t(package.data_file_count) * 0xA290000, error))
+      return PostDone({error});
+    PostMessageW(g_window, kMsgProgress, 0, 0);
+    Outcome outcome = AddGamesOnDemand(folder, header, package, 0);
+    return PostDone(g_cancel ? Outcome{} : outcome);
+  }
   const CatalogGame* game = IdentifyCopy(root, error);
   if (!game) return PostDone({error});
   PostMessageW(g_window, kMsgJobGame, 0, LPARAM(game));

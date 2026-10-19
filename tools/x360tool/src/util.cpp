@@ -23,11 +23,22 @@ std::vector<uint8_t> read_file(const fs::path& path) {
   return data;
 }
 
+fs::path long_path(const fs::path& path) {
+  std::wstring text = fs::absolute(path).lexically_normal().make_preferred().wstring();
+  if (text.rfind(L"\\\\", 0) == 0) return text;  // already \\?\ or a share
+  return L"\\\\?\\" + text;
+}
+
+std::ofstream create_file(const fs::path& path) {
+  fs::path target = long_path(path);
+  if (target.has_parent_path()) fs::create_directories(target.parent_path());
+  std::ofstream out(target, std::ios::binary | std::ios::trunc);
+  if (!out) throw Error("cannot write " + path.string());
+  return out;
+}
+
 void write_file(const fs::path& path, std::span<const uint8_t> data) {
-  if (path.has_parent_path()) {
-    fs::create_directories(path.parent_path());
-  }
-  std::ofstream out(path, std::ios::binary | std::ios::trunc);
+  std::ofstream out = create_file(path);
   out.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
   if (!out) {
     throw Error("cannot write " + path.string());

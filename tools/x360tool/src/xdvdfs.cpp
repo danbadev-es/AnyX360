@@ -133,9 +133,7 @@ void XdvdfsImage::walk_dir(uint32_t sector, uint32_t size, const std::string& pr
 }
 
 void XdvdfsImage::extract(const XdvdfsEntry& entry, const fs::path& dest) {
-  if (dest.has_parent_path()) fs::create_directories(dest.parent_path());
-  std::ofstream out(dest, std::ios::binary | std::ios::trunc);
-  if (!out) throw Error("cannot write " + dest.string());
+  std::ofstream out = create_file(dest);
 
   std::vector<char> buf(4 * 1024 * 1024);
   uint64_t pos = uint64_t(entry.sector) * kSectorSize;

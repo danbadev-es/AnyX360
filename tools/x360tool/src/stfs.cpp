@@ -132,9 +132,7 @@ uint32_t StfsPackage::NextBlock(uint32_t block_index) {
 }
 
 void StfsPackage::extract(const StfsEntry& entry, const fs::path& dest) {
-  if (dest.has_parent_path()) fs::create_directories(dest.parent_path());
-  std::ofstream out(dest, std::ios::binary | std::ios::trunc);
-  if (!out) throw Error("cannot write " + dest.string());
+  std::ofstream out = create_file(dest);
   std::vector<char> buf(kBlockSize);
   uint32_t block = entry.start_block;
   uint32_t left = entry.size;

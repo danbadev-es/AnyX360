@@ -407,12 +407,20 @@ uint32_t XamUserCreateStatsEnumerator(uint32_t title_id, uint32_t user_index, ui
 constexpr uint32_t kContentDataSize = 0x134;
 constexpr uint32_t kHddDeviceId = 1;
 
+constexpr uint32_t kContentMarketplace = 0x00000002;
+
+// <user>\content\<type>. Downloadable content belongs to the console, not a player: every player
+// sees the shared folder's (the launcher extracts a game's DLC there).
+fs::path ContentFolder(uint32_t user_index, uint32_t type) {
+  char type_dir[16];
+  std::snprintf(type_dir, sizeof(type_dir), "%08X", type);
+  return UserRoot(type == kContentMarketplace ? 0 : user_index) / "content" / type_dir;
+}
+
 fs::path ContentPath(uint32_t user_index, uint32_t content_data) {
   uint32_t type = Load<uint32_t>(content_data + 4);
   std::string file(Ptr<const char>(content_data + 0x108), strnlen(Ptr<const char>(content_data + 0x108), 42));
-  char type_dir[16];
-  std::snprintf(type_dir, sizeof(type_dir), "%08X", type);
-  return UserRoot(user_index) / "content" / type_dir / file;
+  return ContentFolder(user_index, type) / file;
 }
 
 uint32_t XamContentCreateEx(uint32_t user_index, uint32_t root_name_ptr, uint32_t content_data, uint32_t flags,
@@ -476,15 +484,16 @@ uint32_t XamContentCreateEnumerator(uint32_t user_index, uint32_t device_id, uin
   if (buffer_size_ptr) Store<uint32_t>(buffer_size_ptr, kContentDataSize * std::max<uint32_t>(items_per, 1));
   std::vector<std::vector<uint8_t>> items;
   if (device_id == 0 || device_id == kHddDeviceId) {
-    char type_dir[16];
-    std::snprintf(type_dir, sizeof(type_dir), "%08X", content_type);
     std::error_code ec;
-    for (const auto& entry : fs::directory_iterator(UserRoot(user_index) / "content" / type_dir, ec)) {
+    for (const auto& entry : fs::directory_iterator(ContentFolder(user_index, content_type), ec)) {
       std::vector<uint8_t> item(kContentDataSize, 0);
       x360::store_be<uint32_t>(item.data() + 0, kHddDeviceId);
       x360::store_be<uint32_t>(item.data() + 4, content_type);
-      std::string name = entry.path().filename().string().substr(0, 41);
-      for (size_t i = 0; i < name.size(); ++i) x360::store_be<uint16_t>(item.data() + 8 + i * 2, uint8_t(name[i]));
+      // The file name field holds 42 characters with no terminator: a package's name (as
+      // downloadable content has, "81FC9DE0...4D") uses all of them.
+      std::string name = entry.path().filename().string().substr(0, 42);
+      for (size_t i = 0; i < name.size() && i < 41; ++i)
+        x360::store_be<uint16_t>(item.data() + 8 + i * 2, uint8_t(name[i]));
       std::memcpy(item.data() + 0x108, name.data(), name.size());
       items.push_back(std::move(item));
     }
