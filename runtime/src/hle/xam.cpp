@@ -680,6 +680,19 @@ uint32_t XamInputGetCapabilitiesEx(uint32_t version, uint32_t user_index, uint32
   return XamInputGetCapabilities(user_index, flags, caps);
 }
 uint32_t XamInputSendStayAliveRequest() { return X_ERROR_SUCCESS; }
+
+// Keystrokes (X_INPUT_KEYSTROKE, 8 bytes: text from a chatpad or keyboard, and the pad's buttons as
+// virtual keys): there are none; games read the pad through XamInputGetState.
+uint32_t XamInputGetKeystroke(uint32_t user_index, uint32_t flags, uint32_t keystroke) {
+  (void)user_index, (void)flags;
+  if (keystroke) std::memset(Ptr(keystroke), 0, 8);
+  return X_ERROR_EMPTY;
+}
+uint32_t XamInputGetKeystrokeEx(uint32_t user_index_ptr, uint32_t flags, uint32_t keystroke) {
+  (void)user_index_ptr, (void)flags;
+  if (keystroke) std::memset(Ptr(keystroke), 0, 8);
+  return X_ERROR_EMPTY;
+}
 uint32_t XamInputControl() { return X_ERROR_SUCCESS; }
 uint32_t XamInputRawState() { return X_ERROR_DEVICE_NOT_CONNECTED; }
 
@@ -1174,6 +1187,8 @@ X360_EXPORT(XNotifyPositionUI, XNotifyPositionUI)
 X360_EXPORT(XamInputGetCapabilities, XamInputGetCapabilities)
 X360_EXPORT(XamInputGetState, XamInputGetState)
 X360_EXPORT(XamInputSetState, XamInputSetState)
+X360_EXPORT(XamInputGetKeystroke, XamInputGetKeystroke)
+X360_EXPORT(XamInputGetKeystrokeEx, XamInputGetKeystrokeEx)
 X360_EXPORT(XamLoaderGetLaunchDataSize, XamLoaderGetLaunchDataSize)
 X360_EXPORT(XamLoaderGetLaunchData, XamLoaderGetLaunchData)
 X360_EXPORT(XamLoaderLaunchTitle, XamLoaderLaunchTitle)

@@ -8,6 +8,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Fixed
+
+- **The recompiler finds more jump tables** (in games recompiled from this version on). A table
+  placed right after its dispatch may send cases back to code before it; a bounds check that
+  belongs to another switch no longer spoils the next one; and a table of offsets with no bounds
+  check (the compiler knew the range) is dispatched on the target address. Doritos Crash Course
+  had 68 jump tables left unresolved, now 2 (both calls through function pointers).
+- `XamInputGetKeystroke` and `XamInputGetKeystrokeEx` report no keystroke instead of being
+  missing.
+
 ## [0.7.1] - 2026-10-20
 
 ### Fixed
