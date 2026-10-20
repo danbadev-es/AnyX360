@@ -1,10 +1,11 @@
 [submodule "thirdparty/XenonRecomp"]
 	path = thirdparty/XenonRecomp
-	url = https://github.com/danielbarretoes/XenonRecomp
+	url = https://github.com/danbadev-es/XenonRecomp
 	branch = anyx360
 [submodule "thirdparty/XenosRecomp"]
 	path = thirdparty/XenosRecomp
-	url = https://github.com/danielbarretoes/XenosRecomp
+	url = https://github.com/danbadev-es/XenosRecomp
 [submodule "thirdparty/xenia"]
 	path = thirdparty/xenia
-	url = https://github.com/xenia-canary/xenia-canary
+	url = https://github.com/danbadev-es/xenia-canary
+	branch = anyx360
