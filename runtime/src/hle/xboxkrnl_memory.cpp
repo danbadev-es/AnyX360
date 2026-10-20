@@ -1,6 +1,7 @@
 // xboxkrnl memory exports on top of xe::Memory's heaps (semantics follow Xenia's
 // xboxkrnl_memory.cc, BSD licensed).
 #include <algorithm>
+#include <cstring>
 
 #include "x360/kernel.h"
 #include "xenia/memory.h"
@@ -200,8 +201,39 @@ uint32_t MmQueryAllocationSize(uint32_t address) {
   return heap && heap->QuerySize(address, &size) ? size : 0;
 }
 
+// MM_STATISTICS (0x68 bytes): its size, the console's physical pages (4 KB), the kernel's, then the
+// title's and the system's usage (11 words each) and the highest physical page. The title's free
+// pages come from the physical heaps; the other counts are Xenia's estimates (titles that call this
+// mostly check how much memory is left).
+uint32_t MmQueryStatistics(uint32_t stats) {
+  constexpr uint32_t kSize = 0x68;
+  constexpr uint32_t kTotalPages = 0x20000;  // 512 MB
+  constexpr uint32_t kKernelPages = 0x100;
+  if (!stats) return X_STATUS_INVALID_PARAMETER;
+  if (Load<uint32_t>(stats) != kSize) return X_STATUS_BUFFER_TOO_SMALL;
+  xe::Memory* memory = XeMemory();
+  const xe::BaseHeap* heaps[3] = {memory->LookupHeapByType(true, 0x1000), memory->LookupHeapByType(true, 0x10000),
+                                  memory->LookupHeapByType(true, 0x1000000)};
+  uint32_t unreserved = 0, reserved = 0, used = 0, reserved_bytes = 0;
+  memory->GetHeapsPageStatsSummary(heaps, 3, unreserved, reserved, used, reserved_bytes);
+  std::memset(Ptr(stats), 0, kSize);
+  Store<uint32_t>(stats + 0x00, kSize);
+  Store<uint32_t>(stats + 0x04, kTotalPages);
+  Store<uint32_t>(stats + 0x08, kKernelPages);
+  uint32_t title = stats + 0x0C;
+  Store<uint32_t>(title + 0x00, used < kTotalPages - kKernelPages ? kTotalPages - kKernelPages - used : 0);
+  Store<uint32_t>(title + 0x04, 0x2FFE0000);  // total virtual memory
+  Store<uint32_t>(title + 0x08, reserved_bytes);
+  Store<uint32_t>(title + 0x0C, 0x1000);  // physical pages
+  Store<uint32_t>(title + 0x10, 0x10);    // pool pages
+  for (uint32_t offset = 0x14; offset <= 0x28; offset += 4) Store<uint32_t>(title + offset, 0x100);
+  Store<uint32_t>(stats + 0x64, kTotalPages - 1);
+  return X_STATUS_SUCCESS;
+}
+
 }  // namespace
 
+X360_EXPORT(MmQueryStatistics, MmQueryStatistics)
 X360_EXPORT(NtAllocateVirtualMemory, NtAllocateVirtualMemory)
 X360_EXPORT(NtFreeVirtualMemory, NtFreeVirtualMemory)
 X360_EXPORT(NtQueryVirtualMemory, NtQueryVirtualMemory)

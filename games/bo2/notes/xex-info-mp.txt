@@ -1,0 +1,73 @@
+== XEX2 header ==
+module flags:     0x00000001 title
+PE data offset:   0x00006000
+base address:     0x82000000
+entry point:      0x8269D6F0
+image size:       0x029B0000 (41.69 MiB)
+page size:        0x10000
+encryption:       AES-128 (normal)
+compression:      basic (zero-fill blocks), 4 blocks
+region:           0x000000FF
+allowed media:    0x00000004
+original PE name: default_mp.pe
+
+== Execution info ==
+title id:         415608C3
+media id:         457AD131
+version:          0.0.0.14 (base 0.0.0.14)
+disc:             1 of 1
+savegame id:      00000000
+default stack:    0x20000
+title workspace:  0x100000
+system flags:     0x00002600
+
+== Optional headers (19) ==
+  000002FF  RESOURCE_INFO                  value/offset 0x000040BC
+  000003FF  FILE_FORMAT_INFO               value/offset 0x000040D0
+  00004304  ?                              value/offset 0x000040F8
+  00010100  ENTRY_POINT                    value/offset 0x8269D6F0
+  00010201  IMAGE_BASE_ADDRESS             value/offset 0x82000000
+  000103FF  IMPORT_LIBRARIES               value/offset 0x00005590
+  00018002  CHECKSUM_TIMESTAMP             value/offset 0x00004108
+  000183FF  ORIGINAL_PE_NAME               value/offset 0x00004110
+  000200FF  STATIC_LIBRARIES               value/offset 0x00004124
+  00020104  TLS_INFO                       value/offset 0x00004258
+  00020200  DEFAULT_STACK_SIZE             value/offset 0x00020000
+  00030000  SYSTEM_FLAGS                   value/offset 0x00002600
+  00030100  ?                              value/offset 0x00000008
+  00040006  EXECUTION_INFO                 value/offset 0x00004268
+  00040201  TITLE_WORKSPACE_SIZE           value/offset 0x00100000
+  00040310  GAME_RATINGS                   value/offset 0x00004280
+  00040404  LAN_KEY                        value/offset 0x000042C0
+  000405FF  XBOX360_LOGO                   value/offset 0x000042D0
+  000407FF  ALTERNATE_TITLE_IDS            value/offset 0x00004998
+
+== Import libraries (2) ==
+  xam.xex          v2.0.21119.0    (min 2.0.15574.0)  252 import records
+  xboxkrnl.exe     v2.0.21119.0    (min 2.0.15574.0)  387 import records
+
+== Statically linked SDK libraries (19) ==
+  XMP      2.0.21119  (tail 0x4000)
+  XGRAPHC  2.0.21119  (tail 0x4000)
+  XPARTY   2.0.21119  (tail 0x4000)
+  XAPILIB  2.0.21119  (tail 0x4000)
+  XBOXKRNL 2.0.21119  (tail 0x4000)
+  XHV2     2.0.21119  (tail 0x4000)
+  XAPOBA   2.0.21119  (tail 0x4000)
+  XAUDIO2  2.0.21119  (tail 0x4000)
+  XMCORE   2.0.21119  (tail 0x4000)
+  XNET     2.0.21119  (tail 0x4000)
+  XONLINE  2.0.21119  (tail 0x4000)
+  LIBCMT   2.0.11886  (tail 0x0400)
+  XCAM     2.0.21119  (tail 0x4000)
+  XHTTP    2.0.21119  (tail 0x4000)
+  XAUTH    2.0.21119  (tail 0x4000)
+  D3D9LTCG 2.0.21119  (tail 0x4000)
+  LINK     10.0.11886  (tail 0x4400)
+  C2       16.0.11886  (tail 0x4400)
+  C1       16.0.11886  (tail 0x4400)
+
+== Page descriptors (667) ==
+  code       7.06 MiB
+  data       33.06 MiB
+  read-only  1.56 MiB

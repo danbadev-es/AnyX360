@@ -10,10 +10,16 @@
 
 using namespace x360::kernel;
 
+// xam.cpp
+PPC_EXTERN_FUNC(__imp__XamMediaVerificationCreate);
+PPC_EXTERN_FUNC(__imp__XamMediaVerificationClose);
+PPC_EXTERN_FUNC(__imp__XamMediaVerificationVerify);
+PPC_EXTERN_FUNC(__imp__XamMediaVerificationFailedBlocks);
+
 namespace {
 
 // What the console kernel returns for an export it does not have; the XDK's wrappers for optional
-// exports (e.g. XamMediaVerificationVerify) treat the resulting ERROR_PROC_NOT_FOUND as "absent".
+// exports (e.g. XamVoiceSetMicArrayIdleUsers) treat the resulting ERROR_PROC_NOT_FOUND as "absent".
 constexpr uint32_t kStatusDriverEntrypointNotFound = 0xC0000263;
 constexpr uint32_t kKernelModuleHandle = 0x80010000;
 constexpr uint32_t kXamModuleHandle = 0x80020000;
@@ -53,10 +59,28 @@ uint32_t XexGetModuleSection(uint32_t module, uint32_t name_ptr, uint32_t data_p
   return X_STATUS_SUCCESS;
 }
 
+// The exports titles look up by ordinal rather than import, among those implemented. Any other
+// ordinal is reported missing, which the XDK's wrappers take as "feature absent".
+struct ProcedureExport {
+  uint32_t module;
+  uint32_t ordinal;
+  PPCFunc* function;
+};
+const ProcedureExport kProcedureExports[] = {
+    {kXamModuleHandle, 0x9BB, __imp__XamMediaVerificationCreate},
+    {kXamModuleHandle, 0x9BC, __imp__XamMediaVerificationClose},
+    {kXamModuleHandle, 0x9BD, __imp__XamMediaVerificationVerify},
+    {kXamModuleHandle, 0x9BE, __imp__XamMediaVerificationFailedBlocks},
+};
+
 uint32_t XexGetProcedureAddress(uint32_t module, uint32_t ordinal, uint32_t out_ptr) {
-  KLOG_W("XexGetProcedureAddress(%08X, %u) not supported", module, ordinal);
-  if (out_ptr) Store<uint32_t>(out_ptr, 0);
-  return kStatusDriverEntrypointNotFound;
+  uint32_t address = 0;
+  for (const ProcedureExport& e : kProcedureExports) {
+    if (e.module == module && e.ordinal == ordinal) address = GuestAddressOf(e.function);
+  }
+  if (!address) KLOG_W("XexGetProcedureAddress(%08X, %u) not supported", module, ordinal);
+  if (out_ptr) Store<uint32_t>(out_ptr, address);
+  return address ? X_STATUS_SUCCESS : kStatusDriverEntrypointNotFound;
 }
 
 uint32_t XexLoadImage(uint32_t name_ptr, uint32_t flags, uint32_t min_version, uint32_t handle_ptr) {
@@ -138,6 +162,213 @@ void XeCryptSha(uint32_t in1, uint32_t size1, uint32_t in2, uint32_t size2, uint
   if (alg) BCryptCloseAlgorithmProvider(alg, 0);
   if (out) std::memcpy(Ptr(out), digest, std::min<uint32_t>(out_size, 20));
 }
+
+// Incremental SHA-1 and SHA-2 (XeCryptSha*Init/Update/Final). The context lives in guest memory, as
+// on the console, so a title may copy it (to hash a shared prefix once): the byte count, the chaining
+// state as big-endian words, then the partial block. SHA-1 and SHA-256 use 32-bit words and count
+// (0x58 and 0x64 bytes); SHA-384 and SHA-512 64-bit ones (0xC8 bytes), the layouts Xenia uses.
+struct ShaKind {
+  uint32_t word_size;    // 4 or 8; the block is 16 words
+  uint32_t words;        // chaining words: 5 or 8
+  uint32_t digest_size;  // bytes of the chaining state the digest takes
+  void (*compress)(uint64_t* state, const uint8_t* block);
+  uint64_t initial[8];
+};
+
+uint32_t Rotl32(uint32_t v, int n) { return (v << n) | (v >> (32 - n)); }
+uint32_t Rotr32(uint32_t v, int n) { return (v >> n) | (v << (32 - n)); }
+uint64_t Rotr64(uint64_t v, int n) { return (v >> n) | (v << (64 - n)); }
+
+void Sha1Compress(uint64_t* h, const uint8_t* block) {
+  uint32_t w[80];
+  for (int i = 0; i < 16; ++i) w[i] = x360::load_be<uint32_t>(block + i * 4);
+  for (int i = 16; i < 80; ++i) w[i] = Rotl32(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
+  uint32_t a = uint32_t(h[0]), b = uint32_t(h[1]), c = uint32_t(h[2]), d = uint32_t(h[3]), e = uint32_t(h[4]);
+  for (int i = 0; i < 80; ++i) {
+    uint32_t f, k;
+    if (i < 20) f = (b & c) | (~b & d), k = 0x5A827999;
+    else if (i < 40) f = b ^ c ^ d, k = 0x6ED9EBA1;
+    else if (i < 60) f = (b & c) | (b & d) | (c & d), k = 0x8F1BBCDC;
+    else f = b ^ c ^ d, k = 0xCA62C1D6;
+    uint32_t t = Rotl32(a, 5) + f + e + k + w[i];
+    e = d, d = c, c = Rotl32(b, 30), b = a, a = t;
+  }
+  const uint32_t add[5] = {a, b, c, d, e};
+  for (int i = 0; i < 5; ++i) h[i] = uint32_t(h[i] + add[i]);
+}
+
+void Sha256Compress(uint64_t* h, const uint8_t* block) {
+  static constexpr uint32_t k[64] = {
+      0x428A2F98, 0x71374491, 0xB5C0FBCF, 0xE9B5DBA5, 0x3956C25B, 0x59F111F1, 0x923F82A4, 0xAB1C5ED5,
+      0xD807AA98, 0x12835B01, 0x243185BE, 0x550C7DC3, 0x72BE5D74, 0x80DEB1FE, 0x9BDC06A7, 0xC19BF174,
+      0xE49B69C1, 0xEFBE4786, 0x0FC19DC6, 0x240CA1CC, 0x2DE92C6F, 0x4A7484AA, 0x5CB0A9DC, 0x76F988DA,
+      0x983E5152, 0xA831C66D, 0xB00327C8, 0xBF597FC7, 0xC6E00BF3, 0xD5A79147, 0x06CA6351, 0x14292967,
+      0x27B70A85, 0x2E1B2138, 0x4D2C6DFC, 0x53380D13, 0x650A7354, 0x766A0ABB, 0x81C2C92E, 0x92722C85,
+      0xA2BFE8A1, 0xA81A664B, 0xC24B8B70, 0xC76C51A3, 0xD192E819, 0xD6990624, 0xF40E3585, 0x106AA070,
+      0x19A4C116, 0x1E376C08, 0x2748774C, 0x34B0BCB5, 0x391C0CB3, 0x4ED8AA4A, 0x5B9CCA4F, 0x682E6FF3,
+      0x748F82EE, 0x78A5636F, 0x84C87814, 0x8CC70208, 0x90BEFFFA, 0xA4506CEB, 0xBEF9A3F7, 0xC67178F2};
+  uint32_t w[64];
+  for (int i = 0; i < 16; ++i) w[i] = x360::load_be<uint32_t>(block + i * 4);
+  for (int i = 16; i < 64; ++i) {
+    uint32_t s0 = Rotr32(w[i - 15], 7) ^ Rotr32(w[i - 15], 18) ^ (w[i - 15] >> 3);
+    uint32_t s1 = Rotr32(w[i - 2], 17) ^ Rotr32(w[i - 2], 19) ^ (w[i - 2] >> 10);
+    w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+  }
+  uint32_t v[8];
+  for (int i = 0; i < 8; ++i) v[i] = uint32_t(h[i]);
+  for (int i = 0; i < 64; ++i) {
+    uint32_t s1 = Rotr32(v[4], 6) ^ Rotr32(v[4], 11) ^ Rotr32(v[4], 25);
+    uint32_t t1 = v[7] + s1 + ((v[4] & v[5]) ^ (~v[4] & v[6])) + k[i] + w[i];
+    uint32_t s0 = Rotr32(v[0], 2) ^ Rotr32(v[0], 13) ^ Rotr32(v[0], 22);
+    uint32_t t2 = s0 + ((v[0] & v[1]) ^ (v[0] & v[2]) ^ (v[1] & v[2]));
+    for (int j = 7; j > 0; --j) v[j] = v[j - 1];
+    v[4] += t1;
+    v[0] = t1 + t2;
+  }
+  for (int i = 0; i < 8; ++i) h[i] = uint32_t(h[i] + v[i]);
+}
+
+void Sha512Compress(uint64_t* h, const uint8_t* block) {
+  static constexpr uint64_t k[80] = {
+      0x428A2F98D728AE22, 0x7137449123EF65CD, 0xB5C0FBCFEC4D3B2F, 0xE9B5DBA58189DBBC, 0x3956C25BF348B538,
+      0x59F111F1B605D019, 0x923F82A4AF194F9B, 0xAB1C5ED5DA6D8118, 0xD807AA98A3030242, 0x12835B0145706FBE,
+      0x243185BE4EE4B28C, 0x550C7DC3D5FFB4E2, 0x72BE5D74F27B896F, 0x80DEB1FE3B1696B1, 0x9BDC06A725C71235,
+      0xC19BF174CF692694, 0xE49B69C19EF14AD2, 0xEFBE4786384F25E3, 0x0FC19DC68B8CD5B5, 0x240CA1CC77AC9C65,
+      0x2DE92C6F592B0275, 0x4A7484AA6EA6E483, 0x5CB0A9DCBD41FBD4, 0x76F988DA831153B5, 0x983E5152EE66DFAB,
+      0xA831C66D2DB43210, 0xB00327C898FB213F, 0xBF597FC7BEEF0EE4, 0xC6E00BF33DA88FC2, 0xD5A79147930AA725,
+      0x06CA6351E003826F, 0x142929670A0E6E70, 0x27B70A8546D22FFC, 0x2E1B21385C26C926, 0x4D2C6DFC5AC42AED,
+      0x53380D139D95B3DF, 0x650A73548BAF63DE, 0x766A0ABB3C77B2A8, 0x81C2C92E47EDAEE6, 0x92722C851482353B,
+      0xA2BFE8A14CF10364, 0xA81A664BBC423001, 0xC24B8B70D0F89791, 0xC76C51A30654BE30, 0xD192E819D6EF5218,
+      0xD69906245565A910, 0xF40E35855771202A, 0x106AA07032BBD1B8, 0x19A4C116B8D2D0C8, 0x1E376C085141AB53,
+      0x2748774CDF8EEB99, 0x34B0BCB5E19B48A8, 0x391C0CB3C5C95A63, 0x4ED8AA4AE3418ACB, 0x5B9CCA4F7763E373,
+      0x682E6FF3D6B2B8A3, 0x748F82EE5DEFB2FC, 0x78A5636F43172F60, 0x84C87814A1F0AB72, 0x8CC702081A6439EC,
+      0x90BEFFFA23631E28, 0xA4506CEBDE82BDE9, 0xBEF9A3F7B2C67915, 0xC67178F2E372532B, 0xCA273ECEEA26619C,
+      0xD186B8C721C0C207, 0xEADA7DD6CDE0EB1E, 0xF57D4F7FEE6ED178, 0x06F067AA72176FBA, 0x0A637DC5A2C898A6,
+      0x113F9804BEF90DAE, 0x1B710B35131C471B, 0x28DB77F523047D84, 0x32CAAB7B40C72493, 0x3C9EBE0A15C9BEBC,
+      0x431D67C49C100D4C, 0x4CC5D4BECB3E42B6, 0x597F299CFC657E2A, 0x5FCB6FAB3AD6FAEC, 0x6C44198C4A475817};
+  uint64_t w[80];
+  for (int i = 0; i < 16; ++i) w[i] = x360::load_be<uint64_t>(block + i * 8);
+  for (int i = 16; i < 80; ++i) {
+    uint64_t s0 = Rotr64(w[i - 15], 1) ^ Rotr64(w[i - 15], 8) ^ (w[i - 15] >> 7);
+    uint64_t s1 = Rotr64(w[i - 2], 19) ^ Rotr64(w[i - 2], 61) ^ (w[i - 2] >> 6);
+    w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+  }
+  uint64_t v[8];
+  for (int i = 0; i < 8; ++i) v[i] = h[i];
+  for (int i = 0; i < 80; ++i) {
+    uint64_t s1 = Rotr64(v[4], 14) ^ Rotr64(v[4], 18) ^ Rotr64(v[4], 41);
+    uint64_t t1 = v[7] + s1 + ((v[4] & v[5]) ^ (~v[4] & v[6])) + k[i] + w[i];
+    uint64_t s0 = Rotr64(v[0], 28) ^ Rotr64(v[0], 34) ^ Rotr64(v[0], 39);
+    uint64_t t2 = s0 + ((v[0] & v[1]) ^ (v[0] & v[2]) ^ (v[1] & v[2]));
+    for (int j = 7; j > 0; --j) v[j] = v[j - 1];
+    v[4] += t1;
+    v[0] = t1 + t2;
+  }
+  for (int i = 0; i < 8; ++i) h[i] += v[i];
+}
+
+constexpr ShaKind kSha1 = {4, 5, 20, Sha1Compress, {0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0}};
+constexpr ShaKind kSha256 = {4, 8, 32, Sha256Compress,
+                             {0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A, 0x510E527F, 0x9B05688C, 0x1F83D9AB,
+                              0x5BE0CD19}};
+constexpr ShaKind kSha384 = {8, 8, 48, Sha512Compress,
+                             {0xCBBB9D5DC1059ED8, 0x629A292A367CD507, 0x9159015A3070DD17, 0x152FECD8F70E5939,
+                              0x67332667FFC00B31, 0x8EB44A8768581511, 0xDB0C2E0D64F98FA7, 0x47B5481DBEFA4FA4}};
+constexpr ShaKind kSha512 = {8, 8, 64, Sha512Compress,
+                             {0x6A09E667F3BCC908, 0xBB67AE8584CAA73B, 0x3C6EF372FE94F82B, 0xA54FF53A5F1D36F1,
+                              0x510E527FADE682D1, 0x9B05688C2B3E6C1F, 0x1F83D9ABFB41BD6B, 0x5BE0CD19137E2179}};
+
+// The guest context, loaded into host words and stored back.
+struct ShaContext {
+  const ShaKind& kind;
+  uint32_t address;
+  uint64_t count = 0;
+  uint64_t state[8] = {};
+
+  ShaContext(const ShaKind& k, uint32_t a) : kind(k), address(a) {}
+  uint32_t BlockSize() const { return kind.word_size * 16; }
+  uint8_t* Buffer() const { return Ptr<uint8_t>(address + kind.word_size * (1 + kind.words)); }
+  void Load() {
+    count = kind.word_size == 8 ? x360::kernel::Load<uint64_t>(address) : x360::kernel::Load<uint32_t>(address);
+    for (uint32_t i = 0; i < kind.words; ++i)
+      state[i] = kind.word_size == 8 ? x360::kernel::Load<uint64_t>(address + 8 + i * 8)
+                                     : x360::kernel::Load<uint32_t>(address + 4 + i * 4);
+  }
+  void Save() const {
+    if (kind.word_size == 8) x360::kernel::Store<uint64_t>(address, count);
+    else x360::kernel::Store<uint32_t>(address, uint32_t(count));
+    for (uint32_t i = 0; i < kind.words; ++i) {
+      if (kind.word_size == 8) x360::kernel::Store<uint64_t>(address + 8 + i * 8, state[i]);
+      else x360::kernel::Store<uint32_t>(address + 4 + i * 4, uint32_t(state[i]));
+    }
+  }
+};
+
+void ShaInit(const ShaKind& kind, uint32_t context) {
+  ShaContext sha(kind, context);
+  std::memset(Ptr(context), 0, kind.word_size * (1 + kind.words) + sha.BlockSize());
+  std::memcpy(sha.state, kind.initial, sizeof(sha.state));
+  sha.Save();
+}
+
+void ShaUpdate(const ShaKind& kind, uint32_t context, uint32_t input, uint32_t size) {
+  ShaContext sha(kind, context);
+  sha.Load();
+  const uint32_t block = sha.BlockSize();
+  uint32_t used = uint32_t(sha.count % block);
+  sha.count += size;
+  const uint8_t* data = size ? Ptr<const uint8_t>(input) : nullptr;
+  while (size) {
+    uint32_t n = std::min(block - used, size);
+    std::memcpy(sha.Buffer() + used, data, n);
+    used += n, data += n, size -= n;
+    if (used == block) {
+      kind.compress(sha.state, sha.Buffer());
+      used = 0;
+    }
+  }
+  sha.Save();
+}
+
+// Pads in place, as the console does: the last block compressed and the final state stay in the
+// context.
+void ShaFinal(const ShaKind& kind, uint32_t context, uint32_t output, uint32_t output_size) {
+  ShaContext sha(kind, context);
+  sha.Load();
+  const uint32_t block = sha.BlockSize();
+  const uint32_t length_size = kind.word_size * 2;  // the message length in bits: 8 or 16 bytes
+  uint8_t* buffer = sha.Buffer();
+  uint32_t used = uint32_t(sha.count % block);
+  buffer[used++] = 0x80;
+  if (used > block - length_size) {
+    std::memset(buffer + used, 0, block - used);
+    kind.compress(sha.state, buffer);
+    used = 0;
+  }
+  std::memset(buffer + used, 0, block - used);
+  x360::store_be<uint64_t>(buffer + block - 8, sha.count * 8);
+  kind.compress(sha.state, buffer);
+  sha.Save();
+  uint8_t digest[64];
+  for (uint32_t i = 0; i < kind.words; ++i) {
+    if (kind.word_size == 8) x360::store_be<uint64_t>(digest + i * 8, sha.state[i]);
+    else x360::store_be<uint32_t>(digest + i * 4, uint32_t(sha.state[i]));
+  }
+  if (output) std::memcpy(Ptr(output), digest, std::min(output_size, kind.digest_size));
+}
+
+void XeCryptShaInit(uint32_t context) { ShaInit(kSha1, context); }
+void XeCryptShaUpdate(uint32_t context, uint32_t input, uint32_t size) { ShaUpdate(kSha1, context, input, size); }
+void XeCryptShaFinal(uint32_t context, uint32_t out, uint32_t out_size) { ShaFinal(kSha1, context, out, out_size); }
+void XeCryptSha256Init(uint32_t context) { ShaInit(kSha256, context); }
+void XeCryptSha256Update(uint32_t context, uint32_t input, uint32_t size) { ShaUpdate(kSha256, context, input, size); }
+void XeCryptSha256Final(uint32_t context, uint32_t out, uint32_t out_size) { ShaFinal(kSha256, context, out, out_size); }
+void XeCryptSha384Init(uint32_t context) { ShaInit(kSha384, context); }
+void XeCryptSha384Update(uint32_t context, uint32_t input, uint32_t size) { ShaUpdate(kSha384, context, input, size); }
+void XeCryptSha384Final(uint32_t context, uint32_t out, uint32_t out_size) { ShaFinal(kSha384, context, out, out_size); }
+void XeCryptSha512Init(uint32_t context) { ShaInit(kSha512, context); }
+void XeCryptSha512Update(uint32_t context, uint32_t input, uint32_t size) { ShaUpdate(kSha512, context, input, size); }
+void XeCryptSha512Final(uint32_t context, uint32_t out, uint32_t out_size) { ShaFinal(kSha512, context, out, out_size); }
 
 void XeCryptRandom(uint32_t buffer, uint32_t length) {
   if (buffer && length) BCryptGenRandom(nullptr, Ptr(buffer), length, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
@@ -232,6 +463,18 @@ X360_EXPORT(HalReturnToFirmware, HalReturnToFirmware)
 X360_EXPORT(ExRegisterTitleTerminateNotification, ExRegisterTitleTerminateNotification)
 X360_EXPORT(ExGetXConfigSetting, ExGetXConfigSetting)
 X360_EXPORT(XeCryptSha, XeCryptSha)
+X360_EXPORT(XeCryptShaInit, XeCryptShaInit)
+X360_EXPORT(XeCryptShaUpdate, XeCryptShaUpdate)
+X360_EXPORT(XeCryptShaFinal, XeCryptShaFinal)
+X360_EXPORT(XeCryptSha256Init, XeCryptSha256Init)
+X360_EXPORT(XeCryptSha256Update, XeCryptSha256Update)
+X360_EXPORT(XeCryptSha256Final, XeCryptSha256Final)
+X360_EXPORT(XeCryptSha384Init, XeCryptSha384Init)
+X360_EXPORT(XeCryptSha384Update, XeCryptSha384Update)
+X360_EXPORT(XeCryptSha384Final, XeCryptSha384Final)
+X360_EXPORT(XeCryptSha512Init, XeCryptSha512Init)
+X360_EXPORT(XeCryptSha512Update, XeCryptSha512Update)
+X360_EXPORT(XeCryptSha512Final, XeCryptSha512Final)
 X360_EXPORT(XeCryptRandom, XeCryptRandom)
 X360_EXPORT(XeCryptAesKey, XeCryptAesKey)
 X360_EXPORT(XeCryptAesEcb, XeCryptAesEcb)

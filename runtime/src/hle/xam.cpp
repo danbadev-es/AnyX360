@@ -353,14 +353,17 @@ uint32_t ReadProfileSettings(uint32_t title_id, uint32_t user_index, uint32_t xu
     if (type == 4 || type == 6) {
       std::vector<uint8_t>* blob = ProfileBlob(user_index, id);
       uint32_t length = blob ? std::min<uint32_t>(uint32_t(blob->size()), size) : 0;
+      bool no_value = !blob && (id & 0xFFFF) >= 0x3FFD;
       if (blob) {
         std::memcpy(Ptr(extra), blob->data(), length);
         Store<uint32_t>(s + 0x00, 2);  // source: title
-      } else if ((id & 0xFFFF) >= 0x3FFD) {
+      } else if (no_value) {
         Store<uint32_t>(s + 0x00, 0);  // title-specific blob never written: no value
       }
+      // A setting with no value has no data either: Black Ops II checks the signature of every blob
+      // it is given a pointer to, and an empty one underflowed its length.
       Store<uint32_t>(s + 0x20, length);
-      Store<uint32_t>(s + 0x24, extra);
+      Store<uint32_t>(s + 0x24, no_value ? 0 : extra);
       extra += size;
     }
   }
@@ -1200,6 +1203,34 @@ uint32_t XGetGameRegion() { return 0xFFFF; }
 // The player profile's language (Windows' by default): a game without it chooses its own.
 uint32_t XGetLanguage() { return TitlePaths().language; }
 
+// Media verification: the disc's blocks checked against the title's hashes. Titles find these exports
+// with XexGetProcedureAddress. A copy on the hard disk has nothing to check: every verification
+// succeeds at once. Titles learn it from the overlapped (Gears of War 3 polls it) or from the
+// callback, which runs as a user APC at the caller's next alertable wait (Black Ops II sleeps until
+// it has run before loading each level, as in Xenia).
+uint32_t XamMediaVerificationCreate(uint32_t flags) {
+  (void)flags;
+  return X_ERROR_SUCCESS;
+}
+uint32_t XamMediaVerificationClose() { return X_ERROR_SUCCESS; }
+uint32_t XamMediaVerificationVerify(uint32_t blocks, uint32_t overlapped, uint32_t callback) {
+  (void)blocks;
+  if (Thread* thread = CurrentThread(); thread && callback) QueueUserApc(*thread, callback & ~1u, 0, 0, 0);
+  return Complete(overlapped, X_ERROR_SUCCESS);
+}
+// X_SECURITY_FAILURE_INFORMATION: size, failed reads, failed hashes, blocks checked, total blocks,
+// complete.
+uint32_t XamMediaVerificationFailedBlocks(uint32_t info) {
+  if (!info) return X_ERROR_SUCCESS;
+  if (Load<uint32_t>(info) != 0x18) return X_ERROR_NOT_ENOUGH_MEMORY;
+  std::memset(Ptr(info + 4), 0, 0x14);
+  Store<uint32_t>(info + 0x14, 1);
+  return X_ERROR_SUCCESS;
+}
+
+// No stereoscopic 3D modes (the flags a 3D television reports).
+uint32_t XGetVideoCapabilities() { return 0; }
+
 void XGetVideoMode(uint32_t mode) {
   std::memset(Ptr(mode), 0, 0x30);
   Store<uint32_t>(mode + 0x00, 1280);  // display width
@@ -1344,6 +1375,11 @@ X360_EXPORT(XNetLogonGetTitleID, XNetLogonGetTitleID)
 X360_EXPORT(XGetAVPack, XGetAVPack)
 X360_EXPORT(XGetGameRegion, XGetGameRegion)
 X360_EXPORT(XGetLanguage, XGetLanguage)
+X360_EXPORT(XGetVideoCapabilities, XGetVideoCapabilities)
+X360_EXPORT(XamMediaVerificationCreate, XamMediaVerificationCreate)
+X360_EXPORT(XamMediaVerificationClose, XamMediaVerificationClose)
+X360_EXPORT(XamMediaVerificationVerify, XamMediaVerificationVerify)
+X360_EXPORT(XamMediaVerificationFailedBlocks, XamMediaVerificationFailedBlocks)
 X360_EXPORT(XGetVideoMode, XGetVideoMode)
 X360_EXPORT(XMsgSystemProcessCall, XMsgSystemProcessCall)
 X360_EXPORT(XamGetCurrentTitleId, XamGetCurrentTitleId)

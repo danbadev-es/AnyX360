@@ -88,6 +88,7 @@ enum : uint32_t {
   X_ERROR_PATH_NOT_FOUND = 3,
   X_ERROR_ACCESS_DENIED = 5,
   X_ERROR_INVALID_HANDLE = 6,
+  X_ERROR_NOT_ENOUGH_MEMORY = 8,
   X_ERROR_NO_MORE_FILES = 18,
   X_ERROR_NOT_SUPPORTED = 50,
   X_ERROR_INVALID_PARAMETER = 87,
@@ -384,6 +385,9 @@ bool FindXexResource(const std::string& name, uint32_t& address, uint32_t& size)
 bool LoadTitle(const TitleInfo& info);
 // Looks up a guest address of an xboxkrnl/xam variable export set up by the loader.
 uint32_t KernelVariable(const char* name);
+// A guest address whose indirect calls run `host`, for an export a title looks up by ordinal
+// (XexGetProcedureAddress) instead of importing it. 0 if no free address is left.
+uint32_t GuestAddressOf(PPCFunc* host);
 
 // Entry point used by game executables: loads the title and runs its main thread.
 int Run(const TitleInfo& info);

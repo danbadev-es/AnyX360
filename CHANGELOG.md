@@ -8,6 +8,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **Call of Duty: Black Ops II** (in testing): the single-player executable from a Games on Demand
+  copy, with keyboard and mouse or a controller, at 60 FPS. The opening videos, the menus, the
+  settings and saves, and the first mission (Pyrrhic Victory: its loading video, opening and
+  gameplay) work. Multiplayer and Zombies are a separate program, not recompiled.
+- Media verification (`XamMediaVerificationCreate`, `Close`, `Verify`, `FailedBlocks`): nothing to
+  verify on the hard disk; `Verify`'s callback runs as a user APC. `XexGetProcedureAddress` returns
+  these exports, which titles look up by ordinal (before, it reported every ordinal missing, which
+  the XDK takes for success: Black Ops II waited forever for the callback).
+- Incremental SHA (`XeCryptShaInit/Update/Final` and the SHA-256, SHA-384 and SHA-512 ones),
+  `MmQueryStatistics` and `XGetVideoCapabilities`.
+- The recompiler: `vmaxsb` and `vrfip128`.
+
+### Fixed
+
+- **`XamUserReadProfileSettings`**: a title-specific setting that was never written has no data
+  pointer, as in Xenia. Black Ops II checks the signature of every blob it gets a pointer to and
+  read past the end of an empty one.
+
 ## [0.10.0] - 2026-10-20
 
 The players' names and the games' language from the launcher, a faster mouse, and fixes from
