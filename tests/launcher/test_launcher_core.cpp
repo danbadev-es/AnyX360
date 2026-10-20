@@ -230,6 +230,13 @@ struct Observer : JobObserver {
       if (s == step) return true;
     return false;
   }
+  // The percent never went back (the bar fills once).
+  bool Monotonic() {
+    std::lock_guard lock(mutex);
+    for (size_t i = 1; i < progress.size(); ++i)
+      if (progress[i].second < progress[i - 1].second) return false;
+    return true;
+  }
 };
 
 // Runs a job on this thread.
@@ -471,6 +478,7 @@ int main() {
       CHECK(outcome.message.id == kTextAdded && outcome.select == game.id);
       CHECK(observer.game == &game);
       CHECK(observer.Saw(Step::kChecking) && observer.Saw(Step::kFinishing));
+      CHECK(observer.Monotonic());
       CHECK(Installed(game) && Clean());
       auto library = ReadLibrary();
       CHECK(library[0].installed && library[0].dir == ExtractedDir(game));
@@ -525,6 +533,7 @@ int main() {
         Outcome outcome = Add(source, &observer);
         CHECK(outcome.message.id == kTextAdded);
         CHECK(observer.password_asks == 2 && observer.wrong_passwords == 1);
+        CHECK(observer.Monotonic());  // the retried extraction doesn't start the bar again
         CHECK(Installed(game) && Clean());
         Remove(game);
         Observer gives_up;

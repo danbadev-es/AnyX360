@@ -790,12 +790,10 @@ void App::DrawOverlay(Canvas& c, Overlay& overlay, bool top) {
     if (percent_ >= 0) {
       c.FillRect({bar.x, bar.y, bar.w * std::min(percent_, 100) / 100.0f, bar.h}, kGreen.Alpha(fade));
     } else {
-      // Not known yet: a segment going across.
-      const float phase = float(std::fmod(now, 1.6) / 1.6);
-      const float seg = bar.w * 0.22f, sx = bar.x - seg + (bar.w + seg) * phase;
-      c.PushClip(bar);
-      c.FillRect({sx, bar.y, seg, bar.h}, kGreen.Alpha(fade));
-      c.PopClip();
+      // Not known yet: the bar breathes, in place (a segment starting again from the left looked
+      // like the progress restarting).
+      const float pulse = 0.5f + 0.5f * float(std::sin(now * 3.0));
+      c.FillRect(bar, kGreen.Alpha(fade * (0.15f + 0.35f * pulse)));
     }
     y += extra;
   } else if (overlay.kind == OverlayKind::kPassword) {
