@@ -40,6 +40,11 @@ struct GameDescriptor {
   // Kinect Sports 82A84A00): with it the system returns avatars made from the console's avatar
   // asset pack (docs/AVATARS.md). 0: assets requests return nothing.
   uint32_t avatar_skeleton = 0;
+  // The hardware thread (0-5) the title's main thread starts on; threads it creates inherit it
+  // unless they are given one. The console starts it on 0. The games before Modern Warfare 3 were
+  // brought up and tested with 1, so that stays the default; Modern Warfare 3 needs 0 (it places its
+  // first worker thread on 1 and keeps per-processor data).
+  uint8_t main_thread_processor = 1;
   // Game-specific default settings, applied before settings.toml is read.
   std::function<void(settings::Settings&)> defaults;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).

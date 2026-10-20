@@ -41,6 +41,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   had 68 jump tables left unresolved, now 2 (both calls through function pointers).
 - `XamInputGetKeystroke` and `XamInputGetKeystrokeEx` report no keystroke instead of being
   missing.
+- **`XSetThreadProcessor` moves the thread**: the thread now reads its new processor number at
+  PCR+0x10C, as on the console (before, only the KTHREAD's affinity changed, and every thread kept
+  its creator's number). Games that keep data per processor shared it between threads.
+- `GameDescriptor::main_thread_processor`: the hardware thread the title's main thread starts on.
+  The console uses 0; the default stays 1, which the earlier games were tested with.
 - `XamShowMessageBoxUIEx` read its result pointer from the wrong argument (it has one more than
   `XamShowMessageBoxUI`): it wrote the pressed button to an unrelated address and filled the
   result as if it were the overlapped structure.

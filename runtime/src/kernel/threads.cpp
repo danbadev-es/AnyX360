@@ -294,9 +294,10 @@ uint32_t CreateThread(uint32_t stack_size, uint32_t xapi_startup, uint32_t start
   return X_STATUS_SUCCESS;
 }
 
-uint32_t RunMainThread(uint32_t entry_point, uint32_t stack_size) {
+uint32_t RunMainThread(uint32_t entry_point, uint32_t stack_size, uint8_t processor) {
   std::shared_ptr<Thread> main;
-  uint32_t status = CreateThread(stack_size, 0, entry_point, 0, 0, &main);
+  // The processor goes in the creation flags' affinity byte, as ExCreateThread receives it.
+  uint32_t status = CreateThread(stack_size, 0, entry_point, 0, (1u << (processor % 6)) << 24, &main);
   if (status != X_STATUS_SUCCESS) return status;
   WaitForSingleObject(main->host, INFINITE);
   return main->exit_code;

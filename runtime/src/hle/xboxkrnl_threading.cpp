@@ -95,11 +95,27 @@ uint32_t NtSuspendThread(uint32_t handle, uint32_t suspend_count_ptr) {
   return X_STATUS_SUCCESS;
 }
 
+// XSetThreadProcessor: the thread moves to that hardware thread. On the console r13 then points at
+// that processor's PCR, so the thread reads its new number at PCR+0x10C; here each thread has a PCR
+// of its own, which is updated. Modern Warfare 3 keeps per-processor data (indexed by that number)
+// for the threads it places on each one; with every thread still reading its creator's number, its
+// server and worker threads shared one and the level load crashed.
 uint32_t KeSetAffinityThread(uint32_t kthread, uint32_t affinity, uint32_t previous_ptr) {
   if (previous_ptr) Store<uint32_t>(previous_ptr, 1u << Load<uint8_t>(kthread + 0xBF));
   for (uint8_t i = 0; i < 6; ++i) {
     if (affinity & (1u << i)) {
       Store<uint8_t>(kthread + 0xBF, i);
+      if (auto thread = ThreadById(Load<uint32_t>(kthread + 0x14C)); thread && thread->kthread == kthread) {
+        static std::mutex mutex;  // log each (thread, processor) once
+        static std::set<std::pair<uint32_t, uint8_t>> seen;
+        {
+          std::lock_guard lock(mutex);
+          if (seen.insert({thread->thread_id, i}).second)
+            KLOG_I("KeSetAffinityThread: thread %X on processor %u", thread->thread_id, i);
+        }
+        thread->cpu = i;
+        Store<uint8_t>(thread->pcr + 0x10C, i);
+      }
       break;
     }
   }
