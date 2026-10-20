@@ -24,6 +24,9 @@
 //                                             each asset's STRB blocks, unpacked
 //   avatar-unpack <file> <out> [offset size]   Unpack avatar data (the container of LZX blocks the
 //                                             pack's models and the avatar library's own data use)
+//   avatar-model <AvatarAssetPack.toc> <entry|all> [out.obj]
+//                                             Decode a part's model (or check every model in the
+//                                             pack); write it as Wavefront OBJ
 #include <cstdio>
 #include <fstream>
 #include <map>
@@ -39,6 +42,7 @@
 #include <objbase.h>
 
 #include "avatar.h"
+#include "avatar_model.h"
 #include "content.h"
 #include "exports.h"
 #include "wic/image.h"
@@ -437,6 +441,72 @@ int cmd_avatar_unpack(const fs::path& in, const fs::path& out, size_t offset, si
   return 0;
 }
 
+// The model of a pack entry, unpacked and decoded (empty if it has none).
+bool load_pack_model(const AvatarPack& pack, const AvatarPackEntry& e, std::vector<uint8_t>& file, AvatarModel& model,
+                     std::string& error) {
+  auto data = pack.data(e);
+  Strb strb;
+  if (e.size == 0 || !parse_strb(data, strb, error)) return false;
+  for (const StrbBlock& block : strb.blocks) {
+    if (block.id != uint32_t(StrbBlockId::kModel)) continue;
+    auto bytes = data.subspan(block.offset, block.length);
+    uint32_t window = 0;
+    if (is_avatar_packed(bytes)) {
+      if (!avatar_unpack(bytes, file, window, error)) return false;
+    } else {
+      file.assign(bytes.begin(), bytes.end());
+    }
+    return parse_avatar_model(file, model, error);
+  }
+  error = "no model block";
+  return false;
+}
+
+int cmd_avatar_model(const fs::path& toc, const std::string& which, const std::optional<fs::path>& obj) {
+  AvatarPack pack(read_file(toc));
+  if (which == "all") {
+    size_t models = 0, failed = 0, vertices = 0, triangles = 0;
+    for (const auto& e : pack.entries()) {
+      std::vector<uint8_t> file;
+      AvatarModel model;
+      std::string error;
+      if (!load_pack_model(pack, e, file, model, error)) {
+        if (error != "no model block" && e.size != 0) {
+          std::printf("entry %u: %s\n", e.index, error.c_str());
+          ++failed;
+        }
+        continue;
+      }
+      ++models;
+      for (const auto& mesh : model.meshes) vertices += mesh.vertex_count, triangles += mesh.triangles;
+    }
+    std::printf("%zu models decoded, %zu failed; %zu vertices, %zu triangles\n", models, failed, vertices, triangles);
+    return failed ? 1 : 0;
+  }
+  const uint32_t index = uint32_t(std::strtoul(which.c_str(), nullptr, 0));
+  if (index >= pack.entries().size()) throw Error("no such entry");
+  std::vector<uint8_t> file;
+  AvatarModel model;
+  std::string error;
+  if (!load_pack_model(pack, pack.entries()[index], file, model, error)) throw Error(error);
+  std::printf("CPU %u bytes, GPU %u bytes, %zu meshes, %zu textures, %zu welds\n", model.cpu_size(), model.gpu_size(),
+              model.meshes.size(), model.textures.size(), model.welds.size());
+  for (size_t m = 0; m < model.meshes.size(); ++m) {
+    const auto& mesh = model.meshes[m];
+    std::printf("  mesh %zu: material %u, %u vertices, %u triangles, %u UV sets, %zu parameters\n", m, mesh.material,
+                mesh.vertex_count, mesh.triangles, mesh.uv_sets, mesh.params.size());
+  }
+  for (const auto& t : model.textures)
+    std::printf("  texture: format %08X %ux%u, %u slices%s%s\n", t.format, t.width, t.height, t.slice_count,
+                t.blank ? ", blank" : "", t.tiled ? ", tiled" : "");
+  if (obj) {
+    const std::string text = avatar_model_obj(model);
+    write_file(*obj, std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(text.data()), text.size()));
+    std::printf("wrote %s\n", obj->string().c_str());
+  }
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -472,6 +542,8 @@ int main(int argc, char** argv) {
     if (cmd == "stfs-extract" && argc >= 4)
       return cmd_stfs_extract(argv[2], argv[3], argc >= 5 && std::string(argv[4]) == "--verify");
     if (cmd == "avatar-pack" && argc >= 4) return cmd_avatar_pack(argv[2], argv[3]);
+    if (cmd == "avatar-model" && argc >= 4)
+      return cmd_avatar_model(argv[2], argv[3], argc >= 5 ? std::optional<fs::path>(argv[4]) : std::nullopt);
     if (cmd == "avatar-unpack" && argc >= 4) {
       const size_t offset = argc >= 6 ? std::strtoull(argv[4], nullptr, 0) : 0;
       const size_t size = argc >= 6 ? std::strtoull(argv[5], nullptr, 0) : SIZE_MAX;
