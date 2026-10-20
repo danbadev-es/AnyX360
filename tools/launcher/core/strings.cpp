@@ -79,6 +79,8 @@ const wchar_t* const kEnglish[] = {
     L"{1} downloadable content packs were added to {0}.",
     L"{0} title updates in the copy were left out (AnyX360 plays the game's own version).",
     L"{0} packages of other games in the copy were left out.",
+    L"{0} downloadable content packs in the copy were left out: this game's need its title update, which "
+    L"AnyX360 doesn't play.",
     L"my games",
     L"compatible games",
     L"{0} playable · {1} coming soon",
@@ -199,6 +201,8 @@ const wchar_t* const kSpanish[] = {
     L"Se han dejado fuera {0} actualizaciones del título que había en la copia (AnyX360 juega a la versión del "
     L"propio juego).",
     L"Se han dejado fuera {0} paquetes de otros juegos que había en la copia.",
+    L"Se han dejado fuera {0} paquetes de contenido descargable que había en la copia: los de este juego "
+    L"necesitan su actualización del título, que AnyX360 no juega.",
     L"mis juegos",
     L"juegos compatibles",
     L"{0} jugables · {1} próximamente",

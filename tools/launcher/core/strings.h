@@ -78,6 +78,7 @@ enum Text {
   kTextAddedContentOnly,   // {0} game, {1} number of packs
   kTextNoteUpdatesSkipped,  // {0} number of title updates
   kTextNoteOtherContent,   // {0} number of other titles' packages
+  kTextNoteContentSkipped,  // {0} number of downloadable content packs
   kTextMyGames,
   kTextCompatibleTitle,
   kTextCompatibleCount,  // {0} playable, {1} coming soon

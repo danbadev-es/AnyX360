@@ -3,6 +3,7 @@
 // default.xex header with the title ID and the game's required files, as a folder, archives of
 // several kinds, a disc image, an Xbox Live Arcade package with downloadable content and a title
 // update). Archives use 7-Zip when it is installed.
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <fstream>
@@ -265,6 +266,13 @@ bool Installed(const CatalogGame& game) {
   return Exists(ExtractedDir(game) / L"default.xex") && Exists(ExtractedDir(game) / L"media" / L"level.bin");
 }
 
+// The game's entry in the library (which lists the catalog in its order).
+LibraryGame Entry(const CatalogGame& game) {
+  for (const LibraryGame& entry : ReadLibrary())
+    if (entry.info == &game) return entry;
+  return {};
+}
+
 }  // namespace
 
 int main() {
@@ -278,7 +286,8 @@ int main() {
   const fs::path seven_zip = SevenZip();  // before the root moves: the build's or an installed one
   SetRootForTesting(release);
   for (const CatalogGame& game : kCatalog) WriteFile(release / L"bin" / game.exe, "stand-in");
-  const CatalogGame& game = kCatalog[0];
+  // The first game that takes its downloadable content (the tests add some).
+  const CatalogGame& game = *std::find_if(std::begin(kCatalog), std::end(kCatalog), [](const CatalogGame& g) { return g.content; });
 
   {  // Text.
     SetLanguage(Language::kEnglish);
@@ -343,9 +352,8 @@ int main() {
     CHECK(AvailableGames().size() == std::size(kCatalog));
     CHECK(FindAvailableGame(game.title_id) == &game);
     CHECK(FindCatalogGame(game.id) == &game);
-    auto library = ReadLibrary();
-    CHECK(library.size() == std::size(kCatalog));
-    CHECK(!library[0].installed && library[0].dir.empty());
+    CHECK(ReadLibrary().size() == std::size(kCatalog));
+    CHECK(Entry(game).info == &game && !Entry(game).installed && Entry(game).dir.empty());
   }
 
   const auto files = Copy(game);
@@ -376,8 +384,8 @@ int main() {
     CHECK(IsInstalled(game));
     CHECK(fs::equivalent(StoredLocation(game), copy));
     CHECK(Exists(avatar_pack) && fs::file_size(avatar_pack) == std::size("avatar pack") - 1);
-    auto library = ReadLibrary();
-    CHECK(library[0].installed && !library[0].location_gone && fs::equivalent(library[0].dir, copy));
+    const LibraryGame entry = Entry(game);
+    CHECK(entry.installed && !entry.location_gone && fs::equivalent(entry.dir, copy));
     CHECK(Add(copy / L"default.xex").message.id == kTextAddedFolder);  // default.xex itself
   }
 
@@ -412,7 +420,7 @@ int main() {
     WriteFile(player / L"cover.png", "png");
     CHECK(SetPlayerCover(game, player / L"cover.png"));
     CHECK(CoverFile(game).filename() == L"cover.png");
-    CHECK(ReadLibrary()[0].cover.filename() == L"cover.png");
+    CHECK(Entry(game).cover.filename() == L"cover.png");
     RestoreCover(game);
     CHECK(CoverFile(game).empty());
   }
@@ -462,6 +470,17 @@ int main() {
     CHECK(Add(arcade / title / L"00000002" / L"DLCPACKAGE").message.id == kTextErrorContentOnly);
   }
 
+  // A game whose downloadable content needs its title update (Black Ops II) doesn't take it.
+  for (const CatalogGame& g : kCatalog) {
+    if (g.content) continue;
+    const fs::path pack = player / L"NoContent" / Hex32(g.title_id) / L"00000002" / L"DLCPACKAGE";
+    WriteFile(pack, MakeStfs(x360tool::content_type::kMarketplace, g.title_id, {{"dlc1.id", "id"}}));
+    Outcome outcome = Add(pack);
+    CHECK(outcome.message.id == kTextErrorContentNoGame && outcome.message.args[0] == g.title);
+    CHECK(!Exists(sandbox / L"local" / L"AnyX360" / g.user_dir / L"content" / L"00000002" / L"DLCPACKAGE"));
+    break;
+  }
+
   if (seven_zip.empty()) {
     std::printf("SKIP archives: 7-Zip is not installed\n");
   } else {
@@ -480,8 +499,8 @@ int main() {
       CHECK(observer.Saw(Step::kChecking) && observer.Saw(Step::kFinishing));
       CHECK(observer.Monotonic());
       CHECK(Installed(game) && Clean());
-      auto library = ReadLibrary();
-      CHECK(library[0].installed && library[0].dir == ExtractedDir(game));
+      const LibraryGame entry = Entry(game);
+      CHECK(entry.installed && entry.dir == ExtractedDir(game));
     }
 
     {  // The extracted copy added as a folder is the same copy.

@@ -72,8 +72,8 @@ carries: AnyX360 builds each avatar from it, with the clothes, hair and face the
    - **A folder** with the disc's files: it is used where it is.
 
    The launcher recognises the game by its content and its title ID and checks the copy is
-   complete. The game's downloadable content in the copy is installed too; title updates and other
-   games' content are left out. Add each game you have the same way: it appears with its box art.
+   complete. The game's downloadable content in the copy is installed too (but Black Ops II's, which
+   needs the title update); title updates and other games' content are left out. Add each game you have the same way: it appears with its box art.
 5. Choose a game and press **Play**. The launcher works with the mouse, the keyboard or an Xbox
    controller.
 
@@ -234,7 +234,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Campaign                         | 🧪 The first mission played; the rest not tried yet |
 | Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; Local matches with two to four players and with bots played |
 | Zombies, split screen            | 🧪 TranZit alone and with two players, Grief with two played; three or four players not tried yet |
-| Downloadable maps                | ❌ Not available: they need the Title Update, which isn't supported |
+| Downloadable maps                | ❌ Not available: they need the Title Update, which isn't supported (the launcher leaves them out) |
 | Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link needs a network |
 
 ## Controls
@@ -396,9 +396,8 @@ Call of Duty: Black Ops II:
 
 - Multiplayer and Zombies are a second program: switching between them and the campaign closes
   the window and opens another, and the launcher closes.
-- The downloadable maps aren't offered (they need the Title Update, which isn't supported); with
-  a map pack in the copy, multiplayer may report content "not from the correct region" at start:
-  press A and play on.
+- The downloadable maps aren't available (they need the Title Update, which isn't supported), so
+  the launcher leaves the copy's map packs out.
 - Four-player split screen runs below 60 FPS (about 40-50 on the test machine).
 - Only the first mission, Local matches, TranZit and Grief have been played.
 

@@ -48,6 +48,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   `XNetQosServiceLookup` returns an empty result and `XNetLogonGetMachineID` reports "not logged
   on", as in Xenia. Games that host sessions: Modern Warfare 3's split screen, Gears of War 3's
   co-op.
+- **The launcher leaves Black Ops II's downloadable content out** (and says how many packs): the
+  packs need the Title Update, which AnyX360 doesn't play, and installed without it Uprising made
+  multiplayer show a region error box (game.json `"downloadable_content": false`).
 
 ### Fixed
 

@@ -13,6 +13,7 @@
   "archive_hint": "Call of Duty: Black Ops II (Games on Demand)",
   "input": "keyboard_pad",
   "required_files": ["default_mp.xex", "weapons.clump"],
+  "downloadable_content": false,
   "owners": "Activision Publishing, Treyarch",
   "trademarks": ["Xbox", "Xbox 360", "Call of Duty", "Black Ops"],
   "components": []

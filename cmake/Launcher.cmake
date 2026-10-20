@@ -79,8 +79,16 @@ function(anyx360_add_launcher)
     else()
       set(webcam false)
     endif()
+    # Optional: "downloadable_content": false when the game's packs need its title update (which
+    # AnyX360 doesn't play) and get in the way without it; the launcher then leaves them out.
+    string(JSON content ERROR_VARIABLE no_content GET "${json}" downloadable_content)
+    if(no_content OR content)
+      set(content true)
+    else()
+      set(content false)
+    endif()
     string(APPEND entries "    {L\"${id}\", L\"${title}\", L\"${exe}.exe\", L\"${user_dir}\", 0x${title_id}, ${size_gb}, ${webcam},\n"
-                          "     L\"${required_files}\", L\"$<TARGET_FILE:${id}>\", L\"${cover}\", ${playable}},\n")
+                          "     L\"${required_files}\", L\"$<TARGET_FILE:${id}>\", L\"${cover}\", ${playable}, ${content}},\n")
     list(APPEND titles "${title}")
     # Rights holders, trademarks and extra components of every game, each named once.
     string(REPLACE ", " ";" game_owners "${owners}")
@@ -151,6 +159,7 @@ struct CatalogGame {
   const wchar_t* dev_exe;   // the build's copy, when the launcher runs from the build folder
   const wchar_t* cover;     // covers/<cover>.jpg (empty: none)
   bool playable;            // playable; false: in testing
+  bool content = true;      // its downloadable content is installed (false: it needs the title update)
 };
 
 inline constexpr CatalogGame kCatalog[] = {

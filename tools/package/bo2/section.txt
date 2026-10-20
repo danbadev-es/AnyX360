@@ -39,9 +39,9 @@ In menus: Space or Enter accepts, V or Backspace goes back. The game's text is i
 your copy carries (the launcher's Players and language chooses among them).
 
 KNOWN ISSUES
-- The downloadable maps aren't offered: they need the Title Update, which isn't supported.
-  With a map pack in your copy (such as Uprising), multiplayer may say at start that the content
-  "is not from the correct region": press A and play on.
+- The downloadable maps aren't available: they need the Title Update, which isn't supported,
+  so the launcher leaves the copy's map packs out (without it, a pack such as Uprising makes
+  multiplayer report content "not from the correct region").
 - Four-player split screen runs at about 40-50 FPS on the test machine.
 - In testing: the campaign's first mission, split screen matches (two to four players, with
   bots), TranZit and Grief with two players have been played; the rest hasn't been tried yet.

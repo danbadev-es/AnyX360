@@ -93,6 +93,8 @@ Outcome AddPackage(Job& job, const FoundPackage& package, const fs::path& conten
   if (package.header.content_type == x360tool::content_type::kMarketplace) {
     const CatalogGame* game = FindAvailableGame(title);
     if (!game) return {{kTextErrorContentNoGame, {Hex32(title)}, true}};
+    // A game whose packs need its title update doesn't take them.
+    if (!game->content) return {{kTextErrorContentNoGame, {game->title}, true}};
     if (!IsInstalled(*game)) return {{kTextErrorContentOnly, {game->title}, true}};
     std::vector<fs::path> packages = FindDownloadableContent(content_source, title);
     if (std::find(packages.begin(), packages.end(), package.path) == packages.end()) packages = {package.path};

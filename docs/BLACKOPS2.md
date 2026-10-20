@@ -219,9 +219,10 @@ From `BlackOps2MP.exe` started directly: `40:B,44:UP,47:A` switches to Zombies (
 route above as `ANYX360_INPUT_NEXT`), and `40:B,44:UP,46:UP,48:A` goes back to the campaign.
 
 ### The DLC and the Title Update
-The copy's six content packages (the two licences aside) install as the launcher installs DLC
-(`<user>\content\00000002\<package>`) and are mounted (`dlc1:`, `dlc2:`...), but the base
-executables can't use them:
+The launcher leaves Black Ops II's content packages out (game.json `"downloadable_content":
+false`; its result says how many). Installed by hand as the launcher installs other games' DLC
+(`<user>\content\00000002\<package>`), the copy's six packages (the two licences aside) are
+mounted (`dlc1:`, `dlc2:`...), but the base executables can't use them:
 
 - At start each pack is asked for `dlc1.id` to `dlc5.id`. Nuketown 2025 (multiplayer) carries
   `dlc0.id` and Nuketown Zombies `dlczm0.id`, which version 0.0.0.14 never asks for: the Local
@@ -243,7 +244,8 @@ Supporting it would take:
 2. The runtime loading the patched image (the patched XEX) instead of the base one.
 3. Mounting `update:` on the Title Update's files.
 4. The launcher keeping the Title Update (it leaves title updates out now) and requiring it; a
-   copy without it would need the base executables. Then the DLC can be tried again.
+   copy without it would need the base executables. Then the DLC can be tried again, and
+   installed again (`"downloadable_content"` back to true).
 
 ### Controls
 As in Modern Warfare 3: player 1 on keyboard and mouse (or a controller: F2 > Players), players
@@ -255,7 +257,8 @@ on the arrows and 1-4 (D-pad); pause on Esc (Start), scores on Tab (Back). In me
 accepts and V or Backspace goes back.
 
 ### Known issues
-- The DLC isn't usable, and Uprising shows a region error box at start (above).
+- The DLC isn't usable, so the launcher leaves it out (installed, Uprising shows a region error
+  box at start: above).
 - Four players run at 37-51 FPS and Zombies with two at 50-60 on the test machine.
 - Xbox LIVE and System Link aren't available (no network play).
 - Not tried: Zombies with three or four players, Survival and the Farm location, Zombies'

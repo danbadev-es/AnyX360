@@ -129,8 +129,12 @@ Outcome InstallExtracted(Job& job, const CatalogGame& game, const fs::path& extr
       ++other;
     }
   }
-  if (int installed = InstallDownloadableContent(game, content))
+  if (!game.content) {
+    // Packs that need the title update (which isn't played) are left out.
+    if (!content.empty()) outcome.notes.push_back({kTextNoteContentSkipped, {std::to_wstring(content.size())}, false});
+  } else if (int installed = InstallDownloadableContent(game, content)) {
     outcome.message = {kTextAddedContent, {game.title, std::to_wstring(installed)}, false};
+  }
   if (updates) outcome.notes.push_back({kTextNoteUpdatesSkipped, {std::to_wstring(updates)}, false});
   if (other) outcome.notes.push_back({kTextNoteOtherContent, {std::to_wstring(other)}, false});
   return outcome;
