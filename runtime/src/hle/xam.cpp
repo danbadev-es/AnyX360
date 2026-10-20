@@ -1236,6 +1236,7 @@ uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_
         case 0x000B0013:  // XSessionLeaveLocal
         case 0x000B0014:  // XSessionStart
         case 0x000B0015:  // XSessionEnd
+        case 0x000B0018:  // XSessionModify (Black Ops II's Zombies lobby, choosing Grief)
         case 0x000B0025:  // XSessionWriteStats (kept nowhere: there are no leaderboards)
         case 0x000B0071:  // XUserAwardAvatarAssets
           return kHrSuccess;
