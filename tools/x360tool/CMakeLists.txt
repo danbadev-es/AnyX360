@@ -19,6 +19,7 @@ add_library(x360_formats STATIC
   src/stfs.cpp
   src/lzx.cpp
   src/exports.cpp
+  src/avatar.cpp
 )
 target_include_directories(x360_formats PUBLIC src PRIVATE ${ANYX360_THIRDPARTY}/XenonRecomp/XenonUtils)
 target_link_libraries(x360_formats PUBLIC x360_runtime mspack_lzxd bcrypt)

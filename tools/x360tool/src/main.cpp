@@ -19,6 +19,11 @@
 //   cover       <picture> <out.jpg> [--size WxH] [--quality Q]
 //                                             A box picture's front cover, scaled to fit WxH
 //                                             (default 600x900), as a JPEG (quality 0-100, 85)
+//   avatar-pack <AvatarAssetPack.toc> <out_dir>
+//                                             The avatar asset pack's entries (index.tsv) and
+//                                             each asset's STRB blocks, unpacked
+//   avatar-unpack <file> <out> [offset size]   Unpack avatar data (the container of LZX blocks the
+//                                             pack's models and the avatar library's own data use)
 #include <cstdio>
 #include <fstream>
 #include <map>
@@ -33,6 +38,7 @@
 #endif
 #include <objbase.h>
 
+#include "avatar.h"
 #include "content.h"
 #include "exports.h"
 #include "wic/image.h"
@@ -355,6 +361,82 @@ int cmd_cover(const fs::path& in, const fs::path& out, uint32_t width, uint32_t 
   return 0;
 }
 
+// The avatar asset pack: index.tsv (entry, the two words describing it, name, size, its blocks) and
+// <entry>_<block>_<id>.bin for each block (unpacked when compressed), for studying the formats.
+int cmd_avatar_pack(const fs::path& toc, const fs::path& out) {
+  AvatarPack pack(read_file(toc));
+  fs::create_directories(out);
+  std::ofstream index(out / "index.tsv");
+  index << "entry\tword0\tword1\tname\tsize\tmetadata\tblocks\n";
+  size_t assets = 0, unpacked = 0;
+  for (const auto& e : pack.entries()) {
+    std::string name;
+    for (char16_t c : e.name) name.push_back(c < 0x80 ? char(c) : '?');
+    char head[64];
+    std::snprintf(head, sizeof(head), "%u\t%08X\t%08X\t", e.index, e.word0, e.word1);
+    index << head << name << "\t" << e.size << "\t";
+    if (e.size == 0) {
+      index << "\t\n";
+      continue;
+    }
+    ++assets;
+    auto data = pack.data(e);
+    Strb strb;
+    std::string error;
+    if (!parse_strb(data, strb, error)) {
+      index << "\t" << error << "\n";
+      continue;
+    }
+    std::string blocks;
+    for (size_t b = 0; b < strb.blocks.size(); ++b) {
+      const StrbBlock& block = strb.blocks[b];
+      auto bytes = data.subspan(block.offset, block.length);
+      AvatarAssetMetadata meta;
+      if (parse_avatar_metadata(bytes, block.id, meta)) {
+        char text[96];
+        std::snprintf(text, sizeof(text), "v%u gender %u type %u details %u category %u skeleton %u", meta.version,
+                      meta.gender, meta.type, meta.details, meta.category, meta.skeleton_version);
+        index << text;
+      }
+      std::vector<uint8_t> unpacked_data;
+      uint32_t window = 0;
+      std::string packed_note;
+      if (is_avatar_packed(bytes)) {
+        if (avatar_unpack(bytes, unpacked_data, window, error)) {
+          bytes = unpacked_data;
+          packed_note = "(unpacked, window " + std::to_string(window) + ")";
+          ++unpacked;
+        } else {
+          packed_note = "(unpack failed: " + error + ")";
+        }
+      }
+      char file[64];
+      std::snprintf(file, sizeof(file), "%04u_%zu_id%u.bin", e.index, b, block.id);
+      write_file(out / file, bytes);
+      blocks += (blocks.empty() ? "" : " ") + std::to_string(block.id) + ":" + std::to_string(block.length) + "/" +
+                std::to_string(block.field_size) + packed_note;
+    }
+    index << "\t" << blocks << "\n";
+  }
+  std::printf("%zu entries, %zu assets, %zu blocks unpacked -> %s\n", pack.entries().size(), assets, unpacked,
+              out.string().c_str());
+  return 0;
+}
+
+int cmd_avatar_unpack(const fs::path& in, const fs::path& out, size_t offset, size_t size) {
+  auto data = read_file(in);
+  if (offset > data.size()) throw Error("offset past the end of the file");
+  size = std::min(size, data.size() - offset);
+  std::vector<uint8_t> unpacked;
+  uint32_t window = 0;
+  std::string error;
+  if (!avatar_unpack(std::span<const uint8_t>(data).subspan(offset, size), unpacked, window, error))
+    throw Error(error);
+  write_file(out, unpacked);
+  std::printf("wrote %s (%s, window %u)\n", out.string().c_str(), fmt_size(unpacked.size()).c_str(), window);
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -389,6 +471,12 @@ int main(int argc, char** argv) {
     }
     if (cmd == "stfs-extract" && argc >= 4)
       return cmd_stfs_extract(argv[2], argv[3], argc >= 5 && std::string(argv[4]) == "--verify");
+    if (cmd == "avatar-pack" && argc >= 4) return cmd_avatar_pack(argv[2], argv[3]);
+    if (cmd == "avatar-unpack" && argc >= 4) {
+      const size_t offset = argc >= 6 ? std::strtoull(argv[4], nullptr, 0) : 0;
+      const size_t size = argc >= 6 ? std::strtoull(argv[5], nullptr, 0) : SIZE_MAX;
+      return cmd_avatar_unpack(argv[2], argv[3], offset, size);
+    }
     if (cmd == "cover" && argc >= 4) {
       unsigned width = 600, height = 900;
       int quality = 85;
