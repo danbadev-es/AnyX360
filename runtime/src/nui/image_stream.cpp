@@ -92,13 +92,39 @@ void Capsule(const float* a, const float* b, float radius, uint32_t w, uint32_t 
 
 uint8_t Clamp8(float v) { return uint8_t(std::clamp(v, 0.0f, 255.0f)); }
 
+bool IsColor(StreamFormat::Kind kind) {
+  return kind == StreamFormat::kColorYuv || kind == StreamFormat::kColorRgb || kind == StreamFormat::kColorInDepth;
+}
+
+// Where a stream's pixels come from in the source image (width x height, focal length `focal`): the
+// same view scaled to the stream's size, or, for the other camera's view (its focal length at the
+// stream's size: `view_focal`), the source pixel on each of its rays (the virtual cameras share their
+// optical centre). -1: outside the source image.
+struct Resample {
+  std::vector<int32_t> x, y;
+  Resample(const StreamFormat& f, uint32_t width, uint32_t height, float focal, float view_focal = 0) {
+    x.resize(f.width);
+    y.resize(f.height);
+    auto map = [&](uint32_t i, uint32_t out_size, uint32_t in_size) -> int32_t {
+      if (view_focal <= 0) return int32_t(i * in_size / out_size);
+      const float v = (i + 0.5f - out_size / 2.0f) * focal / view_focal + in_size / 2.0f;
+      return v < 0 || v >= in_size ? -1 : int32_t(v);
+    };
+    for (uint32_t i = 0; i < f.width; ++i) x[i] = map(i, f.width, width);
+    for (uint32_t i = 0; i < f.height; ++i) y[i] = map(i, f.height, height);
+  }
+};
+
 // BGRA (host) to the stream's color format, row by row into `out` (guest layout, big-endian).
 void ConvertColor(const StreamFormat& f, uint32_t pitch, const std::vector<uint8_t>& bgra, uint8_t* out) {
+  const Resample at(f, kColorWidth, kColorHeight, kColorFocal,
+                    f.kind == StreamFormat::kColorInDepth ? kDepthFocal * f.width / kDepthWidth : 0.0f);
+  static const uint8_t kBlack[4] = {0, 0, 0, 0xFF};
   for (uint32_t y = 0; y < f.height; ++y) {
-    const uint8_t* src = bgra.data() + size_t(y * kColorHeight / f.height) * kColorWidth * 4;
+    const uint8_t* src = at.y[y] < 0 ? nullptr : bgra.data() + size_t(at.y[y]) * kColorWidth * 4;
     uint8_t* row = out + size_t(y) * pitch;
-    auto pixel = [&](uint32_t x) { return src + size_t(x * kColorWidth / f.width) * 4; };
-    if (f.kind == StreamFormat::kColorRgb) {
+    auto pixel = [&](uint32_t x) { return !src || at.x[x] < 0 ? kBlack : src + size_t(at.x[x]) * 4; };
+    if (f.kind == StreamFormat::kColorRgb || f.kind == StreamFormat::kColorInDepth) {
       for (uint32_t x = 0; x < f.width; ++x) {
         const uint8_t* p = pixel(x);
         row[x * 4 + 0] = 0xFF;  // X8R8G8B8, big-endian
@@ -120,12 +146,18 @@ void ConvertColor(const StreamFormat& f, uint32_t pitch, const std::vector<uint8
   }
 }
 
+// Depth in the depth camera's view, or in the color camera's (kDepthInColor, kDepthPlayerInColor):
+// there, the color camera's wider view goes past the depth camera's, and those pixels have no depth
+// (0), as with the Kinect's own registration.
 void ConvertDepth(const StreamFormat& f, uint32_t pitch, const std::vector<uint16_t>& depth, uint8_t* out) {
+  const bool in_color = f.kind == StreamFormat::kDepthInColor || f.kind == StreamFormat::kDepthPlayerInColor;
+  const Resample at(f, kDepthWidth, kDepthHeight, kDepthFocal, in_color ? kColorFocal * f.width / kColorWidth : 0.0f);
+  const uint16_t keep = f.kind == StreamFormat::kDepthInColor ? uint16_t(~7u) : uint16_t(0xFFFF);
   for (uint32_t y = 0; y < f.height; ++y) {
-    const uint16_t* src = depth.data() + size_t(y * kDepthHeight / f.height) * kDepthWidth;
+    const uint16_t* src = at.y[y] < 0 ? nullptr : depth.data() + size_t(at.y[y]) * kDepthWidth;
     uint8_t* row = out + size_t(y) * pitch;
     for (uint32_t x = 0; x < f.width; ++x) {
-      uint16_t v = src[x * kDepthWidth / f.width];
+      uint16_t v = !src || at.x[x] < 0 ? 0 : uint16_t(src[at.x[x]] & keep);
       row[x * 2 + 0] = uint8_t(v >> 8);  // big-endian
       row[x * 2 + 1] = uint8_t(v);
     }
@@ -146,7 +178,7 @@ void WriteFrame(Stream& s, Frame& frame, uint32_t number, uint64_t time_ms, cons
                                                                               : nullptr;
   auto* out = static_cast<uint8_t*>(physical ? XeMemory()->TranslatePhysical(physical->GetPhysicalAddress(frame.pixels))
                                              : static_cast<void*>(Ptr(frame.pixels)));
-  if (s.format.kind == StreamFormat::kColorYuv || s.format.kind == StreamFormat::kColorRgb) {
+  if (IsColor(s.format.kind)) {
     if (color) ConvertColor(s.format, s.pitch, *color, out);
   } else if (depth) {
     ConvertDepth(s.format, s.pitch, *depth, out);
@@ -213,7 +245,7 @@ uint32_t OpenStreamMask() {
   std::lock_guard lock(g_mutex);
   uint32_t mask = 0;
   for (const auto& s : g_streams)
-    mask |= s->format.kind == StreamFormat::kColorYuv || s->format.kind == StreamFormat::kColorRgb ? 1u : 2u;
+    mask |= IsColor(s->format.kind) ? 1u : 2u;
   return mask ? mask : 4u;
 }
 
@@ -230,7 +262,7 @@ std::vector<uint32_t> PublishImageFrames(const Snapshot& snapshot, const uint32_
   // The images: the source's, or drawn from the bodies (only those some stream needs).
   bool want_color = false, want_depth = false;
   for (const auto& s : g_streams) {
-    if (s->format.kind == StreamFormat::kColorYuv || s->format.kind == StreamFormat::kColorRgb)
+    if (IsColor(s->format.kind))
       want_color = true;
     else
       want_depth = true;
@@ -322,6 +354,20 @@ uint32_t ImageStreamGetNextFrame(uint32_t stream_handle, uint32_t timeout_ms, ui
     return kOk;
   }
   return kFrameNoData;
+}
+
+uint32_t ColorPixelFromDepthPixel(uint32_t color_resolution, uint32_t view_area, int32_t x, int32_t y, uint32_t depth,
+                                  uint32_t color_x_ptr, uint32_t color_y_ptr) {
+  (void)view_area, (void)depth;
+  static constexpr uint32_t kWidths[] = {80, 320, 640, 1280};  // NUI_IMAGE_RESOLUTION_80x60 ... 1280x960
+  if (color_resolution >= 4 || !color_x_ptr || !color_y_ptr) return kInvalidArg;
+  const float width = float(kWidths[color_resolution]), height = width * 3 / 4;
+  const float focal = kColorFocal * width / kColorWidth;
+  // The ray through the depth pixel's centre, then the color pixel it crosses.
+  const float u = (x + 0.5f - kDepthWidth / 2.0f) / kDepthFocal, v = (y + 0.5f - kDepthHeight / 2.0f) / kDepthFocal;
+  Store<int32_t>(color_x_ptr, int32_t(std::floor(width / 2 + u * focal)));
+  Store<int32_t>(color_y_ptr, int32_t(std::floor(height / 2 + v * focal)));
+  return kOk;
 }
 
 uint32_t ImageStreamReleaseFrame(uint32_t stream_handle, uint32_t frame) {

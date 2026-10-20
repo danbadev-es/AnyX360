@@ -77,9 +77,11 @@ struct Snapshot {
   int64_t capture_qpc = 0;  // QueryPerformanceCounter when the camera captured it (0: now)
 };
 
-// The format of an image stream, from the title's NUI tables.
+// The format of an image stream, from the title's NUI tables. The later libraries (2012) also offer
+// one camera's image as the other camera sees it: depth (and the player index) in the color camera's
+// view, and color in the depth camera's.
 struct StreamFormat {
-  enum Kind : uint32_t { kColorYuv, kColorRgb, kDepth, kDepthPlayer };
+  enum Kind : uint32_t { kColorYuv, kColorRgb, kDepth, kDepthPlayer, kDepthInColor, kDepthPlayerInColor, kColorInDepth };
   Kind kind = kDepth;
   uint32_t width = 0, height = 0, bytes_per_pixel = 0;
   uint32_t d3d_format = 0;  // the D3DFORMAT the title's library uses for the texture
@@ -115,6 +117,14 @@ uint32_t ImageStreamOpen(PPCContext* ctx, uint32_t type, uint32_t resolution, ui
                          uint32_t event, uint32_t stream_ptr);
 uint32_t ImageStreamGetNextFrame(uint32_t stream, uint32_t timeout_ms, uint32_t frame_ptr);
 uint32_t ImageStreamReleaseFrame(uint32_t stream, uint32_t frame);
+
+// NuiImageGetColorPixelCoordinatesFromDepthPixel(color resolution, view area*, x, y, packed depth,
+// LONG* color x, LONG* color y): the pixel of the color image (at that resolution) that shows what the
+// 320x240 depth image shows at (x, y). The virtual cameras share their optical centre, so it doesn't
+// depend on the depth, and they have no digital zoom or pan: a view area is ignored. The libraries
+// compute it from the camera's own calibration, which the virtual sensor doesn't have.
+uint32_t ColorPixelFromDepthPixel(uint32_t color_resolution, uint32_t view_area, int32_t x, int32_t y, uint32_t depth,
+                                  uint32_t color_x_ptr, uint32_t color_y_ptr);
 
 uint32_t CameraElevationGetAngle(uint32_t angle_ptr);
 uint32_t CameraElevationSetAngle(int32_t angle);
