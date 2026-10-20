@@ -544,7 +544,11 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
     return false;
   }
   KLOG_I("GPU init: window");
-  g_window = xe::ui::Window::Create(*g_app, window_title, config.width, config.height);
+  // Window::Create scales its size by the system DPI (the game is per-monitor DPI aware): the size
+  // asked for is physical pixels, so it is given unscaled; ApplyWindowSize below makes it exact.
+  const UINT system_dpi = std::max<UINT>(GetDpiForSystem(), 1);
+  g_window = xe::ui::Window::Create(*g_app, window_title, MulDiv(int(config.width), USER_DEFAULT_SCREEN_DPI, int(system_dpi)),
+                                    MulDiv(int(config.height), USER_DEFAULT_SCREEN_DPI, int(system_dpi)));
   if (!g_window) {
     KLOG_E("could not create the game window");
     return false;

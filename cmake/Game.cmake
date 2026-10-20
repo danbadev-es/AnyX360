@@ -71,7 +71,8 @@ inline constexpr uint32_t kTitleId = 0x${title_id};
 }  // namespace game_info
 ")
 
-  add_executable(${id} ${GAME_SOURCES})
+  # The manifest: per-monitor DPI awareness (sizes are physical pixels), long paths.
+  add_executable(${id} ${GAME_SOURCES} ${PROJECT_SOURCE_DIR}/runtime/game.manifest)
   target_link_libraries(${id} PRIVATE ${id}_ppc ${id}_hle)
   target_include_directories(${id} PRIVATE ${generated} ${ANYX360_GENERATED_DIR})
   target_compile_options(${id} PRIVATE -msse4.1 -gline-tables-only)

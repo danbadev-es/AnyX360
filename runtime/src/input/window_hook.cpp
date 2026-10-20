@@ -92,6 +92,19 @@ LRESULT CALLBACK HookProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
     case WM_SYSCOMMAND:
       if ((wparam & 0xFFF0) == SC_KEYMENU) return 0;  // no window menu
       break;
+    case WM_GETDPISCALEDSIZE: {
+      // Moved to a monitor with another scale: the client area keeps its size in physical pixels
+      // (the resolution chosen in the settings) instead of being scaled; only the frame changes.
+      if (IsZoomed(hwnd) || IsIconic(hwnd)) break;
+      RECT frame;
+      if (!GetClientRect(hwnd, &frame)) break;
+      AdjustWindowRectExForDpi(&frame, DWORD(GetWindowLongPtrW(hwnd, GWL_STYLE)), FALSE,
+                               DWORD(GetWindowLongPtrW(hwnd, GWL_EXSTYLE)), UINT(wparam));
+      SIZE* size = reinterpret_cast<SIZE*>(lparam);
+      size->cx = frame.right - frame.left;
+      size->cy = frame.bottom - frame.top;
+      return TRUE;
+    }
     default:
       break;
   }
