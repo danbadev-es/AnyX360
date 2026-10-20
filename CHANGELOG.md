@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **The AnyX360 logo.** The launcher shows the mark beside its name, the whole logo while no game
+  has been added yet, and the mark with the terms of use, sharp at any display scale. The launcher
+  and every game have it as their icon: in File Explorer, the title bar, the taskbar and Alt+Tab.
+
 ## [0.7.1] - 2026-10-20
 
 ### Fixed
