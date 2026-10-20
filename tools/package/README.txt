@@ -42,6 +42,10 @@ game's cover, opens its logs, prepares it again or removes it from the library. 
 games", at the bottom, shows every game this version plays and the ones coming. The first time
 each screen of a game appears it may stutter a little while its graphics are prepared.
 
+PLAYERS AND LANGUAGE: the link at the top right with player 1's name ("Players" until you choose
+one) sets the four players' names, which every game shows, and the language the games use:
+Windows' by default. A game whose copy doesn't have that language uses its own.
+
 
 PROGRAM KEYS (every game)
   F1                  Statistics (FPS, memory; the webcam's frame rate and latency in Kinect games)

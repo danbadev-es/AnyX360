@@ -34,8 +34,8 @@ F2 > Players and set Player 1 to "Controller". Players 2-4: controllers.
   Pause (Start)                         Esc
   Objectives (Back)                     Tab
 
-In menus: Space or Enter accepts, V or Backspace goes back. The game's text follows the
-language of Windows.
+In menus: Space or Enter accepts, V or Backspace goes back. The game's text is in the languages
+your copy carries (the launcher's Players and language chooses among them).
 
 KNOWN ISSUES
 - About one start in fifteen stays on a black screen after the first frame: close the game and

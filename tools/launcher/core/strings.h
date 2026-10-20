@@ -122,6 +122,15 @@ enum Text {
   kTextExtractedLine,
   kTextKeyboardPad,
   kTextWebcam,
+  kTextProfileLink,      // the header's link when player 1 has no name
+  kTextProfileTitle,
+  kTextProfileText,
+  kTextPlayerName,       // {0} 1-4
+  kTextNameRules,
+  kTextGameLanguage,
+  kTextLanguageAuto,     // {0} Windows' language, as the console names it
+  kTextLanguageNoAuto,   // Windows' language isn't one of the console's
+  kTextSave,
   kTextCount
 };
 

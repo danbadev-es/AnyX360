@@ -25,6 +25,7 @@ std::span<const uint8_t> InterSemiBold() { return kInterSemiBold; }
 # Game-independent runtime pieces.
 add_library(x360_runtime STATIC
   src/memory.cpp
+  src/profile.cpp
   ${inter_cpp}
 )
 target_include_directories(x360_runtime PUBLIC include)

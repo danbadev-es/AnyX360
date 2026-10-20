@@ -18,6 +18,7 @@
 
 #include "core/jobs.h"
 #include "core/library.h"
+#include "x360/profile.h"
 #include "d2d/canvas.h"
 #include "ui/images.h"
 
@@ -66,6 +67,8 @@ class App : public JobObserver {
   // The pointer is on something that acts (the hand cursor).
   bool PointerOnTarget() const { return hover_ >= 0; }
   void KeyPressed(Key key, bool from_pad);
+  // A controller is connected: its button hints show.
+  void PadConnected();
   void Character(wchar_t c);
   void Paste(const std::wstring& text);
   bool WantsText() const;
@@ -152,6 +155,8 @@ class App : public JobObserver {
   void ShowTerms(bool require_acceptance);
   void ToggleCompatible();
   void ToggleLanguage();
+  // The players' names and the games' language (x360/profile.h), for every game.
+  void OpenProfile();
   void PushOverlay(Overlay overlay);
   void PopOverlay();
   void Finish(const Outcome& outcome);
@@ -164,6 +169,7 @@ class App : public JobObserver {
   int selected_ = 0;                 // index into tiles_
   std::vector<CompatibleItem> compatible_;
   bool compatible_open_ = false;
+  x360::profile::Profile profile_;
 
   // The layout of the last Paint.
   std::vector<Target> targets_;

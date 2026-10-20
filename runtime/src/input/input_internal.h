@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "x360/input.h"
+#include "x360/settings.h"
 
 namespace x360::input::detail {
 
@@ -51,5 +52,7 @@ void TryCaptureCursor();
 bool KeyboardMouseInUse();  // some slot uses the keyboard and mouse (input.cpp)
 bool GameInputEnabled();    // input.cpp
 void LatchHeldKeys();       // input.cpp: keys held now are ignored until released
+// Mouse look: the mouse's speed (counts per second) as the right stick's deflection, -1 to 1 (input.cpp).
+void MouseLook(double vx, double vy, bool aiming, const settings::InputSettings& in, double& rx, double& ry);
 
 }  // namespace x360::input::detail

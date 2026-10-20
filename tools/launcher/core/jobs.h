@@ -7,6 +7,7 @@
 // catalog, and the copy must be complete.
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -62,7 +63,12 @@ class Job {
   void Cancel();
   bool Cancelled() const { return cancel_; }
 
-  void Report(Step step, int percent = -1) { observer_.OnProgress(step, percent); }
+  // The percent never goes back within a job (an extraction retried with another password, a step
+  // that can't count): the bar fills once.
+  void Report(Step step, int percent = -1) {
+    percent_ = std::max(percent_, percent);
+    observer_.OnProgress(step, percent_);
+  }
   // Extracting at `percent`, finishing at 100.
   void Progress(int percent) { Report(percent >= 100 ? Step::kFinishing : Step::kExtracting, percent); }
   void Found(const CatalogGame& game) { observer_.OnGame(game); }
@@ -82,6 +88,7 @@ class Job {
   void* process_ = nullptr;
   const CatalogGame* confirmed_ = nullptr;
   std::optional<std::wstring> password_;
+  int percent_ = -1;  // the highest reported (Report runs on the job's thread)
 };
 
 // Recognises `source` (a file or a folder) and adds the game in it.

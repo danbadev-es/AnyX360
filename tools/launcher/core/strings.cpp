@@ -123,6 +123,16 @@ const wchar_t* const kEnglish[] = {
     L"Prepared in the games folder",
     L"Keyboard and mouse or an Xbox controller",
     L"Played with your webcam: your whole body in view, 2-3 m away",
+    L"Players",
+    L"Players and language",
+    L"The names the games show for each player, and the language they are told to use. They apply "
+    L"the next time a game starts; a game without that language uses its own.",
+    L"Player {0}",
+    L"Letters, numbers and spaces, up to 15 (as a gamertag). Empty: the game's own name.",
+    L"Game language",
+    L"Automatic: {0}, as Windows",
+    L"Automatic: English (Windows' language isn't one of the console's)",
+    L"Save",
 };
 
 const wchar_t* const kSpanish[] = {
@@ -233,6 +243,16 @@ const wchar_t* const kSpanish[] = {
     L"Preparado en la carpeta games",
     L"Teclado y ratón o mando de Xbox",
     L"Se juega con tu webcam: todo el cuerpo a la vista, a 2-3 m",
+    L"Jugadores",
+    L"Jugadores e idioma",
+    L"Los nombres que los juegos muestran para cada jugador y el idioma que se les pide usar. Se "
+    L"aplican la próxima vez que empiece un juego; si un juego no tiene ese idioma, usa el suyo.",
+    L"Jugador {0}",
+    L"Letras, números y espacios, hasta 15 (como un gamertag). Vacío: el nombre del propio juego.",
+    L"Idioma de los juegos",
+    L"Automático: {0}, como Windows",
+    L"Automático: inglés (el idioma de Windows no es uno de los de la consola)",
+    L"Guardar",
 };
 static_assert(std::size(kEnglish) == kTextCount && std::size(kSpanish) == kTextCount);
 

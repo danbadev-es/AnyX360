@@ -474,10 +474,13 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
       Row("Anti dead zone", "Minimum stick deflection for any mouse movement, so slow movements still turn the camera.");
       ImGui::SetNextItemWidth(Px(300));
       changed |= ImGui::SliderFloat("##antideadzone", &in.anti_deadzone, 0.0f, 0.5f, "%.2f");
+      Row("Response", "Below 1, slow movements turn the camera faster; 1: the stick follows the mouse's speed.");
+      ImGui::SetNextItemWidth(Px(300));
+      changed |= ImGui::SliderFloat("##response", &in.response, 0.3f, 1.0f, "%.2f");
       ImGui::EndTable();
     }
     if (ImGui::Button("Reset mouse settings")) {
-      settings::InputSettings defaults;
+      settings::InputSettings defaults = settings::Defaults().input;  // the game's
       defaults.bindings = in.bindings;
       in = defaults;
       changed = true;
@@ -665,19 +668,21 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
         if (status.tilt_source == 0)
           ImGui::TextDisabled("measuring: stand still, all of you in view");
         else
-          ImGui::TextDisabled("%.0f\xC2\xB0 down, %.0f\xC2\xB0 roll (%s)", status.tilt_pitch, status.tilt_roll,
+          ImGui::TextDisabled("%.0f\xC2\xB0 down (%s)", status.tilt_pitch,
                               kTiltSources[std::min<uint32_t>(status.tilt_source, 3)]);
       } else {
-        float pitch = k.tilt_pitch, roll = k.tilt_roll;
+        float pitch = k.tilt_pitch;
         Row("Pitch (down)");
         ImGui::SetNextItemWidth(Px(300));
         if (ImGui::SliderFloat("##pitch", &pitch, -35.0f, 35.0f, "%.0f degrees"))
           UpdateKinect([pitch](settings::KinectSettings& kk) { kk.tilt_pitch = pitch; });
-        Row("Roll (clockwise)");
-        ImGui::SetNextItemWidth(Px(300));
-        if (ImGui::SliderFloat("##roll", &roll, -35.0f, 35.0f, "%.0f degrees"))
-          UpdateKinect([roll](settings::KinectSettings& kk) { kk.tilt_roll = roll; });
       }
+      // The roll is never measured (a player's lean would turn the picture): set by hand in both modes.
+      float roll = k.tilt_roll;
+      Row("Roll (clockwise)", "Only if the webcam itself is turned about its lens; 0 for a level camera.");
+      ImGui::SetNextItemWidth(Px(300));
+      if (ImGui::SliderFloat("##roll", &roll, -35.0f, 35.0f, "%.0f degrees"))
+        UpdateKinect([roll](settings::KinectSettings& kk) { kk.tilt_roll = roll; });
       ImGui::EndTable();
     }
     if (status.floor_height > 0) {

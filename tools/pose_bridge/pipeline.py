@@ -115,7 +115,8 @@ class Pipeline:
         if settings.get("tilt_manual"):
             self.level.set_manual(settings.get("tilt_pitch", 0.0), settings.get("tilt_roll", 0.0))
         else:
-            self.level.set_manual(None, None)
+            # The pitch is measured; the roll stays the one set by hand.
+            self.level.set_manual(None, settings.get("tilt_roll", 0.0))
         if getattr(self, "smoothing", None) != settings["smoothing"]:
             self.smoothing = settings["smoothing"]
             self._people = {}

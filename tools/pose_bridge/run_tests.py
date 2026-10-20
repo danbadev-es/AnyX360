@@ -424,9 +424,10 @@ class Levelling(unittest.TestCase):
         self.assertTrue(np.allclose(level.rotation_between(up, level.UP) @ up, level.UP))
 
     def test_a_tilted_camera_is_levelled_from_a_still_player(self):
+        # The pitch is measured; the roll is the one set by hand (here the camera's own 5 degrees).
         width, height = 1280, 720
         focal = camera_model.webcam_focal(width, 60.0)
-        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8})
+        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8, "tilt_roll": 5.0})
         seen = tilted_view(synthetic.standing(z=2.4), 15, 5)
         normalized, world, visibility = synthetic.landmarks(seen, width, height, focal)
         for i in range(60):
@@ -434,7 +435,7 @@ class Levelling(unittest.TestCase):
         pitch, roll = pipeline.level.angles()
         self.assertEqual(pipeline.level.source, level.SOURCE_BODY)
         self.assertLess(abs(pitch - 15), 2.0, (pitch, roll))
-        self.assertLess(abs(roll - 5), 2.0, (pitch, roll))
+        self.assertAlmostEqual(roll, 5.0, places=5)
         joints = bodies[0]["joints"]
         axis = joints[km.SHOULDER_CENTER] - (joints[km.ANKLE_LEFT] + joints[km.ANKLE_RIGHT]) / 2
         tilt = math.degrees(math.acos(axis[1] / np.linalg.norm(axis)))
@@ -461,6 +462,21 @@ class Levelling(unittest.TestCase):
         # The synthetic person's ankles are 5 cm above the floor; ANKLE_HEIGHT assumes 8.
         self.assertLess(abs(pipeline.level.floor_height - 1.1), 0.06, pipeline.level.floor_height)
         self.assertLess(max(hips) - min(hips), 0.03)  # walking towards the camera doesn't change the height
+
+    def test_the_roll_is_not_measured(self):
+        # A player leaning to one side (or a rolled camera) doesn't turn the picture: the roll stays
+        # the manual one, 0 unless set.
+        width, height = 1280, 720
+        focal = camera_model.webcam_focal(width, 60.0)
+        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8})
+        seen = tilted_view(synthetic.standing(z=2.4), 15, 8)
+        normalized, world, visibility = synthetic.landmarks(seen, width, height, focal)
+        for i in range(60):
+            pipeline.process([Pose(normalized, world, visibility)], (width, height), i / 30)
+        pitch, roll = pipeline.level.angles()
+        self.assertEqual(pipeline.level.source, level.SOURCE_BODY)
+        self.assertLess(abs(pitch - 15), 2.5, (pitch, roll))
+        self.assertAlmostEqual(roll, 0.0, places=5)
 
     def test_a_manual_tilt_replaces_the_estimate(self):
         pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8, "tilt_manual": True,

@@ -23,6 +23,7 @@
 #include "xenia/base/logging.h"
 #include "xenia/gpu/command_processor.h"
 #include "xenia/gpu/d3d12/d3d12_graphics_system.h"
+#include "xenia/ui/d3d12/d3d12_provider.h"
 #include "xenia/gpu/graphics_host.h"
 #include "xenia/memory.h"
 #include "xenia/ui/presenter.h"
@@ -556,6 +557,21 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
   cvars::draw_resolution_scale_y = int32_t(std::max(1u, config.render_scale));
   // ANYX360_XENIA_LOG_LEVEL: 0 error, 1 warning, 2 info (default), 3 debug (GPU details).
   if (const char* level = std::getenv("ANYX360_XENIA_LOG_LEVEL")) cvars::log_level = std::atoi(level);
+  // settings.toml's [xenia] options, before anything reads them.
+  for (const auto& [name, value] : settings::Get().xenia) {
+    auto found = cvar::ConfigVars ? cvar::ConfigVars->find(name) : decltype(cvar::ConfigVars->end()){};
+    if (!cvar::ConfigVars || found == cvar::ConfigVars->end()) {
+      KLOG_W("settings: [xenia] %s: no such option", name.c_str());
+      continue;
+    }
+    try {
+      toml::table parsed = toml::parse("value = " + value);
+      found->second->LoadConfigValue(parsed.get("value"));
+      KLOG_I("settings: [xenia] %s = %s", name.c_str(), value.c_str());
+    } catch (const toml::parse_error&) {
+      KLOG_W("settings: [xenia] %s: %s isn't a TOML value", name.c_str(), value.c_str());
+    }
+  }
   KLOG_I("GPU init: logging");
   xe::InitializeLogging("AnyX360");
   KLOG_I("GPU init: UI context");
@@ -603,6 +619,15 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
   if (g_graphics->Setup(XeMemory(), &g_host, g_app.get(), true) != 0) {
     KLOG_E("could not initialize the Direct3D 12 GPU back end");
     return false;
+  }
+  // The GPU and the Direct3D 12 features where vendors differ (how Xenia emulates blending and reads
+  // textures depends on them): what a report from another PC needs.
+  if (auto* provider = static_cast<xe::ui::d3d12::D3D12Provider*>(g_graphics->provider())) {
+    KLOG_I("GPU: %s (vendor %04X); alpha blend factor %s, unaligned BC textures %s, ROV %s, binding tier %d",
+           provider->GetAdapterDescription().c_str(), uint32_t(provider->GetAdapterVendorID()),
+           provider->IsAlphaBlendFactorSupported() ? "yes" : "no",
+           provider->AreUnalignedBlockTexturesSupported() ? "yes" : "no",
+           provider->AreRasterizerOrderedViewsSupported() ? "yes" : "no", int(provider->GetResourceBindingTier()));
   }
   KLOG_I("GPU init: presenter");
   g_window->SetPresenter(g_graphics->presenter());

@@ -8,6 +8,7 @@
 
 #include "input_internal.h"
 #include "x360/kernel.h"
+#include "x360/settings.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -23,6 +24,7 @@ HWND g_hwnd = nullptr;
 WNDPROC g_original = nullptr;
 std::function<void()> g_toggle_fullscreen;
 std::atomic<bool> g_captured{false};
+bool g_recenter = false;  // the captured cursor goes back to the middle (KeepCursorInside)
 RECT g_clip{};
 
 bool CursorInClient() {
@@ -42,13 +44,48 @@ void Clip() {
   if (ClientRectOnScreen(g_clip)) ClipCursor(&g_clip);
 }
 
+// Borderless fullscreen: the window covers its monitor and has no title bar to grab.
+bool Fullscreen() {
+  RECT window;
+  MONITORINFO monitor{sizeof(monitor)};
+  if (!GetWindowRect(g_hwnd, &window) ||
+      !GetMonitorInfoW(MonitorFromWindow(g_hwnd, MONITOR_DEFAULTTONEAREST), &monitor))
+    return false;
+  return EqualRect(&window, &monitor.rcMonitor);
+}
+
+void CenterCursor() {
+  RECT r;
+  if (ClientRectOnScreen(r)) SetCursorPos((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+}
+
 void Capture() {
   if (g_captured || !KeyboardMouseInUse() || !GameInputEnabled() || GetForegroundWindow() != g_hwnd) return;
   g_captured = true;
+  g_recenter = !settings::Get().kinect.enabled;
+  CenterCursor();  // from the other monitor too: clipping alone would leave it at an edge
   Clip();
   SetCursor(nullptr);
   SetTimer(g_hwnd, kClipTimer, 500, nullptr);
   KLOG_I("input: cursor captured");
+}
+
+// Activated or focused: a window in fullscreen captures at once; a windowed one only when the
+// cursor is inside it, so a click on the title bar still moves the window.
+void CaptureIfActive() {
+  if (Fullscreen() || CursorInClient()) Capture();
+}
+
+// Mouse look reads the raw movement, not the cursor: the hidden cursor goes back to the middle
+// before it reaches the screen's edges (an auto-hidden taskbar, hot corners). Not in Kinect games,
+// whose mouse mode moves the hand with the cursor.
+void KeepCursorInside(LPARAM lparam) {
+  if (!g_captured || !g_recenter) return;
+  RECT client;
+  if (!GetClientRect(g_hwnd, &client)) return;
+  const int x = short(LOWORD(lparam)), y = short(HIWORD(lparam));
+  constexpr int kMargin = 32;
+  if (x < kMargin || y < kMargin || x > client.right - kMargin || y > client.bottom - kMargin) CenterCursor();
 }
 
 LRESULT CALLBACK HookProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
@@ -56,11 +93,17 @@ LRESULT CALLBACK HookProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
     case WM_ACTIVATE:
       if (LOWORD(wparam) == WA_INACTIVE)
         ReleaseCursor();
-      else if (CursorInClient())
-        Capture();
+      else
+        CaptureIfActive();
+      break;
+    case WM_SETFOCUS:
+      CaptureIfActive();
       break;
     case WM_KILLFOCUS:
       ReleaseCursor();
+      break;
+    case WM_MOUSEMOVE:
+      KeepCursorInside(lparam);
       break;
     case WM_LBUTTONDOWN:
     case WM_RBUTTONDOWN:
@@ -115,7 +158,10 @@ LRESULT CALLBACK HookProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
     case WM_DPICHANGED:
     case WM_DISPLAYCHANGE:
     case WM_WINDOWPOSCHANGED:
-      if (g_captured) Clip();
+      if (g_captured)
+        Clip();
+      else if (GetForegroundWindow() == hwnd && Fullscreen())
+        Capture();  // switched to fullscreen (F11, Alt+Enter)
       break;
     default:
       break;
@@ -130,7 +176,7 @@ void InstallWindowHook(void* hwnd, std::function<void()> toggle_fullscreen) {
   g_toggle_fullscreen = std::move(toggle_fullscreen);
   g_original = reinterpret_cast<WNDPROC>(
       SetWindowLongPtrW(g_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookProc)));
-  if (GetForegroundWindow() == g_hwnd && CursorInClient()) Capture();
+  if (GetForegroundWindow() == g_hwnd) CaptureIfActive();
 }
 
 bool Captured() { return g_captured.load(std::memory_order_relaxed); }

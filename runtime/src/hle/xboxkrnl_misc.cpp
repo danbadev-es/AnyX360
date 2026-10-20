@@ -105,11 +105,11 @@ uint32_t ExGetXConfigSetting(uint32_t category, uint32_t setting, uint32_t buffe
     case 0x00030005: put32(0); break;
     case 0x00030006: put32(0); break;
     case 0x00030007: put32(0); break;
-    case 0x00030009: put32(1); break;           // language: English
+    case 0x00030009: put32(TitlePaths().language); break;  // language (the player profile's)
     case 0x0003000A: put32(0x00040000); break;  // video flags: widescreen
     case 0x0003000B: put32(0x00010001); break;  // audio flags: stereo / Dolby Digital
     case 0x0003000C: put32(0x40); break;        // retail flags: dashboard setup complete
-    case 0x0003000E: value[0] = 103; size = 1; break;  // country: United States
+    case 0x0003000E: value[0] = uint8_t(TitlePaths().country); size = 1; break;  // country
     case 0x0003000F: value[0] = 0; size = 1; break;    // parental control: off
     default:
       KLOG_W("ExGetXConfigSetting(%04X, %04X): unknown setting, returning zeroes", category, setting);

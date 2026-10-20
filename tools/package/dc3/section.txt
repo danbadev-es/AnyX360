@@ -26,9 +26,10 @@ goes, and lets you adjust it:
   Smoothing                        more: steadier but later; less: quicker but jittery
   Players                          1 or 2
   Pose model                       Fast uses less of the processor; Accurate tracks better
-  Camera tilt                      "Measured": a webcam pointing down or turned is measured while
-                                   you stand still with all of you in view, and corrected (so you
-                                   don't look like you're leaning); "Set by hand" if you know it
+  Camera tilt                      "Measured": a webcam pointing down is measured while you stand
+                                   still with all of you in view, and corrected (so you don't look
+                                   like you're leaning); "Set by hand" if you know it. Roll: only
+                                   for a webcam turned about its lens (0 for a level one)
   Recentre on me                   stand where you will dance and press it
   Restart camera                   if the camera stopped (for example another program took it)
 Close the panel (F2 or Esc) before you dance: with it open the game runs slower.

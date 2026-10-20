@@ -5,7 +5,7 @@
 **An unofficial, fan-made project that ports Xbox 360 games natively to PC through static recompilation.**
 
 [![Unofficial](https://img.shields.io/badge/unofficial-fan%20project-critical)](#legal-and-disclaimer)
-[![Version](https://img.shields.io/badge/version-0.9.0-2ea44f)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.10.0-2ea44f)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?logo=windows)](#system-requirements)
 [![Graphics](https://img.shields.io/badge/graphics-Direct3D%2012-5C2D91)](#how-it-works)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus)](#building)
@@ -108,8 +108,9 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 ### Input
 
 - **Keyboard and Mouse** - Gears-style default bindings and raw-input mouse look, with
-  sensitivity, aiming sensitivity, inverted look, smoothing and an anti dead zone. Bindings can be
-  changed in `settings.toml`.
+  sensitivity, aiming sensitivity, a response curve (slow movements turn faster), inverted look,
+  smoothing and an anti dead zone. The cursor is captured as soon as the game is in front, in a
+  window or in fullscreen. Bindings can be changed in `settings.toml`.
 - **Controllers** - Xbox controllers through XInput, with vibration.
 - **Devices per Player** - Choose keyboard and mouse, a specific controller or none for each player.
 
@@ -127,6 +128,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   keyboard and controller. It takes your copy in any format, recognises it by its content, starts
   the game without a console, keeps a log per game and points you to it if the game closes with an
   error.
+- **Players and Language** - From the launcher: the four players' names, which every game shows,
+  and the language the games use (Windows' by default; a game without it uses its own).
 - **Shader Cache** - Shaders and pipelines are cached between runs, so stutter fades after the
   first play.
 - **Saves and Profiles** - Stored in `%LOCALAPPDATA%\AnyX360\<game>`, kept across versions.
@@ -139,8 +142,9 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 - **Precise Joints** - Each joint is placed from the image (the pose model's most precise output),
   filtered per joint with a little prediction, and planted feet are held still. The skeleton
   reaches the game as soon as the webcam's frame is processed.
-- **Tilted Webcams** - A webcam pitched down from a monitor or rolled is measured from your body and
-  the floor, and corrected, so you don't look like you're leaning. It can also be set by hand.
+- **Tilted Webcams** - A webcam pitched down from a monitor or a laptop lid is measured from your
+  body and the floor, and corrected, so you don't look like you're leaning. A webcam turned about
+  its lens (roll) is set by hand, and the pitch can be too.
 - **Play Space** - The player is placed where a Kinect expects them: centred, 2.3 m away, on the
   floor. **Recentre on me** sets it again.
 - **Kinect Tab** - F2 shows the image the game gets with your skeleton over it (each joint by how
@@ -323,6 +327,9 @@ Gears of War 3:
 - Cinematics and videos run at 30 FPS, as in the original game.
 - In Horde, the counter before the first wave can stay at 0:30.
 - The game can occasionally crash while loading a Horde map.
+- On an AMD RX 570 the title screen (before Start) shows an artefact on the skull; the main menu is
+  fine. If you see it, send the game's log: it names your GPU, and `docs/GEARS3.md` lists options
+  to try in `settings.toml`.
 
 Dance Central 3:
 

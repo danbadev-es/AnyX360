@@ -11,6 +11,7 @@
 
 #include "anyx360_version.h"
 #include "x360/kernel.h"
+#include "x360/profile.h"
 #include "xex.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -117,6 +118,12 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
     for (char& c : xex) c = char(std::tolower(uint8_t(c)));
     info.executables.emplace_back(xex, exe_dir / (std::string(executable.exe) + ".exe"));
   }
+  // The player profile, next to the games' user folders (the launcher writes it).
+  const profile::Profile player_profile = profile::Read(profile::File(info.user_root.parent_path()));
+  for (int i = 0; i < profile::kPlayers; ++i) info.player_names[i] = player_profile.names[i];
+  const profile::Locale locale = profile::Resolve(player_profile.language);
+  info.language = locale.language;
+  info.country = locale.country;
 
   if (!fs::exists(info.xex_path)) {
     std::fprintf(stderr, "%s not found. Pass --game <folder containing %s>.\n", game.xex_name, game.xex_name);
@@ -144,6 +151,8 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   const auto& d = info.display;
   std::printf("AnyX360 " ANYX360_VERSION_FULL " - %s\n  game: %s\n  user: %s\n", game.title_name,
               info.game_root.string().c_str(), info.user_root.string().c_str());
+  std::printf("  language %u, country %u (profile: %s)\n", info.language, info.country,
+              player_profile.language.c_str());
   std::printf("  display: %ux%u%s, rendering %ux%u (%ux), %u FPS\n", d.width, d.height,
               d.fullscreen ? " fullscreen" : "", 1280 * d.render_scale, 720 * d.render_scale, d.render_scale,
               d.target_fps);

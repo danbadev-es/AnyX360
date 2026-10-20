@@ -188,15 +188,11 @@ Pad KeyboardMousePad(const Config& c) {
   if (Captured()) {
     double vx, vy;
     MouseVelocity(QpcFrequency() * c.input.smoothing_ms / 1000, vx, vy);
-    double k = c.input.sensitivity * (pad.left_trigger ? c.input.aim_sensitivity : 1.0) / 4000.0;
-    double sx = vx * k, sy = -vy * k * (c.input.invert_y ? -1.0 : 1.0);
-    double m = std::hypot(sx, sy);
-    if (m > 1e-6) {
-      // Radial anti dead zone: any motion deflects the stick past the title's own dead zone.
-      double dz = c.input.anti_deadzone;
-      double scaled = std::min(1.0, dz + (1.0 - dz) * std::min(m, 1.0));
-      pad.rx = Axis(sx * scaled / m);
-      pad.ry = Axis(sy * scaled / m);
+    double rx, ry;
+    detail::MouseLook(vx, vy, pad.left_trigger, c.input, rx, ry);
+    if (rx || ry) {
+      pad.rx = Axis(rx);
+      pad.ry = Axis(ry);
     }
   }
   return pad;
@@ -237,6 +233,22 @@ void ApplySettings(const settings::Settings& s) {
 }  // namespace
 
 namespace detail {
+
+void MouseLook(double vx, double vy, bool aiming, const settings::InputSettings& in, double& rx, double& ry) {
+  rx = ry = 0;
+  // At sensitivity 1, 4000 counts a second (about 12 cm/s at 800 DPI) is the whole stick.
+  const double k = in.sensitivity * (aiming ? in.aim_sensitivity : 1.0) / 4000.0;
+  const double sx = vx * k, sy = -vy * k * (in.invert_y ? -1.0 : 1.0);
+  const double m = std::hypot(sx, sy);
+  if (m <= 1e-6) return;
+  // The response curve lifts slow movements; then a radial anti dead zone: any motion deflects the
+  // stick past the title's own dead zone.
+  const double curved = std::pow(std::min(m, 1.0), double(in.response));
+  const double dz = in.anti_deadzone;
+  const double deflection = std::min(1.0, dz + (1.0 - dz) * curved);
+  rx = sx * deflection / m;
+  ry = sy * deflection / m;
+}
 
 bool KeyboardMouseInUse() {
   std::lock_guard lock(g_mutex);

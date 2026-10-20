@@ -42,6 +42,44 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   stays with its texture and loads again on its next use. Any game whose shaders sample a 3D
   texture as 2D.
 
+## [0.10.0] - 2026-10-20
+
+The players' names and the games' language from the launcher, a faster mouse, and fixes from
+players' notes.
+
+### Added
+
+- **Players and language** in the launcher (the link with player 1's name in the header): the four
+  players' names, which every game shows (their gamertags), and the language the games are told to
+  use, **Windows' by default** (before: always English). A copy that has that language starts in
+  it: Gears of War 3 comes up in Spanish on a Spanish Windows.
+- **A response curve for mouse look** (F2 > Controls > Response): slow movements turn the camera
+  faster, against the games' own stick curves. New defaults: sensitivity 1.5, aiming 1.0 (the games
+  slow aiming themselves). A settings file still at the old defaults takes the new ones; values you
+  chose are kept.
+- Xenia's GPU options in a game's `settings.toml` (`[xenia]`, advanced), and the log names the GPU
+  and the Direct3D 12 features where vendors differ: for finding the Gears of War 3 title screen
+  artefact on an AMD RX 570 (`docs/GEARS3.md`).
+- The launcher takes `--pad "<seconds>:<button>,..."` for unattended tests of its controller
+  navigation.
+- [docs/ANYX.md](docs/ANYX.md): the `.anyx` extension evaluated (a backup format for your own
+  prepared copies; not implemented).
+
+### Fixed
+
+- **The mouse wasn't captured in fullscreen** until a click when the cursor was elsewhere (another
+  monitor) or after switching to fullscreen. It is now captured as soon as the game is in front,
+  starting in the middle, and the hidden cursor no longer reaches the screen's edges.
+- **The launcher's progress bar seemed to restart**: before the percent was known, a segment swept
+  across again and again. It now breathes in place, and the percent never goes back (a password
+  retried during an extraction started it from the beginning).
+- **The launcher's controller did nothing** until the window had been activated (a launcher opened
+  behind another window): it is now in front and read from the start, with a smaller stick dead zone
+  and the button hints as soon as a controller is connected.
+- **Kinect: the webcam's roll is no longer measured.** It followed the player's lean and a lopsided
+  floor and turned the picture of a level camera. The pitch (a webcam pointing down) is still
+  measured; the roll is set by hand in F2 (0 unless changed).
+
 ## [0.9.0] - 2026-10-20
 
 Call of Duty: Modern Warfare 3.
@@ -412,7 +450,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.7.0...v0.7.1
