@@ -39,6 +39,11 @@ bool ExtractVolume(Job& job, x360tool::XdvdfsImage& image, const fs::path& out, 
 // %LOCALAPPDATA%\AnyX360\<user dir>\content\00000002\<package name>\. Returns how many.
 int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::path>& packages);
 
+// The avatar asset pack that discs of avatar games carry (AvatarAssetPack in the game's folder),
+// extracted where every game's avatar system looks for it (%LOCALAPPDATA%\AnyX360\system\): avatar
+// games without one (Doritos Crash Course) get their avatars from it. Nothing if the copy has none.
+void InstallAvatarPack(const fs::path& game_root);
+
 // The copy written out or extracted into `extracted` (under WorkDir) becomes games\<id>\game, if it
 // is `game` and complete; then its icon, and the title's downloadable content in `content_source`
 // (empty: none). The packages there that aren't used are noted.

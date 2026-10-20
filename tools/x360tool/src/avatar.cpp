@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "lzx_frames.h"
+#include "stfs.h"
 #include "util.h"
 #include "x360/endian.h"
 
@@ -145,6 +146,35 @@ std::span<const uint8_t> AvatarPack::data(const AvatarPackEntry& e) const {
 
 std::span<const uint8_t> AvatarPack::raw_entry(uint32_t index) const {
   return std::span<const uint8_t>(toc_).subspan(kEntriesOffset + index * kEntrySize, kEntrySize);
+}
+
+bool extract_avatar_pack(const std::filesystem::path& package, const std::filesystem::path& toc, std::string& error) {
+  try {
+    StfsPackage stfs(package);
+    for (const auto& entry : stfs.entries()) {
+      if (entry.is_dir || entry.path != kAvatarPackToc) continue;
+      // Through a temporary file, so a game starting meanwhile never reads half a table.
+      std::error_code ec;
+      std::filesystem::create_directories(toc.parent_path(), ec);
+      std::filesystem::path partial = toc;
+      partial += ".partial";
+      if (!stfs.extract(entry, partial)) {
+        error = "extraction stopped";
+        return false;
+      }
+      std::filesystem::rename(partial, toc, ec);
+      if (ec) {
+        std::filesystem::remove(partial, ec);
+        error = "can't write " + toc.string();
+        return false;
+      }
+      return true;
+    }
+    error = "no " + std::string(kAvatarPackToc) + " in the package";
+  } catch (const std::exception& e) {
+    error = e.what();
+  }
+  return false;
 }
 
 }  // namespace x360tool

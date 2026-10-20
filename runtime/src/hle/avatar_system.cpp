@@ -20,7 +20,6 @@
 
 #include "avatar.h"
 #include "avatar_model.h"
-#include "stfs.h"
 #include "util.h"
 #include "x360/kernel.h"
 
@@ -121,28 +120,21 @@ uint32_t LowestBit(uint32_t v) { return v & (~v + 1); }
 
 fs::path SystemFolder() { return TitlePaths().user_root.parent_path() / "system"; }
 
-// The pack's table: the shared copy, or the game's own package (copied to the shared folder for
-// avatar games that don't carry one).
+// The pack's table: the shared copy (the launcher writes it when it adds a game that has one), or
+// the game's own package (copied to the shared folder for avatar games that don't carry one).
 bool FindPack(fs::path& toc) {
-  toc = SystemFolder() / "AvatarAssetPack.toc";
+  toc = SystemFolder() / x360tool::kAvatarPackToc;
   std::error_code ec;
   if (fs::exists(toc, ec)) return true;
-  const fs::path package = TitlePaths().game_root / "AvatarAssetPack";
+  const fs::path package = TitlePaths().game_root / x360tool::kAvatarPackPackage;
   if (!fs::exists(package, ec)) return false;
-  try {
-    x360tool::StfsPackage stfs(package);
-    for (const auto& entry : stfs.entries()) {
-      if (entry.is_dir || entry.path != "AvatarAssetPack.toc") continue;
-      fs::create_directories(toc.parent_path(), ec);
-      if (stfs.extract(entry, toc)) {
-        KLOG_I("avatars: copied the disc's avatar asset pack to %s", toc.string().c_str());
-        return true;
-      }
-    }
-  } catch (const std::exception& e) {
-    KLOG_W("avatars: %s: %s", package.string().c_str(), e.what());
+  std::string error;
+  if (!x360tool::extract_avatar_pack(package, toc, error)) {
+    KLOG_W("avatars: %s: %s", package.string().c_str(), error.c_str());
+    return false;
   }
-  return false;
+  KLOG_I("avatars: copied the disc's avatar asset pack to %s", toc.string().c_str());
+  return true;
 }
 
 // The part's model file (unpacked) and its colour table, if any.

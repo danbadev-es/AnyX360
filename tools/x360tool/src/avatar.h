@@ -86,4 +86,12 @@ class AvatarPack {
   std::vector<AvatarPackEntry> entries_;
 };
 
+// Where discs of avatar games keep the pack: a package (PIRS) holding AvatarAssetPack.toc.
+inline constexpr const char* kAvatarPackPackage = "AvatarAssetPack";
+inline constexpr const char* kAvatarPackToc = "AvatarAssetPack.toc";
+
+// Copies the table out of a game's AvatarAssetPack package to `toc` (written whole or not at all);
+// false with `error` if the package has none or can't be read.
+bool extract_avatar_pack(const std::filesystem::path& package, const std::filesystem::path& toc, std::string& error);
+
 }  // namespace x360tool

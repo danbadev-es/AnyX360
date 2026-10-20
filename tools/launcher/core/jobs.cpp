@@ -75,6 +75,7 @@ Outcome UseInPlace(Job& job, fs::path root) {
   fs::create_directories(GameRoot(*game), ec);
   if (!WriteUtf8(LocationFile(*game), root.wstring())) return {{kTextErrorMove, {L"location.txt"}, true}};
   SaveIcon(*game, root);
+  InstallAvatarPack(root);
   return {{kTextAddedFolder, {game->title, ShortPath(root)}, false}, game->id};
 }
 

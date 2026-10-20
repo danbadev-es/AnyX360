@@ -344,6 +344,10 @@ int main() {
   const auto files = Copy(game);
   const fs::path copy = player / L"My Copy" / L"Disc";
   WriteCopy(copy, files);
+  // Discs of avatar games carry the avatar asset pack (a package of title FFFE07DF).
+  WriteFile(copy / L"AvatarAssetPack",
+            MakeStfs(x360tool::content_type::kMarketplace, 0xFFFE07DF, {{"AvatarAssetPack.toc", "avatar pack"}}));
+  const fs::path avatar_pack = LocalAppData() / L"AnyX360" / L"system" / L"AvatarAssetPack.toc";
 
   {  // Recognised by content.
     WriteFile(player / L"image.iso", MakeIso(files));
@@ -364,6 +368,7 @@ int main() {
     CHECK(observer.asked == 0);
     CHECK(IsInstalled(game));
     CHECK(fs::equivalent(StoredLocation(game), copy));
+    CHECK(Exists(avatar_pack) && fs::file_size(avatar_pack) == std::size("avatar pack") - 1);
     auto library = ReadLibrary();
     CHECK(library[0].installed && !library[0].location_gone && fs::equivalent(library[0].dir, copy));
     CHECK(Add(copy / L"default.xex").message.id == kTextAddedFolder);  // default.xex itself

@@ -8,6 +8,7 @@
 #include <cwctype>
 #include <optional>
 
+#include "avatar.h"
 #include "core/catalog.h"
 #include "core/library.h"
 #include "stfs.h"
@@ -97,6 +98,14 @@ int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::pa
   return installed;
 }
 
+void InstallAvatarPack(const fs::path& game_root) {
+  const fs::path package = game_root / x360tool::kAvatarPackPackage;
+  if (!Exists(package)) return;
+  std::string error;
+  // A damaged pack is skipped: avatar games then run without avatars.
+  x360tool::extract_avatar_pack(package, LocalAppData() / L"AnyX360" / L"system" / x360tool::kAvatarPackToc, error);
+}
+
 Outcome InstallExtracted(Job& job, const CatalogGame& game, const fs::path& extracted, const fs::path& content_source) {
   Message error;
   fs::path found = FindGameRoot(extracted);
@@ -106,6 +115,7 @@ Outcome InstallExtracted(Job& job, const CatalogGame& game, const fs::path& extr
   if (!CheckCopy(found, game, error) || !InstallCopy(game, found, error)) return {error};
   job.Progress(100);
   SaveIcon(game, ExtractedDir(game));
+  InstallAvatarPack(ExtractedDir(game));
   Outcome outcome{{kTextAdded, {game.title}, false}, game.id};
   if (content_source.empty()) return outcome;
   std::vector<fs::path> content;
