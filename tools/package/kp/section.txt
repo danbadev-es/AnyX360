@@ -1,0 +1,27 @@
+KINECT PARTY
+==========================================================
+Played with a webcam in place of the Kinect.
+Your copy: the Xbox Live Arcade package (in an archive or a folder). The "Kinect Party - Full
+Unlock" pack next to it is installed too: it opens every channel.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\KinectParty
+
+THE WEBCAM
+Set it up as for Dance Central 3 (see its section): Windows must let desktop programs use the
+camera, the webcam goes under or over your screen pointing at where you play, and you stand
+2-3 m away with your whole body in view. The game shows the webcam's picture with you cut out of
+it, so light the room well and stand in front of a plain background if you can.
+
+PLAYING
+- The channels change on their own (auto play): just move, and the effects follow you.
+- The channel guide: press START on a controller. Raise a hand to take control, hold it on the
+  left or right arrow to see more channels, and hold it on a stagehand to tune in to his channel.
+- Two players can play at once.
+
+KNOWN ISSUES
+- The game runs at 30 FPS.
+- Without a controller the channel guide can't be opened: on the console it also opened by voice,
+  and AnyX360 has no Kinect microphones. The channels still change on their own.
+- At most two people are seen (a Kinect saw six).
+- Only Kung Fu, Monster Attack and Invaders have been tried; the other channels haven't been tried
+  yet: if something is wrong, tell us with the logs.
+- Sharing photos and anything else online needs Xbox Live, which is gone.
