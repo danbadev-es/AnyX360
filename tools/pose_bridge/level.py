@@ -12,8 +12,11 @@ which way is up in the webcam's (Kinect-axes) space and rotates every joint so u
   room; once their positions cover enough of it (in two directions), the plane's normal is up and
   its distance below the camera is the camera's height.
 
-The estimate changes slowly (the camera doesn't move) and is at most 35 degrees from the camera's
-own up. A manual tilt (the settings panel) replaces it.
+Only the pitch (a camera pointing down from a monitor or a laptop lid) is measured; the roll (a
+camera turned about its lens) is the one set by hand, 0 unless changed: measured, it followed the
+player's lean and a lopsided floor and turned the picture of a camera that was level. The estimate
+changes slowly (the camera doesn't move) and is at most 35 degrees from the camera's own up. A
+manual tilt (the settings panel) sets both.
 """
 
 import collections
@@ -77,16 +80,23 @@ class Leveler:
         self._floor = collections.deque(maxlen=self.FLOOR_SAMPLES)
         self._previous_hip = None
         self._manual = None
+        self._roll = 0.0  # the roll set by hand, kept while the pitch is measured
 
     def reset(self):
+        roll = self._roll
         self.__init__()
+        self._roll = roll
 
     def set_manual(self, pitch_deg, roll_deg):
-        """A tilt set by the player (None: measure it again)."""
+        """A tilt set by the player; `pitch_deg` None: the pitch is measured, with `roll_deg` (the
+        manual roll, None: 0) as the roll."""
         if pitch_deg is None:
+            self._roll = roll_deg or 0.0
             if self._manual is not None:
                 self._manual = None
-                self.up, self.source = UP.copy(), SOURCE_NONE
+                self.up, self.source = up_from_angles(0.0, self._roll), SOURCE_NONE
+            elif self.source != SOURCE_NONE:
+                self.up = up_from_angles(self.angles()[0], self._roll)  # the measured pitch stays
             return
         self._manual = (pitch_deg, roll_deg)
         self.up = up_from_angles(pitch_deg, roll_deg)
@@ -149,7 +159,11 @@ class Leveler:
         if reading is None and len(self._body) >= self.MIN_BODY_SAMPLES:
             median = np.median(np.array(self._body), axis=0)
             reading, source = median / np.linalg.norm(median), SOURCE_BODY
-        if reading is None or math.acos(max(-1.0, min(1.0, float(np.dot(reading, UP))))) > MAX_TILT:
+        if reading is None:
+            return
+        # Only the pitch is measured: the roll is the manual one.
+        reading = up_from_angles(angles_from_up(reading)[0], self._roll)
+        if math.acos(max(-1.0, min(1.0, float(np.dot(reading, UP))))) > MAX_TILT:
             return
         if self.source == SOURCE_NONE:
             self.up = reading  # the first estimate at once

@@ -73,10 +73,12 @@ set ANYX360_POSE_BRIDGE="...\venv\Scripts\python.exe" -I "...\tools\pose_bridge\
    - Once a joint moves fast, it gets a quarter of a frame of prediction.
    - A planted foot is held still until it moves off.
    - The values come from `benchmark.py` (see Tests).
-5. **Levelling** (`level.py`): the webcam's tilt is measured, first from the player's body axis
+5. **Levelling** (`level.py`): the webcam's pitch is measured, first from the player's body axis
    while they stand still, then from a plane fitted through the ankles as they move about. That
-   plane also gives the camera's height. Every joint is rotated into a level frame. A new estimate
-   doesn't move the player, and F2 shows it or lets it be set by hand.
+   plane also gives the camera's height. The roll is set by hand (0 unless changed): measured, it
+   followed the player's lean and turned the picture of a level camera. Every joint is rotated into
+   a level frame. A new estimate doesn't move the player, and F2 shows it or lets both be set by
+   hand.
 6. **Play space:** the scene moves so the first player stands centred, 2.3 m from the virtual
    sensor, with their feet on its floor (the measured one when known). It's measured from a second
    of frames with the whole body in view at 1.2-4.5 m, and again when the game asks or the tilt

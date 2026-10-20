@@ -139,8 +139,9 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 - **Precise Joints** - Each joint is placed from the image (the pose model's most precise output),
   filtered per joint with a little prediction, and planted feet are held still. The skeleton
   reaches the game as soon as the webcam's frame is processed.
-- **Tilted Webcams** - A webcam pitched down from a monitor or rolled is measured from your body and
-  the floor, and corrected, so you don't look like you're leaning. It can also be set by hand.
+- **Tilted Webcams** - A webcam pitched down from a monitor or a laptop lid is measured from your
+  body and the floor, and corrected, so you don't look like you're leaning. A webcam turned about
+  its lens (roll) is set by hand, and the pitch can be too.
 - **Play Space** - The player is placed where a Kinect expects them: centred, 2.3 m away, on the
   floor. **Recentre on me** sets it again.
 - **Kinect Tab** - F2 shows the image the game gets with your skeleton over it (each joint by how
