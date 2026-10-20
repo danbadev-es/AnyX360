@@ -20,24 +20,13 @@ void LoadLanguage();
 void SaveLanguage(Language language);
 
 enum Text {
-  kTextSubtitle,  // {0} version
   kTextChecking,
   kTextFinishing,
   kTextExtracting,  // {0} game, {1} percent
   kTextRemoving,    // {0} game
-  kTextReadyPad,    // {0} game
-  kTextReadyWebcam,  // {0} game
-  kTextAddHint,     // {0} supported games
-  kTextAlsoSupported,  // {0} games
   kTextPlay,
-  kTextAddGame,
   kTextAddTile,
   kTextCancel,
-  kTextLogs,
-  kTextFooter,
-  kTextMenuArchive,
-  kTextMenuFolder,
-  kTextMenuPlay,
   kTextMenuCover,
   kTextMenuRestoreCover,
   kTextMenuLogs,
@@ -73,7 +62,6 @@ enum Text {
   kTextErrorCover,
   kTextAddedContent,  // {0} game, {1} number of downloadable content packs
   kTextErrorConvert,  // {0} reason
-  kTextTermsTitle,
   kTextTermsHeading,
   kTextTermsCheck,
   kTextTermsAccept,
@@ -90,6 +78,50 @@ enum Text {
   kTextAddedContentOnly,   // {0} game, {1} number of packs
   kTextNoteUpdatesSkipped,  // {0} number of title updates
   kTextNoteOtherContent,   // {0} number of other titles' packages
+  kTextMyGames,
+  kTextCompatibleTitle,
+  kTextCompatibleCount,  // {0} playable, {1} coming soon
+  kTextStatusPlayable,
+  kTextStatusTesting,
+  kTextStatusInLibrary,
+  kTextStatusComing,
+  kTextAddFirst,
+  kTextAddFirstHint,  // {0} games this release plays
+  kTextAddTitle,
+  kTextFromFile,
+  kTextFromFileHint,
+  kTextFromFolder,
+  kTextFromFolderHint,
+  kTextDropHint,
+  kTextDropHere,
+  kTextAddingTitle,  // {0} game
+  kTextCheckingTitle,
+  kTextRemovingTitle,  // {0} game
+  kTextPasswordTitle,
+  kTextPasswordKeyboard,
+  kTextOk,
+  kTextReplace,
+  kTextKeep,
+  kTextRemove,
+  kTextExit,
+  kTextKeepGoing,
+  kTextOpenLogs,
+  kTextProblemTitle,
+  kTextGameClosedTitle,
+  kTextReplaceTitle,
+  kTextRemoveTitle,
+  kTextExitTitle,
+  kTextOtherLanguage,
+  kTextTermsLink,
+  kTextDeveloped,
+  kTextHintSelect,
+  kTextHintBack,
+  kTextHintMore,
+  kTextHintCompatible,
+  kTextLocationLine,  // {0} folder
+  kTextExtractedLine,
+  kTextKeyboardPad,
+  kTextWebcam,
   kTextCount
 };
 
