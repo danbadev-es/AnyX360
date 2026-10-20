@@ -76,7 +76,8 @@ photos' scenes.
 - **Pacing**: the game presents every second vblank (30 FPS, as on the console) and its clock
   counts vblanks. At two vblanks per frame with the 60 FPS setting (vblank at 120 Hz) it ran at
   60 FPS, but twice as fast: a race's timer went 20 s in 10 s of wall time, whatever the frame
-  rate. It runs at 30 FPS only (`vblanks_per_frame` 2, `fixed_fps` 30: vblank 60 Hz).
+  rate. It runs at 30 FPS only (`vblanks_per_frame` 2, `fixed_fps` 30: vblank 60 Hz): a race's
+  timer then went 19.3 s in 19.2 s, at a steady 30 FPS.
 
 ## Status (2026-10-20)
 - **Boot and title screen**: the intro, the title screen ("Pasa sobre el botón Empezar"), the hand
@@ -188,9 +189,9 @@ exist and be empty before it runs. To play the DLC in a developer build, extract
   right speed) or is fixed per frame (then it would run twice as fast). The main loop is
   `823EB378` (thread "Sim"); it reads the time base each frame at `823EBA10` (stored at
   `this+0x17C`), and `823EC0C8` sets up its timer.
-- **Frame rate under load**: races and the results screen dropped to 20-40 FPS (2P split screen to
-  18) while two other games ran on the test machine; the menus stayed at their rate. Not measured on
-  a quiet machine.
+- **Frame rate under load**: at the earlier 60 FPS pacing, races and the results screen dropped to
+  20-40 FPS (2P split screen to 18) while two other games ran on the test machine. At 30 FPS a race
+  held 30.0 on a quieter machine; two players at 30 FPS weren't measured.
 - **Not tried**: finishing Battle Race, using items, Stunt, Sprint, Smash and Trick, the other six
   tracks, unlocking cars with fans, the photo album, changing avatar ("Cambiar avatar"), "Añádeme"
   (adding an avatar), the settings, three or more people in view.
