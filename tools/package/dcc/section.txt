@@ -1,0 +1,27 @@
+DORITOS CRASH COURSE
+==========================================================
+Your copy: the Xbox Live Arcade package (in an archive or a folder). The title update is left out.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\DoritosCrashCourse
+
+AVATARS
+Everyone in this game is an Xbox Avatar: you, the other runners and the crowd. On the console
+their clothes, hair and faces come from the console itself, not from the game. Here they come
+from the console's avatar data that the Kinect Sports disc carries: add Kinect Sports to the
+launcher too (you don't need to play it) and Doritos Crash Course has its avatars. Without it the
+game still plays, but your runner is invisible.
+
+CONTROLS
+An Xbox controller, or the keyboard standing in for one:
+  Run (left stick)                      A / D  (W / S)
+  Jump (A)                              Space  (also Left Shift or Enter)
+  Skip ahead when stuck (RB)            R
+  Pause (Start)                         Esc
+
+In menus: Space or Enter accepts (A), V or Backspace goes back (B). Starting a level asks to sign
+in to Xbox LIVE: press B to continue without it. To play with a controller, open F2 > Players and
+set Player 1 to "Controller".
+
+KNOWN ISSUES
+- Leaderboards need Xbox LIVE, which is gone: the level screen says they can't be read.
+- Finishing a level, the downloadable content and multiplayer haven't been tried by a person yet:
+  if something is wrong, tell us with the logs.

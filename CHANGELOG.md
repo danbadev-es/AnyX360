@@ -8,16 +8,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-20
+
+Doritos Crash Course and Kinect Sports, with Xbox Avatars made from the console's own avatar data;
+and the AnyX360 logo.
+
 ### Added
 
+- **Doritos Crash Course** (in testing): the Xbox Live Arcade obstacle race, with a controller or
+  the keyboard. The menus, the country and level choice and the levels work: the player's avatar
+  runs, jumps, falls into the water and comes back at the checkpoint. Finishing a level hasn't
+  been tried yet.
+- **Kinect Sports** (in testing): Rare's sports, played with the webcam, from a Games on Demand
+  copy or the disc's files. The menus, picking the main player (yourself or one of the game's
+  guests), the stadium and the sport menu work; Bowling starts and the player's avatar follows the
+  body. The sports haven't been played through by a person yet.
+- **Xbox Avatars.** On the console the avatars' parts come from the system; AnyX360 now builds
+  them from the console's avatar asset pack, which the Kinect Sports disc carries: the body (its
+  skeleton from the game's own avatar library, shaped to the avatar's height and weight in Kinect
+  Sports), its clothes in their colours, its hairstyle and its face (eyes, eyebrows, mouth, facial hair). Descriptions are read
+  and written in the console's format, so the avatars the games describe (Kinect Sports' guests,
+  Doritos Crash Course's crowd) keep their looks. The players get the default avatar.
+- The launcher installs the avatar asset pack when it adds a game that has one, for every avatar
+  game: Doritos Crash Course, which doesn't carry it, gets its avatars once Kinect Sports is added.
 - **The AnyX360 logo.** The launcher shows the mark beside its name, the whole logo while no game
   has been added yet, and the mark with the terms of use, sharp at any display scale. The launcher
   and every game have it as their icon: in File Explorer, the title bar, the taskbar and Alt+Tab.
 - The kernel's LZX decompressor (`LDICreateDecompression`, `LDIDecompress`,
   `LDIResetDecompression`, `LDIDestroyDecompression`): XMemDecompress in the 2010 XDKs and the
   avatar library unpack their data with it.
-- An avatar system for titles that can't run without one (`GameDescriptor::avatar_system`): it
-  starts, and asset requests return an empty result. Other titles are still told there is none.
+- `x360tool avatar-pack`, `avatar-unpack` and `avatar-model` list and unpack the avatar asset
+  pack and decode its parts (meshes, material parameters, textures, OBJ). The notes are in
+  [docs/AVATARS.md](docs/AVATARS.md).
 - The recompiler: `stvebx`, `vadduhs`, `vandc`, `vavgsw`, `vminsw`, `vsl`, `vsrb`, `vsro`,
   `vsubuwm` and `vsubuws`.
 
@@ -36,6 +58,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   had 68 jump tables left unresolved, now 2 (both calls through function pointers).
 - `XamInputGetKeystroke` and `XamInputGetKeystrokeEx` report no keystroke instead of being
   missing.
+- `XamAvatarInitialize` reads the title's coordinate system from its second argument.
 
 ## [0.7.1] - 2026-10-20
 
@@ -320,7 +343,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.5.0...v0.6.0

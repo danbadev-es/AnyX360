@@ -21,8 +21,9 @@ games carry. These notes collect what is known.
 ## The data: the avatar asset pack
 
 Discs of avatar games carry `AvatarAssetPack`, a PIRS package (title `FFFE07DF`) holding
-`AvatarAssetPack.toc` (13 MB on the Kinect Sports disc). The runtime copies it to the shared
-`system` folder the first time an avatar game runs, so other avatar games find it.
+`AvatarAssetPack.toc` (13 MB on the Kinect Sports disc). The launcher extracts it to the shared
+`%LOCALAPPDATA%\AnyX360\system` folder when it adds a game that has one, and a game that has one
+copies it there on its first run, so avatar games without a pack (Doritos Crash Course) find it.
 `x360tool avatar-pack` lists it and unpacks every asset; `x360tool avatar-model` decodes a part
 (meshes, material parameters, textures) and writes it as OBJ.
 
@@ -88,7 +89,8 @@ An **asset ID** is 16 bytes: the category bits, the asset number (the pack entry
 
 Absolute pointers: `+0` the skeleton (16-byte aligned: count, joints*, then 72 joints of 96 bytes:
 parent, first child, sibling, model-space and local translation/rotation, scale; filled by the
-title's own skeleton builder, Kinect Sports `82A84A00(skeleton, body type, height, weight)`), `+8`
+title's own skeleton builder, Kinect Sports `82A84A00(skeleton, body type, height, weight)`;
+Doritos Crash Course's older library (2.0.11626) only has the default skeleton, `825F7EE0(skeleton)`), `+8`
 part count, `+12` 32-byte asset records (ID, 3 at +16, a colour at +20), `+16` 52-byte part
 descriptors (header words 0-6, CPU block, GPU block, vertex and index regions, mesh and texture
 records). Kinect Sports wants the head first and the body second, and stops drawing an avatar at
@@ -108,4 +110,3 @@ textures per mesh (`8259E8C0`). It never writes depth, cull or stencil state.
 - **Animations** (`XamAvatarLoadAnimation`): 41 in the pack.
 - The 16 bytes after each face texture, the second part list and the trailing bytes of a
   description.
-- Doritos Crash Course: its skeleton builder's address (the same library, 2.0.11626).

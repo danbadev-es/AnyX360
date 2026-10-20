@@ -47,22 +47,35 @@ recompiled.
   hard drive no longer reports an exact multiple of 4 GiB.
 - **Avatars**: the game creates its avatar manager only if the avatar system starts, and then uses
   it regardless, so for this title it starts (`GameDescriptor::avatar_system`). The avatar library
-  unpacks its own data (a placeholder body and its skeleton), and the game's menus show avatars:
-  the crowd, the players to pick, the player's own as a silhouette that follows the body.
+  unpacks its own data (a placeholder body and its skeleton) through LDI. The avatars' parts come
+  from the system (`XamAvatarGetAssets`), which AnyX360 builds from the disc's avatar asset pack
+  (`GameDescriptor::avatar_skeleton`, [AVATARS.md](AVATARS.md)). `XamAvatarInitialize` takes the
+  title's coordinate system as its second argument; read from the first, every part was mirrored
+  and drawn inside out (the body over the clothes).
 - **Pacing**: one vblank per frame: 60 FPS.
 
 ## Status (2026-10-20)
-- **Boot to the player menu**: logos, the intro video, the title screen ("raise your hand"),
-  standing in the purple area, the player menu (Player, Guest, Sign In) with avatars, the hand
-  cursor, and the save device question.
-- **Blocked: avatar assets.** Picking a player asks the system for that avatar's assets
-  (`XamAvatarGetAssets`): its skeleton, meshes and textures, which on the console come from the
-  avatar asset pack (on this disc). The runtime answers with an empty result, and the game reads
-  the skeleton's joints from it and crashes. Going further needs the asset pack read and turned
-  into the result the avatar library expects.
+- **Menus**: logos, the intro video, the title screen ("raise your hand"), standing in the purple
+  area, the player menu (Player, Guest, Sign In) and the save device question, with the hand
+  cursor.
+- **Avatars**: the players and the game's guests are Xbox Avatars made from the avatar asset pack
+  on this disc ([AVATARS.md](AVATARS.md)): the guests keep the looks the game gives them (their
+  clothes, hair, skin and faces); the player gets the default avatar. Their skeletons are shaped
+  to each avatar's height and weight by the skeleton builder linked into the game (`82A84A00`).
+  The crowds are the game's own.
+- **Sports**: picking the player leads to the stadium, "Play", the sport menu and "Who is
+  playing?". Bowling loads (today's competitors with the player's avatar, the how-to screen),
+  starts when the hand is raised, and the avatar follows the body: it reaches for the ball rack
+  and bowls. Only Bowling's start was tried with the scripted player; the other sports, whole
+  games and two players have not been tried.
+- **Not done**: the avatars' face shapes (chin, nose, ears) and the pack's hiding templates (the
+  body under tight clothes can show through); the system's avatar animations
+  (`XamAvatarLoadAnimation`, which the game imports; it has played without them so far).
 - **Scripted route** (synthetic source): `3:enter;5:walk_out;27:arm_right_10_80;35:lower;
   40:arm_right_10_80;48:lower`, then `55:arm_right_84_-24` picks "Player" (`94_-25` the guest on
-  the left).
+  the left). In the stadium the hand at `arm_right_75_-22` is over "Play"; the sport menu's
+  Bowling is at `95_-22`, "Accept Players" at `74_-22`, the how-to screen's Skip at `37_4`; a raised
+  hand (`10_80`) starts the game, `52_-36` reaches the right-hand ball rack.
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `4D5308C9`):

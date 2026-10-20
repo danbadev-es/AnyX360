@@ -5,7 +5,7 @@
 **An unofficial, fan-made project that ports Xbox 360 games natively to PC through static recompilation.**
 
 [![Unofficial](https://img.shields.io/badge/unofficial-fan%20project-critical)](#legal-and-disclaimer)
-[![Version](https://img.shields.io/badge/version-0.7.1-2ea44f)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.8.0-2ea44f)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?logo=windows)](#system-requirements)
 [![Graphics](https://img.shields.io/badge/graphics-Direct3D%2012-5C2D91)](#how-it-works)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus)](#building)
@@ -19,7 +19,7 @@
 > [!CAUTION]
 > **AnyX360 is an unofficial fan project.** It is not affiliated with, authorized, sponsored or
 > endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games, Harmonix, Good Science Studio,
-> Halfbrick Studios or any other rights holder.
+> Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay or any other rights holder.
 > It contains **no game code, assets or files**: you must own a legally acquired copy of the game,
 > and you provide its files yourself.
 
@@ -39,6 +39,12 @@ the sensor.
   webcam, from a Games on Demand copy with its downloadable content.
 - **Fruit Ninja Kinect** (in testing): the Xbox Live Arcade game, slicing fruit with your hands in
   front of the webcam, with its downloadable content.
+- **Doritos Crash Course** (in testing): the Xbox Live Arcade obstacle race with a controller, where
+  everyone is an Xbox Avatar.
+- **Kinect Sports** (in testing): Rare's six sports, played with the webcam, with Xbox Avatars.
+
+Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
+carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for.
 
 <img width="1280" height="800" alt="The AnyX360 launcher with three games added" src="docs/images/launcher.png" />
 
@@ -50,7 +56,8 @@ the sensor.
    `AnyX360-<version>.zip`. One release has every game.
 2. Extract it to a regular folder (not inside _Program Files_), on a drive with room for the games
    you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3, 8 GB for
-   Kinect Adventures and 1 GB for Fruit Ninja Kinect.
+   Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for Doritos Crash Course and 4 GB for
+   Kinect Sports.
 3. Run **`AnyX360.exe`** and accept the terms of use.
 4. Choose **Add game** (the **+** tile), or drop your copy on the window, as you have it:
    - **A file**: an archive of any kind (.7z, .rar, .zip, split or not, .tar.gz...), a disc image
@@ -121,7 +128,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   first play.
 - **Saves and Profiles** - Stored in `%LOCALAPPDATA%\AnyX360\<game>`, kept across versions.
 
-### Kinect (Dance Central 3, Kinect Adventures, Fruit Ninja Kinect)
+### Kinect (Dance Central 3, Kinect Adventures, Fruit Ninja Kinect, Kinect Sports)
 
 - **Webcam as the Kinect** - MediaPipe pose estimation turns the webcam's image into Kinect
   skeletons for up to two players. It also makes the Kinect's color and depth images, so the game's
@@ -144,6 +151,15 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 - **Mouse Mode** - Without a webcam, the mouse drives the menus: the right hand follows the cursor.
 - **Private** - The webcam's images are processed on your computer in real time, and never saved
   or sent.
+
+### Xbox Avatars (Doritos Crash Course, Kinect Sports)
+
+- **Avatars from the Console's Data** - On the console the avatars' clothes, hair and faces come
+  from the system, not from the game. AnyX360 reads the console's avatar asset pack, which the
+  Kinect Sports disc carries, and builds each avatar the game asks for: its body shaped to its
+  height and weight, its clothes in their colours, its hairstyle, eyes, eyebrows and mouth.
+- **Shared** - Adding Kinect Sports installs the pack for every avatar game: Doritos Crash Course,
+  which doesn't carry one, gets its avatars from it.
 
 ### What Works
 
@@ -179,6 +195,21 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Progress and best scores         | ✅ Saved                                       |
 | Downloadable content             | ✅ Installed by the launcher                   |
 | Leaderboards, avatar awards      | ❌ Not available: they need Xbox Live          |
+
+| Doritos Crash Course             | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Menus, country and level choice  | ✅ Working with a controller or the keyboard   |
+| Levels                           | 🧪 Running, jumping, checkpoints; finishing one not tried yet |
+| Avatars (player, crowd)          | ✅ With the avatar data from Kinect Sports     |
+| Leaderboards                     | ❌ Not available: they need Xbox Live          |
+
+| Kinect Sports                    | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Menus, picking the main player   | ✅ Working (hand cursor)                       |
+| Avatars                          | ✅ The game's guests with their looks; you play as the default avatar |
+| Bowling                          | 🧪 Starts and follows the body; not played through yet |
+| Other sports, two players        | 🧪 Not tried yet                               |
+| Online, avatar awards            | ❌ Not available: they need Xbox Live          |
 
 ## Controls
 
@@ -225,6 +256,27 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Kinect Tuner         | Y on a controller                                                |
 | Pause                | Left arm out and down at 45° for a moment (the Kinect Guide gesture) |
 
+### Doritos Crash Course
+
+| Action                   | Keyboard                       | Controller         |
+| ------------------------ | ------------------------------ | ------------------ |
+| Run                      | A / D                          | Left stick         |
+| Jump                     | Space (also Left Shift, Enter) | A                  |
+| Skip ahead when stuck    | R                              | RB                 |
+| Back (menus)             | V (also Backspace)             | B                  |
+| Pause                    | Esc                            | Start              |
+
+### Kinect Sports
+
+| Action               | Gesture                                                          |
+| -------------------- | ---------------------------------------------------------------- |
+| Start                | Raise a hand above your head                                     |
+| Point at an item     | Raise a hand: the cursor follows it                              |
+| Select               | Hold the hand over the item until the circle fills               |
+| Play                 | As each sport shows before it starts (bowling: pick up the ball, swing back and forwards) |
+| Kinect Tuner         | Y on a controller                                                |
+| Pause                | Left arm out and down at 45° for a moment (the Kinect Guide gesture) |
+
 ### Program Keys
 
 | Key                      | Action                         |
@@ -260,6 +312,19 @@ Fruit Ninja Kinect:
 
 - The calibration doesn't move a camera: frame yourself with the webcam (head and hands in view).
 - Zen and Party modes haven't been tried yet.
+- Same webcam limits as Dance Central 3.
+
+Doritos Crash Course:
+
+- Its avatars come from the Kinect Sports disc: without Kinect Sports added, the player is
+  invisible.
+- Finishing a level, the downloadable content and multiplayer haven't been tried yet.
+
+Kinect Sports:
+
+- In testing: only the menus and the start of Bowling have been tried, with the test player.
+- You play as the default avatar. The avatars' face shapes (chin, nose, ears) aren't applied, and
+  tight clothes can show the body through them.
 - Same webcam limits as Dance Central 3.
 
 Found something else? Open an issue with the version (shown in the launcher) and the game's
@@ -320,22 +385,29 @@ environment with pinned, hash-checked packages.
   `x360tool god-extract` (see [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing)).
 - Fruit Ninja Kinect: extract the Xbox Live Arcade package to `extracted/fnk/game/` with
   `x360tool stfs-extract` (see [docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md#reproducing)).
+- Doritos Crash Course: the same, to `extracted/dcc/game/` (see
+  [docs/DORITOSCRASHCOURSE.md](docs/DORITOSCRASHCOURSE.md#reproducing)).
+- Kinect Sports: extract the Games on Demand package's disc files to `extracted/ks/game/` with
+  `x360tool god-extract` (see [docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing)).
 - Put the XEX2 retail key in `keys/xex2_retail.key` (see [keys/README.md](keys/README.md)).
 
 Both folders are git-ignored.
 
 > [!IMPORTANT]
 > The targets are the base executables, without title updates: Gears of War 3 (title
-> `4D5308AB`), Dance Central 3 (title `373307D9`), Kinect Adventures (title `4D5308ED`) and Fruit
-> Ninja Kinect (title `58410B79`).
+> `4D5308AB`), Dance Central 3 (title `373307D9`), Kinect Adventures (title `4D5308ED`), Fruit
+> Ninja Kinect (title `58410B79`), Doritos Crash Course (title `58410A71`) and Kinect Sports
+> (title `4D5308C9`).
 
 ### 4. Recompile the Game
 
 Build the tools, analyse the executable and generate the C++ sources in the folder `config.toml`
 names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing-from-the-7z-in-raw),
 [docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing),
-[docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing) and
-[docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md#reproducing). For Gears of War 3:
+[docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing),
+[docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md#reproducing),
+[docs/DORITOSCRASHCOURSE.md](docs/DORITOSCRASHCOURSE.md#reproducing) and
+[docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing). For Gears of War 3:
 
 ```bat
 build.bat
@@ -449,8 +521,8 @@ Raw/, extracted/ Your game files (git-ignored)
 
 - **AnyX360 is an unofficial, independent, non-commercial fan project.** It is not affiliated with,
   authorized, sponsored or endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games,
-  Harmonix, Good Science Studio, Halfbrick Studios or any other rights holder, and it is not an official product or
-  port of any game.
+  Harmonix, Good Science Studio, Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay or any
+  other rights holder, and it is not an official product or port of any game.
 - This repository contains **no game code, assets or console keys**, and never will. The
   third-party XenonRecomp submodule (like Xenia) embeds the publicly known XEX2 retail key in its
   source to load executables; AnyX360's own tools read the key from `keys/` instead.
@@ -459,8 +531,8 @@ Raw/, extracted/ Your game files (git-ignored)
   is derived from the game's code.
 - Release packages contain no game data and are covered by the [terms of use](tools/launcher/terms_en.txt)
   the launcher shows before first use.
-- Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Fruit Ninja, Halfbrick, Xbox and
-  Xbox 360 are trademarks of their respective owners, used here only to identify the games AnyX360
+- Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Kinect Sports, Fruit Ninja,
+  Halfbrick, Doritos, Rare, Xbox and Xbox 360 are trademarks of their respective owners, used here only to identify the games AnyX360
   is compatible with.
 - The box art in the release belongs to its publishers and is shown only to identify the games;
   it is not kept in this repository.

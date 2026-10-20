@@ -30,20 +30,30 @@ The game's own version string is "Doritos Avatar Crash Course"; its title screen
   `8282D1E0`) are calls through tables of function pointers, correct as indirect calls.
 - **Instructions**: nothing new.
 
+## Avatars
+Everyone in this game is an Xbox Avatar: the player (the profile's avatar, or a random one), the
+opponents and the crowd. The avatar library is linked into the game, but the avatars' parts come
+from the console's system software (`XamAvatarGetAssets`), which AnyX360 provides from the
+console's **avatar asset pack** ([AVATARS.md](AVATARS.md)). This game doesn't carry the pack;
+discs of avatar games do (Kinect Sports): the launcher installs it when such a game is added, and
+a game that has one copies it on its first run, to `%LOCALAPPDATA%\AnyX360\system`. Without it
+the game runs, with an invisible player.
+
+The game's avatar library (2.0.11626) is older than Kinect Sports': it has no shaping of the
+skeleton by height and weight, so the system gives every avatar the library's default skeleton
+(`825F7EE0`). Its menus and first level build 16 avatars, each from its own description: the
+crowd keeps its looks (hats, shades, watches and rings included).
+
 ## Status (2026-10-20)
 - **Boot and menus**: the Behaviour logo, the title screen, the main menu, the country and level
   selection work with the pad. There is no Xbox LIVE: the level screen says the leaderboard can't
   be read, and starting a level asks to sign in (B continues offline).
-- **Levels**: a level loads (the loading screen shows the controls), the race timer runs, the
-  camera follows the player and checkpoints are reached. 60 FPS.
-- **The player's character is invisible.** Everyone in this game is an Xbox Avatar: the player
-  (the controller's, a random or the profile's avatar) and the opponents. The avatar library is
-  linked into the game, but its models, textures and animations come from the console's system
-  software through `XamAvatarGetAssets`/`XamAvatarLoadAnimation`, not from the game. With the
-  avatar system unavailable (as in Xenia) the game runs without any; answered "available", it
-  asks for the metadata and assets and still has nothing to draw. Showing avatars needs the
-  console's avatar data and an implementation of the system's asset loading: not done.
-- **Not tried**: the DLC pack, local multiplayer, the Title Update (not supported).
+- **Levels**: a level loads (the loading screen shows the controls), the player's avatar runs,
+  jumps and falls into the water, comes back at the last checkpoint, and the game offers "Stuck?
+  Press RB to skip ahead". The race timer runs and the camera follows. 60 FPS. The scripted pad
+  got a third of the way through the first level (a person finishes levels).
+- **Not tried**: finishing a level (the results), the DLC pack, local multiplayer, the Title
+  Update (not supported).
 
 ## Reproducing
 From the arcade package (`<package>` is the folder that holds `58410A71`):

@@ -12,7 +12,7 @@
   "archive_hint": "Doritos Crash Course (Xbox Live Arcade)",
   "input": "keyboard_pad",
   "required_files": ["arcadeinfo.xml", "data.pak"],
-  "owners": "Frito-Lay North America, Microsoft Corporation",
+  "owners": "Frito-Lay North America, Microsoft Corporation, Behaviour Interactive",
   "trademarks": ["Xbox", "Xbox 360", "Doritos"],
   "components": []
 }
