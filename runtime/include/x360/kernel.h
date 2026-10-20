@@ -333,6 +333,7 @@ struct TitleInfo {
   gpu::DisplayConfig display;         // window, render scale, frame rate
   std::string title_name;             // window title if the XEX has no title name
   bool arcade = false;                // an Xbox Live Arcade title: game:\ is its package's contents
+  bool avatar_system = false;         // XamAvatarInitialize succeeds (GameDescriptor::avatar_system)
   // Called once the function table is filled, before the title runs (game-specific debug hooks).
   std::function<void()> on_function_table;
 };

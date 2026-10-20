@@ -8,8 +8,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- The kernel's LZX decompressor (`LDICreateDecompression`, `LDIDecompress`,
+  `LDIResetDecompression`, `LDIDestroyDecompression`): XMemDecompress in the 2010 XDKs and the
+  avatar library unpack their data with it.
+- An avatar system for titles that can't run without one (`GameDescriptor::avatar_system`): it
+  starts, and asset requests return an empty result. Other titles are still told there is none.
+- The recompiler: `stvebx`, `vadduhs`, `vandc`, `vavgsw`, `vminsw`, `vsl`, `vsrb`, `vsro`,
+  `vsubuwm` and `vsubuws`.
+
 ### Fixed
 
+- **A title that sets up the GPU's command ring a second time** (a second Direct3D device) stopped
+  on a black screen: the command processor kept its old read pointer and ran past the new commands.
+- **GPU callbacks to the CPU never finished**: Direct3D's handler clears the bit of the processor
+  it runs on, and the interrupt for processor 1 ran as another one, so the GPU waited forever.
+- The free space reported for the hard drive is no longer a multiple of 4 GiB: Kinect Sports
+  compares only its low 32 bits and said there was no room to save.
 - **The recompiler finds more jump tables** (in games recompiled from this version on). A table
   placed right after its dispatch may send cases back to code before it; a bounds check that
   belongs to another switch no longer spoils the next one; and a table of offsets with no bounds

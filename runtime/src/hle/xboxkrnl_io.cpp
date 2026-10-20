@@ -548,8 +548,10 @@ uint32_t NtQueryVolumeInformationFile(uint32_t handle, uint32_t io_status, uint3
       written = 0x18;
       break;
     case 3:  // FileFsSizeInformation
+      // 16 GiB, all but 1 MiB free: not a multiple of 4 GiB, as some titles compare only the low
+      // 32 bits of a size (see XamContentGetDeviceData).
       Store<uint64_t>(info + 0x00, 0x100000);  // allocation units
-      Store<uint64_t>(info + 0x08, 0x80000);
+      Store<uint64_t>(info + 0x08, 0xFFFC0);
       Store<uint32_t>(info + 0x10, 32);       // sectors per unit
       Store<uint32_t>(info + 0x14, 0x200);    // bytes per sector
       written = 0x18;

@@ -33,6 +33,9 @@ struct GameDescriptor {
   // An Xbox Live Arcade title, run from its package's contents: XTitleGetDeploymentType reports a
   // download and its content volume is on the hard drive.
   bool arcade = false;
+  // The avatar system starts (XamAvatarInitialize succeeds) although there are no avatars to give: for
+  // titles that can't run without it. Others are told it's unavailable and go without avatars.
+  bool avatar_system = false;
   // Game-specific default settings, applied before settings.toml is read.
   std::function<void(settings::Settings&)> defaults;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).

@@ -525,8 +525,10 @@ uint32_t XamContentGetDeviceData(uint32_t device_id, uint32_t data) {
   std::memset(Ptr(data), 0, 0x50);
   Store<uint32_t>(data + 0x00, kHddDeviceId);
   Store<uint32_t>(data + 0x04, 1);  // device type: HDD
-  Store<uint64_t>(data + 0x08, 20ull << 30);
-  Store<uint64_t>(data + 0x10, 16ull << 30);
+  // Sizes just under multiples of 4 GiB: Kinect Sports compares twice its save's size with only the
+  // low 32 bits of the free space, and with exactly 16 GiB free said there wasn't room.
+  Store<uint64_t>(data + 0x08, (20ull << 30) - (1u << 20));
+  Store<uint64_t>(data + 0x10, (16ull << 30) - (1u << 20));
   const char* name = "Hard Drive";
   for (size_t i = 0; name[i]; ++i) Store<uint16_t>(data + 0x18 + uint32_t(i) * 2, uint8_t(name[i]));
   return X_ERROR_SUCCESS;
@@ -933,10 +935,15 @@ uint32_t XamLrcFail() { return 0x80004005; }
 // ---- avatars ------------------------------------------------------------------------------------
 // There's no avatar system: initializing it fails (as Xenia's default does) and titles go without
 // avatars. Answered as successes with nothing written, the calls below made Kinect Adventures read
-// asset data that was never there (a crash loading Reflex Ridge); they now say there's none.
+// asset data that was never there (a crash loading Reflex Ridge); they now say there's none. A title
+// that can't run without the system (Kinect Sports dereferences its avatar manager, which it only
+// creates when XAvatarInitialize succeeds) gets it started (GameDescriptor::avatar_system). Its
+// requests for metadata fail the same way; its asset requests succeed with an empty result (no
+// components): Kinect Sports reads the result's component list whether or not the request worked.
 constexpr uint32_t kAvatarFail = 0x80004005;  // E_FAIL, the extended error
+constexpr uint32_t kAvatarEmptyAssets = 0x100;  // an XAvatarGetAssets result with no components
 
-uint32_t XamAvatarInitialize() { return 0xFFFFFFFF; }
+uint32_t XamAvatarInitialize() { return TitlePaths().avatar_system ? X_ERROR_SUCCESS : 0xFFFFFFFF; }
 void XamAvatarShutdown() {}
 uint32_t AvatarFailed(uint32_t overlapped) {
   return overlapped ? Complete(overlapped, X_ERROR_FUNCTION_FAILED, 0, kAvatarFail) : kAvatarFail;
@@ -946,12 +953,18 @@ uint32_t XamAvatarGetManifestsByXuid(uint32_t, uint32_t, uint32_t, uint32_t, uin
   return AvatarFailed(overlapped);
 }
 uint32_t XamAvatarGetAssetsResultSize(uint32_t, uint32_t result_size, uint32_t gpu_size) {
-  if (result_size) Store<uint32_t>(result_size, 0);
-  if (gpu_size) Store<uint32_t>(gpu_size, 0);
+  const uint32_t size = TitlePaths().avatar_system ? kAvatarEmptyAssets : 0;
+  if (result_size) Store<uint32_t>(result_size, size);
+  if (gpu_size) Store<uint32_t>(gpu_size, size);
   return X_ERROR_SUCCESS;
 }
-uint32_t XamAvatarGetAssets(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t overlapped) {
-  return AvatarFailed(overlapped);
+// (metadata, component mask, flags, result buffer, GPU resource buffer, overlapped)
+uint32_t XamAvatarGetAssets(uint32_t, uint32_t, uint32_t, uint32_t result, uint32_t gpu_resources,
+                            uint32_t overlapped) {
+  if (!TitlePaths().avatar_system) return AvatarFailed(overlapped);
+  if (result) std::memset(Ptr(result), 0, kAvatarEmptyAssets);
+  if (gpu_resources) std::memset(Ptr(gpu_resources), 0, kAvatarEmptyAssets);
+  return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
 }
 uint32_t XamAvatarGetMetadataSignedOutProfileCount(uint32_t count, uint32_t overlapped) {
   if (count) Store<uint32_t>(count, 0);

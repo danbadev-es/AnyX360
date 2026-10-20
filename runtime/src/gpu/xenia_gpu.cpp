@@ -141,6 +141,7 @@ struct InterruptRequest {
   uint32_t callback;
   uint32_t data;
   uint32_t source;
+  uint32_t cpu;  // the hardware thread the interrupt is for
 };
 
 std::unique_ptr<xe::ui::Win32WindowedAppContext> g_app;
@@ -175,22 +176,27 @@ std::atomic<uint64_t> g_presented_swap{0};  // g_gpu_swaps at the last present
 namespace {
 
 // Runs the title's interrupt callback the way the kernel's DPC does: on a guest thread at
-// DISPATCH_LEVEL with the PRCB's DPC-active flag set.
+// DISPATCH_LEVEL with the PRCB's DPC-active flag set, as the hardware thread the interrupt is for
+// (the PCR's current CPU). Direct3D's handler for a command-buffer interrupt (a CPU callback the
+// GPU waits on) clears that CPU's bit in a mask the GPU polls: Kinect Sports' first loading
+// screen waited forever when the callback ran as another CPU.
 void RunInterrupt(const InterruptRequest& r) {
   ++g_interrupt_count;
   Thread* t = CurrentThread();
+  const uint8_t cpu = Load<uint8_t>(t->pcr + 0x10C);
+  Store<uint8_t>(t->pcr + 0x10C, uint8_t(r.cpu));
   Store<uint8_t>(t->pcr + 0x18, 2);
   Store<uint32_t>(t->pcr + 0x150, 1);
   CallGuest(r.callback, {r.source, r.data});
   Store<uint32_t>(t->pcr + 0x150, 0);
   Store<uint8_t>(t->pcr + 0x18, 0);
+  Store<uint8_t>(t->pcr + 0x10C, cpu);
 }
 
 class Host final : public xe::gpu::GraphicsHost {
  public:
   void DispatchInterrupt(uint32_t callback, uint32_t user_data, uint32_t source, uint32_t cpu) override {
-    (void)cpu;
-    InterruptRequest r{callback, user_data, source};
+    InterruptRequest r{callback, user_data, source, cpu};
     if (g_interrupt_thread && CurrentThread() == g_interrupt_thread.get()) {
       RunInterrupt(r);
       return;
