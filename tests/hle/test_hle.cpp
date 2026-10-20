@@ -19,6 +19,8 @@ PPC_EXTERN_FUNC(__imp__KeGetCurrentProcessType);
 PPC_EXTERN_FUNC(__imp__XeCryptAesKey);
 PPC_EXTERN_FUNC(__imp__XeCryptAesCbc);
 PPC_EXTERN_FUNC(__imp__XeCryptAesEcb);
+PPC_EXTERN_FUNC(__imp__sprintf);
+PPC_EXTERN_FUNC(__imp__vswprintf);
 PPC_EXTERN_FUNC(__imp__KeBlowFuses);  // not implemented: must resolve to the weak stub
 PPC_EXTERN_FUNC(__imp__XamShowRecentMessageUI);
 
@@ -132,6 +134,37 @@ int main() {
     ctx.r3.u64 = state, ctx.r4.u64 = data, ctx.r5.u64 = out, ctx.r6.u64 = 1;
     __imp__XeCryptAesEcb(ctx, base);
     CHECK(std::memcmp(mem.translate<uint8_t>(out), cipher, 16) == 0);
+  }
+
+  // sprintf (variadic: arguments in r5..): in the narrow form %s is narrow and %S wide.
+  {
+    const guest_addr format = kHeap + 0x600, narrow = kHeap + 0x680, wide = kHeap + 0x6C0, out = kHeap + 0x700;
+    std::strcpy(mem.translate<char>(format), "%d|%04X|%s|%S|%c");
+    std::strcpy(mem.translate<char>(narrow), "mw3");
+    const char* ok = "Ok";
+    for (int i = 0; i < 3; ++i) mem.write<uint16_t>(wide + i * 2, uint16_t(ok[i]));
+    ctx.r3.u64 = out, ctx.r4.u64 = format, ctx.r5.s64 = -5, ctx.r6.u64 = 0xBEEF, ctx.r7.u64 = narrow;
+    ctx.r8.u64 = wide, ctx.r9.u64 = 'z';
+    __imp__sprintf(ctx, base);
+    CHECK(std::strcmp(mem.translate<char>(out), "-5|BEEF|mw3|Ok|z") == 0);
+    CHECK(ctx.r3.u32 == 16);
+
+    // vswprintf(buffer, format, va_list): UTF-16 format and result; %s is wide, %hs narrow. A va_list
+    // holds 8-byte slots.
+    const guest_addr wformat = kHeap + 0x800, list = kHeap + 0x900, wout = kHeap + 0xA00;
+    const char* spec = "%s-%hs-%d";
+    for (size_t i = 0; i <= std::strlen(spec); ++i) mem.write<uint16_t>(wformat + uint32_t(i) * 2, uint16_t(spec[i]));
+    mem.write<uint64_t>(list + 0, wide);
+    mem.write<uint64_t>(list + 8, narrow);
+    mem.write<uint64_t>(list + 16, 42);
+    ctx.r3.u64 = wout, ctx.r4.u64 = wformat, ctx.r5.u64 = list;
+    __imp__vswprintf(ctx, base);
+    const char* expected = "Ok-mw3-42";
+    bool same = true;
+    for (size_t i = 0; i <= std::strlen(expected); ++i)
+      same &= mem.read<uint16_t>(wout + uint32_t(i) * 2) == uint16_t(expected[i]);
+    CHECK(same);
+    CHECK(ctx.r3.u32 == 9);
   }
 
   // Weak stubs: link, log once, return 0

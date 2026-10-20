@@ -8,6 +8,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- I/O completion routines (`ReadFileEx`, `WriteFileEx`) run as user APCs at the thread's next
+  alertable wait (`SleepEx(..., TRUE)`, alertable `WaitFor*`), which returns "user APC". Before,
+  a title that waited for them that way waited forever.
+- Kernel semaphores (`KeInitializeSemaphore`, `KeReleaseSemaphore`), `KeResumeThread`, DPCs
+  (`KeInsertQueueDpc`, run at once on the calling thread, as in Xenia), `KeRaiseIrqlToDpcLevel`,
+  `KfLowerIrql`, `KeTryToAcquireSpinLockAtRaisedIrql`, `vswprintf`, `XamShowMessageBoxUI`,
+  `XamContentGetDeviceName`, `XamLoaderSetLaunchData` (read back by the title itself),
+  `XAudioGetVoiceCategoryVolumeChangeMask`, `NetDll_WSAResetEvent` and `NetDll_WSACloseEvent`.
+- `GameDescriptor::main_thread_processor`: the hardware thread the title's main thread starts on.
+  The console uses 0; the default stays 1, which the earlier games were tested with.
+- The recompiler: `vpkd3d128` and `vupkd3d128` with the 2:10:10:10 type.
+
+### Fixed
+
+- **`XSetThreadProcessor` moves the thread**: the thread now reads its new processor number at
+  PCR+0x10C, as on the console (before, only the KTHREAD's affinity changed, and every thread kept
+  its creator's number). Games that keep data per processor shared it between threads.
+- **The recompiler switches on the index register's low word** (in games recompiled from this
+  version on): an `rlwinm` whose mask wraps around fills the high word, and a switch on the whole
+  register jumped outside the host's jump table (Modern Warfare 3, five minutes into the
+  campaign).
+- `XamShowMessageBoxUIEx` read its result pointer from the wrong argument (it has one more than
+  `XamShowMessageBoxUI`): it wrote the pressed button to an unrelated address and filled the
+  result as if it were the overlapped structure.
+
 ## [0.8.0] - 2026-10-20
 
 Doritos Crash Course and Kinect Sports, with Xbox Avatars made from the console's own avatar data;

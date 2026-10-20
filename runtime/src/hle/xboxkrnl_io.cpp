@@ -308,12 +308,19 @@ uint64_t* OffsetArg(uint32_t byte_offset_ptr, uint64_t& storage) {
   return &storage;
 }
 
+// I/O completion routines (ReadFileEx, WriteFileEx): XAPI's routine runs as a user APC with (context,
+// IO_STATUS_BLOCK, 0) at the thread's next alertable wait, even when the I/O completed at once, as on
+// NT. Requests that fail at once queue nothing. The routine's low bit is a flag, not part of its
+// address (as in Xenia).
+void QueueCompletion(uint32_t apc_routine, uint32_t apc_context, uint32_t io_status, uint32_t status) {
+  if (!(apc_routine & ~1u) || !apc_context || status != X_STATUS_SUCCESS) return;
+  if (Thread* thread = CurrentThread()) QueueUserApc(*thread, apc_routine & ~1u, apc_context, io_status, 0);
+}
+
 uint32_t NtReadFile(uint32_t handle, uint32_t event, uint32_t apc_routine, uint32_t apc_context, uint32_t io_status,
                     uint32_t buffer, uint32_t length, uint32_t byte_offset_ptr) {
-  (void)apc_context;
   auto file = LookupHandleAs<File>(handle);
   if (!file || file->directory) return X_STATUS_INVALID_HANDLE;
-  if (apc_routine) KLOG_W("NtReadFile: APC completion routines are not delivered");
   uint64_t offset;
   uint32_t read = 0;
   uint32_t status = ReadAt(*file, OffsetArg(byte_offset_ptr, offset), buffer, length, &read);
@@ -321,13 +328,12 @@ uint32_t NtReadFile(uint32_t handle, uint32_t event, uint32_t apc_routine, uint3
   if (log_files) KLOG_I("read %s: %u bytes -> %08X, %u read", file->guest_path.c_str(), length, status, read);
   SetIoStatus(io_status, status, read);
   SignalEvent(event);
+  QueueCompletion(apc_routine, apc_context, io_status, status);
   return status;
 }
 
 uint32_t NtReadFileScatter(uint32_t handle, uint32_t event, uint32_t apc_routine, uint32_t apc_context,
                            uint32_t io_status, uint32_t segments, uint32_t length, uint32_t byte_offset_ptr) {
-  (void)apc_routine;
-  (void)apc_context;
   auto file = LookupHandleAs<File>(handle);
   if (!file) return X_STATUS_INVALID_HANDLE;
   uint64_t offset_storage;
@@ -346,6 +352,7 @@ uint32_t NtReadFileScatter(uint32_t handle, uint32_t event, uint32_t apc_routine
   if (total) status = X_STATUS_SUCCESS;
   SetIoStatus(io_status, status, total);
   SignalEvent(event);
+  QueueCompletion(apc_routine, apc_context, io_status, status);
   return status;
 }
 
@@ -363,8 +370,6 @@ uint32_t WriteAt(File& file, uint64_t* offset, uint32_t buffer, uint32_t length,
 
 uint32_t NtWriteFile(uint32_t handle, uint32_t event, uint32_t apc_routine, uint32_t apc_context, uint32_t io_status,
                      uint32_t buffer, uint32_t length, uint32_t byte_offset_ptr) {
-  (void)apc_routine;
-  (void)apc_context;
   auto file = LookupHandleAs<File>(handle);
   if (!file || file->directory) return X_STATUS_INVALID_HANDLE;
   uint64_t offset;
@@ -374,6 +379,7 @@ uint32_t NtWriteFile(uint32_t handle, uint32_t event, uint32_t apc_routine, uint
   if (log_files) KLOG_I("write %s: %u bytes -> %08X", file->guest_path.c_str(), length, status);
   SetIoStatus(io_status, status, written);
   SignalEvent(event);
+  QueueCompletion(apc_routine, apc_context, io_status, status);
   return status;
 }
 

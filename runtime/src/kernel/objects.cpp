@@ -313,8 +313,10 @@ bool TimeoutToDeadline(const int64_t* timeout, std::chrono::steady_clock::time_p
 
 uint32_t WaitForObjects(const uint32_t* objects, uint32_t count, bool wait_all, const int64_t* timeout,
                         bool alertable) {
-  (void)alertable;  // APCs are not delivered yet
   if (!count || count > kMaxWaitObjects) return X_STATUS_INVALID_PARAMETER;
+  // An alertable wait runs the thread's queued user APCs instead of waiting, even if the objects
+  // are signalled, as on NT.
+  if (alertable && DeliverUserApcs()) return X_STATUS_USER_APC;
   using clock = std::chrono::steady_clock;
   clock::time_point deadline;
   bool finite = TimeoutToDeadline(timeout, &deadline);

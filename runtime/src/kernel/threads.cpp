@@ -265,9 +265,10 @@ void DumpThreads() {
       frame = next;
     }
     const char* import = t->current_import.load();
-    KLOG_I("thread %X %-14s in %-28s lr %08llX r3 %08X r29 %08X r30 %08X r31 %08X:%s", t->thread_id,
-           t->name.c_str(), import ? import : "(guest code)", (unsigned long long)c.lr, c.r3.u32, c.r29.u32,
-           c.r30.u32, c.r31.u32, trace.c_str());
+    // The KTHREAD and processor identify a lock's owner (a critical section stores the KTHREAD).
+    KLOG_I("thread %X %-14s in %-28s lr %08llX r3 %08X r29 %08X r30 %08X r31 %08X kthread %08X cpu %u:%s",
+           t->thread_id, t->name.c_str(), import ? import : "(guest code)", (unsigned long long)c.lr, c.r3.u32,
+           c.r29.u32, c.r30.u32, c.r31.u32, t->kthread, t->cpu, trace.c_str());
   }
 }
 std::shared_ptr<Thread> CurrentThreadShared() { return t_current; }
@@ -294,9 +295,10 @@ uint32_t CreateThread(uint32_t stack_size, uint32_t xapi_startup, uint32_t start
   return X_STATUS_SUCCESS;
 }
 
-uint32_t RunMainThread(uint32_t entry_point, uint32_t stack_size) {
+uint32_t RunMainThread(uint32_t entry_point, uint32_t stack_size, uint8_t processor) {
   std::shared_ptr<Thread> main;
-  uint32_t status = CreateThread(stack_size, 0, entry_point, 0, 0, &main);
+  // The processor goes in the creation flags' affinity byte, as ExCreateThread receives it.
+  uint32_t status = CreateThread(stack_size, 0, entry_point, 0, (1u << (processor % 6)) << 24, &main);
   if (status != X_STATUS_SUCCESS) return status;
   WaitForSingleObject(main->host, INFINITE);
   return main->exit_code;
@@ -364,6 +366,30 @@ int SuspendThread(Thread& t) {
   int previous = t.suspend_count++;
   if (&t != CurrentThread()) KLOG_W("SuspendThread on a running thread %X is only honoured before it starts", t.thread_id);
   return previous;
+}
+
+void QueueUserApc(Thread& t, uint32_t routine, uint32_t context, uint32_t argument1, uint32_t argument2) {
+  std::lock_guard lock(t.apc_mutex);
+  t.user_apcs.push_back({routine, context, argument1, argument2});
+}
+
+bool DeliverUserApcs() {
+  Thread* t = CurrentThread();
+  if (!t || !t->context) return false;
+  bool delivered = false;
+  for (;;) {
+    Thread::UserApc apc;
+    {
+      std::lock_guard lock(t->apc_mutex);
+      if (t->user_apcs.empty()) break;
+      apc = t->user_apcs.front();
+      t->user_apcs.pop_front();
+    }
+    // An APC may start more I/O and queue another: those run in this same delivery.
+    CallGuest(apc.routine, {apc.context, apc.argument1, apc.argument2});
+    delivered = true;
+  }
+  return delivered;
 }
 
 void SetLatencySensitiveThread(int priority) {

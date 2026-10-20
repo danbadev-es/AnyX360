@@ -8,6 +8,7 @@
 #include <condition_variable>
 #include <cstdarg>
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <functional>
 #include <map>
@@ -292,6 +293,13 @@ struct Thread : Object {
   std::mutex suspend_mutex;
   std::condition_variable suspend_cv;
   int suspend_count = 0;
+
+  // User-mode APCs (I/O completion routines) waiting for the thread's next alertable wait.
+  struct UserApc {
+    uint32_t routine, context, argument1, argument2;
+  };
+  std::mutex apc_mutex;
+  std::deque<UserApc> user_apcs;
 };
 
 Thread* CurrentThread();
@@ -310,7 +318,7 @@ std::shared_ptr<Thread> ThreadById(uint32_t id);
 uint32_t CreateThread(uint32_t stack_size, uint32_t xapi_startup, uint32_t start_address, uint32_t start_context,
                       uint32_t creation_flags, std::shared_ptr<Thread>* out);
 // Starts the title's main thread and blocks until it exits.
-uint32_t RunMainThread(uint32_t entry_point, uint32_t stack_size);
+uint32_t RunMainThread(uint32_t entry_point, uint32_t stack_size, uint8_t processor);
 // Calls a guest function on the current guest thread (callbacks from HLE code).
 uint64_t CallGuest(uint32_t function, std::initializer_list<uint64_t> args);
 // The same with floating-point arguments in f1, f2, ...
@@ -322,6 +330,13 @@ std::shared_ptr<Thread> CreateHostDrivenThread(const char* name, uint8_t cpu, st
 // Returns the new suspend count.
 int ResumeThread(Thread& thread);
 int SuspendThread(Thread& thread);
+// User-mode APCs: routine(context, argument 1, argument 2) runs on the thread at its next alertable
+// wait (KeDelayExecutionThread, KeWaitFor*, NtWaitFor*), which then returns X_STATUS_USER_APC
+// instead of waiting. Only APCs a thread queues to itself (its own I/O completions) are delivered
+// promptly: a thread already asleep in an alertable wait is not woken by another's.
+void QueueUserApc(Thread& thread, uint32_t routine, uint32_t context, uint32_t argument1, uint32_t argument2);
+// Runs the calling thread's queued user APCs; true if there were any.
+bool DeliverUserApcs();
 
 // ---------------------------------------------------------------------------------------------
 // Title / loader
@@ -337,6 +352,7 @@ struct TitleInfo {
   bool arcade = false;                // an Xbox Live Arcade title: game:\ is its package's contents
   bool avatar_system = false;         // XamAvatarInitialize succeeds (GameDescriptor::avatar_system)
   uint32_t avatar_skeleton = 0;       // the avatar library's skeleton builder (GameDescriptor)
+  uint8_t main_thread_processor = 1;  // hardware thread of the main thread (GameDescriptor)
   // Called once the function table is filled, before the title runs (game-specific debug hooks).
   std::function<void()> on_function_table;
 };

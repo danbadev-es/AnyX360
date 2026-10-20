@@ -1,0 +1,18 @@
+{
+  "id": "mw3",
+  "title": "Call of Duty: Modern Warfare 3",
+  "cover": "call-of-duty-modern-warfare-3",
+  "status": "testing",
+  "exe": "ModernWarfare3",
+  "user_dir": "ModernWarfare3",
+  "title_id": "415608CB",
+  "dev_game_dir": "extracted/mw3/game",
+  "launcher_name": "AnyX360 Call of Duty: Modern Warfare 3",
+  "size_gb": 8,
+  "archive_hint": "Call of Duty: Modern Warfare 3 (Games on Demand or disc)",
+  "input": "keyboard_pad",
+  "required_files": ["default_mp.xex", "common_specialops.ff"],
+  "owners": "Activision Publishing, Infinity Ward, Sledgehammer Games",
+  "trademarks": ["Xbox", "Xbox 360", "Call of Duty", "Modern Warfare"],
+  "components": []
+}
