@@ -23,6 +23,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   shorts (`vupkd3d128`, `vpkd3d128`), which were recompiled as traps; and jump tables placed after
   their dispatch that end in code which is no case of them.
 
+### Fixed
+
+- A game whose frames stopped for 10 seconds (a slow first load on a busy machine) could crash: the
+  thread dump taken then read the stacks of threads that had already ended.
+
 ## [0.12.0] - 2026-10-20
 
 Call of Duty: Black Ops II: the campaign, and multiplayer and Zombies on one machine, in split
