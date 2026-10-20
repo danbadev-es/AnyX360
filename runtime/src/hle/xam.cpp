@@ -1343,6 +1343,39 @@ uint32_t XamMediaVerificationFailedBlocks(uint32_t info) {
   return X_ERROR_SUCCESS;
 }
 
+// Xbox Live parties: there are none, every player is on their own. Titles reach these through the
+// XDK's party library (by ordinal) and some read the user list whatever the result: it is empty
+// (Black Ops II read a count from uninitialised memory after each multiplayer game and crashed).
+constexpr uint32_t kPartyNotInParty = 0x807D0003;  // XPARTY_E_NOT_IN_PARTY
+// XamPartyGetUserList(caller, XPARTY_USER_LIST*): a count, then the users.
+uint32_t XamPartyGetUserList(uint32_t caller, uint32_t list) {
+  (void)caller;
+  if (list) Store<uint32_t>(list, 0);
+  return kPartyNotInParty;
+}
+uint32_t XamPartySendGameInvites(uint32_t caller, uint32_t user_index, uint32_t unknown, uint32_t overlapped) {
+  (void)caller, (void)user_index, (void)unknown;
+  return Complete(overlapped, X_ERROR_SUCCESS);
+}
+uint32_t XamPartySetCustomData(uint32_t caller, uint32_t user_index, uint32_t data) {
+  (void)caller, (void)user_index, (void)data;
+  return kPartyNotInParty;
+}
+uint32_t XamPartyGetBandwidth(uint32_t type, uint32_t bandwidth_ptr) {
+  (void)type;
+  if (bandwidth_ptr) Store<uint64_t>(bandwidth_ptr, 0);
+  return X_ERROR_SUCCESS;
+}
+// The party and community sessions screens don't exist (as in Xenia).
+uint32_t XamShowPartyUI(uint32_t user_index) {
+  (void)user_index;
+  return X_ERROR_FUNCTION_FAILED;
+}
+uint32_t XamShowCommunitySessionsUI(uint32_t user_index, uint32_t flags) {
+  (void)user_index, (void)flags;
+  return X_ERROR_FUNCTION_FAILED;
+}
+
 // No stereoscopic 3D modes (the flags a 3D television reports).
 uint32_t XGetVideoCapabilities() { return 0; }
 
@@ -1493,6 +1526,12 @@ X360_EXPORT(XGetAVPack, XGetAVPack)
 X360_EXPORT(XGetGameRegion, XGetGameRegion)
 X360_EXPORT(XGetLanguage, XGetLanguage)
 X360_EXPORT(XGetVideoCapabilities, XGetVideoCapabilities)
+X360_EXPORT(XamPartyGetUserList, XamPartyGetUserList)
+X360_EXPORT(XamPartySendGameInvites, XamPartySendGameInvites)
+X360_EXPORT(XamPartySetCustomData, XamPartySetCustomData)
+X360_EXPORT(XamPartyGetBandwidth, XamPartyGetBandwidth)
+X360_EXPORT(XamShowPartyUI, XamShowPartyUI)
+X360_EXPORT(XamShowCommunitySessionsUI, XamShowCommunitySessionsUI)
 X360_EXPORT(XamMediaVerificationCreate, XamMediaVerificationCreate)
 X360_EXPORT(XamMediaVerificationClose, XamMediaVerificationClose)
 X360_EXPORT(XamMediaVerificationVerify, XamMediaVerificationVerify)

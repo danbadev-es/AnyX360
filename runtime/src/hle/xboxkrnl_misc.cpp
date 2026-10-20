@@ -15,6 +15,12 @@ PPC_EXTERN_FUNC(__imp__XamMediaVerificationCreate);
 PPC_EXTERN_FUNC(__imp__XamMediaVerificationClose);
 PPC_EXTERN_FUNC(__imp__XamMediaVerificationVerify);
 PPC_EXTERN_FUNC(__imp__XamMediaVerificationFailedBlocks);
+PPC_EXTERN_FUNC(__imp__XamPartyGetUserList);
+PPC_EXTERN_FUNC(__imp__XamPartySendGameInvites);
+PPC_EXTERN_FUNC(__imp__XamPartySetCustomData);
+PPC_EXTERN_FUNC(__imp__XamPartyGetBandwidth);
+PPC_EXTERN_FUNC(__imp__XamShowPartyUI);
+PPC_EXTERN_FUNC(__imp__XamShowCommunitySessionsUI);
 
 namespace {
 
@@ -73,6 +79,13 @@ const ProcedureExport kProcedureExports[] = {
     {kXamModuleHandle, 0x9BC, __imp__XamMediaVerificationClose},
     {kXamModuleHandle, 0x9BD, __imp__XamMediaVerificationVerify},
     {kXamModuleHandle, 0x9BE, __imp__XamMediaVerificationFailedBlocks},
+    // The XDK's party library (XParty*), at every title's start.
+    {kXamModuleHandle, 0xAFF, __imp__XamPartyGetUserList},
+    {kXamModuleHandle, 0xB00, __imp__XamPartySendGameInvites},
+    {kXamModuleHandle, 0xB0B, __imp__XamPartySetCustomData},
+    {kXamModuleHandle, 0xB10, __imp__XamPartyGetBandwidth},
+    {kXamModuleHandle, 0x305, __imp__XamShowPartyUI},
+    {kXamModuleHandle, 0x30B, __imp__XamShowCommunitySessionsUI},
 };
 
 uint32_t XexGetProcedureAddress(uint32_t module, uint32_t ordinal, uint32_t out_ptr) {
@@ -85,12 +98,18 @@ uint32_t XexGetProcedureAddress(uint32_t module, uint32_t ordinal, uint32_t out_
   return address ? X_STATUS_SUCCESS : kStatusDriverEntrypointNotFound;
 }
 
+// xam.xex and xboxkrnl.exe are always loaded: "loading" them gives their handle, as XexGetModuleHandle
+// does (the XDK's party library loads xam.xex to look up its exports by ordinal). Other modules aren't
+// supported.
 uint32_t XexLoadImage(uint32_t name_ptr, uint32_t flags, uint32_t min_version, uint32_t handle_ptr) {
   (void)flags;
   (void)min_version;
-  KLOG_W("XexLoadImage(%s) not supported", name_ptr ? Ptr<const char>(name_ptr) : "");
-  if (handle_ptr) Store<uint32_t>(handle_ptr, 0);
-  return X_STATUS_NO_SUCH_FILE;
+  std::string name = name_ptr ? Ptr<const char>(name_ptr) : "";
+  for (char& c : name) c = char(std::tolower(uint8_t(c)));
+  uint32_t handle = name == "xam.xex" ? kXamModuleHandle : name == "xboxkrnl.exe" ? kKernelModuleHandle : 0;
+  if (!handle) KLOG_W("XexLoadImage(%s) not supported", name.c_str());
+  if (handle_ptr) Store<uint32_t>(handle_ptr, handle);
+  return handle ? X_STATUS_SUCCESS : X_STATUS_NO_SUCH_FILE;
 }
 uint32_t XexLoadImageHeaders() { return X_STATUS_NO_SUCH_FILE; }
 uint32_t XexUnloadImage(uint32_t handle) {
