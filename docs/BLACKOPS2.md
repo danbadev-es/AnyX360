@@ -30,7 +30,7 @@ The game folder holds two executables with the same title ID, media ID and versi
 | Libraries | see above | the same plus XCAM, XHTTP and XAUTH; D3D9LTCG and LIBCMT instead of D3D9 and LIBCPMT |
 | Other | | title workspace `0x100000` |
 
-Its header is in [games/bo2/notes/xex-info-mp.txt](../games/bo2/notes/xex-info-mp.txt). Only
+Its header is in [games/bo2/notes/xex-info_mp.txt](../games/bo2/notes/xex-info_mp.txt). Only
 `default.xex` is recompiled. Its main menu offers Multiplayer, Campaign and Zombies: Multiplayer
 calls `XamLoaderLaunchTitle("default_mp.xex", 0)`; Zombies first passes 1000 bytes with
 `XamLoaderSetLaunchData`, then launches the same executable. Both end the process for now.

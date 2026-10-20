@@ -1,0 +1,48 @@
+# Call of Duty: Black Ops II multiplayer and Zombies recompiler configuration (XenonRecomp format).
+# Paths are relative to this file. This file contains no game code or data; it only describes where
+# things are.
+#
+# file_path is default_mp.xex (default_mp.pe) of the Games on Demand package written out with
+# x360tool god-extract (see docs/BLACKOPS2.md): a second program of the same title, which the
+# single-player executable starts with XamLoaderLaunchTitle for Multiplayer and Zombies. Encrypted
+# with the retail key, basic (zero-fill) compression, like default.xex.
+
+[main]
+file_path = "../../extracted/bo2/game/default_mp.xex"
+out_directory_path = "recomp_mp"
+switch_table_file_path = "switch_tables_mp.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x827D59B0
+savegprlr_14_address = 0x827D5960
+restfpr_14_address = 0x827D5C2C
+savefpr_14_address = 0x827D5BE0
+restvmx_14_address = 0x827D75D8
+savevmx_14_address = 0x827D7340
+restvmx_64_address = 0x827D766C
+savevmx_64_address = 0x827D73D4
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: word for word the
+# single-player executable's, apart from the global they read and their calls). The other longjmp
+# candidate, 0x82130518, is the ordinary function with a switch found in the campaign too. 20 calls
+# to setjmp, 12 to longjmp.
+setjmp_address = 0x827D8600
+longjmp_address = 0x827D9790
+
+# Functions the analyser gets wrong (address + size), added as they are found.
+functions = [
+  # The campaign's sub_82539CB8 (see config.toml), here too: a bdz to the next instruction made the
+  # analyser cut it, and its switch's default case (0x8261D2F0) fell outside.
+  { address = 0x8261D1D8, size = 0x130 },
+]

@@ -4,6 +4,7 @@
   "cover": "call-of-duty-black-ops-ii",
   "status": "testing",
   "exe": "BlackOps2",
+  "executables": {"default.xex": "BlackOps2", "default_mp.xex": "BlackOps2MP"},
   "user_dir": "BlackOps2",
   "title_id": "415608C3",
   "dev_game_dir": "extracted/bo2/game",
@@ -11,7 +12,7 @@
   "size_gb": 8,
   "archive_hint": "Call of Duty: Black Ops II (Games on Demand)",
   "input": "keyboard_pad",
-  "required_files": ["base.ipak", "weapons.clump"],
+  "required_files": ["default_mp.xex", "weapons.clump"],
   "owners": "Activision Publishing, Treyarch",
   "trademarks": ["Xbox", "Xbox 360", "Call of Duty", "Black Ops"],
   "components": []
