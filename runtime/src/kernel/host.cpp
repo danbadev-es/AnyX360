@@ -131,6 +131,7 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   }
   if (!CheckTitleId(info.xex_path, game)) return 1;
 
+  info.restarted = restarted_from != 0;
   if (restarted_from) {
     if (HANDLE previous = OpenProcess(SYNCHRONIZE, FALSE, DWORD(restarted_from))) {
       WaitForSingleObject(previous, 10000);

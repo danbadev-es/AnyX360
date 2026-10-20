@@ -54,6 +54,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - **`XamUserReadProfileSettings`**: a title-specific setting that was never written has no data
   pointer, as in Xenia. Black Ops II checks the signature of every blob it gets a pointer to and
   read past the end of an empty one.
+- **A switch between a game's programs that never completed** (the game closed in between) left
+  its launch data behind, and the next start went straight into the other mode (Modern Warfare 3's
+  or Black Ops II's multiplayer lobby). Only a program another one started takes the launch data
+  now; a normal start deletes what's left.
 
 ## [0.11.0] - 2026-10-20
 

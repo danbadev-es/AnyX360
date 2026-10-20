@@ -771,11 +771,18 @@ bool SaveLaunchData(const fs::path& host_path, const std::string& launch_path, u
   return bool(file);
 }
 
-// At startup: the launch data the title that started this one left, read once.
+// At startup: the launch data the title that started this one left, read once. Only a process another
+// one started (--restarted-from) takes it: a file left by a switch that never completed (a process
+// killed in between) is deleted at a normal start instead of sending it into the other mode.
 void LoadLaunchData() {
   std::error_code ec;
   const fs::path path = LaunchDataPath();
   if (!fs::exists(path, ec)) return;
+  if (!TitlePaths().restarted) {
+    KLOG_W("ignoring launch data left by an earlier session (%s)", path.string().c_str());
+    fs::remove(path, ec);
+    return;
+  }
   std::ifstream file(path, std::ios::binary);
   auto read = [&](void* data, size_t size) { file.read(static_cast<char*>(data), std::streamsize(size)); };
   auto read_string = [&] {

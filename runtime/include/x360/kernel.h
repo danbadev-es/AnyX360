@@ -357,6 +357,9 @@ struct TitleInfo {
   // The title's executables XamLoaderLaunchTitle can start: {XEX name in lower case, host
   // executable} (GameDescriptor::executables).
   std::vector<std::pair<std::string, std::filesystem::path>> executables;
+  // Started by another process of the game (--restarted-from): a title switching executables or the
+  // settings panel's restart. Only then is there launch data to take.
+  bool restarted = false;
   // From the player profile the launcher sets (x360/profile.h): the players' names (empty:
   // settings.toml's, else "Player N") and the language and country games are told.
   std::string player_names[4];
