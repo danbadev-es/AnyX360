@@ -19,6 +19,8 @@ int main(int argc, char** argv) {
   game.vblanks_per_frame = 1;
   // The game creates its avatar manager only if the avatar system starts, and uses it regardless.
   game.avatar_system = true;
+  // The avatar library's skeleton builder: avatars are made from the disc's avatar asset pack.
+  game.avatar_skeleton = 0x82A84A00;
   game.defaults = [](x360::settings::Settings& s) {
     s.kinect.enabled = true;
     // Played with the body: keyboard and mouse don't drive a pad, so the cursor stays free.

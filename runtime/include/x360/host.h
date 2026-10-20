@@ -36,6 +36,10 @@ struct GameDescriptor {
   // The avatar system starts (XamAvatarInitialize succeeds) although there are no avatars to give: for
   // titles that can't run without it. Others are told it's unavailable and go without avatars.
   bool avatar_system = false;
+  // The avatar library's skeleton builder in this title (skeleton*, body type, height f1, weight f2;
+  // Kinect Sports 82A84A00): with it the system returns avatars made from the console's avatar
+  // asset pack (docs/AVATARS.md). 0: assets requests return nothing.
+  uint32_t avatar_skeleton = 0;
   // Game-specific default settings, applied before settings.toml is read.
   std::function<void(settings::Settings&)> defaults;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).

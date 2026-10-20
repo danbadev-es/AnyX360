@@ -14,6 +14,7 @@
 #include <set>
 #include <tuple>
 
+#include "avatar_system.h"
 #include "x360/input.h"
 #include "x360/kernel.h"
 #include "x360/settings.h"
@@ -933,47 +934,93 @@ uint32_t XamLrcSetTitlePort(uint32_t port) {
 uint32_t XamLrcFail() { return 0x80004005; }
 
 // ---- avatars ------------------------------------------------------------------------------------
-// There's no avatar system: initializing it fails (as Xenia's default does) and titles go without
-// avatars. Answered as successes with nothing written, the calls below made Kinect Adventures read
-// asset data that was never there (a crash loading Reflex Ridge); they now say there's none. A title
-// that can't run without the system (Kinect Sports dereferences its avatar manager, which it only
-// creates when XAvatarInitialize succeeds) gets it started (GameDescriptor::avatar_system). Its
-// requests for metadata fail the same way; its asset requests succeed with an empty result (no
-// components): Kinect Sports reads the result's component list whether or not the request worked.
+// Avatars are made from the console's avatar asset pack (avatar_system.cpp, docs/AVATARS.md) for
+// titles that say how to build a skeleton (GameDescriptor::avatar_skeleton). For the others there's
+// no avatar system: initializing it fails (as Xenia's default does) and titles go without avatars.
+// Answered as successes with nothing written, the calls below made Kinect Adventures read asset data
+// that was never there (a crash loading Reflex Ridge); they say there's none. A title that can't run
+// without the system (Kinect Sports dereferences its avatar manager, which it only creates when
+// XAvatarInitialize succeeds) gets it started (GameDescriptor::avatar_system); its asset requests
+// then succeed with an empty result, as it reads the result whether or not the request worked.
 constexpr uint32_t kAvatarFail = 0x80004005;  // E_FAIL, the extended error
 constexpr uint32_t kAvatarEmptyAssets = 0x100;  // an XAvatarGetAssets result with no components
 
-uint32_t XamAvatarInitialize() { return TitlePaths().avatar_system ? X_ERROR_SUCCESS : 0xFFFFFFFF; }
+uint32_t XamAvatarInitialize(uint32_t coordinate_system) {
+  if (!TitlePaths().avatar_system) return 0xFFFFFFFF;
+  x360::avatar::Initialize(coordinate_system);
+  return X_ERROR_SUCCESS;
+}
 void XamAvatarShutdown() {}
 uint32_t AvatarFailed(uint32_t overlapped) {
   return overlapped ? Complete(overlapped, X_ERROR_FUNCTION_FAILED, 0, kAvatarFail) : kAvatarFail;
 }
-uint32_t XamAvatarGetManifestLocalUser(uint32_t, uint32_t, uint32_t overlapped) { return AvatarFailed(overlapped); }
+uint32_t AvatarDone(uint32_t overlapped) { return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS; }
+
+// A player's avatar: player 1 the default male avatar, the others alternate.
+uint32_t XamAvatarGetManifestLocalUser(uint32_t user_index, uint32_t metadata, uint32_t overlapped) {
+  if (!x360::avatar::Available() || !metadata) return AvatarFailed(overlapped);
+  x360::avatar::WriteMetadata(metadata, (user_index & 1) ? x360::avatar::Look::kFemale : x360::avatar::Look::kMale, 0);
+  return AvatarDone(overlapped);
+}
 uint32_t XamAvatarGetManifestsByXuid(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t overlapped) {
   return AvatarFailed(overlapped);
 }
-uint32_t XamAvatarGetAssetsResultSize(uint32_t, uint32_t result_size, uint32_t gpu_size) {
-  const uint32_t size = TitlePaths().avatar_system ? kAvatarEmptyAssets : 0;
-  if (result_size) Store<uint32_t>(result_size, size);
-  if (gpu_size) Store<uint32_t>(gpu_size, size);
+uint32_t XamAvatarGetAssetsResultSize(uint32_t component_mask, uint32_t result_size, uint32_t gpu_size) {
+  uint32_t result = 0, gpu = 0;
+  if (x360::avatar::Available()) {
+    x360::avatar::ResultSizes(component_mask, result, gpu);
+  } else if (TitlePaths().avatar_system) {
+    result = gpu = kAvatarEmptyAssets;
+  }
+  if (result_size) Store<uint32_t>(result_size, result);
+  if (gpu_size) Store<uint32_t>(gpu_size, gpu);
   return X_ERROR_SUCCESS;
 }
-// (metadata, component mask, flags, result buffer, GPU resource buffer, overlapped)
-uint32_t XamAvatarGetAssets(uint32_t, uint32_t, uint32_t, uint32_t result, uint32_t gpu_resources,
-                            uint32_t overlapped) {
-  if (!TitlePaths().avatar_system) return AvatarFailed(overlapped);
-  if (result) std::memset(Ptr(result), 0, kAvatarEmptyAssets);
-  if (gpu_resources) std::memset(Ptr(gpu_resources), 0, kAvatarEmptyAssets);
-  return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
+// (metadata, component mask, flags, result buffer, GPU resource buffer, overlapped): the buffers are
+// at least as large as XamAvatarGetAssetsResultSize said (the library checks).
+uint32_t XamAvatarGetAssets(uint32_t metadata, uint32_t component_mask, uint32_t flags, uint32_t result,
+                            uint32_t gpu_resources, uint32_t overlapped) {
+  (void)flags;
+  if (!TitlePaths().avatar_system || !result || !gpu_resources) return AvatarFailed(overlapped);
+  if (x360::avatar::Available()) {
+    uint32_t result_size = 0, gpu_size = 0;
+    x360::avatar::ResultSizes(component_mask, result_size, gpu_size);
+    std::string error;
+    if (x360::avatar::BuildAssets(metadata, component_mask, result, result_size, gpu_resources, gpu_size, error))
+      return AvatarDone(overlapped);
+    KLOG_W("avatars: %s", error.c_str());
+    std::memset(Ptr(result), 0, result_size);
+    return AvatarDone(overlapped);
+  }
+  std::memset(Ptr(result), 0, kAvatarEmptyAssets);
+  std::memset(Ptr(gpu_resources), 0, kAvatarEmptyAssets);
+  return AvatarDone(overlapped);
 }
+// Players without a profile get the default avatars (male, female).
 uint32_t XamAvatarGetMetadataSignedOutProfileCount(uint32_t count, uint32_t overlapped) {
-  if (count) Store<uint32_t>(count, 0);
-  return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
+  if (count) Store<uint32_t>(count, x360::avatar::Available() ? 2 : 0);
+  return AvatarDone(overlapped);
 }
-uint32_t XamAvatarGetMetadataSignedOutProfile(uint32_t, uint32_t, uint32_t overlapped) { return AvatarFailed(overlapped); }
-uint32_t XamAvatarGetMetadataRandom(uint32_t, uint32_t, uint32_t, uint32_t overlapped) { return AvatarFailed(overlapped); }
+uint32_t XamAvatarGetMetadataSignedOutProfile(uint32_t profile_index, uint32_t metadata, uint32_t overlapped) {
+  if (!x360::avatar::Available() || !metadata) return AvatarFailed(overlapped);
+  x360::avatar::WriteMetadata(metadata, (profile_index & 1) ? x360::avatar::Look::kFemale : x360::avatar::Look::kMale, 0);
+  return AvatarDone(overlapped);
+}
+// (body types: 1 male, 2 female, 3 either; count; descriptions; overlapped)
+uint32_t XamAvatarGetMetadataRandom(uint32_t body_types, uint32_t count, uint32_t metadata, uint32_t overlapped) {
+  if (!x360::avatar::Available() || !metadata) return AvatarFailed(overlapped);
+  static std::atomic<uint32_t> seed{0x5EED};
+  for (uint32_t i = 0; i < count; ++i) {
+    const uint32_t m = metadata + i * x360::avatar::kMetadataSize;
+    for (;;) {
+      x360::avatar::WriteMetadata(m, x360::avatar::Look::kRandom, seed++);
+      if ((body_types & 3) == 0 || (body_types & x360::avatar::BodyType(m))) break;
+    }
+  }
+  return AvatarDone(overlapped);
+}
 uint32_t XamAvatarLoadAnimation(uint32_t, uint32_t, uint32_t, uint32_t overlapped) { return AvatarFailed(overlapped); }
-uint32_t XamAvatarManifestGetBodyType(uint32_t) { return 1; }  // male
+uint32_t XamAvatarManifestGetBodyType(uint32_t metadata) { return x360::avatar::BodyType(metadata); }
 uint32_t XamAvatarGenerateMipMaps(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t overlapped) {
   return AvatarFailed(overlapped);
 }

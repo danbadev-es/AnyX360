@@ -313,6 +313,8 @@ uint32_t CreateThread(uint32_t stack_size, uint32_t xapi_startup, uint32_t start
 uint32_t RunMainThread(uint32_t entry_point, uint32_t stack_size);
 // Calls a guest function on the current guest thread (callbacks from HLE code).
 uint64_t CallGuest(uint32_t function, std::initializer_list<uint64_t> args);
+// The same with floating-point arguments in f1, f2, ...
+uint64_t CallGuest(uint32_t function, std::initializer_list<uint64_t> args, std::initializer_list<double> fargs);
 // A host thread that owns a guest context, so host code (interrupts, audio) can call guest code.
 std::shared_ptr<Thread> CreateHostDrivenThread(const char* name, uint8_t cpu, std::function<void()> body);
 // Ends the calling guest thread (ExTerminateThread). Never returns.
@@ -334,6 +336,7 @@ struct TitleInfo {
   std::string title_name;             // window title if the XEX has no title name
   bool arcade = false;                // an Xbox Live Arcade title: game:\ is its package's contents
   bool avatar_system = false;         // XamAvatarInitialize succeeds (GameDescriptor::avatar_system)
+  uint32_t avatar_skeleton = 0;       // the avatar library's skeleton builder (GameDescriptor)
   // Called once the function table is filled, before the title runs (game-specific debug hooks).
   std::function<void()> on_function_table;
 };

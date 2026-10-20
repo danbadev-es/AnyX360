@@ -108,6 +108,7 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   info.title_name = game.title_name;
   info.arcade = game.arcade;
   info.avatar_system = game.avatar_system;
+  info.avatar_skeleton = game.avatar_skeleton;
   info.on_function_table = game.on_function_table;
 
   if (!fs::exists(info.xex_path)) {

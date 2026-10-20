@@ -312,7 +312,9 @@ std::shared_ptr<Thread> CreateHostDrivenThread(const char* name, uint8_t cpu, st
   return t;
 }
 
-uint64_t CallGuest(uint32_t function, std::initializer_list<uint64_t> args) {
+uint64_t CallGuest(uint32_t function, std::initializer_list<uint64_t> args) { return CallGuest(function, args, {}); }
+
+uint64_t CallGuest(uint32_t function, std::initializer_list<uint64_t> args, std::initializer_list<double> fargs) {
   Thread* t = CurrentThread();
   if (!t || !t->context) Fatal("CallGuest(%08X) outside a guest thread", function);
   PPCFunc* host = PPC_LOOKUP_FUNC(g_base, function);
@@ -327,6 +329,11 @@ uint64_t CallGuest(uint32_t function, std::initializer_list<uint64_t> args) {
   size_t i = 0;
   for (uint64_t a : args) {
     if (i < 8) regs[i++]->u64 = a;
+  }
+  PPCRegister* fregs[] = {&ctx.f1, &ctx.f2, &ctx.f3, &ctx.f4};
+  i = 0;
+  for (double f : fargs) {
+    if (i < 4) fregs[i++]->f64 = f;
   }
   // Leave room so the callee does not overwrite the caller's frame.
   ctx.r1.u64 = ctx.r1.u64 - 0x200;
