@@ -33,12 +33,14 @@ struct GameDescriptor {
   // An Xbox Live Arcade title, run from its package's contents: XTitleGetDeploymentType reports a
   // download and its content volume is on the hard drive.
   bool arcade = false;
-  // The avatar system starts (XamAvatarInitialize succeeds) although there are no avatars to give: for
-  // titles that can't run without it. Others are told it's unavailable and go without avatars.
+  // The avatar system starts (XamAvatarInitialize succeeds), even with no avatars to give: for titles
+  // that can't run without it. Others are told it's unavailable and go without avatars.
   bool avatar_system = false;
-  // The avatar library's skeleton builder in this title (skeleton*, body type, height f1, weight f2;
-  // Kinect Sports 82A84A00): with it the system returns avatars made from the console's avatar
-  // asset pack (docs/AVATARS.md). 0: assets requests return nothing.
+  // The function in this title that builds an avatar's skeleton (skeleton*, body type, height f1,
+  // weight f2): Kinect Sports' 82A84A00 shapes the avatar library's default skeleton to the body;
+  // Doritos Crash Course's older library only has the default (825F7EE0, skeleton* alone). With it
+  // the system returns avatars made from the console's avatar asset pack (docs/AVATARS.md); 0: asset
+  // requests return nothing.
   uint32_t avatar_skeleton = 0;
   // Game-specific default settings, applied before settings.toml is read.
   std::function<void(settings::Settings&)> defaults;
