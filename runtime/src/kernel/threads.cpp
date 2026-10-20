@@ -265,9 +265,10 @@ void DumpThreads() {
       frame = next;
     }
     const char* import = t->current_import.load();
-    KLOG_I("thread %X %-14s in %-28s lr %08llX r3 %08X r29 %08X r30 %08X r31 %08X:%s", t->thread_id,
-           t->name.c_str(), import ? import : "(guest code)", (unsigned long long)c.lr, c.r3.u32, c.r29.u32,
-           c.r30.u32, c.r31.u32, trace.c_str());
+    // The KTHREAD and processor identify a lock's owner (a critical section stores the KTHREAD).
+    KLOG_I("thread %X %-14s in %-28s lr %08llX r3 %08X r29 %08X r30 %08X r31 %08X kthread %08X cpu %u:%s",
+           t->thread_id, t->name.c_str(), import ? import : "(guest code)", (unsigned long long)c.lr, c.r3.u32,
+           c.r29.u32, c.r30.u32, c.r31.u32, t->kthread, t->cpu, trace.c_str());
   }
 }
 std::shared_ptr<Thread> CurrentThreadShared() { return t_current; }
