@@ -8,6 +8,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-21
+
+A crash fix.
+
+### Fixed
+
+- A game whose frames stopped for 10 seconds (a slow first load on a busy machine) could crash: the
+  thread dump taken then read the stacks of threads that had already ended.
+
 ## [0.13.0] - 2026-10-21
 
 Kinect Joy Ride and Kinect Party, played with the webcam; the Kinect Guide gesture recognised from a
@@ -59,11 +68,6 @@ webcam (Kinect Adventures' first start); seven more games coming soon in the lau
   webcam's depth errors or a smaller person's arms rejected it. The arms are now measured across the
   body, as a person judges "45 degrees", against the person's own arm: 28 to 65 degrees out, the arm
   nearly straight and not reaching towards the screen, the right arm down. Every Kinect game.
-
-### Fixed
-
-- A game whose frames stopped for 10 seconds (a slow first load on a busy machine) could crash: the
-  thread dump taken then read the stacks of threads that had already ended.
 
 ## [0.12.0] - 2026-10-20
 
@@ -570,7 +574,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.10.0...v0.11.0
