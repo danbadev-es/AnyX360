@@ -47,6 +47,23 @@ uint32_t NetDll_WSACreateEvent() {
   handle = CreateHandle(std::make_shared<DispatcherObject>(body));
   return handle;
 }
+// WSAResetEvent and WSACloseEvent return TRUE, or FALSE with the error for WSAGetLastError.
+uint32_t NetDll_WSAResetEvent(uint32_t handle) {
+  uint32_t body = ObjectFromHandle(handle);
+  if (!body) {
+    t_wsa_error = X_ERROR_INVALID_HANDLE;
+    return 0;
+  }
+  ResetEvent(body);
+  return 1;
+}
+uint32_t NetDll_WSACloseEvent(uint32_t handle) {
+  if (!CloseHandle(handle)) {
+    t_wsa_error = X_ERROR_INVALID_HANDLE;
+    return 0;
+  }
+  return 1;
+}
 
 uint32_t NetDll_XNetGetEthernetLinkStatus(uint32_t caller) {
   (void)caller;
@@ -271,6 +288,8 @@ X360_EXPORT(NetDll_XNetCleanup, NetDll_XNetCleanup)
 X360_EXPORT(NetDll_WSAGetLastError, NetDll_WSAGetLastError)
 X360_EXPORT(NetDll_WSASetLastError, NetDll_WSASetLastError)
 X360_EXPORT(NetDll_WSACreateEvent, NetDll_WSACreateEvent)
+X360_EXPORT(NetDll_WSAResetEvent, NetDll_WSAResetEvent)
+X360_EXPORT(NetDll_WSACloseEvent, NetDll_WSACloseEvent)
 X360_EXPORT(NetDll_XNetGetEthernetLinkStatus, NetDll_XNetGetEthernetLinkStatus)
 X360_EXPORT(NetDll_XNetGetTitleXnAddr, NetDll_XNetGetTitleXnAddr)
 X360_EXPORT(NetDll_XNetRandom, NetDll_XNetRandom)

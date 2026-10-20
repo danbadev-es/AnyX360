@@ -16,7 +16,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - An avatar system for titles that can't run without one (`GameDescriptor::avatar_system`): it
   starts, and asset requests return an empty result. Other titles are still told there is none.
 - The recompiler: `stvebx`, `vadduhs`, `vandc`, `vavgsw`, `vminsw`, `vsl`, `vsrb`, `vsro`,
-  `vsubuwm` and `vsubuws`.
+  `vsubuwm` and `vsubuws`; `vpkd3d128` and `vupkd3d128` with the 2:10:10:10 type.
+- **I/O completion routines** (`ReadFileEx`, `WriteFileEx`): they run as user APCs at the thread's
+  next alertable wait (`SleepEx(..., TRUE)`, alertable `WaitFor*`), which returns "user APC".
+  Before, a title that waited for them that way waited forever.
+- Kernel semaphores (`KeInitializeSemaphore`, `KeReleaseSemaphore`), `KeResumeThread`, DPCs
+  (`KeInsertQueueDpc`, run at once on the calling thread, as in Xenia), `KeRaiseIrqlToDpcLevel`,
+  `KfLowerIrql`, `KeTryToAcquireSpinLockAtRaisedIrql`, `vswprintf`, `XamShowMessageBoxUI`,
+  `XamContentGetDeviceName`, `XamLoaderSetLaunchData` (read back by the title itself),
+  `XAudioGetVoiceCategoryVolumeChangeMask`, `NetDll_WSAResetEvent` and `NetDll_WSACloseEvent`.
 
 ### Fixed
 
@@ -33,6 +41,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   had 68 jump tables left unresolved, now 2 (both calls through function pointers).
 - `XamInputGetKeystroke` and `XamInputGetKeystrokeEx` report no keystroke instead of being
   missing.
+- `XamShowMessageBoxUIEx` read its result pointer from the wrong argument (it has one more than
+  `XamShowMessageBoxUI`): it wrote the pressed button to an unrelated address and filled the
+  result as if it were the overlapped structure.
 
 ## [0.7.1] - 2026-10-20
 

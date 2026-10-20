@@ -535,6 +535,16 @@ uint32_t XamContentGetDeviceData(uint32_t device_id, uint32_t data) {
   return X_ERROR_SUCCESS;
 }
 
+// The device's name (UTF-16) into a buffer of `capacity` characters, terminator included.
+uint32_t XamContentGetDeviceName(uint32_t device_id, uint32_t buffer, uint32_t capacity) {
+  if (device_id != kHddDeviceId) return X_ERROR_DEVICE_NOT_CONNECTED;
+  const char* name = "Hard Drive";
+  uint32_t length = uint32_t(std::strlen(name));
+  if (capacity < length + 1) return X_ERROR_INSUFFICIENT_BUFFER;
+  for (uint32_t i = 0; i <= length; ++i) Store<uint16_t>(buffer + i * 2, uint8_t(name[i]));
+  return X_ERROR_SUCCESS;
+}
+
 uint32_t XamContentGetDeviceState(uint32_t device_id, uint32_t overlapped) {
   uint32_t result = device_id == kHddDeviceId || device_id == 0 ? X_ERROR_SUCCESS : X_ERROR_DEVICE_NOT_CONNECTED;
   return overlapped ? Complete(overlapped, result) : result;
@@ -705,13 +715,27 @@ void XamResetInactivity() {}
 
 // ---- loader / process -------------------------------------------------------------------------
 
+// Launch data: what a title leaves for the next one it starts (XamLoaderSetLaunchData, then
+// XamLoaderLaunchTitle). The title is never started with any, but it reads back what it set itself,
+// as on the console and in Xenia.
+std::mutex g_launch_data_mutex;
+std::vector<uint8_t> g_launch_data;
+
+uint32_t XamLoaderSetLaunchData(uint32_t data, uint32_t size) {
+  std::lock_guard lock(g_launch_data_mutex);
+  g_launch_data.assign(Ptr<uint8_t>(data), Ptr<uint8_t>(data) + (data ? size : 0));
+  return X_ERROR_SUCCESS;
+}
 uint32_t XamLoaderGetLaunchDataSize(uint32_t size_ptr) {
-  if (size_ptr) Store<uint32_t>(size_ptr, 0);
-  return X_ERROR_NOT_FOUND;
+  std::lock_guard lock(g_launch_data_mutex);
+  if (size_ptr) Store<uint32_t>(size_ptr, uint32_t(g_launch_data.size()));
+  return g_launch_data.empty() ? X_ERROR_NOT_FOUND : X_ERROR_SUCCESS;
 }
 uint32_t XamLoaderGetLaunchData(uint32_t buffer, uint32_t size) {
-  (void)buffer, (void)size;
-  return X_ERROR_NOT_FOUND;
+  std::lock_guard lock(g_launch_data_mutex);
+  if (g_launch_data.empty()) return X_ERROR_NOT_FOUND;
+  std::memcpy(Ptr(buffer), g_launch_data.data(), std::min<size_t>(size, g_launch_data.size()));
+  return size < g_launch_data.size() ? X_ERROR_INSUFFICIENT_BUFFER : X_ERROR_SUCCESS;
 }
 [[noreturn]] void XamLoaderLaunchTitle(uint32_t name_ptr, uint32_t flags) {
   KLOG_I("XamLoaderLaunchTitle(%s, %X): exiting", name_ptr ? Ptr<const char>(name_ptr) : "", flags);
@@ -791,18 +815,32 @@ uint32_t XamShowSigninUI(uint32_t count, uint32_t flags) {
   return X_ERROR_SUCCESS;
 }
 
-uint32_t XamShowMessageBoxUIEx(uint32_t user_index, uint32_t title, uint32_t text, uint32_t button_count,
-                               uint32_t buttons, uint32_t focus, uint32_t flags, uint32_t result_ptr,
-                               uint32_t overlapped) {
-  (void)user_index, (void)button_count, (void)buttons, (void)flags;
+// A message box: nobody sees it, the button with the focus is pressed at once. The text is logged.
+// XamShowMessageBoxUI(user, title, text, button count, buttons, focus, flags, result*, overlapped);
+// the Ex form has one more argument before result* (the result and the overlapped are then the 9th
+// and 10th arguments, on the stack).
+uint32_t ShowMessageBox(const char* name, uint32_t title, uint32_t text, uint32_t focus, uint32_t result_ptr,
+                        uint32_t overlapped) {
   auto narrow = [](uint32_t w) {
     std::string s;
     for (uint32_t a = w; a && Load<uint16_t>(a); a += 2) s += char(Load<uint16_t>(a) & 0x7F);
     return s;
   };
-  KLOG_I("XamShowMessageBoxUIEx: [%s] %s", narrow(title).c_str(), narrow(text).c_str());
+  KLOG_I("%s: [%s] %s", name, narrow(title).c_str(), narrow(text).c_str());
   if (result_ptr) Store<uint32_t>(result_ptr, focus);
   return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
+}
+uint32_t XamShowMessageBoxUI(uint32_t user_index, uint32_t title, uint32_t text, uint32_t button_count,
+                             uint32_t buttons, uint32_t focus, uint32_t flags, uint32_t result_ptr,
+                             uint32_t overlapped) {
+  (void)user_index, (void)button_count, (void)buttons, (void)flags;
+  return ShowMessageBox("XamShowMessageBoxUI", title, text, focus, result_ptr, overlapped);
+}
+uint32_t XamShowMessageBoxUIEx(uint32_t user_index, uint32_t title, uint32_t text, uint32_t button_count,
+                               uint32_t buttons, uint32_t focus, uint32_t flags, uint32_t unknown,
+                               uint32_t result_ptr, uint32_t overlapped) {
+  (void)user_index, (void)button_count, (void)buttons, (void)flags, (void)unknown;
+  return ShowMessageBox("XamShowMessageBoxUIEx", title, text, focus, result_ptr, overlapped);
 }
 
 uint32_t XamShowKeyboardUI(uint32_t user_index, uint32_t flags, uint32_t default_text, uint32_t title,
@@ -1238,6 +1276,7 @@ X360_EXPORT(XamContentDelete, XamContentDelete)
 X360_EXPORT(XamContentCreateEnumerator, XamContentCreateEnumerator)
 X360_EXPORT(XamContentGetCreator, XamContentGetCreator)
 X360_EXPORT(XamContentGetDeviceData, XamContentGetDeviceData)
+X360_EXPORT(XamContentGetDeviceName, XamContentGetDeviceName)
 X360_EXPORT(XamContentGetDeviceState, XamContentGetDeviceState)
 X360_EXPORT(XamContentGetLicenseMask, XamContentGetLicenseMask)
 X360_EXPORT(XamShowDeviceSelectorUI, XamShowDeviceSelectorUI)
@@ -1249,6 +1288,7 @@ X360_EXPORT(XamInputGetState, XamInputGetState)
 X360_EXPORT(XamInputSetState, XamInputSetState)
 X360_EXPORT(XamInputGetKeystroke, XamInputGetKeystroke)
 X360_EXPORT(XamInputGetKeystrokeEx, XamInputGetKeystrokeEx)
+X360_EXPORT(XamLoaderSetLaunchData, XamLoaderSetLaunchData)
 X360_EXPORT(XamLoaderGetLaunchDataSize, XamLoaderGetLaunchDataSize)
 X360_EXPORT(XamLoaderGetLaunchData, XamLoaderGetLaunchData)
 X360_EXPORT(XamLoaderLaunchTitle, XamLoaderLaunchTitle)
@@ -1261,6 +1301,7 @@ X360_EXPORT(XamTaskSchedule, XamTaskSchedule)
 X360_EXPORT(XamTaskShouldExit, XamTaskShouldExit)
 X360_EXPORT(XamTaskCloseHandle, XamTaskCloseHandle)
 X360_EXPORT(XamShowSigninUI, XamShowSigninUI)
+X360_EXPORT(XamShowMessageBoxUI, XamShowMessageBoxUI)
 X360_EXPORT(XamShowMessageBoxUIEx, XamShowMessageBoxUIEx)
 X360_EXPORT(XamShowKeyboardUI, XamShowKeyboardUI)
 X360_EXPORT(XamShowDirtyDiscErrorUI, XamShowDirtyDiscErrorUI)

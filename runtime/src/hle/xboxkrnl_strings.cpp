@@ -1,4 +1,4 @@
-// String formatting (DbgPrint, sprintf family) and Rtl string/runtime helpers.
+// String formatting (DbgPrint, sprintf family, vswprintf) and Rtl string/runtime helpers.
 #include <cwctype>
 
 #include "x360/kernel.h"
@@ -29,30 +29,38 @@ struct ArgSource {
   }
 };
 
-std::string GuestFormat(uint32_t format_ptr, ArgSource args) {
-  std::string out;
-  const char* f = Ptr<const char>(format_ptr);
-  if (!f) return out;
+// Formats like the console's CRT. Char is char for the sprintf family and char16_t for the wide one
+// (vswprintf), whose format and result are UTF-16 and whose %s and %c take wide arguments by default
+// (MSVC rules: %S and %C swap, h always means narrow and l wide).
+template <typename Char>
+std::basic_string<Char> FormatGuest(const std::basic_string<Char>& format, ArgSource args) {
+  constexpr bool kWideFormat = sizeof(Char) > 1;
+  using String = std::basic_string<Char>;
+  auto is_digit = [](Char c) { return c >= '0' && c <= '9'; };
+  // Text of a host conversion (ASCII), in the output's characters.
+  auto widen = [](const char* text) { return String(text, text + std::strlen(text)); };
+  String out;
+  const Char* f = format.c_str();
   while (*f) {
     if (*f != '%') {
       out += *f++;
       continue;
     }
-    const char* spec_start = f++;
+    const Char* spec_start = f++;
     if (*f == '%') {
-      out += '%';
+      out += Char('%');
       ++f;
       continue;
     }
     std::string flags;
-    while (*f && std::strchr("-+ #0", *f)) flags += *f++;
+    while (*f && *f < 0x80 && std::strchr("-+ #0", char(*f))) flags += char(*f++);
     int width = -1, precision = -1;
     if (*f == '*') {
       width = int(int32_t(args.Next()));
       ++f;
-    } else if (std::isdigit(uint8_t(*f))) {
+    } else if (is_digit(*f)) {
       width = 0;
-      while (std::isdigit(uint8_t(*f))) width = width * 10 + (*f++ - '0');
+      while (is_digit(*f)) width = width * 10 + (*f++ - '0');
     }
     if (*f == '.') {
       ++f;
@@ -61,7 +69,7 @@ std::string GuestFormat(uint32_t format_ptr, ArgSource args) {
         precision = int(int32_t(args.Next()));
         ++f;
       } else {
-        while (std::isdigit(uint8_t(*f))) precision = precision * 10 + (*f++ - '0');
+        while (is_digit(*f)) precision = precision * 10 + (*f++ - '0');
       }
     }
     // Length modifiers.
@@ -74,7 +82,7 @@ std::string GuestFormat(uint32_t format_ptr, ArgSource args) {
       else if (f[0] == 'I' && f[1] == '3' && f[2] == '2') { f += 3; }
       else break;
     }
-    char conv = *f ? *f++ : 0;
+    char conv = *f && *f < 0x80 ? char(*f++) : 0;
 
     std::string spec = "%" + flags;
     if (width >= 0) spec += std::to_string(width);
@@ -87,7 +95,7 @@ std::string GuestFormat(uint32_t format_ptr, ArgSource args) {
         int64_t v = int64_t(args.Next());
         if (!is_long_long) v = is_short ? int16_t(v) : int32_t(v);
         std::snprintf(buf, sizeof(buf), (spec + "lld").c_str(), (long long)v);
-        out += buf;
+        out += widen(buf);
         break;
       }
       case 'u':
@@ -97,23 +105,24 @@ std::string GuestFormat(uint32_t format_ptr, ArgSource args) {
         uint64_t v = args.Next();
         if (!is_long_long) v = is_short ? uint16_t(v) : uint32_t(v);
         std::snprintf(buf, sizeof(buf), (spec + "ll" + conv).c_str(), (unsigned long long)v);
-        out += buf;
+        out += widen(buf);
         break;
       }
       case 'p':
         std::snprintf(buf, sizeof(buf), "%08X", uint32_t(args.Next()));
-        out += buf;
+        out += widen(buf);
         break;
       case 'c':
-        if (is_wide) {
-          out += char(uint16_t(args.Next()));
+      case 'C': {
+        uint64_t v = args.Next();
+        const bool wide = is_wide || (!is_short && kWideFormat == (conv == 'c'));
+        if constexpr (kWideFormat) {
+          out += wide ? Char(uint16_t(v)) : Char(uint8_t(v));
         } else {
-          out += char(args.Next());
+          out += wide ? char(uint16_t(v)) : char(v);
         }
         break;
-      case 'C':
-        out += char(uint16_t(args.Next()));
-        break;
+      }
       case 'f':
       case 'F':
       case 'e':
@@ -126,26 +135,29 @@ std::string GuestFormat(uint32_t format_ptr, ArgSource args) {
         double d;
         std::memcpy(&d, &bits, 8);
         std::snprintf(buf, sizeof(buf), (spec + conv).c_str(), d);
-        out += buf;
+        out += widen(buf);
         break;
       }
       case 's':
       case 'S': {
         uint32_t p = uint32_t(args.Next());
-        // %s / %hs / %hS are narrow; %ls / %S / %lS are wide (MSVC rules).
-        const bool wide = conv == 'S' ? !is_short : is_wide;
-        std::string s;
+        // In sprintf %s / %hs / %hS are narrow and %ls / %S / %lS wide; vswprintf swaps s and S.
+        const bool wide = is_wide || (!is_short && kWideFormat == (conv == 's'));
+        String s;
         if (!p) {
-          s = "(null)";
+          s = widen("(null)");
         } else if (wide) {
-          for (uint32_t a = p; uint16_t c = Load<uint16_t>(a); a += 2) s += c < 0x80 ? char(c) : '?';
+          for (uint32_t a = p; uint16_t c = Load<uint16_t>(a); a += 2) {
+            if constexpr (kWideFormat) s += Char(c);
+            else s += c < 0x80 ? char(c) : '?';
+          }
         } else {
-          s = Ptr<const char>(p);
+          for (const char* c = Ptr<const char>(p); *c; ++c) s += Char(uint8_t(*c));
         }
         if (precision >= 0 && s.size() > size_t(precision)) s.resize(precision);
         if (width > int(s.size())) {
-          if (flags.find('-') != std::string::npos) s.append(width - s.size(), ' ');
-          else s.insert(0, width - s.size(), ' ');
+          if (flags.find('-') != std::string::npos) s.append(width - s.size(), Char(' '));
+          else s.insert(0, width - s.size(), Char(' '));
         }
         out += s;
         break;
@@ -159,6 +171,18 @@ std::string GuestFormat(uint32_t format_ptr, ArgSource args) {
     }
   }
   return out;
+}
+
+std::string GuestFormat(uint32_t format_ptr, ArgSource args) {
+  const char* format = Ptr<const char>(format_ptr);
+  return format ? FormatGuest<char>(format, args) : std::string();
+}
+
+// The wide functions' format is big-endian UTF-16 in guest memory.
+std::u16string GuestFormatWide(uint32_t format_ptr, ArgSource args) {
+  std::u16string format;
+  for (uint32_t a = format_ptr; a && Load<uint16_t>(a); a += 2) format += char16_t(Load<uint16_t>(a));
+  return FormatGuest<char16_t>(format, args);
 }
 
 // Copies a formatted result into a guest buffer with _snprintf semantics.
@@ -366,6 +390,19 @@ PPC_FUNC(__imp___vsnprintf) {
   args.va_list_ptr = ctx.r6.u32;
   std::string s = GuestFormat(ctx.r5.u32, args);
   ctx.r3.s64 = StoreFormatted(ctx.r3.u32, int64_t(ctx.r4.u32), s);
+}
+
+// vswprintf(buffer, format, va_list): the kernel's has no buffer size (the old MSVC form). Returns the
+// number of characters written, without the terminator.
+PPC_FUNC(__imp__vswprintf) {
+  (void)base;
+  ArgSource args;
+  args.va_list_ptr = ctx.r5.u32;
+  std::u16string s = GuestFormatWide(ctx.r4.u32, args);
+  uint32_t buffer = ctx.r3.u32;
+  for (size_t i = 0; i < s.size(); ++i) Store<uint16_t>(buffer + uint32_t(i) * 2, uint16_t(s[i]));
+  Store<uint16_t>(buffer + uint32_t(s.size()) * 2, 0);
+  ctx.r3.s64 = int32_t(s.size());
 }
 
 X360_EXPORT(RtlImageXexHeaderField, RtlImageXexHeaderField)

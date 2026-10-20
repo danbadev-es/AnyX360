@@ -366,6 +366,30 @@ int SuspendThread(Thread& t) {
   return previous;
 }
 
+void QueueUserApc(Thread& t, uint32_t routine, uint32_t context, uint32_t argument1, uint32_t argument2) {
+  std::lock_guard lock(t.apc_mutex);
+  t.user_apcs.push_back({routine, context, argument1, argument2});
+}
+
+bool DeliverUserApcs() {
+  Thread* t = CurrentThread();
+  if (!t || !t->context) return false;
+  bool delivered = false;
+  for (;;) {
+    Thread::UserApc apc;
+    {
+      std::lock_guard lock(t->apc_mutex);
+      if (t->user_apcs.empty()) break;
+      apc = t->user_apcs.front();
+      t->user_apcs.pop_front();
+    }
+    // An APC may start more I/O and queue another: those run in this same delivery.
+    CallGuest(apc.routine, {apc.context, apc.argument1, apc.argument2});
+    delivered = true;
+  }
+  return delivered;
+}
+
 void SetLatencySensitiveThread(int priority) {
   settings::PacingSettings pacing = settings::Get().pacing;
   if (pacing.thread_priorities || priority == THREAD_PRIORITY_HIGHEST) ::SetThreadPriority(GetCurrentThread(), priority);

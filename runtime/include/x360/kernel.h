@@ -8,6 +8,7 @@
 #include <condition_variable>
 #include <cstdarg>
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <functional>
 #include <map>
@@ -292,6 +293,13 @@ struct Thread : Object {
   std::mutex suspend_mutex;
   std::condition_variable suspend_cv;
   int suspend_count = 0;
+
+  // User-mode APCs (I/O completion routines) waiting for the thread's next alertable wait.
+  struct UserApc {
+    uint32_t routine, context, argument1, argument2;
+  };
+  std::mutex apc_mutex;
+  std::deque<UserApc> user_apcs;
 };
 
 Thread* CurrentThread();
@@ -322,6 +330,13 @@ std::shared_ptr<Thread> CreateHostDrivenThread(const char* name, uint8_t cpu, st
 // Returns the new suspend count.
 int ResumeThread(Thread& thread);
 int SuspendThread(Thread& thread);
+// User-mode APCs: routine(context, argument 1, argument 2) runs on the thread at its next alertable
+// wait (KeDelayExecutionThread, KeWaitFor*, NtWaitFor*), which then returns X_STATUS_USER_APC
+// instead of waiting. Only APCs a thread queues to itself (its own I/O completions) are delivered
+// promptly: a thread already asleep in an alertable wait is not woken by another's.
+void QueueUserApc(Thread& thread, uint32_t routine, uint32_t context, uint32_t argument1, uint32_t argument2);
+// Runs the calling thread's queued user APCs; true if there were any.
+bool DeliverUserApcs();
 
 // ---------------------------------------------------------------------------------------------
 // Title / loader

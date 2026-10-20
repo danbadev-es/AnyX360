@@ -79,6 +79,14 @@ uint32_t NtResumeThread(uint32_t handle, uint32_t suspend_count_ptr) {
   return X_STATUS_SUCCESS;
 }
 
+// The kernel-mode form takes the thread's KTHREAD (its id at 0x14C) and returns the previous suspend
+// count. Modern Warfare 3 creates its render and worker threads suspended and starts them with it.
+uint32_t KeResumeThread(uint32_t kthread) {
+  auto thread = kthread ? ThreadById(Load<uint32_t>(kthread + 0x14C)) : nullptr;
+  if (!thread || thread->kthread != kthread) return 0;
+  return uint32_t(ResumeThread(*thread));
+}
+
 uint32_t NtSuspendThread(uint32_t handle, uint32_t suspend_count_ptr) {
   auto thread = LookupHandleAs<Thread>(handle);
   if (!thread) return X_STATUS_INVALID_HANDLE;
@@ -131,7 +139,9 @@ int32_t KeSetBasePriorityThread(uint32_t kthread, int32_t increment) {
 
 uint32_t KeDelayExecutionThread(uint32_t processor_mode, uint32_t alertable, uint32_t interval_ptr) {
   (void)processor_mode;
-  (void)alertable;
+  // An alertable sleep (SleepEx(..., TRUE)) runs the thread's I/O completion routines instead:
+  // Modern Warfare 3's fast file loader waits for its ReadFileEx completions that way.
+  if (alertable && DeliverUserApcs()) return X_STATUS_USER_APC;
   int64_t interval = interval_ptr ? Load<int64_t>(interval_ptr) : 0;
   int64_t relative = interval < 0 ? -interval : int64_t(interval - SystemTime());
 
@@ -162,6 +172,22 @@ void KeInitializeDpc(uint32_t dpc, uint32_t routine, uint32_t context) {
   Store<uint32_t>(dpc + 0x0C, routine);
   Store<uint32_t>(dpc + 0x10, context);
 }
+
+// KeInsertQueueDpc(dpc, argument 1, argument 2): the console runs routine(dpc, context, argument 1,
+// argument 2) on the calling processor once its IRQL drops below DISPATCH_LEVEL, which for a caller at
+// passive level is at once. There are no IRQLs here, so it runs on the calling thread before
+// returning, as in Xenia. Modern Warfare 3's Direct3D signals an event of its own from one.
+uint32_t KeInsertQueueDpc(uint32_t dpc, uint32_t argument1, uint32_t argument2) {
+  Store<uint32_t>(dpc + 0x14, argument1);
+  Store<uint32_t>(dpc + 0x18, argument2);
+  if (uint32_t routine = Load<uint32_t>(dpc + 0x0C))
+    CallGuest(routine, {dpc, Load<uint32_t>(dpc + 0x10), argument1, argument2});
+  return 1;
+}
+
+// IRQLs are not modelled (KfAcquireSpinLock reports passive level as the previous one too).
+uint32_t KeRaiseIrqlToDpcLevel() { return 0; }
+void KfLowerIrql(uint32_t irql) { (void)irql; }
 
 [[noreturn]] void KeBugCheckEx(uint32_t code, uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
   Fatal("KeBugCheckEx(%08X, %08X, %08X, %08X, %08X)", code, a, b, c, d);
@@ -229,6 +255,12 @@ void KfReleaseSpinLock(uint32_t lock, uint32_t old_irql) {
 }
 void KeAcquireSpinLockAtRaisedIrql(uint32_t lock) { AcquireSpinLock(lock); }
 void KeReleaseSpinLockFromRaisedIrql(uint32_t lock) { ReleaseSpinLock(lock); }
+// One attempt: 1 if the lock was free and is now the caller's, 0 if someone else holds it.
+uint32_t KeTryToAcquireSpinLockAtRaisedIrql(uint32_t lock) {
+  Thread* t = CurrentThread();
+  LONG value = LONG(_byteswap_ulong(t ? t->kthread : 1));
+  return InterlockedCompareExchange(reinterpret_cast<volatile LONG*>(Ptr(lock)), value, 0) == 0 ? 1 : 0;
+}
 
 // ---- events / semaphores / mutants / timers ----------------------------------------------------
 
@@ -283,6 +315,21 @@ uint32_t NtReleaseSemaphore(uint32_t handle, int32_t count, uint32_t previous_pt
   bool ok = ReleaseSemaphore(body, count, &previous);
   if (previous_ptr) Store<int32_t>(previous_ptr, previous);
   return ok ? X_STATUS_SUCCESS : X_STATUS_SEMAPHORE_LIMIT_EXCEEDED;
+}
+
+// Kernel-mode semaphores live in the title's memory (KSEMAPHORE: header, limit at 0x10) and are
+// waited on by address with KeWaitFor*Object(s).
+void KeInitializeSemaphore(uint32_t semaphore, int32_t count, int32_t limit) {
+  InitializeDispatcher(semaphore, kSemaphore, count);
+  Store<int32_t>(semaphore + 0x10, limit);
+}
+
+// KeReleaseSemaphore(semaphore, priority increment, count, wait): returns the previous count.
+int32_t KeReleaseSemaphore(uint32_t semaphore, uint32_t increment, int32_t count, uint32_t wait) {
+  (void)increment, (void)wait;
+  int32_t previous = 0;
+  if (!ReleaseSemaphore(semaphore, count, &previous)) KLOG_W("KeReleaseSemaphore(%08X): limit exceeded", semaphore);
+  return previous;
 }
 
 uint32_t NtCreateMutant(uint32_t handle_ptr, uint32_t object_attributes, uint32_t initial_owner) {
@@ -648,6 +695,7 @@ void InitTime() {
 X360_EXPORT(ExCreateThread, ExCreateThread)
 X360_EXPORT(ExTerminateThread, ExTerminateThread)
 X360_EXPORT(NtResumeThread, NtResumeThread)
+X360_EXPORT(KeResumeThread, KeResumeThread)
 X360_EXPORT(NtSuspendThread, NtSuspendThread)
 X360_EXPORT(KeSetAffinityThread, KeSetAffinityThread)
 X360_EXPORT(KeQueryBasePriorityThread, KeQueryBasePriorityThread)
@@ -661,6 +709,9 @@ X360_EXPORT(KeLockL2, KeLockL2)
 X360_EXPORT(KeUnlockL2, KeUnlockL2)
 X360_EXPORT(KiApcNormalRoutineNop, KiApcNormalRoutineNop)
 X360_EXPORT(KeInitializeDpc, KeInitializeDpc)
+X360_EXPORT(KeInsertQueueDpc, KeInsertQueueDpc)
+X360_EXPORT(KeRaiseIrqlToDpcLevel, KeRaiseIrqlToDpcLevel)
+X360_EXPORT(KfLowerIrql, KfLowerIrql)
 X360_EXPORT(KeBugCheckEx, KeBugCheckEx)
 X360_EXPORT(KeBugCheck, KeBugCheck)
 X360_EXPORT(KeTlsAlloc, KeTlsAlloc)
@@ -671,6 +722,7 @@ X360_EXPORT(KfAcquireSpinLock, KfAcquireSpinLock)
 X360_EXPORT(KfReleaseSpinLock, KfReleaseSpinLock)
 X360_EXPORT(KeAcquireSpinLockAtRaisedIrql, KeAcquireSpinLockAtRaisedIrql)
 X360_EXPORT(KeReleaseSpinLockFromRaisedIrql, KeReleaseSpinLockFromRaisedIrql)
+X360_EXPORT(KeTryToAcquireSpinLockAtRaisedIrql, KeTryToAcquireSpinLockAtRaisedIrql)
 X360_EXPORT(NtCreateEvent, NtCreateEvent)
 X360_EXPORT(NtSetEvent, NtSetEvent)
 X360_EXPORT(NtClearEvent, NtClearEvent)
@@ -679,6 +731,8 @@ X360_EXPORT(KeSetEvent, KeSetEvent)
 X360_EXPORT(KeResetEvent, KeResetEvent)
 X360_EXPORT(NtCreateSemaphore, NtCreateSemaphore)
 X360_EXPORT(NtReleaseSemaphore, NtReleaseSemaphore)
+X360_EXPORT(KeInitializeSemaphore, KeInitializeSemaphore)
+X360_EXPORT(KeReleaseSemaphore, KeReleaseSemaphore)
 X360_EXPORT(NtCreateMutant, NtCreateMutant)
 X360_EXPORT(NtReleaseMutant, NtReleaseMutant)
 X360_EXPORT(NtCreateTimer, NtCreateTimer)

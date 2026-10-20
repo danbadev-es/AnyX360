@@ -219,6 +219,14 @@ uint32_t XAudioGetVoiceCategoryVolume(uint32_t category, uint32_t volume_ptr) {
   return X_STATUS_SUCCESS;
 }
 
+// The categories whose volume the system changed since the last call (bit per category): the volumes
+// never change here (all at 1.0).
+uint32_t XAudioGetVoiceCategoryVolumeChangeMask(uint32_t driver, uint32_t mask_ptr) {
+  (void)driver;
+  if (mask_ptr) Store<uint32_t>(mask_ptr, 0);
+  return X_STATUS_SUCCESS;
+}
+
 // The ducker lowers the title's audio under chat; with no chat, it stays off. The getters (level,
 // threshold, attack, release, hold) all report 0.
 uint32_t XAudioGetDuckerLevel(uint32_t level_ptr) {
@@ -268,6 +276,7 @@ X360_EXPORT(XAudioUnregisterRenderDriverClient, XAudioUnregisterRenderDriverClie
 X360_EXPORT(XAudioSubmitRenderDriverFrame, XAudioSubmitRenderDriverFrame)
 X360_EXPORT(XAudioGetSpeakerConfig, XAudioGetSpeakerConfig)
 X360_EXPORT(XAudioGetVoiceCategoryVolume, XAudioGetVoiceCategoryVolume)
+X360_EXPORT(XAudioGetVoiceCategoryVolumeChangeMask, XAudioGetVoiceCategoryVolumeChangeMask)
 X360_EXPORT(XAudioGetDuckerLevel, XAudioGetDuckerLevel)
 X360_EXPORT(XAudioGetDuckerThreshold, XAudioGetDuckerLevel)
 X360_EXPORT(XAudioGetDuckerAttackTime, XAudioGetDuckerLevel)
