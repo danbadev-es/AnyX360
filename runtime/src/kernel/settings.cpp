@@ -62,6 +62,8 @@ void Parse(const toml::table& t, Settings& s) {
   Read(display["fps"], s.display.target_fps);
   s.display.target_fps = s.display.target_fps >= 60 ? 60 : 30;
   Read(display["show_stats"], s.show_stats);
+  Read(display["kinect_window"], s.kinect_window);
+  Read(display["kinect_window_placement"], s.kinect_window_placement);
 
   auto input = t["input"];
   Read(input["sensitivity"], s.input.sensitivity);
@@ -141,7 +143,10 @@ std::string Serialize(const Settings& s) {
     << "fxaa = " << (s.display.fxaa ? "true" : "false") << "\n"
     << "vsync = " << (s.display.vsync ? "true" : "false") << "\n"
     << "fps = " << s.display.target_fps << "  # 30 or 60\n"
-    << "show_stats = " << (s.show_stats ? "true" : "false") << "\n\n"
+    << "show_stats = " << (s.show_stats ? "true" : "false") << "\n"
+    << "kinect_window = " << (s.kinect_window ? "true" : "false") << "  # the Kinect debug window, F3\n"
+    << (s.kinect_window_placement.empty() ? "" : "kinect_window_placement = " + Quote(s.kinect_window_placement) + "\n")
+    << "\n"
     << "[input]\n"
     << "sensitivity = " << Float(s.input.sensitivity) << "\n"
     << "aim_sensitivity = " << Float(s.input.aim_sensitivity) << "\n"

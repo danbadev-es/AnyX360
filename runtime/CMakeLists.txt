@@ -29,6 +29,15 @@ add_library(x360_runtime STATIC
 )
 target_include_directories(x360_runtime PUBLIC include)
 
+# The Kinect debug window (kinect_window/): its own thread and Direct2D window. Game-independent, so
+# not under src/nui (compiled into every game's objects); the nui:: functions it calls are each
+# game's, resolved when the game links.
+add_library(x360_kinect_window STATIC kinect_window/kinect_window.cpp)
+target_include_directories(x360_kinect_window PUBLIC kinect_window PRIVATE include)
+target_compile_definitions(x360_kinect_window PRIVATE UNICODE _UNICODE _CRT_SECURE_NO_WARNINGS)
+target_compile_features(x360_kinect_window PRIVATE cxx_std_20)
+target_link_libraries(x360_kinect_window PUBLIC ui_d2d x360_runtime dwmapi)
+
 # --- Per-game kernel / HLE --------------------------------------------------------------------
 # PPCContext's layout depends on the optimisation flags in the game's generated ppc_config.h,
 # so everything that touches guest registers is compiled once per game against that header.
@@ -67,7 +76,7 @@ set(ANYX360_HLE_INCLUDES
 function(anyx360_add_hle target ppc_config_dir)
   add_library(${target} OBJECT ${ANYX360_HLE_SOURCES})
   target_include_directories(${target} PUBLIC ${ppc_config_dir} ${ANYX360_HLE_INCLUDES})
-  target_link_libraries(${target} PUBLIC x360_runtime x360_formats xe_gpu_d3d12 xe_apu xinput bcrypt dbghelp avrt mfplat mf mfuuid)
+  target_link_libraries(${target} PUBLIC x360_runtime x360_formats x360_kinect_window xe_gpu_d3d12 xe_apu xinput bcrypt dbghelp avrt mfplat mf mfuuid)
   target_compile_features(${target} PUBLIC cxx_std_20)
   target_compile_definitions(${target} PRIVATE _CRT_SECURE_NO_WARNINGS)
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")

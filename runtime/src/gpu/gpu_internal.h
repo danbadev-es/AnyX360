@@ -38,5 +38,8 @@ void StartSettingsPanel();
 void ToggleSettingsPanel();
 bool IsSettingsPanelOpen();
 void CloseSettingsPanel();
+// The Kinect debug window (F3; Kinect games only): opened or closed, remembered with its place.
+void SetKinectWindow(bool open);
+bool IsKinectWindowOpen();
 
 }  // namespace x360::gpu

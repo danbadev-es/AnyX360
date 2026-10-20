@@ -170,6 +170,54 @@ void RestartSource();
 // with refresh); listing doesn't open them.
 std::vector<std::string> ListCameras(bool refresh = false);
 
+// ---- the Kinect debug window -----------------------------------------------------------------
+
+// One person in the latest frame, with what the sensor did with them.
+struct DebugBody {
+  uint32_t id = 0;
+  uint32_t slot = 0;     // in the frame (0-5)
+  bool tracked = false;  // fully tracked: their joints reach the title
+  bool chosen = false;   // one the title chose to track
+  float position[3] = {};
+  float joints[kJointCount][3] = {};
+  uint8_t joint_state[kJointCount] = {};
+  uint32_t quality = 0;  // Clipped flags
+};
+
+// The sensor at the latest frame, copied at once.
+struct DebugView {
+  Status status;
+  uint32_t frame = 0;
+  std::vector<DebugBody> bodies;
+  bool tracking = false;       // the title asked for skeletons
+  bool title_chooses = false;  // ... and chooses whom to track (SetTrackedSkeletons)
+  uint32_t chosen[2] = {};
+  int32_t elevation = 0;  // the title's camera angle, degrees
+  float camera_height = 0;
+  uint32_t streams = 0;      // the images the title opened (1 color, 2 depth)
+  float guide_progress = 0;  // holding the Kinect Guide's pose: 0-1
+  bool guide_open = false;
+  // The images: the camera's, or (draw_images) drawn from the bodies for a source without one.
+  std::shared_ptr<const std::vector<uint8_t>> color;   // 640x480 BGRA, mirrored as the title sees it
+  std::shared_ptr<const std::vector<uint16_t>> depth;  // 320x240, millimetres << 3 | 1 + player
+  bool camera_images = false;
+};
+DebugView GetDebugView(bool draw_images);
+
+// One sensor frame's timings (the webcam's stages, ms) and its distance from the previous one.
+struct TimingSample {
+  float time = 0;  // seconds since the sensor started
+  float capture_ms = 0, detect_ms = 0, process_ms = 0, render_ms = 0, transfer_ms = 0;
+  float period_ms = 0;
+  bool fresh = false;  // the source had a new frame
+};
+// The last 10 seconds, oldest first.
+std::vector<TimingSample> GetTimingHistory();
+
+// While the debug window is open the source is asked for its camera's images even if the title
+// opened no image stream (the bridge then also draws them: its render_ms grows).
+void SetDebugImages(bool want);
+
 // Joint pairs to draw a skeleton with.
 constexpr Joint kSkeletonBones[][2] = {
     {kHipCenter, kSpine},         {kSpine, kShoulderCenter},      {kShoulderCenter, kHead},

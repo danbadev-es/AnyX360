@@ -12,6 +12,9 @@
 //                                       draw the window offscreen into a PNG: S is library, empty,
 //                                       compatible, add, progress, error, confirm, password, menu
 //                                       or terms; --root uses another release folder
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
 #include <windowsx.h>
 #include <dwmapi.h>
 #include <ole2.h>

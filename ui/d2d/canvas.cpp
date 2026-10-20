@@ -195,6 +195,18 @@ void Canvas::Polyline(std::span<const D2D1_POINT_2F> points, const Color& color,
   target_->DrawGeometry(path.Get(), Brush(color), width);
 }
 
+void Canvas::FillPolygon(std::span<const D2D1_POINT_2F> points, const Color& color) {
+  if (points.size() < 3) return;
+  ComPtr<ID2D1PathGeometry> path;
+  ComPtr<ID2D1GeometrySink> sink;
+  if (FAILED(D2DFactory()->CreatePathGeometry(&path)) || FAILED(path->Open(&sink))) return;
+  sink->BeginFigure(points[0], D2D1_FIGURE_BEGIN_FILLED);
+  sink->AddLines(points.data() + 1, UINT32(points.size() - 1));
+  sink->EndFigure(D2D1_FIGURE_END_CLOSED);
+  sink->Close();
+  target_->FillGeometry(path.Get(), Brush(color));
+}
+
 IDWriteTextFormat* Canvas::Format(const TextStyle& style) {
   // One cache per thread: a format's alignment is set for each use.
   thread_local std::map<std::tuple<std::wstring, float, int>, ComPtr<IDWriteTextFormat>> formats;

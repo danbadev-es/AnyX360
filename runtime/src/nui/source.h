@@ -1,6 +1,7 @@
 // Sources of the virtual Kinect's skeletons (and images).
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -59,6 +60,10 @@ class GuideGesture {
   // The main player's body this frame (nullptr: nobody).
   Change Update(const Body* body, double time);
   bool open() const { return open_; }
+  // How long the pose has been held, as a fraction of kHoldSeconds (0 when not held).
+  double Progress(double time) const {
+    return held_since_ < 0 ? 0.0 : std::min(1.0, (time - held_since_) / kHoldSeconds);
+  }
 
  private:
   double held_since_ = -1;

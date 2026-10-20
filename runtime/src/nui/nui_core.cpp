@@ -9,6 +9,7 @@
 #include "x360/nui.h"
 
 #include <algorithm>
+#include <atomic>
 #include <bit>
 #include <chrono>
 #include <cmath>
@@ -75,6 +76,14 @@ uint32_t g_slots[kSkeletonCount] = {};  // body ID in each of the frame's six sl
 uint32_t g_delivered = 0;               // frame number last returned by SkeletonGetNextFrame
 
 const bool g_trace = std::getenv("ANYX360_NUI_TRACE") != nullptr;
+
+// For the debug window: the guide gesture's progress, the last 10 s of frame timings, and whether
+// it wants the camera's images.
+float g_guide_progress = 0;
+constexpr size_t kTimingHistory = 400;  // 10 s at up to 35 frames a second, and some
+TimingSample g_timings[kTimingHistory];
+size_t g_timing_next = 0, g_timing_count = 0;
+std::atomic<bool> g_debug_images{false};
 
 uint64_t NowMs() {
   static const auto start = std::chrono::steady_clock::now();
@@ -237,12 +246,14 @@ void ClockThread() {
                           SYNCHRONIZE | EVENT_MODIFY_STATE, FALSE, 0);
       }
     }
+    bool new_frame = true;  // the source had something new (sources without an event: always)
     if (frame_event) {
       WaitUntil(timer, last_new + Seconds(kMinPeriod));
       const bool fresh = WaitUntil(timer, last + Seconds(kMaxPeriod), frame_event);
       ResetEvent(frame_event);  // the poll below reads the newest frame, whichever signalled
       due = Clock::now();
       if (fresh) last_new = due;
+      new_frame = fresh;
     } else {
       due = std::max(due + period, Clock::now() - period);  // after a source with an event: no catching up
       WaitUntil(timer, due);
@@ -258,7 +269,8 @@ void ClockThread() {
     GuideGesture::Change guide = GuideGesture::kNone;
     std::string message;
     Status stats;
-    const uint32_t streams = OpenStreamMask();
+    // The debug window wants the camera's images (1 color, 2 depth) even if the title opened none.
+    const uint32_t streams = g_debug_images ? 3u : OpenStreamMask();
     {
       std::lock_guard source_lock(g_source_mutex);
       if (g_source) {
@@ -284,6 +296,13 @@ void ClockThread() {
       }
       if (g_tracking) skeleton_event = g_skeleton_event;
       guide = g_guide.Update(g_tracking ? MainBody(snapshot) : nullptr, now);
+      g_guide_progress = float(g_guide.Progress(now));
+      const size_t previous = (g_timing_next + kTimingHistory - 1) % kTimingHistory;
+      const float period_ms = g_timing_count ? (float(now) - g_timings[previous].time) * 1000.0f : 0.0f;
+      g_timings[g_timing_next] = {float(now), stats.capture_ms, stats.detect_ms, stats.process_ms,
+                                  stats.render_ms, stats.transfer_ms, period_ms, new_frame};
+      g_timing_next = (g_timing_next + 1) % kTimingHistory;
+      g_timing_count = std::min(g_timing_count + 1, kTimingHistory);
     }
     if (guide != GuideGesture::kNone) SetKinectGuideOpen(guide == GuideGesture::kOpen);
     g_frame_cv.notify_all();
@@ -507,6 +526,79 @@ std::vector<PreviewBody> GetBodies() {
   }
   return bodies;
 }
+
+DebugView GetDebugView(bool draw_images) {
+  DebugView view;
+  view.status = GetStatus();
+  Snapshot snapshot;
+  uint32_t slots[kSkeletonCount];  // frame slot of each of the snapshot's bodies
+  {
+    std::lock_guard lock(g_mutex);
+    view.frame = g_frame_number;
+    view.tracking = g_tracking;
+    view.title_chooses = (g_tracking_flags & kTitleSetsTracked) != 0;
+    view.chosen[0] = g_chosen[0], view.chosen[1] = g_chosen[1];
+    view.elevation = g_elevation;
+    view.camera_height = g_camera_height;
+    view.guide_progress = g_guide_progress;
+    view.guide_open = g_guide.open();
+    snapshot = g_snapshot;
+    uint32_t order = 0;
+    for (uint32_t slot = 0; slot < kSkeletonCount; ++slot) {
+      if (!g_slots[slot]) continue;
+      const bool tracked = IsTracked(g_slots[slot], order++);
+      for (uint32_t i = 0; i < g_snapshot.body_count; ++i) {
+        const Body& body = g_snapshot.bodies[i];
+        if (body.id != g_slots[slot]) continue;
+        DebugBody& b = view.bodies.emplace_back();
+        b.id = body.id;
+        b.slot = slot;
+        b.tracked = tracked;
+        b.chosen = IsChosen(body.id);
+        std::memcpy(b.position, body.position, sizeof(b.position));
+        std::memcpy(b.joints, body.joints, sizeof(b.joints));
+        std::memcpy(b.joint_state, body.joint_state, sizeof(b.joint_state));
+        b.quality = body.quality;
+      }
+    }
+    for (uint32_t i = 0; i < kSkeletonCount; ++i) {
+      slots[i] = kSkeletonCount;
+      for (uint32_t s = 0; s < kSkeletonCount && i < g_snapshot.body_count; ++s)
+        if (g_slots[s] == g_snapshot.bodies[i].id) slots[i] = s;
+    }
+  }
+  view.streams = OpenStreamMask();
+  view.color = snapshot.color;
+  view.depth = snapshot.depth;
+  view.camera_images = snapshot.color || snapshot.depth;
+  if (draw_images) {  // a source without a camera: the bodies drawn, as the image streams do
+    if (!view.depth) {
+      auto depth = std::make_shared<std::vector<uint16_t>>(size_t(kDepthWidth) * kDepthHeight);
+      DrawDepth(snapshot, slots, *depth);
+      view.depth = depth;
+    }
+    if (!view.color) {
+      auto color = std::make_shared<std::vector<uint8_t>>(size_t(kColorWidth) * kColorHeight * 4);
+      DrawColor(snapshot, *color);
+      view.color = color;
+    }
+  }
+  return view;
+}
+
+std::vector<TimingSample> GetTimingHistory() {
+  std::lock_guard lock(g_mutex);
+  std::vector<TimingSample> samples;
+  samples.reserve(g_timing_count);
+  for (size_t i = 0; i < g_timing_count; ++i)
+    samples.push_back(g_timings[(g_timing_next + kTimingHistory - g_timing_count + i) % kTimingHistory]);
+  size_t first = 0;
+  while (first < samples.size() && samples.back().time - samples[first].time > 10.0f) ++first;
+  samples.erase(samples.begin(), samples.begin() + first);
+  return samples;
+}
+
+void SetDebugImages(bool want) { g_debug_images = want; }
 
 void ApplySettings(const settings::KinectSettings& kinect) {
   std::unique_ptr<Source> previous;

@@ -65,6 +65,10 @@ struct Settings {
   int version = 1;
   gpu::DisplayConfig display;
   bool show_stats = false;
+  // The Kinect debug window (F3): open, and where it was ("left,top,right,bottom,maximized" in
+  // screen pixels; empty: not placed yet).
+  bool kinect_window = false;
+  std::string kinect_window_placement;
   InputSettings input;
   KinectSettings kinect;
   PlayerSettings players[4] = {{"keyboard_mouse", "Player"}, {"pad", "Player 2"}, {"none", "Player 3"},

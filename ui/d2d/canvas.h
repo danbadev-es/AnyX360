@@ -106,6 +106,8 @@ class Canvas {
   void FillGradient(const RectF& r, const Color& top, const Color& bottom);
   // A polyline through `points` (x, y pairs).
   void Polyline(std::span<const D2D1_POINT_2F> points, const Color& color, float width = 1);
+  // The polygon `points` encloses, filled.
+  void FillPolygon(std::span<const D2D1_POINT_2F> points, const Color& color);
 
   void Text(std::wstring_view text, const RectF& r, const TextStyle& style);
   // The size `text` takes, `max_width` wide at most (0: no limit).

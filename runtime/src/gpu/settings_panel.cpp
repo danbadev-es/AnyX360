@@ -21,6 +21,7 @@
 #include "frame_timing.h"
 #include "gpu_internal.h"
 #include "stats_overlay.h"
+#include "kinect_window.h"
 #include "ui_theme.h"
 #include "third_party/imgui/imgui.h"
 #include "x360/input.h"
@@ -91,6 +92,30 @@ void ShowStats(bool show) {
 void UpdateKinect(const std::function<void(settings::KinectSettings&)>& change) {
   settings::Update([&](Settings& s) { change(s.kinect); });
 }
+
+}  // namespace
+
+void SetKinectWindow(bool open) {
+  if (open == kinect_window::IsOpen()) return;
+  if (!open) return kinect_window::Close();  // it reports closing: saved then
+  auto* window = static_cast<xe::ui::Win32Window*>(GameWindow());
+  kinect_window::Open(settings::Get().kinect_window_placement, window ? window->hwnd() : nullptr,
+                      [](bool now_open, const std::string& placement) {
+                        // The window's thread: saved from the UI thread, like the panel's changes.
+                        PostToUIThread([now_open, placement] {
+                          settings::Update([&](Settings& s) {
+                            s.kinect_window = now_open;
+                            if (!placement.empty()) s.kinect_window_placement = placement;
+                          });
+                        });
+                      });
+  settings::Update([](Settings& s) { s.kinect_window = true; });
+  KLOG_I("kinect window opened");
+}
+
+bool IsKinectWindowOpen() { return kinect_window::IsOpen(); }
+
+namespace {
 
 std::string g_restart_error;
 std::string g_select_tab;  // test hook: tab to bring to the front
@@ -328,7 +353,9 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
     ImFont* font = Small();
     const float y = o.y + top + (height - font->FontSize) / 2;
     draw->AddText(font, font->FontSize, ImVec2(o.x + Px(20), y), color::kTextSecondary, "AnyX360 " ANYX360_VERSION_FULL);
-    const char* keys = "F1 performance overlay    F2 / Esc close    F11 / Alt+Enter fullscreen";
+    const char* keys = settings::Get().kinect.enabled
+                           ? "F1 performance overlay    F2 / Esc close    F3 Kinect window    F11 / Alt+Enter fullscreen"
+                           : "F1 performance overlay    F2 / Esc close    F11 / Alt+Enter fullscreen";
     const float keys_w = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0, keys).x;
     draw->AddText(font, font->FontSize, ImVec2(o.x + w - keys_w - Px(20), y), color::kTextSecondary, keys);
   }
@@ -658,6 +685,10 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
       std::snprintf(floor, sizeof(floor), "Your webcam is %.2f m above the floor.", status.floor_height);
       Note(floor);
     }
+    if (ImGui::Button(kinect_window::IsOpen() ? "Close the debug window" : "Open the debug window (F3)"))
+      PostToUIThread([] { SetKinectWindow(!kinect_window::IsOpen()); });
+    ImGui::SetItemTooltip("Everything the virtual Kinect sees and does, in a window of its own: for a second monitor.");
+    ImGui::SameLine();
     if (ImGui::Button("Recentre on me")) nui::Calibrate();
     ImGui::SetItemTooltip("Stand where you'll play: the game then sees you centred, at the Kinect's distance.");
     ImGui::SameLine();
@@ -802,7 +833,8 @@ void OpenSettingsPanel() {
 
 // ANYX360_SETTINGS_TEST="<seconds>:<setting>=<value>,..." applies settings as the panel does
 // (resolution, fullscreen, upscale, fxaa, fps, scale, stats, panel=1/0, tab=<name>, signin=<player>, signout=<player>, restart,
-// kinect_source=<webcam|mouse|none>, kinect_players=<1|2>, kinect_mirror=<0|1>, kinect_restart, kinect_calibrate).
+// kinect_source=<webcam|mouse|none>, kinect_players=<1|2>, kinect_mirror=<0|1>, kinect_restart, kinect_calibrate,
+// kinect_window=<0|1>).
 void RunSettingsTest(std::string spec) {
   auto start = std::chrono::steady_clock::now();
   for (size_t pos = 0; pos < spec.size();) {
@@ -838,6 +870,7 @@ void RunSettingsTest(std::string spec) {
       else if (key == "kinect_mirror") UpdateKinect([n](settings::KinectSettings& k) { k.mirror = n != 0; });
       else if (key == "kinect_restart") nui::RestartSource();
       else if (key == "kinect_calibrate") nui::Calibrate();
+      else if (key == "kinect_window") SetKinectWindow(n != 0);
     });
   }
 }
@@ -848,6 +881,8 @@ void StartSettingsPanel() {
   g_panel = new SettingsPanel(SharedImGuiDrawer());  // registers itself
   SharedImGuiDrawer()->RemoveDialog(g_panel);
   std::thread(IdleRepaintThread).detach();
+  // The Kinect window, if it was open when the game was last closed.
+  if (settings::Get().kinect.enabled && settings::Get().kinect_window) SetKinectWindow(true);
   if (const char* spec = std::getenv("ANYX360_SETTINGS_TEST")) std::thread(RunSettingsTest, std::string(spec)).detach();
 }
 

@@ -329,7 +329,8 @@ class WindowListener final : public xe::ui::WindowListener {
 };
 WindowListener g_window_listener;
 
-// F1 toggles the performance overlay, F2 the settings panel (Esc closes it), F11 fullscreen
+// F1 toggles the performance overlay, F2 the settings panel (Esc closes it), F3 the Kinect debug
+// window (Kinect games), F11 fullscreen
 // (Alt+Enter: see the input module's window hook).
 class WindowKeys final : public xe::ui::WindowInputListener {
  public:
@@ -343,6 +344,10 @@ class WindowKeys final : public xe::ui::WindowInputListener {
         break;
       }
       case xe::ui::VirtualKey::kF2: ToggleSettingsPanel(); break;
+      case xe::ui::VirtualKey::kF3:
+        if (!settings::Get().kinect.enabled) return;
+        SetKinectWindow(!IsKinectWindowOpen());
+        break;
       case xe::ui::VirtualKey::kEscape:
         if (!IsSettingsPanelOpen()) return;
         CloseSettingsPanel();
