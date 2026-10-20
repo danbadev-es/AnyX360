@@ -56,8 +56,8 @@ struct KinectSettings {
   uint32_t players = 2;        // bodies tracked at once (1-2)
   float camera_height = 0.8f;  // the virtual sensor's height above the floor, in metres
   std::string model = "full";  // pose model: lite, full, heavy
-  // The webcam's tilt: measured by the pose bridge, or set here (degrees; pitch > 0 looking down,
-  // roll > 0 turned clockwise as seen from behind it).
+  // The webcam's tilt: the pitch measured by the pose bridge, or set here; the roll always set here
+  // (degrees; pitch > 0 looking down, roll > 0 turned clockwise as seen from behind it).
   bool tilt_manual = false;
   float tilt_pitch = 0.0f;
   float tilt_roll = 0.0f;
@@ -82,6 +82,9 @@ struct Settings {
   // device, at boot) or "manual" (from the panel only).
   std::string sign_in = "on_demand";
   PacingSettings pacing;
+  // [xenia]: options of Xenia's GPU code by name, each value as TOML text (half_pixel_offset = false):
+  // advanced, for trying a fix on one GPU without rebuilding. Applied when the game starts.
+  std::map<std::string, std::string> xenia;
 };
 
 // The game's defaults (values missing from the file). Call before Load; without it the defaults are

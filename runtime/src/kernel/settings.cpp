@@ -125,6 +125,13 @@ void Parse(const toml::table& t, Settings& s) {
   s.kinect.smoothing = std::clamp(s.kinect.smoothing, 0.0f, 1.0f);
   s.kinect.players = std::clamp(s.kinect.players, 1u, 2u);
   s.kinect.camera_height = std::clamp(s.kinect.camera_height, 0.2f, 2.0f);
+  if (const toml::table* xenia = t["xenia"].as_table()) {
+    for (const auto& [key, node] : *xenia) {
+      std::ostringstream text;
+      node.visit([&](const auto& value) { text << value; });
+      s.xenia[std::string(key.str())] = text.str();
+    }
+  }
 }
 
 std::string Float(float v) {
@@ -194,9 +201,13 @@ std::string Serialize(const Settings& s) {
       << "camera_height = " << Float(s.kinect.camera_height) << "  # metres above the floor\n"
       << "model = " << Quote(s.kinect.model) << "  # lite, full, heavy\n"
       << "tilt_manual = " << (s.kinect.tilt_manual ? "true" : "false")
-      << "  # false: the bridge measures the webcam's tilt; true: tilt_pitch and tilt_roll\n"
+      << "  # false: the bridge measures the webcam's pitch; true: tilt_pitch. The roll is always tilt_roll\n"
       << "tilt_pitch = " << Float(s.kinect.tilt_pitch) << "  # degrees, > 0 looking down\n"
       << "tilt_roll = " << Float(s.kinect.tilt_roll) << "  # degrees, > 0 turned clockwise (seen from behind)\n";
+  }
+  if (!s.xenia.empty()) {
+    o << "\n# Options of Xenia's GPU code, by name (advanced: for trying a fix on one GPU).\n[xenia]\n";
+    for (const auto& [name, value] : s.xenia) o << name << " = " << value << "\n";
   }
   return o.str();
 }

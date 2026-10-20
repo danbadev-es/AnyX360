@@ -214,6 +214,26 @@ player in the empty `GearGame_P`. Sockets are emulated locally for this reason (
 - `GWorld` 0x83429828; `GearEngine` checkpoint fields: pending action +1864, `CurrentCheckpoint` +1880.
 - Name entries are packed `[be32 index << 1][be32 hash next][text]` from 0x40130000.
 
+## Other GPUs (an AMD RX 570)
+On an AMD RX 570 (4 GB) the title screen's skull, before Start, showed an artefact; the main menu
+was fine. It doesn't happen on the NVIDIA GPU these notes were made on, and the render target path
+is the same on both (Xenia uses render target views on AMD and NVIDIA alike), so it comes from a
+Direct3D 12 feature or driver difference not identified yet. Two aids for finding it on that PC:
+- **The log** (`logs\gow3\last_run.log`) now names the GPU and the features where vendors differ:
+  `GPU: <name> (vendor ...); alpha blend factor ..., unaligned BC textures ..., ROV ..., binding tier ...`.
+- **Xenia's options in `settings.toml`**, without rebuilding, in a `[xenia]` section (each value as
+  TOML; an unknown name is reported in the log). Candidates for this kind of artefact:
+
+  ```toml
+  [xenia]
+  half_pixel_offset = false              # pixel centres (default true)
+  gamma_render_target_as_unorm16 = false # how gamma render targets are stored
+  async_shader_compilation = false       # no frames drawn with shaders still compiling
+  render_target_path_d3d12 = "rov"       # the other render target path (risky on AMD)
+  ```
+
+  With `ANYX360_CAPTURE_DIR=<folder>` the frames are saved as BMP every 5 s, for comparing.
+
 ## Debugging switches
 All opt-in through environment variables read by the runtime:
 
