@@ -60,6 +60,11 @@ webcam (Kinect Adventures' first start); seven more games coming soon in the lau
   body, as a person judges "45 degrees", against the person's own arm: 28 to 65 degrees out, the arm
   nearly straight and not reaching towards the screen, the right arm down. Every Kinect game.
 
+### Fixed
+
+- A game whose frames stopped for 10 seconds (a slow first load on a busy machine) could crash: the
+  thread dump taken then read the stacks of threads that had already ended.
+
 ## [0.12.0] - 2026-10-20
 
 Call of Duty: Black Ops II: the campaign, and multiplayer and Zombies on one machine, in split
