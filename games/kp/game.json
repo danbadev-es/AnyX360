@@ -1,0 +1,18 @@
+{
+  "id": "kp",
+  "title": "Kinect Party",
+  "cover": "kinect-party",
+  "status": "testing",
+  "exe": "KinectParty",
+  "user_dir": "KinectParty",
+  "title_id": "5841125C",
+  "dev_game_dir": "extracted/kp/game",
+  "launcher_name": "AnyX360 Kinect Party",
+  "size_gb": 1,
+  "archive_hint": "Kinect Party (Xbox Live Arcade)",
+  "input": "webcam",
+  "required_files": ["ArcadeInfo.xml", "NuiIdentity.bin.be"],
+  "owners": "Microsoft Corporation, Double Fine Productions",
+  "trademarks": ["Xbox", "Xbox 360", "Kinect", "Kinect Party"],
+  "components": ["MediaPipe (Apache 2.0)", "OpenCV (Apache 2.0)", "NumPy (BSD)", "Python (PSF)"]
+}
