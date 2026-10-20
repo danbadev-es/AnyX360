@@ -102,6 +102,9 @@ void InitContext(Thread& t, PPCContext& ctx) {
 }
 
 void FinishThread(Thread& t, uint32_t exit_code) {
+  // Its context is on the host thread's stack, which goes now; the Thread lives on while handles to
+  // it do, and a thread dump (DumpThreads, on a stall) read the dead stack and crashed.
+  t.context = nullptr;
   t.exit_code = exit_code;
   SignalDispatcherObject(t.kthread);
   KLOG_I("thread %X exited with %08X", t.thread_id, exit_code);
@@ -252,8 +255,9 @@ void DumpThreads() {
     }
   }
   for (auto& t : threads) {
-    if (!t->context) continue;
-    PPCContext& c = *t->context;
+    PPCContext* context = t->context;
+    if (!context) continue;
+    PPCContext& c = *context;
     std::string trace;
     char buf[16];
     uint32_t frame = c.r1.u32;
