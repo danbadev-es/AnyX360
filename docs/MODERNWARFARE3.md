@@ -140,7 +140,8 @@ On the console, `XamLoaderLaunchTitle` ends the title and boots the XEX it names
   continues with A. The lobby (Start Match, Game Setup, Create a Class, Barracks) starts a Team
   Deathmatch on Seatown in about ten seconds. Each player picks a team (auto-assign) and a class
   and plays: both move, aim, fire and reload, each with their own HUD, compass and score. 35-57
-  FPS during the match on the test machine, which was busy with other builds at the time.
+  FPS during the match on the test machine, which was busy with other builds at the time. Three
+  players (a third pad, `@2`) play the same way in three views.
 - **Special Ops** (the campaign's executable): Split Screen joins player 2 the same way and offers
   Survival or Missions. Survival on Resistance plays in split screen (wave 1, a player downed and
   the revive prompt for the other) and alone.
@@ -155,7 +156,8 @@ ANYX360_INPUT=15:DOWN,18:A,22:A,24:A@1,28:A,30:A@1,40:A,56:A,57:A@1,63:A,64:A@1,
 
 DOWN and A open Split Screen; A for each player joins, then A for each continues; A starts the
 match; A for each auto-assigns a team and A takes the first class (player 2's class menu needs
-the later presses).
+the later presses). The first time, a guest is told their progress won't be saved: Continue
+without saving is the second choice (DOWN, A). A third player joins with `@2` the same way.
 
 From the campaign's executable: the campaign route up to `72:A` (the content warning) reaches
 the main menu, then `78:RIGHT,81:A,85:DOWN,88:A` picks Multiplayer and confirms past the notice;
@@ -179,12 +181,18 @@ start). Alone: `78:LEFT,81:A,88:A,98:DOWN,100:DOWN,105:A,112:A,118:A,124:A,130:A
   loads (half the Survival loads), after it has recorded the GPU work that writes the copy, and
   the copy was then destroyed at once: the GPU wrote a released resource and the device was lost.
   The fork now keeps the copy with its texture and loads it again on its next use (thirdparty/xenia
-  `anyx360-mp`). The campaign's black screen at start may be the same; not verified. Since then
-  the thread dump after 10 s without frames also prints the command processor's host stack.
-- Split screen matches run below 60 FPS when the machine is busy.
-- The DLC maps aren't available (the DLC packs aren't mounted yet).
-- Not tried: three or four players, a match played to its end, other modes, hosting a System
-  Link game, the Special Ops missions.
+  `anyx360-mp`): 6 of 6 loads then reached the wave, 3 of them with the failed load and none with
+  a lost device (before: 4 of the 8 runs with the failed load lost it). The campaign's black
+  screen at start may be the same; not verified. Since then the thread dump after 10 s without
+  frames also prints the command processor's host stack.
+- Split screen matches run below 60 FPS when the machine is busy (35-57 with two players, 35-50
+  with three).
+- The DLC maps aren't offered: the free Terminal pack, installed as the launcher installs DLC
+  (`<user>\content\00000002\<package>`), is enumerated and mounted (`dlc1:`, `dlc2:`), but the map
+  list keeps the 16 base maps. The packs probably need the Title Update (`update:\patch_mp.ff`),
+  which isn't supported.
+- Not tried: four players, a match played to its end, other modes, hosting a System Link game,
+  the Special Ops missions.
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `415608CB`):

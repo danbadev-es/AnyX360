@@ -223,7 +223,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Menus, settings, saves           | ✅ Working                                     |
 | Campaign                         | 🧪 The opening missions played; the rest not tried yet |
 | Special Ops, Survival            | 🧪 Survival played alone and in split screen; the missions not tried yet |
-| Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; a split screen match on Seatown played |
+| Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; split screen matches on Seatown played (two and three players) |
 | Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link finds no games |
 
 ## Controls
@@ -369,7 +369,9 @@ Call of Duty: Modern Warfare 3:
 - Multiplayer is a second program: switching between it and the campaign closes the window and
   opens another, and the launcher closes.
 - Split screen matches can run below 60 FPS.
-- Only the campaign's opening, a split screen match and Survival have been played; in the intro
+- The downloadable maps aren't offered (they seem to need the Title Update, which isn't
+  supported).
+- Only the campaign's opening, split screen matches and Survival have been played; in the intro
   level the snowy trees may look flat white.
 
 Found something else? Open an issue with the version (shown in the launcher) and the game's

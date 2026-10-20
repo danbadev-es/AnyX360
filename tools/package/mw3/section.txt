@@ -41,7 +41,9 @@ KNOWN ISSUES
 - About one start in fifteen stays on a black screen after the first frame: close the game and
   start it again.
 - Split screen runs below 60 FPS in matches on slower machines.
-- In testing: the menus, the campaign's opening, a split screen match on Seatown and
-  Survival on Resistance have been played; the downloadable content and three or four
-  players haven't been tried yet.
+- In testing: the menus, the campaign's opening, split screen matches on Seatown (two and
+  three players) and Survival on Resistance have been played; four players haven't been
+  tried yet.
+- The downloadable maps aren't offered (they seem to need the Title Update, which isn't
+  supported).
 - In the intro level the snowy trees may look flat white.
