@@ -20,7 +20,7 @@
 > **AnyX360 is an unofficial fan project.** It is not affiliated with, authorized, sponsored or
 > endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games, Harmonix, Good Science Studio,
 > Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay, Activision, Infinity Ward, Sledgehammer
-> Games or any other rights holder.
+> Games, Treyarch or any other rights holder.
 > It contains **no game code, assets or files**: you must own a legally acquired copy of the game,
 > and you provide its files yourself.
 
@@ -45,6 +45,8 @@ the sensor.
 - **Kinect Sports** (in testing): Rare's six sports, played with the webcam, with Xbox Avatars.
 - **Call of Duty: Modern Warfare 3** (in testing): the campaign at 60 FPS, with keyboard and mouse
   or a controller, and multiplayer and Special Ops in split screen on one machine.
+- **Call of Duty: Black Ops II** (in testing): the campaign at 60 FPS, and multiplayer (with bots)
+  and Zombies in split screen on one machine.
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
 carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for.
@@ -60,7 +62,7 @@ carries: AnyX360 builds each avatar from it, with the clothes, hair and face the
 2. Extract it to a regular folder (not inside _Program Files_), on a drive with room for the games
    you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3, 8 GB for
    Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for Doritos Crash Course, 4 GB for
-   Kinect Sports and 8 GB for Call of Duty: Modern Warfare 3.
+   Kinect Sports, 8 GB for Call of Duty: Modern Warfare 3 and 8 GB for Call of Duty: Black Ops II.
 3. Run **`AnyX360.exe`** and accept the terms of use.
 4. Choose **Add game** (the **+** tile), or drop your copy on the window, as you have it:
    - **A file**: an archive of any kind (.7z, .rar, .zip, split or not, .tar.gz...), a disc image
@@ -226,6 +228,15 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; split screen matches on Seatown played (two and three players) |
 | Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link finds no games |
 
+| Call of Duty: Black Ops II       | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Menus, settings, saves           | ✅ Working                                     |
+| Campaign                         | 🧪 The first mission played; the rest not tried yet |
+| Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; Local matches with two to four players and with bots played |
+| Zombies, split screen            | 🧪 TranZit alone and with two players, Grief with two played; three or four players not tried yet |
+| Downloadable maps                | ❌ Not available: they need the Title Update, which isn't supported |
+| Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link needs a network |
+
 ## Controls
 
 ### Gears of War 3
@@ -298,6 +309,13 @@ sign-in screen to join.
 | Tactical / frag grenade  | Q / R                          | LB / RB            |
 | Sprint / melee           | C / middle mouse button        | L3 / R3            |
 | Pause / objectives       | Esc / Tab                      | Start / Back       |
+
+### Call of Duty: Black Ops II
+
+The same keys as Modern Warfare 3; in split screen (multiplayer and Zombies), players 2-4 use
+controllers and press A in the lobby to join. Grenades are tactical (Q, LB) and lethal (R, RB);
+E (X) also buys, opens doors and revives in Zombies, and the arrows or 1-4 (D-pad) call in
+scorestreaks.
 
 ### Kinect Sports
 
@@ -374,6 +392,16 @@ Call of Duty: Modern Warfare 3:
 - Only the campaign's opening, split screen matches and Survival have been played; in the intro
   level the snowy trees may look flat white.
 
+Call of Duty: Black Ops II:
+
+- Multiplayer and Zombies are a second program: switching between them and the campaign closes
+  the window and opens another, and the launcher closes.
+- The downloadable maps aren't offered (they need the Title Update, which isn't supported); with
+  a map pack in the copy, multiplayer may report content "not from the correct region" at start:
+  press A and play on.
+- Four-player split screen runs below 60 FPS (about 40-50 on the test machine).
+- Only the first mission, Local matches, TranZit and Grief have been played.
+
 Found something else? Open an issue with the version (shown in the launcher) and the game's
 `logs\<game>\last_run.log` file.
 
@@ -438,6 +466,8 @@ environment with pinned, hash-checked packages.
   `x360tool god-extract` (see [docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing)).
 - Call of Duty: Modern Warfare 3: the same, to `extracted/mw3/game/` (see
   [docs/MODERNWARFARE3.md](docs/MODERNWARFARE3.md#reproducing)).
+- Call of Duty: Black Ops II: the same, to `extracted/bo2/game/` (see
+  [docs/BLACKOPS2.md](docs/BLACKOPS2.md#reproducing)).
 - Put the XEX2 retail key in `keys/xex2_retail.key` (see [keys/README.md](keys/README.md)).
 
 Both folders are git-ignored.
@@ -446,8 +476,9 @@ Both folders are git-ignored.
 > The targets are the base executables, without title updates: Gears of War 3 (title
 > `4D5308AB`), Dance Central 3 (title `373307D9`), Kinect Adventures (title `4D5308ED`), Fruit
 > Ninja Kinect (title `58410B79`), Doritos Crash Course (title `58410A71`), Kinect Sports
-> (title `4D5308C9`) and Call of Duty: Modern Warfare 3 (title `415608CB`, both its single-player
-> `default.xex` and its multiplayer `default_mp.xex`).
+> (title `4D5308C9`), Call of Duty: Modern Warfare 3 (title `415608CB`) and Call of Duty: Black
+> Ops II (title `415608C3`); for the two Call of Duty games, both the single-player `default.xex`
+> and the multiplayer `default_mp.xex`.
 
 ### 4. Recompile the Game
 
@@ -457,8 +488,9 @@ names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing-fro
 [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing),
 [docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md#reproducing),
 [docs/DORITOSCRASHCOURSE.md](docs/DORITOSCRASHCOURSE.md#reproducing),
-[docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing) and
-[docs/MODERNWARFARE3.md](docs/MODERNWARFARE3.md#reproducing). For Gears of War 3:
+[docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing),
+[docs/MODERNWARFARE3.md](docs/MODERNWARFARE3.md#reproducing) and
+[docs/BLACKOPS2.md](docs/BLACKOPS2.md#reproducing). For Gears of War 3:
 
 ```bat
 build.bat
@@ -573,8 +605,8 @@ Raw/, extracted/ Your game files (git-ignored)
 - **AnyX360 is an unofficial, independent, non-commercial fan project.** It is not affiliated with,
   authorized, sponsored or endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games,
   Harmonix, Good Science Studio, Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay,
-  Activision, Infinity Ward, Sledgehammer Games or any other rights holder, and it is not an
-  official product or port of any game.
+  Activision, Infinity Ward, Sledgehammer Games, Treyarch or any other rights holder, and it is
+  not an official product or port of any game.
 - This repository contains **no game code, assets or console keys**, and never will. The
   third-party XenonRecomp submodule (like Xenia) embeds the publicly known XEX2 retail key in its
   source to load executables; AnyX360's own tools read the key from `keys/` instead.
@@ -584,9 +616,9 @@ Raw/, extracted/ Your game files (git-ignored)
 - Release packages contain no game data and are covered by the [terms of use](tools/launcher/terms_en.txt)
   the launcher shows before first use.
 - Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Kinect Sports, Fruit Ninja,
-  Halfbrick, Doritos, Rare, Call of Duty, Modern Warfare, Activision, Xbox and Xbox 360 are
-  trademarks of their respective owners, used here only to identify the games AnyX360
-  is compatible with.
+  Halfbrick, Doritos, Rare, Call of Duty, Modern Warfare, Black Ops, Treyarch, Activision, Xbox
+  and Xbox 360 are trademarks of their respective owners, used here only to identify the games
+  AnyX360 is compatible with.
 - The box art in the release belongs to its publishers and is shown only to identify the games;
   it is not kept in this repository.
 - Rights holders can reach the developer through this repository's issues to request a review.

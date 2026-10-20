@@ -31,7 +31,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - **Call of Duty: Black Ops II** (in testing): the single-player executable from a Games on Demand
   copy, with keyboard and mouse or a controller, at 60 FPS. The opening videos, the menus, the
   settings and saves, and the first mission (Pyrrhic Victory: its loading video, opening and
-  gameplay) work. Multiplayer and Zombies are a separate program, not recompiled.
+  gameplay) work.
 - Media verification (`XamMediaVerificationCreate`, `Close`, `Verify`, `FailedBlocks`): nothing to
   verify on the hard disk; `Verify`'s callback runs as a user APC. `XexGetProcedureAddress` returns
   these exports, which titles look up by ordinal (before, it reported every ordinal missing, which
@@ -39,11 +39,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - Incremental SHA (`XeCryptShaInit/Update/Final` and the SHA-256, SHA-384 and SHA-512 ones),
   `MmQueryStatistics` and `XGetVideoCapabilities`.
 - The recompiler: `vrfip128`.
+- **Call of Duty: Black Ops II multiplayer and Zombies** (in testing): `default_mp.xex` is
+  recompiled as a second program, `BlackOps2MP.exe`, which the campaign's Multiplayer and Zombies
+  start (the launch data tell it which) and whose Main menu goes back to the campaign. Local split
+  screen matches with two to four players and with bots, Zombies (TranZit alone and with two
+  players, Grief with two) and switching between the three modes work. Xbox LIVE needs Xbox LIVE,
+  System Link asks for a network, and the downloadable maps need the Title Update, which isn't
+  supported.
+- **xam.xex loads**: `XexLoadImage` returns the handles of `xam.xex` and `xboxkrnl.exe`, and
+  `XexGetProcedureAddress` the party exports titles look up by ordinal (`XamPartyGetUserList`, an
+  empty party; `XamPartySendGameInvites`, `XamPartySetCustomData`, `XamPartyGetBandwidth`,
+  `XamShowPartyUI`, `XamShowCommunitySessionsUI`). Every title's XDK party library loads xam.xex
+  at start; the failed load left its calls "not implemented" without output, and Black Ops II read
+  an uninitialised party size and crashed after each Zombies game.
 
 ### Changed
 
 - `XamLoaderGetLaunchData` copies what fits into the buffer and succeeds, and
   `XamLoaderGetLaunchDataSize` refuses a null pointer, as in Xenia.
+- **The tick count advances every millisecond**, as the console's does (`GetTickCount`; it
+  followed Windows', which moves in 15.6 ms steps). Black Ops II's multiplayer limits frames with
+  it and ran at 40 FPS; it now runs at 60. Modern Warfare 3's split screen, 35-57 FPS before, held
+  60 in a two-player test. Any game that times itself with `GetTickCount`.
+- **Local sessions** behave as on a console offline: `XSessionCreate` gives a host its session's
+  ID, address and key (Black Ops II's Local lobby took the empty ID for a failure: "you must have
+  an active network connection"), `XSessionModify` succeeds (Grief), `XNetQosListen`,
+  `XNetRegisterKey` and `XNetUnregisterKey` succeed instead of reporting the network down,
+  `XNetQosServiceLookup` returns an empty result and `XNetLogonGetMachineID` reports "not logged
+  on", as in Xenia. Games that host sessions: Modern Warfare 3's split screen, Gears of War 3's
+  co-op.
 
 ### Fixed
 
