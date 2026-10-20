@@ -1,0 +1,44 @@
+# Call of Duty: Modern Warfare 3 multiplayer recompiler configuration (XenonRecomp format). Paths are
+# relative to this file. This file contains no game code or data; it only describes where things are.
+#
+# file_path is the multiplayer default_mp.xex (iw5mp_ship.exe) of the Games on Demand package written
+# out with x360tool god-extract (see docs/MODERNWARFARE3.md): a second program of the same title,
+# which the single-player executable starts with XamLoaderLaunchTitle. Encrypted with the retail key,
+# basic (zero-fill) compression, like default.xex.
+
+[main]
+file_path = "../../extracted/mw3/game/default_mp.xex"
+out_directory_path = "recomp_mp"
+switch_table_file_path = "switch_tables_mp.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x825424F0
+savegprlr_14_address = 0x825424A0
+restfpr_14_address = 0x8254263C
+savefpr_14_address = 0x825425F0
+restvmx_14_address = 0x82543D48
+savevmx_14_address = 0x82543AB0
+restvmx_64_address = 0x82543DDC
+savevmx_64_address = 0x82543B44
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: word for word the
+# single-player executable's, apart from relocated addresses). Com_Error leaves the failed frame
+# with longjmp, as in the campaign.
+setjmp_address = 0x82544510
+longjmp_address = 0x825452B0
+
+# Functions the analyser misses (address + size), added as they are found.
+# functions = [
+#   { address = 0x0, size = 0x0 },
+# ]

@@ -11,6 +11,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <dbghelp.h>
+#include <tlhelp32.h>
 
 namespace x360::kernel {
 
@@ -104,6 +105,57 @@ std::string GuestBacktrace(int max_frames) {
     frame = next;
   }
   return out;
+}
+
+void PrintHostThreadStack(const wchar_t* name) {
+  HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+  if (snapshot == INVALID_HANDLE_VALUE) return;
+  THREADENTRY32 entry{sizeof(entry)};
+  for (BOOL more = Thread32First(snapshot, &entry); more; more = Thread32Next(snapshot, &entry)) {
+    if (entry.th32OwnerProcessID != GetCurrentProcessId() || entry.th32ThreadID == GetCurrentThreadId()) continue;
+    HANDLE thread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_QUERY_LIMITED_INFORMATION, FALSE,
+                               entry.th32ThreadID);
+    if (!thread) continue;
+    PWSTR description = nullptr;
+    bool match = SUCCEEDED(GetThreadDescription(thread, &description)) && description && !wcscmp(description, name);
+    if (description) LocalFree(description);
+    // Unwound while the thread is suspended, without allocating (it may hold the heap's lock), and
+    // symbolized once it runs again.
+    uint64_t pcs[32];
+    int count = 0;
+    if (match && ::SuspendThread(thread) != DWORD(-1)) {
+      CONTEXT context{};
+      context.ContextFlags = CONTEXT_FULL;
+      if (GetThreadContext(thread, &context)) {
+        while (count < 32 && context.Rip) {
+          pcs[count++] = context.Rip;
+          DWORD64 image_base = 0;
+          PRUNTIME_FUNCTION function = RtlLookupFunctionEntry(context.Rip, &image_base, nullptr);
+          if (!function) {  // a leaf function: the return address is at the top of the stack
+            context.Rip = *reinterpret_cast<DWORD64*>(context.Rsp);
+            context.Rsp += 8;
+            continue;
+          }
+          void* handler_data = nullptr;
+          DWORD64 establisher = 0;
+          RtlVirtualUnwind(UNW_FLAG_NHANDLER, image_base, context.Rip, function, &context, &handler_data,
+                           &establisher, nullptr);
+        }
+      }
+      ::ResumeThread(thread);
+    }
+    ::CloseHandle(thread);
+    if (!count) continue;
+    std::lock_guard lock(g_crash_mutex);
+    std::fprintf(stderr, "host stack of \"%ls\" (thread %lu):\n", name, entry.th32ThreadID);
+    char where[300];
+    for (int i = 0; i < count; ++i) {
+      Symbolize(pcs[i], where, sizeof(where));
+      std::fprintf(stderr, "  #%02d %s\n", i, where);
+    }
+    std::fflush(stderr);
+  }
+  ::CloseHandle(snapshot);
 }
 
 namespace {

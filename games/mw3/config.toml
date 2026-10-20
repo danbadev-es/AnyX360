@@ -3,7 +3,8 @@
 #
 # file_path is the single-player default.xex (iw5sp_ship.exe) of the Games on Demand package written
 # out with x360tool god-extract (see docs/MODERNWARFARE3.md). It is encrypted with the retail key and
-# uses basic (zero-fill) compression. The multiplayer executable, default_mp.xex, is not recompiled.
+# uses basic (zero-fill) compression. The multiplayer executable, default_mp.xex, has its own
+# configuration (config_mp.toml).
 
 [main]
 file_path = "../../extracted/mw3/game/default.xex"

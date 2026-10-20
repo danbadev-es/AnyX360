@@ -2,6 +2,7 @@
 #include "x360/host.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -105,13 +106,18 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
     const char* local = std::getenv("LOCALAPPDATA");
     info.user_root = fs::path(local ? local : ".") / "AnyX360" / game.user_dir;
   }
-  info.xex_path = info.game_root / "default.xex";
+  info.xex_path = info.game_root / game.xex_name;
   info.title_name = game.title_name;
   info.arcade = game.arcade;
   info.avatar_system = game.avatar_system;
   info.avatar_skeleton = game.avatar_skeleton;
   info.main_thread_processor = game.main_thread_processor;
   info.on_function_table = game.on_function_table;
+  for (const TitleExecutable& executable : game.executables) {
+    std::string xex = executable.xex;
+    for (char& c : xex) c = char(std::tolower(uint8_t(c)));
+    info.executables.emplace_back(xex, exe_dir / (std::string(executable.exe) + ".exe"));
+  }
   // The player profile, next to the games' user folders (the launcher writes it).
   const profile::Profile player_profile = profile::Read(profile::File(info.user_root.parent_path()));
   for (int i = 0; i < profile::kPlayers; ++i) info.player_names[i] = player_profile.names[i];
@@ -120,7 +126,7 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   info.country = locale.country;
 
   if (!fs::exists(info.xex_path)) {
-    std::fprintf(stderr, "default.xex not found. Pass --game <folder containing default.xex>.\n");
+    std::fprintf(stderr, "%s not found. Pass --game <folder containing %s>.\n", game.xex_name, game.xex_name);
     return 1;
   }
   if (!CheckTitleId(info.xex_path, game)) return 1;

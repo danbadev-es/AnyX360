@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace x360::gpu {
 
@@ -51,6 +52,12 @@ void InitializeShaderStorage(const std::filesystem::path& cache_root, uint32_t t
 int RunMessageLoop();
 // Asks the UI loop to exit (any thread).
 void RequestQuit(int exit_code);
+// Saves the settings and replaces this process with `exe` started with `arguments` and
+// --restarted-from this process (it waits for this one to exit before using the settings, cache and
+// saves): the settings panel's restart, and a title starting another of its executables. The new
+// process gets this one's standard handles, so a log the launcher redirected keeps going; test hooks
+// that drive this session don't carry over. Exits on success; returns the error otherwise. Any thread.
+std::string ReplaceProcess(const std::filesystem::path& exe, const std::vector<std::wstring>& arguments);
 
 // Records a guest frame (VdSwap) for the performance overlay.
 void NotifySwap(uint32_t frontbuffer_width, uint32_t frontbuffer_height);

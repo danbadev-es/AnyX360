@@ -344,7 +344,7 @@ bool DeliverUserApcs();
 // ---------------------------------------------------------------------------------------------
 
 struct TitleInfo {
-  std::filesystem::path xex_path;     // default.xex
+  std::filesystem::path xex_path;     // default.xex (GameDescriptor::xex_name)
   std::filesystem::path game_root;    // folder mounted as game:\ and d:\ (contains default.xex)
   std::filesystem::path user_root;    // writable folder for hdd, cache and saves
   std::filesystem::path key_path;     // keys/xex2_retail.key
@@ -354,6 +354,9 @@ struct TitleInfo {
   bool avatar_system = false;         // XamAvatarInitialize succeeds (GameDescriptor::avatar_system)
   uint32_t avatar_skeleton = 0;       // the avatar library's skeleton builder (GameDescriptor)
   uint8_t main_thread_processor = 1;  // hardware thread of the main thread (GameDescriptor)
+  // The title's executables XamLoaderLaunchTitle can start: {XEX name in lower case, host
+  // executable} (GameDescriptor::executables).
+  std::vector<std::pair<std::string, std::filesystem::path>> executables;
   // From the player profile the launcher sets (x360/profile.h): the players' names (empty:
   // settings.toml's, else "Player N") and the language and country games are told.
   std::string player_names[4];
@@ -396,6 +399,9 @@ int Run(const TitleInfo& info);
 void InstallCrashHandler();
 // Guest call stack of the current thread (LR, then saved return addresses).
 std::string GuestBacktrace(int max_frames = 12);
+// Prints the host call stack of the process's thread with this name (a debugging aid: the GPU
+// command processor's, "GPU Commands", when frames stop). Any thread but that one.
+void PrintHostThreadStack(const wchar_t* name);
 void InitTime();
 void InitIo(const TitleInfo& info);
 void InitXam();

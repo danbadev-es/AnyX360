@@ -723,8 +723,8 @@ void XamResetInactivity() {}
 // ---- loader / process -------------------------------------------------------------------------
 
 // Launch data: what a title leaves for the next one it starts (XamLoaderSetLaunchData, then
-// XamLoaderLaunchTitle). The title is never started with any, but it reads back what it set itself,
-// as on the console and in Xenia.
+// XamLoaderLaunchTitle). A title reads back what it set itself, and what the title that started it
+// left (LoadLaunchData), as on the console and in Xenia.
 std::mutex g_launch_data_mutex;
 std::vector<uint8_t> g_launch_data;
 
@@ -734,18 +734,110 @@ uint32_t XamLoaderSetLaunchData(uint32_t data, uint32_t size) {
   return X_ERROR_SUCCESS;
 }
 uint32_t XamLoaderGetLaunchDataSize(uint32_t size_ptr) {
+  if (!size_ptr) return X_ERROR_INVALID_PARAMETER;
   std::lock_guard lock(g_launch_data_mutex);
-  if (size_ptr) Store<uint32_t>(size_ptr, uint32_t(g_launch_data.size()));
+  Store<uint32_t>(size_ptr, uint32_t(g_launch_data.size()));
   return g_launch_data.empty() ? X_ERROR_NOT_FOUND : X_ERROR_SUCCESS;
 }
+// Copies as much as fits; success either way (Xenia's behaviour).
 uint32_t XamLoaderGetLaunchData(uint32_t buffer, uint32_t size) {
   std::lock_guard lock(g_launch_data_mutex);
   if (g_launch_data.empty()) return X_ERROR_NOT_FOUND;
   std::memcpy(Ptr(buffer), g_launch_data.data(), std::min<size_t>(size, g_launch_data.size()));
-  return size < g_launch_data.size() ? X_ERROR_INSUFFICIENT_BUFFER : X_ERROR_SUCCESS;
+  return X_ERROR_SUCCESS;
 }
+
+// The launch request handed to the next process: <user>\launch_data.bin, in Xenia's layout
+// (xam_module.cc, little-endian): {u16 length, host path}, {u16 length, launch path}, u32 flags,
+// {u16 size, launch data}.
+fs::path LaunchDataPath() { return TitlePaths().user_root / "launch_data.bin"; }
+
+bool SaveLaunchData(const fs::path& host_path, const std::string& launch_path, uint32_t flags) {
+  std::lock_guard lock(g_launch_data_mutex);
+  std::ofstream file(LaunchDataPath(), std::ios::binary | std::ios::trunc);
+  auto write = [&](const void* data, size_t size) { file.write(static_cast<const char*>(data), std::streamsize(size)); };
+  auto write_string = [&](const std::string& text) {
+    uint16_t length = uint16_t(text.size());
+    write(&length, 2);
+    write(text.data(), length);
+  };
+  const std::u8string host = host_path.u8string();
+  write_string(std::string(host.begin(), host.end()));
+  write_string(launch_path);
+  write(&flags, 4);
+  uint16_t size = uint16_t(std::min<size_t>(g_launch_data.size(), 0xFFFF));
+  write(&size, 2);
+  write(g_launch_data.data(), size);
+  return bool(file);
+}
+
+// At startup: the launch data the title that started this one left, read once.
+void LoadLaunchData() {
+  std::error_code ec;
+  const fs::path path = LaunchDataPath();
+  if (!fs::exists(path, ec)) return;
+  std::ifstream file(path, std::ios::binary);
+  auto read = [&](void* data, size_t size) { file.read(static_cast<char*>(data), std::streamsize(size)); };
+  auto read_string = [&] {
+    uint16_t length = 0;
+    read(&length, 2);
+    std::string text(length, '\0');
+    read(text.data(), length);
+    return text;
+  };
+  std::string host_path = read_string(), launch_path = read_string();
+  uint32_t flags = 0;
+  read(&flags, 4);
+  uint16_t size = 0;
+  read(&size, 2);
+  std::vector<uint8_t> data(size);
+  read(data.data(), size);
+  if (file) {
+    std::lock_guard lock(g_launch_data_mutex);
+    g_launch_data = std::move(data);
+    KLOG_I("launched by another title as %s (flags %X), %zu bytes of launch data", launch_path.c_str(), flags,
+           g_launch_data.size());
+  }
+  file.close();
+  fs::remove(path, ec);
+}
+
+// The executable of the title recompiled from the XEX a launch path names ("game:\default_mp.xex",
+// "d:\default.xex"), next to this one; empty if there is none.
+fs::path ExecutableFor(const std::string& launch_path) {
+  std::string xex = launch_path.substr(launch_path.find_last_of("\\:/") + 1);
+  for (char& c : xex) c = char(std::tolower(uint8_t(c)));
+  for (const auto& [name, exe] : TitlePaths().executables) {
+    std::error_code ec;
+    if (name == xex && fs::exists(exe, ec)) return exe;
+  }
+  return {};
+}
+
+// Starts the title's other executable in a new process, as the console reboots into the XEX it
+// names; the new one gets the launch data. Without one (or an empty path: back to the dashboard) the
+// title just ends.
 [[noreturn]] void XamLoaderLaunchTitle(uint32_t name_ptr, uint32_t flags) {
-  KLOG_I("XamLoaderLaunchTitle(%s, %X): exiting", name_ptr ? Ptr<const char>(name_ptr) : "", flags);
+  const std::string launch_path = name_ptr ? Ptr<const char>(name_ptr) : "";
+  const fs::path exe = launch_path.empty() ? fs::path() : ExecutableFor(launch_path);
+  if (!exe.empty() && SaveLaunchData(exe, launch_path, flags)) {
+    KLOG_I("XamLoaderLaunchTitle(%s, %X): starting %s", launch_path.c_str(), flags, exe.filename().string().c_str());
+    const TitleInfo& paths = TitlePaths();
+    std::vector<std::wstring> arguments = {L"--game", paths.game_root.wstring(), L"--user", paths.user_root.wstring()};
+    if (!paths.key_path.empty()) arguments.insert(arguments.end(), {L"--key", paths.key_path.wstring()});
+    // Scripted input (a test hook) belongs to one process: the next one gets ANYX360_INPUT_NEXT's.
+    const char* next = std::getenv("ANYX360_INPUT_NEXT");
+    const std::string next_input = next ? next : "";
+    SetEnvironmentVariableA("ANYX360_INPUT", next ? next_input.c_str() : nullptr);
+    SetEnvironmentVariableA("ANYX360_INPUT_NEXT", nullptr);
+    std::string error = x360::gpu::ReplaceProcess(exe, arguments);
+    KLOG_E("XamLoaderLaunchTitle: could not start %s (%s)", exe.string().c_str(), error.c_str());
+    std::error_code ec;
+    fs::remove(LaunchDataPath(), ec);
+    std::fflush(nullptr);
+    std::_Exit(1);
+  }
+  KLOG_I("XamLoaderLaunchTitle(%s, %X): exiting", launch_path.c_str(), flags);
   std::fflush(nullptr);
   std::_Exit(0);
 }
@@ -1251,6 +1343,7 @@ namespace x360::kernel {
 
 void InitXam() {
   InitUsers();
+  LoadLaunchData();
   x360::input::OnDevicesChanged([] { Broadcast(kNotifyInputDevicesChanged, 0); });
 }
 
@@ -1349,6 +1442,7 @@ X360_EXPORT(XamShowCustomPlayerListUI, XamShowUIStub)
 X360_EXPORT(XamShowFriendRequestUI, XamShowUIStub)
 X360_EXPORT(XamShowFriendsUI, XamShowUIStub)
 X360_EXPORT(XamShowGameInviteUI, XamShowUIStub)
+X360_EXPORT(XamShowGameVoiceChannelUI, XamShowUIStub)
 X360_EXPORT(XamShowGamerCardUIForXUID, XamShowUIStub)
 X360_EXPORT(XamShowMarketplaceUI, XamShowMarketplaceUI)
 X360_EXPORT(XamShowMarketplaceUIEx, XamShowMarketplaceUI)
