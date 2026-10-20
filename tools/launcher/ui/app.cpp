@@ -546,6 +546,7 @@ void App::DrawDetails(Canvas& c) {
   TileSize(height_, tile_w, tile_h);
   const float y = 132 + tile_h * kSelectedScale + 26;
   const float w = std::min(960.0f, width_ - 2 * kMargin);
+  float below = 0;  // how much further down the buttons and the message go
   const int game = SelectedGame();
   if (game >= 0) {
     const LibraryGame& lib = games_[size_t(game)];
@@ -574,15 +575,17 @@ void App::DrawDetails(Canvas& c) {
     const bool first = tiles_.size() == 1;
     c.Text(first ? Tr(kTextAddFirst) : Tr(kTextAddTile), {kMargin, y, w, 46}, Style(34, DWRITE_FONT_WEIGHT_LIGHT, kText));
     TextStyle hint = Body();
-    c.Text(Tr(kTextAddFirstHint, {JoinTitles(AvailableGames())}), {kMargin, y + 50, std::min(w, 820.0f), 50}, hint);
-    Button(c, {kMargin, y + 108, 210, 50}, Tr(kTextAddTile), kIdPlay, [this] { OpenAdd(); }, true, !working_);
+    // Up to three lines: the formats and the list of games (six of them) in the narrowest window.
+    c.Text(Tr(kTextAddFirstHint, {JoinTitles(AvailableGames())}), {kMargin, y + 50, w, 70}, hint);
+    below = 20;
+    Button(c, {kMargin, y + 108 + below, 210, 50}, Tr(kTextAddTile), kIdPlay, [this] { OpenAdd(); }, true, !working_);
   }
   // What the last action ended with.
   if (!message_.empty()) {
     std::wstring text = message_.Render();
     for (const Message& note : notes_) text += L" " + note.Render();
     TextStyle style = Style(14, DWRITE_FONT_WEIGHT_NORMAL, message_.error ? kRedText : kGreenText, Align::kStart, true);
-    c.Text(text, {kMargin, y + 172, w, 42}, style);
+    c.Text(text, {kMargin, y + 172 + below, w, 42}, style);
   }
 }
 
