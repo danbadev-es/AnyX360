@@ -122,6 +122,11 @@ class App : public JobObserver {
               bool primary = false, bool enabled = true);
   void DrawFocus(Canvas& c, const RectF& r, float radius = 0);
   ID2D1Bitmap* Bitmap(Canvas& c, const std::shared_ptr<const Image>& image);
+  // A logo embedded in the launcher (launcher.rc) decoded `height` DIPs tall at the window's DPI,
+  // to the pixel: drawn 1:1, it stays sharp. Null if it can't be decoded.
+  std::shared_ptr<const Image> Logo(int resource, float height);
+  // Draws `logo` with its top left at (x, y) moved onto whole pixels; its width in DIPs.
+  float DrawLogo(Canvas& c, const std::shared_ptr<const Image>& logo, float x, float y, float opacity = 1);
   void AddTarget(const RectF& r, int id, std::function<void()> action, bool focusable = true);
 
   // Input.
@@ -195,6 +200,8 @@ class App : public JobObserver {
   std::map<std::shared_ptr<const Image>, ComPtr<ID2D1Bitmap>> bitmaps_;
   uint64_t bitmaps_generation_ = 0;
   std::map<std::shared_ptr<const Image>, std::shared_ptr<const Image>> blurred_;
+  // The logos, by resource and height in pixels.
+  std::map<std::pair<int, uint32_t>, std::shared_ptr<const Image>> logos_;
 };
 
 }  // namespace anyx360::launcher::ui

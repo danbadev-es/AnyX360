@@ -1,2 +1,4 @@
-// The launcher's icon (make_icon.py draws it).
+// AnyX360's icon (make_icon.py) and the logos the launcher draws (make_logos.py), made from brand/.
 1 ICON "launcher.ico"
+2 RCDATA "logo_mark.png"
+3 RCDATA "logo_full.png"

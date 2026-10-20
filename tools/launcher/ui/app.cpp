@@ -46,6 +46,10 @@ constexpr float kDrawerBar = 56;
 constexpr float kTileGap = 24;
 constexpr float kSelectedScale = 1.07f;
 
+// The logos in launcher.rc: the mark, and the mark over the "anyX360" wordmark.
+constexpr int kLogoMark = 2;
+constexpr int kLogoFull = 3;
+
 // Target ids: what the pointer and the focus reach. Stable across frames.
 enum : int {
   kIdPlay = 1,
@@ -90,6 +94,15 @@ const TextStyle& Body() {
 }
 
 std::wstring Version() { return ANYX360_WIDEN(ANYX360_VERSION_FULL); }
+
+// A file embedded in the launcher (RCDATA in launcher.rc); empty if it isn't there.
+std::span<const uint8_t> Embedded(int resource) {
+  const HMODULE module = GetModuleHandleW(nullptr);
+  const HRSRC found = FindResourceW(module, MAKEINTRESOURCEW(resource), RT_RCDATA);
+  const HGLOBAL loaded = found ? LoadResource(module, found) : nullptr;
+  if (!loaded) return {};
+  return {static_cast<const uint8_t*>(LockResource(loaded)), SizeofResource(module, found)};
+}
 
 // The release's box art (covers\<slug>.jpg, the front only), or the repository's (a whole scan)
 // when the launcher runs from the build folder.
@@ -284,6 +297,26 @@ ID2D1Bitmap* App::Bitmap(Canvas& c, const std::shared_ptr<const Image>& image) {
   return (bitmaps_[image] = bitmap).Get();
 }
 
+std::shared_ptr<const Image> App::Logo(int resource, float height) {
+  const uint32_t pixels = uint32_t(std::lround(height * dpi_ / 96));
+  auto [found, added] = logos_.try_emplace({resource, pixels});
+  if (added) {
+    // Small PNGs: decoded right here, once per size (a failure isn't tried again).
+    auto image = std::make_shared<Image>();
+    std::string error;
+    if (anyx360::ui::DecodePictureData(Embedded(resource), *image, error, 0, pixels)) found->second = image;
+  }
+  return found->second;
+}
+
+float App::DrawLogo(Canvas& c, const std::shared_ptr<const Image>& logo, float x, float y, float opacity) {
+  if (!logo) return 0;
+  const float scale = dpi_ / 96;
+  const RectF r{std::round(x * scale) / scale, std::round(y * scale) / scale, logo->width / scale, logo->height / scale};
+  c.DrawBitmap(Bitmap(c, logo), r, opacity);
+  return r.w;
+}
+
 void App::DrawFocus(Canvas& c, const RectF& r, float radius) {
   c.StrokeRoundedRect(r.Inset(-4), radius ? radius + 4 : 0, kText, 2);
 }
@@ -384,10 +417,13 @@ void App::DrawBackground(Canvas& c) {
 }
 
 void App::DrawHeader(Canvas& c) {
+  // The mark, centered on the name's capitals, then the name and the version.
+  const float mark_w = DrawLogo(c, Logo(kLogoMark, 30), kMargin, 21.5f);
+  const float name_x = kMargin + (mark_w ? mark_w + 12 : 0);
   TextStyle brand = Style(26, DWRITE_FONT_WEIGHT_LIGHT, kText);
-  c.Text(L"AnyX360", {kMargin, 18, 200, 36}, brand);
+  c.Text(L"AnyX360", {name_x, 18, 200, 36}, brand);
   const float brand_w = c.MeasureText(L"AnyX360", brand).width;
-  c.Text(Version(), {kMargin + brand_w + 12, 30, 260, 20}, Style(12, DWRITE_FONT_WEIGHT_NORMAL, kTextTertiary));
+  c.Text(Version(), {name_x + brand_w + 12, 30, 260, 20}, Style(12, DWRITE_FONT_WEIGHT_NORMAL, kTextTertiary));
 
   // Right: who made it, the other language, the terms.
   float x = width_ - kMargin;
@@ -493,6 +529,14 @@ void App::DrawRow(Canvas& c) {
     if (selected) {
       const float border = row_focused ? 4 : 2;
       c.StrokeRect(r.Inset(-border - 2), row_focused ? kGreenHover : kGreen, border);
+    }
+  }
+  // No games yet: the logo with its name in the row's empty space, beside "Add game".
+  if (tiles_.size() == 1) {
+    if (std::shared_ptr<const Image> logo = Logo(kLogoFull, tile_h * 0.72f)) {
+      const float left = kMargin + tile_w + kTileGap, right = width_ - kMargin;
+      const float w = logo->width * 96 / dpi_, h = logo->height * 96 / dpi_;
+      DrawLogo(c, logo, (left + right - w) / 2, row_y + (tile_h - h) / 2);
     }
   }
 }
@@ -823,6 +867,9 @@ void App::DrawTerms(Canvas& c, Overlay& overlay, bool top) {
   float y = band.y + 30;
   c.FillRect({x - 18, y + 8, 4, 32}, kGreen.Alpha(fade));
   c.Text(Tr(kTextTermsHeading), {x, y, column_w, 48}, Style(34, DWRITE_FONT_WEIGHT_LIGHT, kText.Alpha(fade)));
+  // The mark at the heading's other end, like a letterhead.
+  if (std::shared_ptr<const Image> mark = Logo(kLogoMark, 40))
+    DrawLogo(c, mark, x + column_w - mark->width * 96 / dpi_, y + 4, fade);
   y += 64;
   const float footer = overlay.require_acceptance ? 104 : 66;
   const RectF view{x, y, column_w, band.bottom() - footer - y};
