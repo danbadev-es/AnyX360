@@ -35,6 +35,11 @@ bool InstallCopy(const CatalogGame& game, const fs::path& found, Message& error)
 // (`error`) or was cancelled.
 bool ExtractVolume(Job& job, x360tool::XdvdfsImage& image, const fs::path& out, int from, int to, Message& error);
 
+// A downloadable content package of `game` that needs its title update, which AnyX360 doesn't play:
+// all of them for a game whose packs all do ("downloadable_content": false), else those game.json
+// names ("content_needs_update", by package file name). They are left out.
+bool NeedsTitleUpdate(const CatalogGame& game, const fs::path& package);
+
 // Extracts downloadable content packages where the runtime looks for them:
 // %LOCALAPPDATA%\AnyX360\<user dir>\content\00000002\<package name>\. Returns how many.
 int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::path>& packages);

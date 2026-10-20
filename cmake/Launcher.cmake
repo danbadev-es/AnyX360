@@ -87,8 +87,23 @@ function(anyx360_add_launcher)
     else()
       set(content false)
     endif()
+    # Optional: "content_needs_update": the packs (package file names) that need the title update when
+    # the game's others don't; the launcher leaves those out.
+    set(content_needs_update "")
+    string(JSON count ERROR_VARIABLE no_list LENGTH "${json}" content_needs_update)
+    if(NOT no_list AND count GREATER 0)
+      math(EXPR last "${count} - 1")
+      foreach(i RANGE ${last})
+        string(JSON package GET "${json}" content_needs_update ${i})
+        if(i GREATER 0)
+          string(APPEND content_needs_update "|")
+        endif()
+        string(APPEND content_needs_update "${package}")
+      endforeach()
+    endif()
     string(APPEND entries "    {L\"${id}\", L\"${title}\", L\"${exe}.exe\", L\"${user_dir}\", 0x${title_id}, ${size_gb}, ${webcam},\n"
-                          "     L\"${required_files}\", L\"$<TARGET_FILE:${id}>\", L\"${cover}\", ${playable}, ${content}},\n")
+                          "     L\"${required_files}\", L\"$<TARGET_FILE:${id}>\", L\"${cover}\", ${playable}, ${content},\n"
+                          "     L\"${content_needs_update}\"},\n")
     list(APPEND titles "${title}")
     # Rights holders, trademarks and extra components of every game, each named once.
     string(REPLACE ", " ";" game_owners "${owners}")
@@ -160,6 +175,8 @@ struct CatalogGame {
   const wchar_t* cover;     // covers/<cover>.jpg (empty: none)
   bool playable;            // playable; false: in testing
   bool content = true;      // its downloadable content is installed (false: it needs the title update)
+  // Its packs that need the title update when the others don't: package file names, '|'-separated.
+  const wchar_t* content_needs_update = L\"\";
 };
 
 inline constexpr CatalogGame kCatalog[] = {

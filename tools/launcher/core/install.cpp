@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <cwctype>
 #include <optional>
+#include <string>
+#include <string_view>
 
 #include "avatar.h"
 #include "core/catalog.h"
@@ -81,6 +83,22 @@ bool ExtractVolume(Job& job, x360tool::XdvdfsImage& image, const fs::path& out, 
   }
 }
 
+bool NeedsTitleUpdate(const CatalogGame& game, const fs::path& package) {
+  if (!game.content) return true;
+  const std::wstring name = package.filename().wstring();
+  const std::wstring_view list = game.content_needs_update ? game.content_needs_update : L"";
+  for (size_t start = 0; start < list.size();) {
+    size_t end = list.find(L'|', start);
+    if (end == std::wstring_view::npos) end = list.size();
+    const std::wstring_view entry = list.substr(start, end - start);
+    if (entry.size() == name.size() &&
+        std::equal(entry.begin(), entry.end(), name.begin(), [](wchar_t a, wchar_t b) { return towupper(a) == towupper(b); }))
+      return true;
+    start = end + 1;
+  }
+  return false;
+}
+
 int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::path>& packages) {
   int installed = 0;
   for (const fs::path& path : packages) {
@@ -119,22 +137,21 @@ Outcome InstallExtracted(Job& job, const CatalogGame& game, const fs::path& extr
   Outcome outcome{{kTextAdded, {game.title}, false}, game.id};
   if (content_source.empty()) return outcome;
   std::vector<fs::path> content;
-  int updates = 0, other = 0;
+  int updates = 0, other = 0, needs_update = 0;
   for (const FoundPackage& package : FindPackages(content_source)) {
     if (IsDownloadableContent(package, game.title_id)) {
-      content.push_back(package.path);
+      // Packs that need the title update (which isn't played) are left out.
+      if (NeedsTitleUpdate(game, package.path)) ++needs_update;
+      else content.push_back(package.path);
     } else if (package.header.content_type == x360tool::content_type::kInstaller) {
       ++updates;
     } else if (package.header.title_id != game.title_id) {
       ++other;
     }
   }
-  if (!game.content) {
-    // Packs that need the title update (which isn't played) are left out.
-    if (!content.empty()) outcome.notes.push_back({kTextNoteContentSkipped, {std::to_wstring(content.size())}, false});
-  } else if (int installed = InstallDownloadableContent(game, content)) {
+  if (int installed = InstallDownloadableContent(game, content))
     outcome.message = {kTextAddedContent, {game.title, std::to_wstring(installed)}, false};
-  }
+  if (needs_update) outcome.notes.push_back({kTextNoteContentSkipped, {std::to_wstring(needs_update)}, false});
   if (updates) outcome.notes.push_back({kTextNoteUpdatesSkipped, {std::to_wstring(updates)}, false});
   if (other) outcome.notes.push_back({kTextNoteOtherContent, {std::to_wstring(other)}, false});
   return outcome;
