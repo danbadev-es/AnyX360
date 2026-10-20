@@ -89,7 +89,8 @@ An **asset ID** is 16 bytes: the category bits, the asset number (the pack entry
 
 Absolute pointers: `+0` the skeleton (16-byte aligned: count, joints*, then 72 joints of 96 bytes:
 parent, first child, sibling, model-space and local translation/rotation, scale; filled by the
-title's own skeleton builder, Kinect Sports `82A84A00(skeleton, body type, height, weight)`;
+title's own skeleton builder, Kinect Sports `82A84A00(skeleton, body type, height, weight)` (Kinect Joy
+Ride's same library build: `82CC8C30`);
 Doritos Crash Course's older library (2.0.11626) only has the default skeleton, `825F7EE0(skeleton)`), `+8`
 part count, `+12` 32-byte asset records (ID, 3 at +16, a colour at +20), `+16` 52-byte part
 descriptors (header words 0-6, CPU block, GPU block, vertex and index regions, mesh and texture

@@ -8,6 +8,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **Kinect Joy Ride** (in testing): BigPark's kart racer from a Games on Demand copy, played with
+  the webcam at 30 FPS, as on the console. The menus, the garage with the player's Xbox Avatar,
+  the vehicle and track choice, Pro Race played to the finish (steering, turbo, drifts and tricks),
+  the start of Battle Race and a two-player race in split screen work with the scripted player.
+  The drivers are avatars, made from the avatar data its own disc carries.
+- Its downloadable content: the Chevy Volt pack unlocks the Volt. The Chevrolet Car Pack needs the
+  Title Update (the base game reads its unlock list but never loads the cars): the launcher leaves
+  it out. A game's packs that need the Title Update can now be named one by one in game.json
+  (`content_needs_update`).
+- The scripted test player (`ANYX360_NUI_SCRIPT`) drives: `wheel_<degrees>` holds a steering
+  wheel turned by that angle, `boost` pulls the hands back to the chest and pushes them out, and
+  `lean_forward` / `lean_back` pitch the torso.
+- The recompiler: `vrlw128`, and `vupkd3d128` with four half floats.
+
 ## [0.12.0] - 2026-10-20
 
 Call of Duty: Black Ops II: the campaign, and multiplayer and Zombies on one machine, in split
