@@ -57,7 +57,7 @@ enum Text {
   kTextAddedFolder,  // {0} game, {1} folder
   kTextRemoved,      // {0} game
   kTextCancelled,
-  kTextErrorList,         // {0} 7-Zip exit code
+  kTextErrorList,         // {0} 7-Zip exit code (the file isn't an archive 7-Zip opens)
   kTextErrorNotGame,
   kTextErrorNoXexFolder,
   kTextErrorUnsupported,  // {0} title ID found, {1} supported games
@@ -79,6 +79,17 @@ enum Text {
   kTextTermsAccept,
   kTextTermsDecline,
   kTextTermsClose,
+  kTextAskPassword,        // {0} archive
+  kTextErrorPassword,
+  kTextErrorWrongPassword,
+  kTextErrorMissingVolume,  // {0} archive
+  kTextErrorUnknownFormat,
+  kTextErrorContentOnly,   // {0} game
+  kTextErrorUpdateOnly,
+  kTextErrorContentNoGame,  // {0} game
+  kTextAddedContentOnly,   // {0} game, {1} number of packs
+  kTextNoteUpdatesSkipped,  // {0} number of title updates
+  kTextNoteOtherContent,   // {0} number of other titles' packages
   kTextCount
 };
 

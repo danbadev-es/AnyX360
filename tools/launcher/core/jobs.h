@@ -1,16 +1,20 @@
 // Adding and removing games: long jobs run on a worker thread, reporting to the UI through an
-// observer. A game is added from an archive (extracted into games\<id>\game) or from the folder where
-// the player's copy already is (remembered and used in place); a Games on Demand copy is always
-// written out to games\<id>\game. Which game it is comes from default.xex's title ID, matched
-// against the catalog, and the copy must be complete.
+// observer. A game is added from whatever the player has, recognised by content: an archive in any
+// format 7-Zip opens (extracted here, with what it holds recognised in turn: a disc image, a
+// package, another archive), a disc image, a Games on Demand or Xbox Live Arcade package (written
+// out into files), or the folder where the disc's files already are (remembered and used in
+// place). Which game it is comes from default.xex's title ID (or a package's), matched against the
+// catalog, and the copy must be complete.
 #pragma once
 
 #include <atomic>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "core/paths.h"
 #include "core/strings.h"
@@ -23,6 +27,7 @@ namespace anyx360::launcher {
 struct Outcome {
   Message message;      // none: cancelled, or nothing to say
   std::wstring select;  // the game to select afterwards
+  std::vector<Message> notes;  // said after the message (what was left out)
 };
 
 enum class Step {
@@ -42,6 +47,9 @@ class JobObserver {
   virtual void OnGame(const CatalogGame& game) = 0;
   // Whether `game`, already in the library, is replaced. Blocks the worker until the player answers.
   virtual bool AskReplace(const CatalogGame& game) = 0;
+  // The password of `archive` (`wrong`: the last one didn't open it), or none if the player gave up.
+  // Blocks the worker until the player answers.
+  virtual std::optional<std::wstring> AskPassword(const fs::path& archive, bool wrong) = 0;
   // The last call: the job has finished (the worker can be joined).
   virtual void OnDone(const Outcome& outcome) = 0;
 };
@@ -58,8 +66,12 @@ class Job {
   // Extracting at `percent`, finishing at 100.
   void Progress(int percent) { Report(percent >= 100 ? Step::kFinishing : Step::kExtracting, percent); }
   void Found(const CatalogGame& game) { observer_.OnGame(game); }
-  // True if the game isn't in the library yet or the player wants it replaced.
+  // True if the game isn't in the library yet or the player wants it replaced (asked once a job).
   bool ConfirmReplace(const CatalogGame& game);
+  // The archives' password, once the player has given one.
+  const std::optional<std::wstring>& Password() const { return password_; }
+  // Asks the player; false if they gave up.
+  bool AskPassword(const fs::path& archive, bool wrong);
   // The running extractor (a process handle, or nullptr when it has finished): Cancel ends it.
   void SetProcess(void* process);
 
@@ -68,15 +80,12 @@ class Job {
   std::atomic<bool> cancel_{false};
   std::mutex mutex_;
   void* process_ = nullptr;
+  const CatalogGame* confirmed_ = nullptr;
+  std::optional<std::wstring> password_;
 };
 
-// Identifies the game in the archive (only default.xex is extracted for that), extracts it into
-// games\.partial and moves the folder holding default.xex to games\<id>\game. A Games on Demand
-// archive: only that title's folders are extracted, then the package is converted.
-Outcome AddArchive(Job& job, const fs::path& archive);
-// Identifies the copy in the player's folder and remembers it; it is played where it is. A Games
-// on Demand copy is converted instead (written out to games\<id>\game).
-Outcome AddFolder(Job& job, const fs::path& folder);
+// Recognises `source` (a file or a folder) and adds the game in it.
+Outcome AddGame(Job& job, const fs::path& source);
 // Forgets a game. Only games\<id> is deleted: a folder of the player's is never in it.
 Outcome RemoveGame(Job& job, const CatalogGame& game);
 

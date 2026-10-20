@@ -2,8 +2,8 @@
 // their own copies, and the place to start them. The logic (the library, adding and removing games,
 // the text, the terms, starting a game) is in core/ (launcher_core); this file is the window.
 //
-// `--archive <file>` and `--folder <dir>` add a game without asking (unattended tests), `--select
-// <id>` selects one.
+// `--archive <file>` and `--folder <dir>` add a game without asking (unattended tests; any format,
+// `--password <text>` for a protected archive), `--select <id>` selects one.
 //
 // The text is in English and Spanish: Windows' display language picks one, the footer switches
 // (remembered). The terms of use must be accepted before the first use, and again whenever they
@@ -26,6 +26,7 @@
 #include <future>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -55,6 +56,9 @@ using namespace anyx360::launcher;
 namespace {
 
 const wchar_t* const kVersion = ANYX360_WIDEN(ANYX360_VERSION_FULL);
+// What the file dialog lists as games (packages have no extension: "All files" shows them).
+const wchar_t* const kGameFiles =
+    L"*.7z;*.zip;*.zipx;*.rar;*.001;*.iso;*.xiso;*.tar;*.gz;*.tgz;*.bz2;*.tbz2;*.xz;*.txz;*.zst;*.cab;*.wim;*.xex";
 
 constexpr UINT kMsgProgress = WM_APP + 1;    // wParam: Step, lParam: percent (-1 when unknown)
 constexpr UINT kMsgDone = WM_APP + 2;        // lParam: Outcome* of the job
@@ -87,6 +91,8 @@ int g_hover = -1;
 int g_scroll = 0;
 State g_state = State::kIdle;
 Message g_message;  // shown above the status
+std::vector<Message> g_notes;  // after it
+std::optional<std::wstring> g_password;  // --password
 Step g_step = Step::kChecking;
 int g_percent = -1;
 const CatalogGame* g_job_game = nullptr;  // the game being added or removed, once known
@@ -104,6 +110,10 @@ class WindowObserver : public JobObserver {
     std::future<bool> answered = answer.get_future();
     PostMessageW(g_window, kMsgAskReplace, WPARAM(&answer), LPARAM(&game));
     return answered.get();
+  }
+  // A password only from the command line, for now (once: a wrong one isn't asked again).
+  std::optional<std::wstring> AskPassword(const fs::path&, bool wrong) override {
+    return wrong ? std::nullopt : g_password;
   }
   void OnDone(const Outcome& outcome) override {
     PostMessageW(g_window, kMsgDone, 0, LPARAM(new Outcome(outcome)));
@@ -436,7 +446,9 @@ void UpdateUi() {
   for (const Game& g : g_games)
     if (!g.installed) others.push_back(g.info);
   SetDlgItemTextW(g_window, kSupported, others.empty() ? L"" : Tr(kTextAlsoSupported, {JoinTitles(others)}).c_str());
-  SetDlgItemTextW(g_window, kMessage, g_message.Render().c_str());
+  std::wstring message = g_message.Render();
+  for (const Message& note : g_notes) message += L" " + note.Render();
+  SetDlgItemTextW(g_window, kMessage, message.c_str());
   SetDlgItemTextW(g_window, kStatus, status.c_str());
   SetWindowLongPtrW(GetDlgItem(g_window, kStatus), GWLP_USERDATA, status_error);
   ShowWindow(GetDlgItem(g_window, kMessage), g_message.empty() ? SW_HIDE : SW_SHOW);
@@ -497,14 +509,15 @@ void StartJob(std::function<Outcome(Job&)> work) {
   g_step = Step::kChecking;
   g_percent = -1;
   g_message = {};
+  g_notes.clear();
   g_job_game = nullptr;
   g_worker.Start(g_observer, std::move(work));
   UpdateUi();
 }
 
-// `from_folder`: the player's folder, used in place; otherwise an archive (.7z, .rar or .zip) extracted here.
-void StartAdding(const fs::path& source, bool from_folder) {
-  StartJob([source, from_folder](Job& job) { return from_folder ? AddFolder(job, source) : AddArchive(job, source); });
+// Anything the player has: an archive, a disc image, a package, a folder (a disc's files are used in place).
+void StartAdding(const fs::path& source) {
+  StartJob([source](Job& job) { return AddGame(job, source); });
 }
 
 void CancelJob() { g_worker.Cancel(); }
@@ -521,16 +534,12 @@ void OnAdd(HWND anchor, POINT at) {
                               nullptr);
   DestroyMenu(menu);
   if (choice == kMenuArchive) {
-    if (SevenZip().empty()) {
-      MessageBoxW(g_window, Tr(kTextMissing7Zip).c_str(), L"AnyX360", MB_ICONERROR);
-      return;
-    }
     fs::path archive = ChooseFile(Tr(kTextDialogTitle),
-                                  {{Tr(kTextFilterArchive), L"*.7z;*.rar;*.zip"}, {Tr(kTextFilterAll), L"*.*"}}, false);
-    if (!archive.empty()) StartAdding(archive, false);
+                                  {{Tr(kTextFilterArchive), kGameFiles}, {Tr(kTextFilterAll), L"*.*"}}, false);
+    if (!archive.empty()) StartAdding(archive);
   } else if (choice == kMenuFolder) {
     fs::path folder = ChooseFile(Tr(kTextFolderTitle), {}, true);
-    if (!folder.empty()) StartAdding(folder, true);
+    if (!folder.empty()) StartAdding(folder);
   }
 }
 
@@ -546,12 +555,14 @@ void OnPlay() {
   Message error = StartGame(*game, [](uint32_t code) { PostMessageW(g_window, kMsgGameExited, code, 0); });
   if (!error.empty()) {
     g_message = error;
+    g_notes.clear();
     UpdateUi();
     return;
   }
   g_state = State::kRunning;
   g_running = game->info;
   g_message = {};
+  g_notes.clear();
   ShowWindow(g_window, SW_HIDE);
 }
 
@@ -561,10 +572,12 @@ void ChangeCover(const Game& game) {
   if (image.empty()) return;
   if (!DecodeImage(image) || !SetPlayerCover(*game.info, image)) {
     g_message = {kTextErrorCover, {}, true};
+    g_notes.clear();
     UpdateUi();
     return;
   }
   g_message = {};
+  g_notes.clear();
   LoadGames();
   UpdateUi();
 }
@@ -925,6 +938,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
       std::unique_ptr<Outcome> outcome(reinterpret_cast<Outcome*>(lparam));
       g_state = State::kIdle;
       g_message = outcome->message;
+      g_notes = outcome->notes;
       g_job_game = nullptr;
       if (g_close_after_cancel) {
         DestroyWindow(hwnd);
@@ -949,6 +963,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
       g_state = State::kIdle;
       wchar_t code[16];
       swprintf(code, 16, DWORD(wparam) > 255 ? L"0x%08X" : L"%u", DWORD(wparam));
+      g_notes.clear();
       g_message = {kTextErrorExited, {g_running ? g_running->title : L"", code}, true};
       g_running = nullptr;
       UpdateUi();
@@ -1051,8 +1066,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   std::wstring select;
   int argc = 0;
   LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-  for (int i = 1; i + 1 < argc; ++i)
+  for (int i = 1; i + 1 < argc; ++i) {
     if (std::wstring(argv[i]) == L"--select") select = argv[i + 1];
+    if (std::wstring(argv[i]) == L"--password") g_password = argv[i + 1];
+  }
   LoadGames(select);
   Layout();
   ApplyLanguage();
@@ -1066,8 +1083,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   SetFocus(g_gallery);
   for (int i = 1; i + 1 < argc && g_state == State::kIdle; ++i) {  // one job: the first one given
     std::wstring arg = argv[i];
-    if (arg == L"--archive" && !SevenZip().empty()) StartAdding(argv[i + 1], false);
-    if (arg == L"--folder") StartAdding(argv[i + 1], true);
+    if (arg == L"--archive" || arg == L"--folder") StartAdding(argv[i + 1]);
   }
   LocalFree(argv);
 

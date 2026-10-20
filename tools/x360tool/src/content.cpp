@@ -57,12 +57,14 @@ std::optional<ContentPackage> read_content_header(const fs::path& path) {
   std::ifstream in(path, std::ios::binary);
   if (!in) return std::nullopt;
   std::vector<uint8_t> h(kMinimumRead);
-  in.read(reinterpret_cast<char*>(h.data()), std::streamsize(h.size()));
-  if (size_t(in.gcount()) < kThumbnail) return std::nullopt;
-  h.resize(size_t(in.gcount()));
+  in.read(reinterpret_cast<char*>(h.data()), 4);  // the magic first: most files aren't packages
   ContentPackage package;
   package.magic.assign(reinterpret_cast<const char*>(h.data()), 4);
-  if (package.magic != "CON " && package.magic != "LIVE" && package.magic != "PIRS") return std::nullopt;
+  if (in.gcount() != 4 || (package.magic != "CON " && package.magic != "LIVE" && package.magic != "PIRS"))
+    return std::nullopt;
+  in.read(reinterpret_cast<char*>(h.data()) + 4, std::streamsize(h.size() - 4));
+  if (4 + size_t(in.gcount()) < kThumbnail) return std::nullopt;
+  h.resize(4 + size_t(in.gcount()));
   package.header_size = x360::load_be<uint32_t>(h.data() + kHeaderSize);
   package.content_type = x360::load_be<uint32_t>(h.data() + kContentType);
   package.title_id = x360::load_be<uint32_t>(h.data() + kTitleId);
