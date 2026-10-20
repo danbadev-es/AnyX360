@@ -10,24 +10,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ### Added
 
-- **Call of Duty: Modern Warfare 3 multiplayer** (in testing): `default_mp.xex` is recompiled as a
-  second program, `ModernWarfare3MP.exe`, which the campaign's main menu starts and whose Main
-  Menu entry goes back. Its menus, split screen (players 2-4 join with controllers, as guests or
-  with their profiles), the split screen lobby and a Team Deathmatch on Seatown work. Xbox LIVE
-  asks to sign in to Xbox LIVE and System Link finds no games. In the campaign's program, Special
-  Ops in split screen: Survival on Resistance with two players.
-- **Several executables per game**: game.json's `"executables"` names the program recompiled from
-  each XEX of a game (`anyx360_add_game_executable` in `cmake/Game.cmake`); they build with the
-  game and the release packages all of them. `GameDescriptor::xex_name` is the XEX a program
-  loads (`ExLoadedCommandLine` and `XexGetModuleHandle` follow it).
-- **A title starts its other executables**: `XamLoaderLaunchTitle` starts the program recompiled
-  from the XEX it names, with the same game, user folder and key, and hands it the launch data
-  (`<user>\launch_data.bin`, in Xenia's layout); the launcher's log keeps receiving the output.
-  A title without one ends as before.
-- `XamShowGameVoiceChannelUI` (a system UI that isn't shown).
-- The recompiler: `vmaxsb`.
-- When no frame has been presented for ten seconds, the thread dump also prints the host call
-  stack of the GPU's command processor, to see what it stopped on.
 - **Call of Duty: Black Ops II** (in testing): the single-player executable from a Games on Demand
   copy, with keyboard and mouse or a controller, at 60 FPS. The opening videos, the menus, the
   settings and saves, and the first mission (Pyrrhic Victory: its loading video, opening and
@@ -55,8 +37,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ### Changed
 
-- `XamLoaderGetLaunchData` copies what fits into the buffer and succeeds, and
-  `XamLoaderGetLaunchDataSize` refuses a null pointer, as in Xenia.
 - **The tick count advances every millisecond**, as the console's does (`GetTickCount`; it
   followed Windows', which moves in 15.6 ms steps). Black Ops II's multiplayer limits frames with
   it and ran at 40 FPS; it now runs at 60. Modern Warfare 3's split screen, 35-57 FPS before, held
@@ -71,14 +51,47 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ### Fixed
 
+- **`XamUserReadProfileSettings`**: a title-specific setting that was never written has no data
+  pointer, as in Xenia. Black Ops II checks the signature of every blob it gets a pointer to and
+  read past the end of an empty one.
+
+## [0.11.0] - 2026-10-20
+
+Call of Duty: Modern Warfare 3's multiplayer and Special Ops on one machine, in split screen.
+
+### Added
+
+- **Call of Duty: Modern Warfare 3 multiplayer** (in testing): `default_mp.xex` is recompiled as a
+  second program, `ModernWarfare3MP.exe`, which the campaign's main menu starts and whose Main
+  Menu entry goes back. Its menus, split screen (players 2-4 join with controllers, as guests or
+  with their profiles), the split screen lobby and a Team Deathmatch on Seatown work. Xbox LIVE
+  asks to sign in to Xbox LIVE and System Link finds no games. In the campaign's program, Special
+  Ops in split screen: Survival on Resistance with two players.
+- **Several executables per game**: game.json's `"executables"` names the program recompiled from
+  each XEX of a game (`anyx360_add_game_executable` in `cmake/Game.cmake`); they build with the
+  game and the release packages all of them. `GameDescriptor::xex_name` is the XEX a program
+  loads (`ExLoadedCommandLine` and `XexGetModuleHandle` follow it).
+- **A title starts its other executables**: `XamLoaderLaunchTitle` starts the program recompiled
+  from the XEX it names, with the same game, user folder and key, and hands it the launch data
+  (`<user>\launch_data.bin`, in Xenia's layout); the launcher's log keeps receiving the output.
+  A title without one ends as before.
+- `XamShowGameVoiceChannelUI` (a system UI that isn't shown).
+- The recompiler: `vmaxsb`.
+- When no frame has been presented for ten seconds, the thread dump also prints the host call
+  stack of the GPU's command processor, to see what it stopped on.
+
+### Changed
+
+- `XamLoaderGetLaunchData` copies what fits into the buffer and succeeds, and
+  `XamLoaderGetLaunchDataSize` refuses a null pointer, as in Xenia.
+
+### Fixed
+
 - **A lost GPU device when a 2D copy of a 3D texture failed to load**: the texture cache destroyed
   the copy at once although the GPU was still to write it, and the device was lost; the game
   stopped behind an error box (Modern Warfare 3, about one Survival load in four). The copy now
   stays with its texture and loads again on its next use. Any game whose shaders sample a 3D
   texture as 2D.
-- **`XamUserReadProfileSettings`**: a title-specific setting that was never written has no data
-  pointer, as in Xenia. Black Ops II checks the signature of every blob it gets a pointer to and
-  read past the end of an empty one.
 
 ## [0.10.0] - 2026-10-20
 
@@ -488,7 +501,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.7.1...v0.8.0
