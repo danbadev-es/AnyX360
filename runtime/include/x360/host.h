@@ -9,21 +9,34 @@
 // %LOCALAPPDATA%\AnyX360\<user_dir> for saves, cache and settings. Display flags override the values
 // in <user>\settings.toml for one session. The settings panel's "Restart now" relaunches with
 // --restarted-from: the new process waits for the old one to exit before touching the settings, cache
-// and saves.
+// and saves. A title that starts another of its executables (XamLoaderLaunchTitle) starts that one
+// the same way, with the same game, user and key.
 #pragma once
 
 #include <cstdint>
 #include <functional>
+#include <vector>
 
 #include "x360/settings.h"
 
 namespace x360::host {
 
+// One of a title's executables: a XEX in the game folder and the host executable recompiled from it.
+struct TitleExecutable {
+  const char* xex = "";  // "default_mp.xex"
+  const char* exe = "";  // "ModernWarfare3MP": next to this executable, without .exe
+};
+
 struct GameDescriptor {
   const char* title_name = "";    // "Gears of War 3": banner, window title fallback, error messages
   const char* user_dir = "";      // folder under %LOCALAPPDATA%\AnyX360
   const char* dev_game_dir = "";  // game folder relative to the repository root (development builds)
-  // Title ID of the default.xex this executable was recompiled from; another XEX is refused before
+  // The XEX in the game folder this executable was recompiled from.
+  const char* xex_name = "default.xex";
+  // Every executable of the title (game.json "executables"), which XamLoaderLaunchTitle can start;
+  // empty for a title with one: launching another XEX then ends the process.
+  std::vector<TitleExecutable> executables;
+  // Title ID of the XEX this executable was recompiled from; another XEX is refused before
   // anything starts (the recompiled code only matches its own executable). 0 skips the check.
   uint32_t title_id = 0;
   // The title presents every N vblanks at its normal frame rate (see gpu::SetVblanksPerFrame).

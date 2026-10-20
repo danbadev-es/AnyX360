@@ -343,7 +343,7 @@ bool DeliverUserApcs();
 // ---------------------------------------------------------------------------------------------
 
 struct TitleInfo {
-  std::filesystem::path xex_path;     // default.xex
+  std::filesystem::path xex_path;     // default.xex (GameDescriptor::xex_name)
   std::filesystem::path game_root;    // folder mounted as game:\ and d:\ (contains default.xex)
   std::filesystem::path user_root;    // writable folder for hdd, cache and saves
   std::filesystem::path key_path;     // keys/xex2_retail.key
@@ -353,6 +353,9 @@ struct TitleInfo {
   bool avatar_system = false;         // XamAvatarInitialize succeeds (GameDescriptor::avatar_system)
   uint32_t avatar_skeleton = 0;       // the avatar library's skeleton builder (GameDescriptor)
   uint8_t main_thread_processor = 1;  // hardware thread of the main thread (GameDescriptor)
+  // The title's executables XamLoaderLaunchTitle can start: {XEX name in lower case, host
+  // executable} (GameDescriptor::executables).
+  std::vector<std::pair<std::string, std::filesystem::path>> executables;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).
   std::function<void()> on_function_table;
 };

@@ -120,8 +120,10 @@ void SetupKernelVariables() {
   AllocVariable("KeDebugMonitorData", 4);
   AllocVariable("KeCertMonitorData", 4);
 
+  // The quoted name of the running XEX.
   uint32_t cmd = AllocVariable("ExLoadedCommandLine", 0x400);
-  std::strcpy(Ptr<char>(cmd), "\"default.xex\"");
+  std::string command_line = "\"" + g_paths.xex_path.filename().string() + "\"";
+  std::strncpy(Ptr<char>(cmd), command_line.c_str(), 0x3FF);
 
   // Object type descriptors (only their addresses matter to the title).
   for (const char* name : {"ExThreadObjectType", "ExEventObjectType", "ExMutantObjectType", "ExSemaphoreObjectType",

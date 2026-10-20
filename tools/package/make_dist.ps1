@@ -1,7 +1,7 @@
 # Builds the release for players: dist\AnyX360-<version>\ and a .zip of it. One folder for every game
 # the build has (the games registered in the launcher's catalog, build\launcher\Release\
 # games_catalog.h): the launcher (AnyX360.exe), each recompiled executable (with its .pdb, so crash
-# reports name functions), 7-Zip, the XEX key, each game's shader cache, the pose bridge when a game
+# reports name functions; a game can have several: game.json's "executables"), 7-Zip, the XEX key, each game's shader cache, the pose bridge when a game
 # is played with a webcam, the games' front covers (from covers\, which git doesn't keep), the README,
 # the terms of use (TERMS.txt; the launcher shows them in English or Spanish), the changelog and the
 # third-party licenses - no game data: the launcher extracts or writes out the player's own copies
@@ -41,6 +41,11 @@ if (-not $ids) { throw "The catalog lists no games" }
 $games = foreach ($id in $ids) {
   $info = Get-Content "$root\games\$id\game.json" -Raw | ConvertFrom-Json
   $info | Add-Member NoteProperty release "$root\build\games\$id\Release"
+  # Every executable of the game: the one the launcher starts and those the game starts in turn
+  # ("executables": {XEX: executable}), built with it.
+  $exes = @($info.exe)
+  if ($info.executables) { $exes = @($info.executables.PSObject.Properties | ForEach-Object { $_.Value }) }
+  $info | Add-Member NoteProperty exes $exes
   $info
 }
 if (-not $NoBuild) { foreach ($game in $games) { Build $game.id } }
@@ -53,8 +58,10 @@ $key = "$root\keys\xex2_retail.key"
 if (-not (Test-Path $key)) { throw "$key is missing" }
 if (-not (Test-Path "$launcherDir\AnyX360.exe")) { throw "$launcherDir\AnyX360.exe is missing: build first" }
 foreach ($game in $games) {
-  foreach ($file in "$($game.exe).exe", "$($game.exe).pdb") {
-    if (-not (Test-Path "$($game.release)\$file")) { throw "$($game.release)\$file is missing: build first" }
+  foreach ($exe in $game.exes) {
+    foreach ($file in "$exe.exe", "$exe.pdb") {
+      if (-not (Test-Path "$($game.release)\$file")) { throw "$($game.release)\$file is missing: build first" }
+    }
   }
 }
 # The English terms naming every game, as the launcher build filled them in.
@@ -128,7 +135,7 @@ foreach ($slug in $slugs) {
   if ($LASTEXITCODE -ne 0) { throw "x360tool cover failed for $source" }
 }
 foreach ($game in $games) {
-  Copy-Item "$($game.release)\$($game.exe).exe", "$($game.release)\$($game.exe).pdb" "$dist\bin"
+  foreach ($exe in $game.exes) { Copy-Item "$($game.release)\$exe.exe", "$($game.release)\$exe.pdb" "$dist\bin" }
   # Shaders and pipelines collected while testing: the launcher seeds the player's cache with them.
   $cache = "$env:LOCALAPPDATA\AnyX360\$($game.user_dir)\cache\shaders"
   if (Test-Path $cache) {

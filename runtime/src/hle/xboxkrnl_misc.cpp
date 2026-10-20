@@ -36,9 +36,11 @@ uint32_t XexGetModuleHandle(uint32_t name_ptr, uint32_t handle_ptr) {
   } else {
     std::string name = Ptr<const char>(name_ptr);
     for (char& c : name) c = char(std::tolower(uint8_t(c)));
+    std::string title = TitlePaths().xex_path.filename().string();  // "default.xex"
+    for (char& c : title) c = char(std::tolower(uint8_t(c)));
     if (name == "xboxkrnl.exe") handle = kKernelModuleHandle;
     else if (name == "xam.xex") handle = kXamModuleHandle;
-    else if (name == "default.xex") handle = Title().ldr_entry;
+    else if (name == title) handle = Title().ldr_entry;
   }
   if (handle_ptr) Store<uint32_t>(handle_ptr, handle);
   return handle ? X_STATUS_SUCCESS : X_STATUS_NO_SUCH_FILE;
