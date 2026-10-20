@@ -945,7 +945,9 @@ uint32_t XamLrcFail() { return 0x80004005; }
 constexpr uint32_t kAvatarFail = 0x80004005;  // E_FAIL, the extended error
 constexpr uint32_t kAvatarEmptyAssets = 0x100;  // an XAvatarGetAssets result with no components
 
-uint32_t XamAvatarInitialize(uint32_t coordinate_system) {
+// The avatar library calls it as (4, its coordinate system, a processor, its callbacks, a buffer and
+// its size) (Kinect Sports 82A820DC): the coordinate system is the second argument, 1 right-handed.
+uint32_t XamAvatarInitialize(uint32_t, uint32_t coordinate_system) {
   if (!TitlePaths().avatar_system) return 0xFFFFFFFF;
   x360::avatar::Initialize(coordinate_system);
   return X_ERROR_SUCCESS;

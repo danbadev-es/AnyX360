@@ -17,11 +17,12 @@ void Initialize(uint32_t coordinate_system);
 // another game left in the shared system folder).
 bool Available();
 
-// Writes an avatar description: the default male or female avatar, or a random one.
+// Writes an avatar description, in the console's format: the default male or female avatar, or a
+// random one.
 enum class Look { kMale, kFemale, kRandom };
 void WriteMetadata(uint32_t metadata, Look look, uint32_t seed);
 
-// The body type (1 male, 2 female) of a description written by WriteMetadata (1 for others).
+// The body type (1 male, 2 female) of a description (1 if it names no body).
 uint32_t BodyType(uint32_t metadata);
 
 // Buffer sizes that suffice for any avatar with these components (XamAvatarGetAssetsResultSize).

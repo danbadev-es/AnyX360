@@ -35,6 +35,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -495,6 +496,15 @@ int cmd_avatar_model(const fs::path& toc, const std::string& which, const std::o
     const auto& mesh = model.meshes[m];
     std::printf("  mesh %zu: material %u, %u vertices, %u triangles, %u UV sets, %zu parameters\n", m, mesh.material,
                 mesh.vertex_count, mesh.triangles, mesh.uv_sets, mesh.params.size());
+    for (const auto& p : mesh.params) {
+      if (p.kind == 1) {
+        std::printf("    %2u: texture %u, UV set %u, flags %08X\n", p.id, p.values[0], p.values[1], p.values[2]);
+      } else {
+        float f[4];
+        std::memcpy(f, p.values, sizeof(f));
+        std::printf("    %2u: kind %u (%g, %g, %g, %g)\n", p.id, p.kind, f[0], f[1], f[2], f[3]);
+      }
+    }
   }
   for (const auto& t : model.textures)
     std::printf("  texture: format %08X %ux%u, %u slices%s%s\n", t.format, t.width, t.height, t.slice_count,
