@@ -14,5 +14,9 @@ int main(int argc, char** argv) {
   game.title_id = game_info::kTitleId;
   // Call of Duty runs at 60 FPS on the console: it presents every vblank.
   game.vblanks_per_frame = 1;
+  // The main thread on hardware thread 0, as on the console: the game puts its first worker thread on
+  // 1 and keeps per-processor buffers for the models it builds, which the two shared otherwise (the
+  // first level crashed while loading).
+  game.main_thread_processor = 0;
   return x360::host::RunHost(argc, argv, game);
 }
