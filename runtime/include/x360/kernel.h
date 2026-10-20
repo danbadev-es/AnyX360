@@ -332,6 +332,7 @@ struct TitleInfo {
   std::filesystem::path key_path;     // keys/xex2_retail.key
   gpu::DisplayConfig display;         // window, render scale, frame rate
   std::string title_name;             // window title if the XEX has no title name
+  bool arcade = false;                // an Xbox Live Arcade title: game:\ is its package's contents
   // Called once the function table is filled, before the title runs (game-specific debug hooks).
   std::function<void()> on_function_table;
 };
@@ -378,6 +379,9 @@ void SignOutUser(uint32_t user_index);  // players 2-4
 // lowered their arm): the title sees the system UI open while it is, and pauses as it would on the
 // console. There is no overlay. Any thread.
 void SetKinectGuideOpen(bool open);
+// Queues a system notification (XNotify ID) for every listener of its area. Any thread.
+constexpr uint32_t kNotifyNuiBindingChanged = 0x0006001D;  // a Kinect body bound to a profile
+void Notify(uint32_t id, uint32_t param);
 void InitVideo();
 void InitAudio();
 

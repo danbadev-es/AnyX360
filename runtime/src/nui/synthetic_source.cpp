@@ -8,6 +8,7 @@
 //   enter, leave             the player walks into / out of view
 //   menu_right, menu_left    that arm held out to the side at shoulder height (the menu pose)
 //   hand_up, hand_down       the raised hand moves 12 cm (over the duration, default 0.3 s)
+//   hand_y_<cm>              the raised hand moves to that height from the shoulder's (same)
 //   swipe_left, swipe_right  the raised hand sweeps across the body and back (default 0.6 s)
 //   lower                    both arms down
 //   wave                     the right hand waves (default 2 s)
@@ -190,11 +191,12 @@ class SyntheticSource : public Source {
     } else if (e.action == "menu_left") {
       p.left = Arm::kMenu;
       p.left_y = 0;
-    } else if (e.action == "hand_up" || e.action == "hand_down") {
+    } else if (float cm; e.action == "hand_up" || e.action == "hand_down" ||
+                         std::sscanf(e.action.c_str(), "hand_y_%f", &cm) == 1) {
       p.move_left_hand = p.right != Arm::kMenu && p.left == Arm::kMenu;
       float& y = p.move_left_hand ? p.left_y : p.right_y;
       p.from_y = y;
-      p.to_y = y + (e.action == "hand_up" ? 0.12f : -0.12f);
+      p.to_y = e.action == "hand_up" ? y + 0.12f : e.action == "hand_down" ? y - 0.12f : cm / 100;
       p.move_start = time;
       p.move_end = time + duration(0.3);
     } else if (e.action == "swipe_left" || e.action == "swipe_right") {

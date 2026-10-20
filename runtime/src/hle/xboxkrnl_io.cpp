@@ -175,7 +175,12 @@ uint32_t OpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_
   static const bool log_files = std::getenv("ANYX360_LOG_FILES") != nullptr;
   if (log_files) KLOG_I("open %s (access %08X, disposition %u, options %08X)", guest.c_str(), desired_access, disposition, create_options);
   if (!r.ok) {
-    KLOG_W("NtCreateFile: unresolved path '%s'", guest.c_str());
+    // A path with no device: some titles try one relative to the current directory (root
+    // 0xFFFFFFFD, none on the console either) and then the same file under game:\.
+    if (guest.find(':') == std::string::npos && !guest.starts_with("\\"))
+      KLOG_T("NtCreateFile: relative path '%s' (root %08X)", guest.c_str(), root);
+    else
+      KLOG_W("NtCreateFile: unresolved path '%s'", guest.c_str());
     SetIoStatus(io_status, X_STATUS_OBJECT_PATH_NOT_FOUND, 0);
     return X_STATUS_OBJECT_PATH_NOT_FOUND;
   }
@@ -312,6 +317,8 @@ uint32_t NtReadFile(uint32_t handle, uint32_t event, uint32_t apc_routine, uint3
   uint64_t offset;
   uint32_t read = 0;
   uint32_t status = ReadAt(*file, OffsetArg(byte_offset_ptr, offset), buffer, length, &read);
+  static const bool log_files = std::getenv("ANYX360_LOG_FILES") != nullptr;
+  if (log_files) KLOG_I("read %s: %u bytes -> %08X, %u read", file->guest_path.c_str(), length, status, read);
   SetIoStatus(io_status, status, read);
   SignalEvent(event);
   return status;
@@ -444,10 +451,19 @@ uint32_t NtQueryInformationFile(uint32_t handle, uint32_t io_status, uint32_t in
       Store<uint32_t>(info, 0x800);
       written = 4;
       break;
-    case 27:  // FileXctdCompressionInformation
-      Store<uint32_t>(info, 0);
+    case 27: {  // FileXctdCompressionInformation
+      // Whether the file is compressed for XAPI to expand as it reads (Fruit Ninja Kinect's
+      // packages): the XMemCompress header 0FF512ED at its start. Answering "no" for one handed
+      // the title compressed bytes, which it read again and again.
+      uint8_t magic[4] = {};
+      DWORD got = 0;
+      OVERLAPPED ov{};
+      bool compressed = file->handle != INVALID_HANDLE_VALUE && ReadFile(file->handle, magic, 4, &got, &ov) &&
+                        got == 4 && magic[0] == 0x0F && magic[1] == 0xF5 && magic[2] == 0x12 && magic[3] == 0xED;
+      Store<uint32_t>(info, compressed ? 1 : 0);
       written = 4;
       break;
+    }
     case 34:  // FileNetworkOpenInformation
       if (!WriteNetworkOpenInfo(file->host_path, info)) return X_STATUS_NO_SUCH_FILE;
       written = 56;

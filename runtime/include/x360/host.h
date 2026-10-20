@@ -30,6 +30,9 @@ struct GameDescriptor {
   uint32_t vblanks_per_frame = 2;
   // The only frame rate the title runs at (0: 30 or 60, the player's choice).
   uint32_t fixed_fps = 0;
+  // An Xbox Live Arcade title, run from its package's contents: XTitleGetDeploymentType reports a
+  // download and its content volume is on the hard drive.
+  bool arcade = false;
   // Game-specific default settings, applied before settings.toml is read.
   std::function<void(settings::Settings&)> defaults;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).

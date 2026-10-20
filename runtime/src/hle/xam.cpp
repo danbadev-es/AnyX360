@@ -265,6 +265,10 @@ uint32_t XamUserGetCachedUserFlags(uint32_t user_index) {
 
 // ---- profile settings -------------------------------------------------------------------------
 // Setting id: type << 28 | size << 16 | id. Title-specific blobs are persisted on disk.
+//
+// XUSER_PROFILE_SETTING (40 bytes, the XDK's natural alignment): source (0), user index or XUID
+// (8), setting id (0x10), XUSER_DATA: type (0x18), value (0x20; binary and strings: size at 0x20,
+// pointer at 0x24). Read and written packed (id at 0x0C) until 0.7.0, no title's blob was ever saved.
 
 std::mutex g_profile_mutex;
 std::map<std::pair<uint32_t, uint32_t>, std::vector<uint8_t>> g_profile_blobs;  // (player, id)
@@ -307,6 +311,9 @@ uint32_t ReadProfileSettings(uint32_t title_id, uint32_t user_index, uint32_t xu
   uint32_t needed = header + data * users;
   uint32_t buffer_size = Load<uint32_t>(buffer_size_ptr);
   if (!buffer || buffer_size < needed) {
+    if (buffer)
+      KLOG_I("XamUserReadProfileSettings(%u settings, first %08X): buffer %u bytes, %u needed", setting_count,
+             Load<uint32_t>(setting_ids), buffer_size, needed);
     Store<uint32_t>(buffer_size_ptr, needed);
     return X_ERROR_INSUFFICIENT_BUFFER;
   }
@@ -331,13 +338,13 @@ uint32_t ReadProfileSettings(uint32_t title_id, uint32_t user_index, uint32_t xu
     uint32_t type = id >> 28, size = (id >> 16) & 0xFFF;
     Store<uint32_t>(s + 0x00, 1);  // source: default
     if (xuids) {
-      Store<uint64_t>(s + 0x04, user->xuid);
+      Store<uint64_t>(s + 0x08, user->xuid);
     } else {
-      Store<uint32_t>(s + 0x04, 0xFFFFFFFF);
       Store<uint32_t>(s + 0x08, user_index);
+      Store<uint32_t>(s + 0x0C, 0xFFFFFFFF);
     }
-    Store<uint32_t>(s + 0x0C, id);
-    Store<uint8_t>(s + 0x10, uint8_t(type));
+    Store<uint32_t>(s + 0x10, id);
+    Store<uint8_t>(s + 0x18, uint8_t(type));
     if (type == 4 || type == 6) {
       std::vector<uint8_t>* blob = ProfileBlob(user_index, id);
       uint32_t length = blob ? std::min<uint32_t>(uint32_t(blob->size()), size) : 0;
@@ -347,8 +354,8 @@ uint32_t ReadProfileSettings(uint32_t title_id, uint32_t user_index, uint32_t xu
       } else if ((id & 0xFFFF) >= 0x3FFD) {
         Store<uint32_t>(s + 0x00, 0);  // title-specific blob never written: no value
       }
-      Store<uint32_t>(s + 0x18, length);
-      Store<uint32_t>(s + 0x1C, extra);
+      Store<uint32_t>(s + 0x20, length);
+      Store<uint32_t>(s + 0x24, extra);
       extra += size;
     }
   }
@@ -367,15 +374,18 @@ uint32_t XamUserWriteProfileSettings(uint32_t title_id, uint32_t user_index, uin
   (void)title_id;
   if (user_index >= 4) user_index = 0;
   LogOtherUser("XamUserWriteProfileSettings", user_index, 0);
+  KLOG_I("XamUserWriteProfileSettings(player %u, %u settings, overlapped %08X)", user_index + 1, setting_count,
+         overlapped);
   std::lock_guard lock(g_profile_mutex);
   std::error_code ec;
   fs::create_directories(ProfileDir(user_index), ec);
   for (uint32_t i = 0; i < setting_count; ++i) {
     uint32_t s = settings + i * 40;
-    uint32_t id = Load<uint32_t>(s + 0x0C);
-    uint32_t type = Load<uint8_t>(s + 0x10);
+    uint32_t id = Load<uint32_t>(s + 0x10);
+    uint32_t type = Load<uint8_t>(s + 0x18);
     if (type != 4 && type != 6) continue;
-    uint32_t length = Load<uint32_t>(s + 0x18), data = Load<uint32_t>(s + 0x1C);
+    uint32_t length = std::min<uint32_t>(Load<uint32_t>(s + 0x20), (id >> 16) & 0xFFF);
+    uint32_t data = Load<uint32_t>(s + 0x24);
     std::vector<uint8_t> blob(Ptr(data), Ptr(data) + length);
     char name[32];
     std::snprintf(name, sizeof(name), "%08X.bin", id);
@@ -793,6 +803,30 @@ uint32_t XamShowKeyboardUI(uint32_t user_index, uint32_t flags, uint32_t default
 // The remaining UI entry points show Live/guide screens that do not exist here.
 uint32_t XamShowUIStub() { return X_ERROR_SUCCESS; }
 
+// The marketplace: there is none, but the title sees the system UI open and close, as when the
+// player backs out. The license stays full (XamContentGetLicenseMask), so an arcade title is never
+// a trial and its "unlock full game" offer has nothing to do.
+uint32_t XamShowMarketplaceUI(uint32_t user_index, uint32_t ui_type, uint64_t offer_id) {
+  KLOG_I("XamShowMarketplaceUI(%u, %u, %016llX)", user_index, ui_type, (unsigned long long)offer_id);
+  Broadcast(kNotifySystemUi, 1);
+  Broadcast(kNotifySystemUi, 0);
+  return X_ERROR_SUCCESS;
+}
+uint32_t XamShowNuiMarketplaceUI(uint32_t tracking_id, uint32_t user_index, uint32_t ui_type, uint64_t offer_id) {
+  (void)tracking_id;
+  return XamShowMarketplaceUI(user_index, ui_type, offer_id);
+}
+// {user, UI type, offers (u64[]), offer count, HRESULT*, overlapped}: nothing downloaded.
+uint32_t XamShowMarketplaceDownloadItemsUI(uint32_t user_index, uint32_t ui_type, uint32_t offers,
+                                           uint32_t offer_count, uint32_t hresult_ptr, uint32_t overlapped) {
+  (void)offers;
+  KLOG_I("XamShowMarketplaceDownloadItemsUI(%u, %u, %u offers)", user_index, ui_type, offer_count);
+  Broadcast(kNotifySystemUi, 1);
+  Broadcast(kNotifySystemUi, 0);
+  if (hresult_ptr) Store<uint32_t>(hresult_ptr, 0);
+  return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
+}
+
 // Kinect versions of the system UI take the tracking ID of the skeleton that asked first.
 uint32_t XamShowNuiSigninUI(uint32_t tracking_id, uint32_t count, uint32_t flags) {
   (void)tracking_id;
@@ -856,7 +890,19 @@ uint32_t XamVoiceIsActiveProcess() { return 0; }
 uint32_t XamVoiceSubmitPacket() { return 0; }
 
 uint32_t XamReadTileToTexture() { return X_ERROR_NOT_FOUND; }
-uint32_t XamWriteGamerTile() { return X_ERROR_NOT_FOUND; }
+// (user, title, big tile, small tile, for enumeration, overlapped): the title sets the player's gamer
+// picture to one of its own. There is none to change: done. Refused, Fruit Ninja Kinect said its
+// progress couldn't be saved.
+uint32_t XamWriteGamerTile(uint32_t user_index, uint32_t title_id, uint32_t big_tile, uint32_t small_tile,
+                           uint32_t for_enumerate, uint32_t overlapped) {
+  (void)title_id, (void)big_tile, (void)small_tile, (void)for_enumerate;
+  uint32_t result = user_index < 4 ? X_ERROR_SUCCESS : X_ERROR_INVALID_PARAMETER;
+  if (overlapped) return Complete(overlapped, result);
+  // Called without an overlapped, it leaves its result as the thread's last error (KTHREAD+0x160),
+  // which Fruit Ninja Kinect reads instead of the return value; a stale one made it fail.
+  if (Thread* thread = CurrentThread()) Store<uint32_t>(thread->kthread + 0x160, result);
+  return result;
+}
 
 uint32_t XamGetCurrentTitleId() { return Title().title_id; }
 uint32_t XamBackgroundDownloadSetMode(uint32_t mode) {
@@ -952,8 +998,10 @@ uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_
         case 0x000B0010:  // XSessionCreate (offline sessions are allowed)
         case 0x000B0011:  // XSessionDelete
         case 0x000B0012:  // XSessionJoinLocal
+        case 0x000B0013:  // XSessionLeaveLocal
         case 0x000B0014:  // XSessionStart
         case 0x000B0015:  // XSessionEnd
+        case 0x000B0025:  // XSessionWriteStats (kept nowhere: there are no leaderboards)
         case 0x000B0071:  // XUserAwardAvatarAssets
           return kHrSuccess;
         case 0x000B0021:  // XUserReadStats
@@ -980,8 +1028,12 @@ uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_
       switch (message) {
         case 0x00021012:  // XEnableGuestSignin {enabled} (Kinect Adventures, every frame)
           return kHrSuccess;
-        case 0x00022005:  // XTitleGetDeploymentType {type*, overlapped}: from the disc
-          if (uint32_t type = Load<uint32_t>(buffer)) Store<uint32_t>(type, 0);
+        case 0x00020021:  // XContentQueryVolumeDeviceType {root name[64], title process, type*, overlapped}
+          // The title's volume: the hard drive for an arcade title (a download), else the disc.
+          if (uint32_t type = Load<uint32_t>(buffer + 0x44)) Store<uint32_t>(type, TitlePaths().arcade ? 1 : 4);
+          return kHrSuccess;
+        case 0x00022005:  // XTitleGetDeploymentType {type*, overlapped}: 0 the disc, 2 a download
+          if (uint32_t type = Load<uint32_t>(buffer)) Store<uint32_t>(type, TitlePaths().arcade ? 2 : 0);
           return kHrSuccess;
         case 0x0002B001:  // XNuiDelayUI {milliseconds}
         case 0x0002B003:  // XNuiTitleInitialize {xam version, XTL version, flags}
@@ -1075,6 +1127,8 @@ void SetKinectGuideOpen(bool open) {
   Broadcast(kNotifySystemUi, open ? 1 : 0);
 }
 
+void Notify(uint32_t id, uint32_t param) { Broadcast(id, param); }
+
 void SignOutUser(uint32_t user_index) {
   if (user_index == 0 || user_index >= 4) return;
   {
@@ -1142,7 +1196,8 @@ X360_EXPORT(XamShowFriendRequestUI, XamShowUIStub)
 X360_EXPORT(XamShowFriendsUI, XamShowUIStub)
 X360_EXPORT(XamShowGameInviteUI, XamShowUIStub)
 X360_EXPORT(XamShowGamerCardUIForXUID, XamShowUIStub)
-X360_EXPORT(XamShowMarketplaceUI, XamShowUIStub)
+X360_EXPORT(XamShowMarketplaceUI, XamShowMarketplaceUI)
+X360_EXPORT(XamShowMarketplaceUIEx, XamShowMarketplaceUI)
 X360_EXPORT(XamShowMessageComposeUI, XamShowUIStub)
 X360_EXPORT(XamShowMessagesUI, XamShowUIStub)
 X360_EXPORT(XamShowPlayerReviewUI, XamShowUIStub)
@@ -1191,10 +1246,10 @@ X360_EXPORT(XamShowNuiGuideUI, XamShowNuiGuideUI)
 X360_EXPORT(XamShowNuiTroubleshooterUI, XamShowUIStub)
 X360_EXPORT(XamShowNuiFriendsUI, XamShowUIStub)
 X360_EXPORT(XamShowNuiGamerCardUIForXUID, XamShowUIStub)
-X360_EXPORT(XamShowNuiMarketplaceUI, XamShowUIStub)
+X360_EXPORT(XamShowNuiMarketplaceUI, XamShowNuiMarketplaceUI)
 X360_EXPORT(XamShowNuiPartyUI, XamShowUIStub)
 X360_EXPORT(XamShowNuiControllerRequiredUI, XamShowUIStub)
-X360_EXPORT(XamShowMarketplaceDownloadItemsUI, XamShowUIStub)
+X360_EXPORT(XamShowMarketplaceDownloadItemsUI, XamShowMarketplaceDownloadItemsUI)
 X360_EXPORT(XamBackgroundDownloadSetMode, XamBackgroundDownloadSetMode)
 X360_EXPORT(XamLrcSetTitlePort, XamLrcSetTitlePort)
 X360_EXPORT(XamLrcVerifyClientId, XamLrcFail)

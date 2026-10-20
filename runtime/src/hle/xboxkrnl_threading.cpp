@@ -472,6 +472,16 @@ uint32_t ObOpenObjectByPointer(uint32_t object, uint32_t handle_ptr) {
   if (handle_ptr) Store<uint32_t>(handle_ptr, handle);
   return handle ? X_STATUS_SUCCESS : X_STATUS_INVALID_PARAMETER;
 }
+// Opens a named object (an event, semaphore...) created earlier with that name.
+uint32_t ObOpenObjectByName(uint32_t object_attributes, uint32_t object_type, uint32_t unknown, uint32_t handle_ptr) {
+  (void)object_type, (void)unknown;
+  std::string name = ObjectName(object_attributes);
+  auto object = name.empty() ? nullptr : LookupNamedObject(name);
+  KLOG_I("ObOpenObjectByName(%s) -> %s", name.c_str(), object ? "found" : "not found");
+  if (!object) return X_STATUS_OBJECT_NAME_NOT_FOUND;
+  if (handle_ptr) Store<uint32_t>(handle_ptr, CreateHandle(object));
+  return X_STATUS_SUCCESS;
+}
 uint32_t ObIsTitleObject(uint32_t object) {
   (void)object;
   return 1;
@@ -685,6 +695,7 @@ X360_EXPORT(ObReferenceObject, ObReferenceObject)
 X360_EXPORT(ObDereferenceObject, ObDereferenceObject)
 X360_EXPORT(ObLookupThreadByThreadId, ObLookupThreadByThreadId)
 X360_EXPORT(ObOpenObjectByPointer, ObOpenObjectByPointer)
+X360_EXPORT(ObOpenObjectByName, ObOpenObjectByName)
 X360_EXPORT(ObIsTitleObject, ObIsTitleObject)
 X360_EXPORT(InterlockedPopEntrySList, HleInterlockedPopEntrySList)
 X360_EXPORT(InterlockedFlushSList, HleInterlockedFlushSList)

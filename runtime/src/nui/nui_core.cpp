@@ -41,6 +41,7 @@ constexpr uint32_t kSkeletonFrameSize = 0xAB0;
 constexpr uint32_t kSkeletonDataSize = 0x1C0;
 constexpr uint32_t kTitleSetsTracked = 2;  // NUI_SKELETON_TRACKING_FLAG_TITLE_SETS_TRACKED_SKELETONS
 enum : uint32_t { kSkeletonNotTracked = 0, kSkeletonPositionOnly = 1, kSkeletonTracked = 2 };
+constexpr uint32_t kUserIndexNone = 0xFE;  // XUSER_INDEX_NONE
 
 std::mutex g_mutex;
 std::condition_variable g_frame_cv;
@@ -131,7 +132,13 @@ void WriteSkeletonFrame(uint32_t frame) {
   const float up[3] = {0, std::cos(tilt), std::sin(tilt)};
   StoreVector(frame + 0x10, up, g_camera_height);
   StoreVector(frame + 0x20, up, 0);
-  uint32_t order = 0;
+  // The profile each body belongs to (+0x0C): XUSER_INDEX_NONE unless the system bound it, as the
+  // XDK fills it. Fully tracked bodies are bound in order to the signed-in players (the first to
+  // player 1). Fruit Ninja Kinect pairs its players with their bodies by this field alone; left 0,
+  // the empty slots claimed player 1 and the main menu found no player.
+  for (uint32_t slot = 0; slot < kSkeletonCount; ++slot)
+    Store<uint32_t>(frame + 0x30 + slot * kSkeletonDataSize + 0x0C, kUserIndexNone);
+  uint32_t order = 0, bound = 0;
   for (uint32_t slot = 0; slot < kSkeletonCount; ++slot) {
     if (!g_slots[slot]) continue;
     const Body* body = nullptr;
@@ -144,6 +151,7 @@ void WriteSkeletonFrame(uint32_t frame) {
     Store<uint32_t>(data + 0x04, body->id);
     StoreVector(data + 0x10, body->position, 1);
     if (!tracked) continue;
+    if (const uint32_t user = bound++; user < 4 && kernel::IsUserSignedIn(user)) Store<uint32_t>(data + 0x0C, user);
     for (uint32_t j = 0; j < kJointCount; ++j) {
       StoreVector(data + 0x20 + j * 16, body->joints[j], 1);
       Store<uint32_t>(data + 0x160 + j * 4, body->joint_state[j]);
