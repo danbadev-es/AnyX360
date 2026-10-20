@@ -6,7 +6,7 @@
 
 [main]
 file_path = "../../extracted/ka/game/Default.xex"
-out_directory_path = "recomp"
+out_directory_path = "recomp2"
 switch_table_file_path = "switch_tables.toml"
 
 # Optimisations stay off until the game runs (XenonRecomp recommendation).
