@@ -289,6 +289,20 @@ int main() {
     CHECK(Load<int32_t>(kIds) == 27);
   }
 
+  {  // A depth pixel on the color image: the cameras share their optical centre, the color camera's
+     // view is wider (the depth image's edge is 23 pixels in on a 640x480 color image).
+    const uint32_t x = kIds, y = kIds + 4;
+    CHECK(nui::ColorPixelFromDepthPixel(2, 0, 159, 119, 2000 << 3, x, y) == nui::kOk);
+    CHECK(Load<int32_t>(x) == 319 && Load<int32_t>(y) == 239);
+    CHECK(nui::ColorPixelFromDepthPixel(2, 0, 0, 0, 2000 << 3, x, y) == nui::kOk);
+    CHECK(Load<int32_t>(x) == 23 && Load<int32_t>(y) == 17);
+    CHECK(nui::ColorPixelFromDepthPixel(2, 0, 319, 239, 800 << 3, x, y) == nui::kOk);
+    CHECK(Load<int32_t>(x) == 616 && Load<int32_t>(y) == 462);
+    CHECK(nui::ColorPixelFromDepthPixel(1, 0, 0, 0, 2000 << 3, x, y) == nui::kOk);  // 320x240 color
+    CHECK(Load<int32_t>(x) == 11 && Load<int32_t>(y) == 8);
+    CHECK(nui::ColorPixelFromDepthPixel(4, 0, 0, 0, 0, x, y) == nui::kInvalidArg);
+  }
+
   nui::Shutdown();
   CHECK(!nui::GetStatus().initialized);
 

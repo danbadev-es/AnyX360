@@ -10,6 +10,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ### Added
 
+- **Kinect Party** (in testing): Double Fine's Xbox Live Arcade game from its package, played with
+  the webcam. It starts, the channels play on their own (auto play) with the camera picture and one
+  or two players cut out of it, and Kung Fu, Monster Attack and Invaders were played with the
+  scripted player. The "Full Unlock" pack next to the package is installed with it and opens every
+  channel. The channel guide opens with a controller's START and is played with the hand. 30 FPS.
+- The virtual Kinect gives titles the depth image (with the player index) as the color camera sees
+  it, and the color image as the depth camera sees it (the 2012 library's image types), and maps a
+  depth pixel to the color image itself (`NuiImageGetColorPixelCoordinatesFromDepthPixel`): the
+  libraries compute it from the real camera's calibration.
+- The recompiler: `fnmadd`, the unpacks of four float16s and four shorts and the pack of four
+  shorts (`vupkd3d128`, `vpkd3d128`), which were recompiled as traps; and jump tables placed after
+  their dispatch that end in code which is no case of them.
 - **The Kinect Guide icon** in the bottom-left corner while the guide gesture's pose is held, as on
   the console: a ring that fills until the guide opens (Kinect Adventures' first start tells the
   player to look there). When the left arm is held out to the side and the pose still isn't
