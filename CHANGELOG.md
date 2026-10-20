@@ -8,6 +8,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **The Kinect Guide icon** in the bottom-left corner while the guide gesture's pose is held, as on
+  the console: a ring that fills until the guide opens (Kinect Adventures' first start tells the
+  player to look there). When the left arm is held out to the side and the pose still isn't
+  recognised, the game's log says which part of it is off.
+
+### Fixed
+
+- **Kinect Adventures' first start stayed on "Gesto de guía, ¡prueba!"** with a webcam: the Kinect
+  Guide gesture (the left arm out and down at 45 degrees) wasn't recognised although the debug
+  window showed the arm at 45 degrees. The pose was measured in 3D with fixed lengths, so the
+  webcam's depth errors or a smaller person's arms rejected it. The arms are now measured across the
+  body, as a person judges "45 degrees", against the person's own arm: 28 to 65 degrees out, the arm
+  nearly straight and not reaching towards the screen, the right arm down. Every Kinect game.
+
 ## [0.12.0] - 2026-10-20
 
 Call of Duty: Black Ops II: the campaign, and multiplayer and Zombies on one machine, in split

@@ -61,7 +61,16 @@ the names, signatures and evidence are in [nui_api.md](../games/ka/notes/nui_api
   showed "IDENTIFYING" for good.
 - **The Kinect Guide gesture** (the left arm held out and down at 45 degrees for 1.5 s) opens the
   system UI, as on the console: the game pauses and shows its pause menu. It is recognised by the
-  virtual sensor, not the title.
+  virtual sensor, not the title (`nui::MeasureGuidePose`), measured across the body's frontal plane
+  against the player's own arm, so a webcam's depth errors and smaller players don't matter: the left
+  arm 28-65 degrees from straight down, nearly straight, not reaching towards the screen; the right
+  arm down. The Kinect Guide icon fills in the bottom-left corner while the pose is held, as on the
+  console.
+- **First start**: a new player's first start runs a short introduction (play space, then "Gesto de
+  guía, ¡prueba!"), which waits for the Kinect Guide to open: hold the guide gesture until the icon
+  fills. Before 0.12.1 the pose often wasn't recognised from a webcam there. If it still isn't, the
+  log (`logs\ka\last_run.log`) has a line "not the Kinect guide gesture: ..." saying which measure
+  the pose misses.
 
 The scripted player has the whole-body moves the activities need: `jump`, `crouch`,
 `lean_left/right`, `step_left/right`, `walk_in/out`, `hands_up`, `arms_out` and `flap`

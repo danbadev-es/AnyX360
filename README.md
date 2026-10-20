@@ -153,7 +153,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   sure the tracking is), the frame rate, where the latency goes, and the measured tilt. It picks
   the webcam and changes mirroring, field of view, smoothing, players, the pose model and the tilt.
 - **Kinect Guide Gesture** - The left arm held out and down at 45 degrees pauses the game, as on
-  the console.
+  the console, with the Kinect Guide icon filling in the bottom-left corner while it is held.
 - **Kinect Debug Window** - F3 opens a window of its own, for a second monitor, with everything the
   virtual Kinect sees: the image with every skeleton, the depth image, the play space from above
   and from the side, each joint and the latency over the last 10 seconds.
