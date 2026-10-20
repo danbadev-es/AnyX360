@@ -10,6 +10,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ### Added
 
+- **Kinect Joy Ride** (in testing): BigPark's kart racer from a Games on Demand copy, played with
+  the webcam at 30 FPS, as on the console. The menus, the garage with the player's Xbox Avatar,
+  the vehicle and track choice, Pro Race played to the finish (steering, turbo, drifts and tricks),
+  the start of Battle Race and a two-player race in split screen work with the scripted player.
+  The drivers are avatars, made from the avatar data its own disc carries.
+- Its downloadable content: the Chevy Volt pack unlocks the Volt. The Chevrolet Car Pack needs the
+  Title Update (the base game reads its unlock list but never loads the cars): the launcher leaves
+  it out. A game's packs that need the Title Update can now be named one by one in game.json
+  (`content_needs_update`).
 - **Kinect Party** (in testing): Double Fine's Xbox Live Arcade game from its package, played with
   the webcam. It starts, the channels play on their own (auto play) with the camera picture and one
   or two players cut out of it, and Kung Fu, Monster Attack and Invaders were played with the
@@ -19,13 +28,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   it, and the color image as the depth camera sees it (the 2012 library's image types), and maps a
   depth pixel to the color image itself (`NuiImageGetColorPixelCoordinatesFromDepthPixel`): the
   libraries compute it from the real camera's calibration.
-- The recompiler: `fnmadd`, the unpacks of four float16s and four shorts and the pack of four
-  shorts (`vupkd3d128`, `vpkd3d128`), which were recompiled as traps; and jump tables placed after
-  their dispatch that end in code which is no case of them.
+- The scripted test player (`ANYX360_NUI_SCRIPT`) drives: `wheel_<degrees>` holds a steering
+  wheel turned by that angle, `boost` pulls the hands back to the chest and pushes them out, and
+  `lean_forward` / `lean_back` pitch the torso.
 - **The Kinect Guide icon** in the bottom-left corner while the guide gesture's pose is held, as on
   the console: a ring that fills until the guide opens (Kinect Adventures' first start tells the
   player to look there). When the left arm is held out to the side and the pose still isn't
   recognised, the game's log says which part of it is off.
+- The recompiler: `fnmadd`, `vrlw128`, the unpacks of four float16s and four shorts and the pack
+  of four shorts (`vupkd3d128`, `vpkd3d128`), which were recompiled as traps; and jump tables
+  placed after their dispatch that end in code which is no case of them.
 
 ### Fixed
 

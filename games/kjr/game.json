@@ -1,0 +1,19 @@
+{
+  "id": "kjr",
+  "title": "Kinect Joy Ride",
+  "cover": "kinect-joy-ride",
+  "status": "testing",
+  "exe": "KinectJoyRide",
+  "user_dir": "KinectJoyRide",
+  "title_id": "4D53093B",
+  "dev_game_dir": "extracted/kjr/game",
+  "launcher_name": "AnyX360 Kinect Joy Ride",
+  "size_gb": 2,
+  "archive_hint": "Kinect Joy Ride (Games on Demand)",
+  "input": "webcam",
+  "required_files": ["data.bpk", "fe_whiteroom.bpk"],
+  "content_needs_update": ["C44DE0D5D2EB4D04E9790DED33E2C90CD0C1C8254D"],
+  "owners": "Microsoft Corporation, Xbox Game Studios, BigPark",
+  "trademarks": ["Xbox", "Xbox 360", "Kinect", "Kinect Joy Ride"],
+  "components": ["MediaPipe (Apache 2.0)", "OpenCV (Apache 2.0)", "NumPy (BSD)", "Python (PSF)"]
+}

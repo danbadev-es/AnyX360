@@ -130,6 +130,52 @@ int main() {
     CHECK(joint(nui::kHandLeft, 1) < joint(nui::kHipLeft, 1) && joint(nui::kHandRight, 1) < joint(nui::kHipRight, 1));
   }
 
+  {  // Driving (Kinect Joy Ride): the steering wheel, a boost, leaning forward and back.
+    auto source = nui::MakeSyntheticSource(
+        "0:enter,1:wheel_0,2:wheel_30/0.5,3:wheel_-30,4:wheel_0,5:boost/1,7:lean_forward/1,9:lean_back/1,11:lower",
+        0.8f);
+    nui::Snapshot s;
+    source->Poll(0.5, s);
+    const auto standing = s.bodies[0];
+    auto joint = [&](nui::Joint j, int axis) { return s.bodies[0].joints[j][axis]; };
+    source->Poll(1.5, s);  // the wheel held level: both hands forward at chest height, together
+    const float chest_z = joint(nui::kShoulderCenter, 2);
+    CHECK(std::abs(joint(nui::kHandLeft, 1) - joint(nui::kHandRight, 1)) < 0.001f);
+    CHECK(std::abs(chest_z - joint(nui::kHandRight, 2) - 0.40f) < 0.01f);
+    CHECK(std::abs(chest_z - joint(nui::kHandLeft, 2) - 0.40f) < 0.01f);
+    CHECK(std::abs(joint(nui::kHandRight, 0) - joint(nui::kHandLeft, 0) - 0.34f) < 0.01f);
+    CHECK(joint(nui::kHandRight, 1) < joint(nui::kShoulderRight, 1) && joint(nui::kHandRight, 1) > joint(nui::kHipRight, 1));
+    CHECK(joint(nui::kElbowRight, 1) < joint(nui::kHandRight, 1));  // elbows bent, below the hands
+    const float level = joint(nui::kHandRight, 1);
+    source->Poll(2.25, s);  // turning right, halfway (15 degrees)
+    CHECK(joint(nui::kHandRight, 1) < level - 0.02f && joint(nui::kHandRight, 1) > level - 0.08f);
+    source->Poll(2.7, s);  // turned 30 degrees right: the right hand 8.5 cm down, the left up
+    CHECK(std::abs(level - joint(nui::kHandRight, 1) - 0.085f) < 0.005f);
+    CHECK(std::abs(joint(nui::kHandLeft, 1) - level - 0.085f) < 0.005f);
+    source->Poll(3.5, s);  // 30 degrees left: the other way round
+    CHECK(joint(nui::kHandLeft, 1) < level - 0.08f && joint(nui::kHandRight, 1) > level + 0.08f);
+    CHECK(!nui::IsGuidePose(s.bodies[0]));
+    source->Poll(5.45, s);  // boosting: the hands pulled back to the chest
+    CHECK(chest_z - joint(nui::kHandRight, 2) < 0.15f && chest_z - joint(nui::kHandLeft, 2) < 0.15f);
+    source->Poll(5.8, s);  // then pushed out further than the wheel
+    CHECK(chest_z - joint(nui::kHandRight, 2) > 0.45f);
+    source->Poll(6.5, s);  // and back on the wheel
+    CHECK(std::abs(chest_z - joint(nui::kHandRight, 2) - 0.40f) < 0.01f);
+    source->Poll(7.5, s);  // leaning forward: the head towards the sensor and lower, the hips still
+    CHECK(joint(nui::kHead, 2) < standing.joints[nui::kHead][2] - 0.2f);
+    CHECK(joint(nui::kHead, 1) < standing.joints[nui::kHead][1] - 0.02f);
+    CHECK(std::abs(joint(nui::kHipCenter, 2) - standing.joints[nui::kHipCenter][2]) < 0.001f);
+    CHECK(std::abs(joint(nui::kHead, 0) - standing.joints[nui::kHead][0]) < 0.001f);
+    source->Poll(9.5, s);  // leaning back: away from it
+    CHECK(joint(nui::kHead, 2) > standing.joints[nui::kHead][2] + 0.2f);
+    source->Poll(10.5, s);  // upright again, still on the wheel
+    CHECK(std::abs(joint(nui::kHead, 2) - standing.joints[nui::kHead][2]) < 0.001f);
+    CHECK(std::abs(chest_z - joint(nui::kHandRight, 2) - 0.40f) < 0.01f);
+    source->Poll(11.5, s);  // lower: the arms hang again
+    CHECK(std::abs(joint(nui::kHandRight, 1) - standing.joints[nui::kHandRight][1]) < 0.001f);
+    CHECK(std::abs(joint(nui::kHandLeft, 2) - standing.joints[nui::kHandLeft][2]) < 0.001f);
+  }
+
   {  // The Kinect guide gesture: the scripted pose is it, other poses aren't; it fires once per hold.
     auto source = nui::MakeSyntheticSource("0:enter,1:guide,5:lower,6:arm_left_0_0,7:arm_left_0_-80,8:guide", 0.8f);
     nui::Snapshot s;

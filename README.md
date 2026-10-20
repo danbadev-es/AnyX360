@@ -43,6 +43,8 @@ the sensor.
 - **Doritos Crash Course** (in testing): the Xbox Live Arcade obstacle race with a controller, where
   everyone is an Xbox Avatar.
 - **Kinect Sports** (in testing): Rare's six sports, played with the webcam, with Xbox Avatars.
+- **Kinect Joy Ride** (in testing): BigPark's kart racer, steering an imaginary wheel in front of
+  the webcam, with Xbox Avatars at the wheel, two players in split screen and its Chevy Volt pack.
 - **Call of Duty: Modern Warfare 3** (in testing): the campaign at 60 FPS, with keyboard and mouse
   or a controller, and multiplayer and Special Ops in split screen on one machine.
 - **Call of Duty: Black Ops II** (in testing): the campaign at 60 FPS, and multiplayer (with bots)
@@ -65,7 +67,7 @@ carries: AnyX360 builds each avatar from it, with the clothes, hair and face the
    you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3, 8 GB for
    Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for Doritos Crash Course, 4 GB for
    Kinect Sports, 8 GB for Call of Duty: Modern Warfare 3, 8 GB for Call of Duty: Black Ops II and
-   1 GB for Kinect Party.
+   2 GB for Kinect Joy Ride and 1 GB for Kinect Party.
 3. Run **`AnyX360.exe`** and accept the terms of use.
 4. Choose **Add game** (the **+** tile), or drop your copy on the window, as you have it:
    - **A file**: an archive of any kind (.7z, .rar, .zip, split or not, .tar.gz...), a disc image
@@ -139,7 +141,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   first play.
 - **Saves and Profiles** - Stored in `%LOCALAPPDATA%\AnyX360\<game>`, kept across versions.
 
-### Kinect (Dance Central 3, Kinect Adventures, Fruit Ninja Kinect, Kinect Sports, Kinect Party)
+### Kinect (Dance Central 3, Kinect Adventures, Fruit Ninja Kinect, Kinect Sports, Kinect Joy Ride, Kinect Party)
 
 - **Webcam as the Kinect** - MediaPipe pose estimation turns the webcam's image into Kinect
   skeletons for up to two players. It also makes the Kinect's color and depth images, so the game's
@@ -164,7 +166,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 - **Private** - The webcam's images are processed on your computer in real time, and never saved
   or sent.
 
-### Xbox Avatars (Doritos Crash Course, Kinect Sports)
+### Xbox Avatars (Doritos Crash Course, Kinect Sports, Kinect Joy Ride)
 
 - **Avatars from the Console's Data** - On the console the avatars' clothes, hair and faces come
   from the system, not from the game. AnyX360 reads the console's avatar asset pack, which the
@@ -221,6 +223,17 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Avatars                          | ✅ The game's guests with their looks; you play as the default avatar |
 | Bowling                          | 🧪 Starts and follows the body; not played through yet |
 | Other sports, two players        | 🧪 Not tried yet                               |
+| Online, avatar awards            | ❌ Not available: they need Xbox Live          |
+
+| Kinect Joy Ride                  | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Menus, garage, vehicles, results | ✅ Working (hand cursor), at 30 FPS as on the console |
+| Pro Race                         | ✅ Played to the finish with the scripted player: steering, turbo, drifts, tricks |
+| Battle Race                      | 🧪 Starts; items not tried yet                 |
+| Two players (split screen)       | 🧪 A race played to the finish with two scripted players |
+| Stunt, Sprint, Smash, Trick      | 🧪 Offered; not tried yet                      |
+| Avatars                          | ✅ The drivers; you drive as the default avatar |
+| Downloadable content             | ✅ The Chevy Volt; the Chevrolet Car Pack needs the Title Update (left out) |
 | Online, avatar awards            | ❌ Not available: they need Xbox Live          |
 
 | Call of Duty: Modern Warfare 3   | Status                                         |
@@ -349,6 +362,18 @@ scorestreaks.
 | Kinect Tuner         | Y on a controller                                                |
 | Pause                | Left arm out and down at 45° for a moment (the Kinect Guide gesture) |
 
+### Kinect Joy Ride
+
+| Action               | Gesture                                                          |
+| -------------------- | ---------------------------------------------------------------- |
+| Point at an item     | Raise a hand: the cursor follows it                              |
+| Select               | Hold the hand over the item until the circle fills               |
+| Start a race, steer  | Both hands in front of your chest on an imaginary wheel; turn it |
+| Turbo                | Pull your hands back to your chest, then push them forward       |
+| Drift / tricks       | Lean into a turn / lean any way while in the air                 |
+| Second player joins  | Jump in the lobby                                                |
+| Pause                | Left arm out and down at 45° for a moment (the Kinect Guide gesture) |
+
 ### Program Keys
 
 | Key                      | Action                         |
@@ -408,6 +433,17 @@ Kinect Sports:
 - In testing: only the menus and the start of Bowling have been tried, with the test player.
 - You play as the default avatar. The avatars' face shapes (chin, nose, ears) aren't applied, and
   tight clothes can show the body through them.
+- Same webcam limits as Dance Central 3.
+
+Kinect Joy Ride:
+
+- In testing: the menus, Pro Race, Battle Race's start and a two-player race have been tried with
+  the test player; the other activities and a person with a webcam haven't.
+- It runs at 30 FPS, as on the console: its clock counts the screen's refreshes, so it can't simply
+  run at 60.
+- You drive as the default avatar, whose eyes look half closed in the garage.
+- The Chevrolet Car Pack's cars need the Title Update, which isn't supported: the launcher leaves
+  it out.
 - Same webcam limits as Dance Central 3.
 
 Call of Duty: Modern Warfare 3:
@@ -496,6 +532,8 @@ environment with pinned, hash-checked packages.
   [docs/MODERNWARFARE3.md](docs/MODERNWARFARE3.md#reproducing)).
 - Call of Duty: Black Ops II: the same, to `extracted/bo2/game/` (see
   [docs/BLACKOPS2.md](docs/BLACKOPS2.md#reproducing)).
+- Kinect Joy Ride: the same, to `extracted/kjr/game/` (see
+  [docs/KINECTJOYRIDE.md](docs/KINECTJOYRIDE.md#reproducing)).
 - Kinect Party: extract the Xbox Live Arcade package to `extracted/kp/game/` with
   `x360tool stfs-extract` (see [docs/KINECTPARTY.md](docs/KINECTPARTY.md#reproducing)).
 - Put the XEX2 retail key in `keys/xex2_retail.key` (see [keys/README.md](keys/README.md)).
@@ -506,8 +544,8 @@ Both folders are git-ignored.
 > The targets are the base executables, without title updates: Gears of War 3 (title
 > `4D5308AB`), Dance Central 3 (title `373307D9`), Kinect Adventures (title `4D5308ED`), Fruit
 > Ninja Kinect (title `58410B79`), Doritos Crash Course (title `58410A71`), Kinect Sports
-> (title `4D5308C9`), Call of Duty: Modern Warfare 3 (title `415608CB`) and Call of Duty: Black
-> Ops II (title `415608C3`); for the two Call of Duty games, both the single-player `default.xex`
+> (title `4D5308C9`), Call of Duty: Modern Warfare 3 (title `415608CB`), Call of Duty: Black
+> Ops II (title `415608C3`) and Kinect Joy Ride (title `4D53093B`); for the two Call of Duty games, both the single-player `default.xex`
 > and the multiplayer `default_mp.xex`.
 
 ### 4. Recompile the Game
@@ -646,10 +684,10 @@ Raw/, extracted/ Your game files (git-ignored)
   is derived from the game's code.
 - Release packages contain no game data and are covered by the [terms of use](tools/launcher/terms_en.txt)
   the launcher shows before first use.
-- Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Kinect Sports, Kinect Party,
-  Fruit Ninja,
-  Halfbrick, Doritos, Rare, Call of Duty, Modern Warfare, Black Ops, Treyarch, Activision, Xbox
-  and Xbox 360 are trademarks of their respective owners, used here only to identify the games
+- Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Kinect Sports, Kinect Joy
+  Ride, Kinect Party, Double Fine, BigPark, Fruit Ninja, Halfbrick, Doritos, Rare, Call of Duty,
+  Modern Warfare, Black Ops, Treyarch, Activision, Xbox and Xbox 360 are trademarks of their
+  respective owners, used here only to identify the games
   AnyX360 is compatible with.
 - The box art in the release belongs to its publishers and is shown only to identify the games;
   it is not kept in this repository.

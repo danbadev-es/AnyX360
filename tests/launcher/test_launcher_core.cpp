@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cwctype>
 #include <fstream>
 #include <future>
 #include <map>
@@ -478,6 +479,32 @@ int main() {
     Outcome outcome = Add(pack);
     CHECK(outcome.message.id == kTextErrorContentNoGame && outcome.message.args[0] == g.title);
     CHECK(!Exists(sandbox / L"local" / L"AnyX360" / g.user_dir / L"content" / L"00000002" / L"DLCPACKAGE"));
+    break;
+  }
+
+  // A game with one pack that needs its title update (Kinect Joy Ride's Chevrolet Car Pack, named by
+  // its package file name in game.json): the others are installed, that one is left out and noted.
+  for (const CatalogGame& g : kCatalog) {
+    if (!g.content || !*g.content_needs_update) continue;
+    std::wstring needs_update = g.content_needs_update;
+    needs_update.resize(std::min(needs_update.size(), needs_update.find(L'|')));
+    std::wstring lower = needs_update;
+    for (wchar_t& c : lower) c = wchar_t(towlower(c));
+    CHECK(NeedsTitleUpdate(g, fs::path(L"x") / lower) && !NeedsTitleUpdate(g, L"OTHERPACKAGE"));
+    const std::wstring title = Hex32(g.title_id);
+    const fs::path folder = player / L"PartlyUpdate", content = folder / title / L"00000002";
+    WriteFile(folder / title / L"000D0000" / L"GAMEPACKAGE", MakeStfs(x360tool::content_type::kArcadeTitle, g.title_id, Copy(g)));
+    WriteFile(content / L"UNLOCKPACKAGE", MakeStfs(x360tool::content_type::kMarketplace, g.title_id, {{"data/unlock.xml", "unlock"}}));
+    WriteFile(content / needs_update, MakeStfs(x360tool::content_type::kMarketplace, g.title_id, {{"archive.bpk", "cars"}}));
+    Outcome outcome = Add(folder);
+    CHECK(outcome.message.id == kTextAddedContent && outcome.message.args[1] == L"1");
+    CHECK(outcome.notes.size() == 1 && outcome.notes[0].id == kTextNoteContentSkipped && outcome.notes[0].args[0] == L"1");
+    const fs::path installed = sandbox / L"local" / L"AnyX360" / g.user_dir / L"content" / L"00000002";
+    CHECK(Exists(installed / L"UNLOCKPACKAGE" / L"data" / L"unlock.xml") && !Exists(installed / needs_update));
+    // Chosen on its own, it isn't taken; the other is.
+    CHECK(Add(content / needs_update).message.id == kTextErrorContentNoGame);
+    CHECK(Add(content / L"UNLOCKPACKAGE").message.id == kTextAddedContentOnly && !Exists(installed / needs_update));
+    Remove(g);
     break;
   }
 

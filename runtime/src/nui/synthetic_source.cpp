@@ -24,6 +24,14 @@
 //   hands_up, arms_out       both arms up over the head / out to the sides
 //   flap                     both arms flap like wings, from the sides to above the shoulders,
 //                            1.25 times a second (default 4 s)
+//   wheel_<degrees>          both hands held forward at chest height, together, holding a steering
+//                            wheel turned by that angle (positive: to the right, the left hand up
+//                            and the right hand down); it turns there over the duration (default
+//                            0.3 s) and is held until lower or another arm pose
+//   boost                    the hands pulled back to the chest and pushed forward again, into
+//                            the wheel pose (default 0.8 s)
+//   lean_forward, lean_back  the torso pitches 20 degrees towards / away from the sensor and back
+//                            (default 1.5 s)
 //   idle                     stops any movement in progress
 #include <algorithm>
 #include <cmath>
@@ -73,6 +81,13 @@ struct Player {
   double lean_start = -1, lean_end = -1;
   float lean_direction = 0;  // -1 the player's left, +1 their right
   double flap_start = -1, flap_end = -1;
+  // Driving (Kinect Joy Ride): a steering wheel held in both hands, pushes, leaning on the pitch.
+  bool wheel = false;
+  float wheel_from = 0, wheel_to = 0;  // degrees, positive to the right
+  double wheel_start = -1, wheel_end = -1;
+  double boost_start = -1, boost_end = -1;
+  double pitch_start = -1, pitch_end = -1;
+  float pitch_direction = 0;  // +1 towards the sensor, -1 away from it
 };
 
 // 0 -> 1 -> 0 over [start, end): eased in over the first fifth, held, eased out over the last.
@@ -90,6 +105,9 @@ float Glide(double t, double start, double end, float from, float to) {
   const float k = float((t - start) / std::max(end - start, 1e-3));
   return from + (to - from) * (0.5f - 0.5f * std::cos(k * kPi));
 }
+
+// The steering wheel's angle at t (degrees), turning from wheel_from to wheel_to.
+float WheelAngle(const Player& p, double t) { return Glide(t, p.wheel_start, p.wheel_end, p.wheel_from, p.wheel_to); }
 
 void Set(Body& b, Joint j, float x, float y, float z) {
   b.joints[j][0] = x;
@@ -186,9 +204,11 @@ class SyntheticSource : public Source {
     } else if (e.action == "leave") {
       p.present = false;
     } else if (e.action == "menu_right") {
+      p.wheel = false;
       p.right = Arm::kMenu;
       p.right_y = 0;
     } else if (e.action == "menu_left") {
+      p.wheel = false;
       p.left = Arm::kMenu;
       p.left_y = 0;
     } else if (float cm; e.action == "hand_up" || e.action == "hand_down" ||
@@ -205,16 +225,20 @@ class SyntheticSource : public Source {
       p.swipe_start = time;
       p.swipe_end = time + duration(0.6);
     } else if (e.action == "lower") {
+      p.wheel = false;
       p.right = p.left = Arm::kDown;
     } else if (e.action == "wave") {
+      p.wheel = false;
       p.right = Arm::kMenu;
       p.wave_start = time;
       p.wave_end = time + duration(2.0);
     } else if (e.action == "guide") {
+      p.wheel = false;
       p.left = Arm::kGuide;
     } else if (float az, el; std::sscanf(e.action.c_str(), "arm_left_%f_%f", &az, &el) == 2 ||
                              std::sscanf(e.action.c_str(), "arm_right_%f_%f", &az, &el) == 2) {
       const int arm = e.action.rfind("arm_left_", 0) == 0 ? 1 : 0;
+      p.wheel = false;
       (arm ? p.left : p.right) = Arm::kAngle;
       p.azimuth[arm] = az;
       p.elevation[arm] = el;
@@ -245,6 +269,7 @@ class SyntheticSource : public Source {
       p.walk_end = time + duration(0.8);
     } else if (e.action == "hands_up" || e.action == "arms_out") {
       const float elevation = e.action == "hands_up" ? 80.0f : 0.0f;
+      p.wheel = false;
       for (int arm = 0; arm < 2; ++arm) {
         (arm ? p.left : p.right) = Arm::kAngle;
         p.azimuth[arm] = e.action == "hands_up" ? 10.0f : 0.0f;
@@ -255,9 +280,25 @@ class SyntheticSource : public Source {
     } else if (e.action == "flap") {
       p.flap_start = time;
       p.flap_end = time + duration(4.0);
+    } else if (float degrees; std::sscanf(e.action.c_str(), "wheel_%f", &degrees) == 1) {
+      p.wheel_from = p.wheel ? WheelAngle(p, time) : degrees;
+      p.wheel_to = degrees;
+      p.wheel = true;
+      p.wheel_start = time;
+      p.wheel_end = time + duration(0.3);
+    } else if (e.action == "boost") {
+      if (!p.wheel) p.wheel_from = p.wheel_to = 0;
+      p.wheel = true;
+      p.boost_start = time;
+      p.boost_end = time + duration(0.8);
+    } else if (e.action == "lean_forward" || e.action == "lean_back") {
+      p.pitch_direction = e.action == "lean_forward" ? 1.0f : -1.0f;
+      p.pitch_start = time;
+      p.pitch_end = time + duration(1.5);
     } else if (e.action == "idle") {
       p.wave_end = p.dance_end = p.swipe_end = p.move_end = time;
       p.jump_end = p.crouch_end = p.lean_end = p.flap_end = time;
+      p.boost_end = p.pitch_end = time;
     } else {
       std::fprintf(stderr, "[nui] script: unknown action %s\n", e.action.c_str());
     }
@@ -306,6 +347,34 @@ class SyntheticSource : public Source {
     };
     arm(1.0f, p.right, p.right_y, !p.swipe_left_hand);
     arm(-1.0f, p.left, p.left_y, p.swipe_left_hand);
+
+    // Steering wheel: both hands 40 cm in front of the chest, on a wheel 34 cm across turned by its
+    // angle; a boost pulls them back to the chest and pushes them out again.
+    if (p.wheel) {
+      float reach = 0.40f;
+      if (t >= p.boost_start && t < p.boost_end) {
+        const double span = std::max(p.boost_end - p.boost_start, 1e-3);
+        const double a = p.boost_start, b = a + span * 0.4, c = a + span * 0.5, d = a + span * 0.8;
+        reach = t < b ? Glide(t, a, b, 0.40f, 0.12f)
+                : t < c ? 0.12f
+                : t < d ? Glide(t, c, d, 0.12f, 0.52f)
+                        : Glide(t, d, p.boost_end, 0.52f, 0.40f);
+      }
+      const float angle = WheelAngle(p, t) * kPi / 180, radius = 0.17f;
+      const float* chest = body.joints[kShoulderCenter];
+      const float cx = chest[0], cy = chest[1] - 0.12f, cz = chest[2] - reach;
+      auto hold = [&](float side, Joint shoulder, Joint elbow, Joint wrist, Joint hand) {
+        // side +1 the right hand (at +x), -1 the left; turning right lowers the right hand.
+        const float hx = cx + side * radius * std::cos(angle), hy = cy - side * radius * std::sin(angle);
+        const float* s = body.joints[shoulder];
+        const float ex = (s[0] + hx) / 2 + side * 0.08f, ey = (s[1] + hy) / 2 - 0.12f, ez = (s[2] + cz) / 2 + 0.02f;
+        Set(body, elbow, ex, ey, ez);
+        Set(body, wrist, hx + (ex - hx) * 0.25f, hy + (ey - hy) * 0.25f, cz + (ez - cz) * 0.25f);
+        Set(body, hand, hx, hy, cz);
+      };
+      hold(1.0f, kShoulderRight, kElbowRight, kWristRight, kHandRight);
+      hold(-1.0f, kShoulderLeft, kElbowLeft, kWristLeft, kHandLeft);
+    }
 
     // Flap: both arms swing in the body's plane between hanging (-70 degrees) and 20 degrees up.
     if (t >= p.flap_start && t < p.flap_end) {
@@ -361,6 +430,18 @@ class SyntheticSource : public Source {
         const float dx = body.joints[j][0] - hx, dy = body.joints[j][1] - hy;
         body.joints[j][0] = hx + dx * std::cos(angle) + dy * std::sin(angle);
         body.joints[j][1] = hy - dx * std::sin(angle) + dy * std::cos(angle);
+      }
+    }
+
+    // Lean forward / back: the torso, head and arms pitch 20 degrees about the hips.
+    if (float q = HoldProfile(t, p.pitch_start, p.pitch_end); q > 0) {
+      const float angle = 20.0f * kPi / 180 * q * p.pitch_direction;
+      const float hy = body.joints[kHipCenter][1], hz = body.joints[kHipCenter][2];
+      for (uint32_t j = 0; j < kJointCount; ++j) {
+        if (is_leg(j) || j == kHipCenter || j == kHipLeft || j == kHipRight) continue;
+        const float dy = body.joints[j][1] - hy, dz = body.joints[j][2] - hz;
+        body.joints[j][2] = hz + dz * std::cos(angle) - dy * std::sin(angle);
+        body.joints[j][1] = hy + dz * std::sin(angle) + dy * std::cos(angle);
       }
     }
 

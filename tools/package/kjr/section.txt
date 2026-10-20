@@ -1,0 +1,33 @@
+KINECT JOY RIDE (in testing)
+==========================================================
+Played with a webcam in place of the Kinect.
+Your copy: the Games on Demand package (in an archive or a folder) or a folder with the disc's
+files. The "Kinect Joy Ride Chevy Volt" downloadable content is installed if it is next to it;
+the "Chevrolet Car Pack" needs the game's title update and is left out. Adding the game also
+installs the console's avatar data its disc carries.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\KinectJoyRide
+
+THE WEBCAM
+Set it up as for Dance Central 3 (see its section): Windows must let desktop programs use the
+camera, the webcam goes under or over your screen pointing at where you play, and you stand
+2-3 m away with all of you in view. Two players stand side by side, at least a metre apart.
+
+PLAYING
+- Menus: raise a hand and the cursor follows it; hold it over an item until the circle fills.
+- Steer: hold both hands in front of your chest as if on a steering wheel, and turn it. Grabbing
+  the wheel starts the race.
+- Turbo: pull your hands back to your chest, then push them forward (at the start, and when the
+  turbo bar is full).
+- Drift: lean into a turn. Tricks: lean in any direction while the car is in the air.
+- A second player joins by jumping in the lobby ("Salta para unirte").
+- Pause: hold your left arm out and down at 45 degrees, away from your body, for a moment (the
+  Kinect Guide gesture).
+
+KNOWN ISSUES
+- In testing: menus, races (Pro Race), Battle Race and two-player races have been tried with a
+  test player, not yet by a person with a webcam. If something is wrong, tell us with the logs.
+- It runs at 30 FPS, as on the console (the 60 FPS setting doesn't apply to it).
+- You drive as the default avatar (there is no Xbox profile with yours).
+- The Chevrolet cars need the title update, which AnyX360 doesn't play.
+- Online play and avatar awards need Xbox Live, which is gone.
+- Same webcam limits as Dance Central 3.

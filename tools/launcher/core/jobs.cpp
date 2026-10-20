@@ -93,11 +93,12 @@ Outcome AddPackage(Job& job, const FoundPackage& package, const fs::path& conten
   if (package.header.content_type == x360tool::content_type::kMarketplace) {
     const CatalogGame* game = FindAvailableGame(title);
     if (!game) return {{kTextErrorContentNoGame, {Hex32(title)}, true}};
-    // A game whose packs need its title update doesn't take them.
-    if (!game->content) return {{kTextErrorContentNoGame, {game->title}, true}};
+    // A pack that needs the game's title update isn't taken.
+    if (NeedsTitleUpdate(*game, package.path)) return {{kTextErrorContentNoGame, {game->title}, true}};
     if (!IsInstalled(*game)) return {{kTextErrorContentOnly, {game->title}, true}};
     std::vector<fs::path> packages = FindDownloadableContent(content_source, title);
     if (std::find(packages.begin(), packages.end(), package.path) == packages.end()) packages = {package.path};
+    std::erase_if(packages, [&](const fs::path& p) { return NeedsTitleUpdate(*game, p); });
     int installed = InstallDownloadableContent(*game, packages);
     return {{kTextAddedContentOnly, {game->title, std::to_wstring(installed)}, false}, game->id};
   }
