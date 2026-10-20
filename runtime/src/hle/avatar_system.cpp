@@ -44,7 +44,14 @@ constexpr uint32_t kDescriptorBytes = 52;
 // Our description (big-endian, inside the 1000 bytes): the library itself reads height at +4 and
 // weight at +8.
 constexpr uint32_t kHeight = 4, kWeight = 8, kBodyType = 12, kPartCount = 16, kParts = 20;
-constexpr uint32_t kColors = 84;  // skin, hair, lips, eyes, eyebrows (ARGB)
+constexpr uint32_t kColors = 84;     // skin, hair, lips, eyes, eyebrows (ARGB)
+constexpr uint32_t kTextures = 104;  // the face's textures, one per head texture slot (pack entries)
+constexpr uint32_t kNone = 0xFFFFFFFF;
+
+// The head's six blank textures and the pack textures that fill them (the asset's first word): face
+// paint (128x128), eye shadow, eyebrows (5 frames, both sides), eyes (14 frames, both sides), mouth
+// (14 frames), facial hair.
+constexpr uint32_t kFaceKinds[6] = {0x20000, 0x40000, 0x4000, 0x2000, 0x8000, 0x10000};
 
 struct Part {
   uint32_t index = 0;   // pack entry
@@ -52,6 +59,7 @@ struct Part {
   uint32_t slot = 0;    // its own (lowest) bit
   uint32_t gender = 0;  // 1 male, 2 female, 3 both
   uint32_t cpu = 0, gpu = 0;
+  uint32_t meshes = 0;
 };
 
 struct State {
@@ -60,6 +68,7 @@ struct State {
   std::vector<uint8_t> toc;
   std::unique_ptr<x360tool::AvatarPack> pack;
   std::vector<Part> parts;
+  std::vector<Part> textures;  // face textures: slot is the kind (kFaceKinds)
   uint32_t max_cpu[kSlots] = {}, max_gpu[kSlots] = {};
   bool left_handed = false;
 } g;
@@ -135,7 +144,8 @@ void LoadPack() {
   }
   for (const auto& e : g.pack->entries()) {
     const uint32_t slots = e.word0 & ((1u << kSlots) - 1);
-    if (e.size == 0 || slots == 0) continue;
+    const bool face = std::find(std::begin(kFaceKinds), std::end(kFaceKinds), e.word0) != std::end(kFaceKinds);
+    if (e.size == 0 || (slots == 0 && !face)) continue;
     auto data = g.pack->data(e);
     x360tool::Strb strb;
     std::string error;
@@ -145,19 +155,24 @@ void LoadPack() {
       if (x360tool::parse_avatar_metadata(data.subspan(block.offset, block.length), block.id, block_meta))
         meta = block_meta;
     }
+    if (face && meta.type == 2) {
+      g.textures.push_back(Part{e.index, e.word0, e.word0, meta.gender});
+      continue;
+    }
     const bool component = meta.type == 1;
-    if (!component) continue;
+    if (!component || slots == 0) continue;
     std::vector<uint8_t> model, colors;
     x360tool::AvatarModel parsed;
     if (!LoadPart(e, model, colors, error) || !x360tool::parse_avatar_model(model, parsed, error)) continue;
-    Part part{e.index, slots, LowestBit(slots), meta.gender, parsed.cpu_size(), parsed.gpu_size()};
+    Part part{e.index, slots, LowestBit(slots), meta.gender, parsed.cpu_size(), parsed.gpu_size(),
+              uint32_t(parsed.meshes.size())};
     const int bit = std::countr_zero(part.slot);
     g.max_cpu[bit] = std::max(g.max_cpu[bit], part.cpu);
     g.max_gpu[bit] = std::max(g.max_gpu[bit], AlignUp(part.gpu, 0x1000));
     g.parts.push_back(part);
   }
   g.loaded = !g.parts.empty();
-  KLOG_I("avatars: %zu parts in %s", g.parts.size(), toc.string().c_str());
+  KLOG_I("avatars: %zu parts and %zu face textures in %s", g.parts.size(), g.textures.size(), toc.string().c_str());
 }
 
 void EnsureLoaded() {
@@ -171,10 +186,40 @@ const Part* Choose(uint32_t slot, uint32_t gender, std::mt19937* rng) {
   }
   if (candidates.empty()) return nullptr;
   if (rng) return candidates[(*rng)() % candidates.size()];
-  // The plainest: the first that occupies only its own slot.
+  // The plainest: the first that occupies only its own slot and has something to draw (not "Bald").
   for (const Part* p : candidates)
-    if (p->slots == slot) return p;
+    if (p->slots == slot && p->meshes) return p;
   return candidates.front();
+}
+
+const Part* ChooseTexture(uint32_t kind, uint32_t gender, std::mt19937* rng) {
+  std::vector<const Part*> candidates;
+  for (const Part& p : g.textures) {
+    if (p.slot == kind && (p.gender == gender || p.gender == 3 || p.gender == 0)) candidates.push_back(&p);
+  }
+  if (candidates.empty()) return nullptr;
+  return rng ? candidates[(*rng)() % candidates.size()] : candidates.front();
+}
+
+// A face texture from the pack (its texture block, unpacked).
+bool LoadTexture(const x360tool::AvatarPackEntry& e, std::vector<uint8_t>& file, x360tool::AvatarTexture& texture,
+                 std::string& error) {
+  auto data = g.pack->data(e);
+  x360tool::Strb strb;
+  if (!x360tool::parse_strb(data, strb, error)) return false;
+  for (const auto& block : strb.blocks) {
+    if (block.id != uint32_t(x360tool::StrbBlockId::kTexture)) continue;
+    auto bytes = data.subspan(block.offset, block.length);
+    uint32_t window = 0;
+    if (x360tool::is_avatar_packed(bytes)) {
+      if (!x360tool::avatar_unpack(bytes, file, window, error)) return false;
+    } else {
+      file.assign(bytes.begin(), bytes.end());
+    }
+    return x360tool::parse_avatar_texture(file, texture, error);
+  }
+  error = "no texture";
+  return false;
 }
 
 float LoadFloat(uint32_t address) {
@@ -273,6 +318,14 @@ void WriteMetadata(uint32_t metadata, Look look, uint32_t seed) {
     }
   }
   Store<uint32_t>(metadata + kPartCount, count);
+  // The face: eyes, eyebrows and a mouth; a random avatar may also get facial hair or eye shadow.
+  for (int k = 0; k < 6; ++k) {
+    const uint32_t kind = kFaceKinds[k];
+    const bool always = kind == 0x2000 || kind == 0x4000 || kind == 0x8000;
+    const bool maybe = random && ((kind == 0x10000 && body == 1) || (kind == 0x40000 && body == 2)) && rng() % 3 == 0;
+    const Part* t = (always || maybe) ? ChooseTexture(kind, body, random ? &rng : nullptr) : nullptr;
+    Store<uint32_t>(metadata + kTextures + 4 * k, t ? t->index : kNone);
+  }
 }
 
 uint32_t BodyType(uint32_t metadata) {
@@ -302,6 +355,7 @@ bool BuildAssets(uint32_t metadata, uint32_t mask, uint32_t result, uint32_t res
   std::lock_guard lock(g_mutex);
   uint32_t body = 1, colors[5] = {0xFFE0AC86, 0xFF2B1D14, 0xFFB86A68, 0xFF3A6EA5, 0xFF2B1D14};
   float height = 0.5f, weight = 0.5f;
+  uint32_t face[6] = {kNone, kNone, kNone, kNone, kNone, kNone};
   std::vector<uint32_t> indices;
   if (metadata && Load<uint32_t>(metadata) == kMagic) {
     body = BodyType(metadata);
@@ -310,10 +364,16 @@ bool BuildAssets(uint32_t metadata, uint32_t mask, uint32_t result, uint32_t res
     const uint32_t count = std::min<uint32_t>(Load<uint32_t>(metadata + kPartCount), 16);
     for (uint32_t i = 0; i < count; ++i) indices.push_back(Load<uint32_t>(metadata + kParts + 4 * i));
     for (int k = 0; k < 5; ++k) colors[k] = Load<uint32_t>(metadata + kColors + 4 * k);
+    for (int k = 0; k < 6; ++k) face[k] = Load<uint32_t>(metadata + kTextures + 4 * k);
   } else {
     // A description from elsewhere (the title's own, or none): the default avatar.
     for (uint32_t slot : {0x1u, 0x2u, 0x4u, 0x8u, 0x10u, 0x20u})
       if (const Part* p = Choose(slot, body, nullptr)) indices.push_back(p->index);
+    for (int k = 0; k < 6; ++k) {
+      const uint32_t kind = kFaceKinds[k];
+      const Part* t = (kind == 0x2000 || kind == 0x4000 || kind == 0x8000) ? ChooseTexture(kind, body, nullptr) : nullptr;
+      face[k] = t ? t->index : kNone;
+    }
   }
 
   std::vector<const Part*> parts;
@@ -367,6 +427,23 @@ bool BuildAssets(uint32_t metadata, uint32_t mask, uint32_t result, uint32_t res
     x360tool::build_avatar_part(model, std::span<uint8_t>(Ptr<uint8_t>(cpu), cpu_size), cpu,
                                 std::span<uint8_t>(Ptr<uint8_t>(gpu + gpu_at), part_gpu), gpu + gpu_at,
                                 std::span<uint8_t, 52>(Ptr<uint8_t>(descriptors + i * kDescriptorBytes), 52), tile);
+    // The head's face textures, copied into its blank texture slots.
+    if (parts[i]->slot == 0x1) {
+      for (size_t k = 0; k < model.textures.size() && k < 6; ++k) {
+        const auto& slot = model.textures[k];
+        if (face[k] == kNone || face[k] >= g.pack->entries().size() || !slot.blank) continue;
+        std::vector<uint8_t> texture_file;
+        x360tool::AvatarTexture texture;
+        std::string texture_error;
+        if (!LoadTexture(g.pack->entries()[face[k]], texture_file, texture, texture_error)) {
+          KLOG_W("avatars: face texture %u: %s", face[k], texture_error.c_str());
+          continue;
+        }
+        if (texture.slice_count > slot.slice_count || texture.slice_size > slot.slice_size) continue;
+        x360tool::write_avatar_texture(texture, std::span<uint8_t>(Ptr<uint8_t>(gpu + gpu_at + slot.gpu_offset), slot.size),
+                                       tile);
+      }
+    }
     cpu = AlignUp(cpu + cpu_size, 16);
     gpu_at += part_gpu;
   }

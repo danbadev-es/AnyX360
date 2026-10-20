@@ -680,6 +680,31 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
                 KLOG_I("memdump %08X: %s", addr + row, line.c_str());
               }
             }
+            // ANYX360_MEMDUMP_FILE="addr,length,file" (hex): the raw bytes, readable pages only
+            // (others are zeros), for studying larger structures offline.
+            if (const char* spec = std::getenv("ANYX360_MEMDUMP_FILE")) {
+              const uint32_t addr = uint32_t(std::strtoul(spec, nullptr, 16));
+              const char* comma = std::strchr(spec, ',');
+              const uint32_t length = comma ? uint32_t(std::strtoul(comma + 1, nullptr, 16)) : 0;
+              const char* path = comma ? std::strchr(comma + 1, ',') : nullptr;
+              if (length && path) {
+                std::vector<uint8_t> bytes(length);
+                uint8_t* base = XeMemory()->virtual_membase();
+                for (uint32_t at = 0; at < length; at += 0x1000) {
+                  MEMORY_BASIC_INFORMATION info;
+                  uint8_t* page = base + uint64_t(addr) + at;
+                  const uint32_t n = std::min<uint32_t>(0x1000, length - at);
+                  if (VirtualQuery(page, &info, sizeof(info)) && info.State == MEM_COMMIT &&
+                      !(info.Protect & (PAGE_NOACCESS | PAGE_GUARD)))
+                    std::memcpy(bytes.data() + at, page, n);
+                }
+                if (FILE* f = std::fopen(path + 1, "wb")) {
+                  std::fwrite(bytes.data(), 1, bytes.size(), f);
+                  std::fclose(f);
+                  KLOG_I("memdump: %08X+%X written to %s", addr, length, path + 1);
+                }
+              }
+            }
           }
           while (*p && *p != ',') ++p;
           if (*p == ',') ++p;
