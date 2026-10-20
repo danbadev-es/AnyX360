@@ -38,11 +38,14 @@ realistic for this console (see [Why the Xbox 360 is harder](#why-the-xbox-360-i
 | `thirdparty/XenonRecomp` | PPC → C++ recompiler and XEX analyser (fork: devkit key, dataflow jump tables, missing instructions) | Working |
 | `runtime/` `x360/endian.h`, `x360/memory.h` | Big-endian access helpers and the 4 GiB guest address-space reservation | Working |
 | `runtime/src/kernel`, `runtime/src/hle` | HLE of the `xboxkrnl.exe` and `xam.xex` exports the titles call; the shared host entry point | Working for both titles |
-| `runtime/src/gpu` | Xenia's Direct3D 12 back end, display pacing, the F1 overlay and the F2 settings panel | Working |
+| `runtime/src/gpu` | Xenia's Direct3D 12 back end, display pacing, the F1 overlay and the F2 settings panel (ImGui in physical pixels, Inter, `ui_theme`); the games are per-monitor DPI aware (`runtime/game.manifest`) | Working |
 | `runtime/src/input` | Keyboard and mouse, XInput controllers, per-player devices | Working |
 | `runtime/src/nui` | The virtual Kinect: the NUI API on the host, with webcam, mouse and scripted sources | Working (Dance Central 3, Kinect Adventures) |
+| `runtime/kinect_window` | The Kinect debug window (F3): its own thread and Direct2D window, game-independent; calls the game's `nui::GetDebugView` | Working |
+| `ui/` | `ui_d2d` (Direct2D and DirectWrite canvas, fonts from memory; no COM, usable in the games) and `ui_wic` (pictures through WIC: any format, box art's front, JPEG and PNG; launcher and x360tool only) | Working |
 | `tools/pose_bridge` | The webcam pose bridge: MediaPipe pose estimation → Kinect skeletons and images | Working; webcam use in testing |
-| `tools/launcher`, `tools/package` | The launcher (a gallery of the player's games, English and Spanish) and the one release for every game | Working |
+| `tools/launcher/core` | `launcher_core`: the library, recognising copies by content (archives through 7-Zip, disc images, Games on Demand and arcade packages, nested), installing them, the text, the terms, starting games; jobs report through an observer; tested by `test_launcher_core` | Working |
+| `tools/launcher/ui`, `tools/package` | The launcher's Direct2D window (box art, the compatible drawer, overlays, mouse, keyboard and controller; `--screenshot`) and the one release for every game | Working |
 | `games/gow3` | Gears of War 3 configuration, hooks and patches | Playable (0.1.0) |
 | `games/dc3` | Dance Central 3 configuration, Milo hooks and NUI bindings | Playable, in testing |
 | `games/ka` | Kinect Adventures configuration and NUI bindings | Partly played, in testing |

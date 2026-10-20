@@ -4,9 +4,8 @@
 # reports name functions), 7-Zip, the XEX key, each game's shader cache, the pose bridge when a game
 # is played with a webcam, the games' front covers (from covers\, which git doesn't keep), the README,
 # the terms of use (TERMS.txt; the launcher shows them in English or Spanish), the changelog and the
-# third-party licenses - no game data: the launcher
-# extracts the player's own disc archives (.7z, .rar or .zip) next to itself, or uses the folders of
-# their copies.
+# third-party licenses - no game data: the launcher extracts or writes out the player's own copies
+# (archives of any kind, disc images, packages) next to itself, or uses the folders of their copies.
 #
 # The games' facts come from games\<id>\game.json. README.txt is tools\package\README.txt with one
 # section per game (tools\package\<id>\section.txt); tools\package\<id>\extra.ps1 (optional) adds a
@@ -93,6 +92,7 @@ $licenses = [ordered]@{
   'utfcpp.txt'               = "$third\xenia\third_party\utfcpp\LICENSE"
   'SIMDe.txt'                = "$third\XenonRecomp\thirdparty\simde\COPYING"
   '7-Zip.txt'                = "$sevenZip\License.txt"
+  'Inter (OFL-1.1).txt'      = "$third\fonts\inter\LICENSE.txt"
 }
 foreach ($source in $licenses.Values) {
   if (-not (Test-Path $source)) { throw "License file missing: $source" }

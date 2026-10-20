@@ -8,6 +8,57 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-20
+
+A new launcher that takes games in any format, a Kinect debug window for a second monitor, and the
+in-game panels redone.
+
+### Added
+
+- **A new launcher**, drawn with Direct2D in the style of the Xbox 360's last dashboard (charcoal,
+  flat panels, Xbox green): the games you added as their box art in a row, the selected one's art
+  blurred behind the window, Play and a ⋯ menu (change or restore the cover, logs, prepare again,
+  remove); a **Compatible games** drawer with this release's games and the coming ones; overlays
+  instead of dialogs; files dropped on the window; a dark title bar and an icon. It is driven by
+  the mouse, the keyboard or an **Xbox controller** (A, B, X, Y, Start, d-pad and stick), read
+  only while the launcher is in front.
+- **Box art**: the release ships the front covers of its games and of the coming ones
+  (`covers\`, from the publishers' artwork, shown only to identify the games); a full wraparound
+  scan or a front page alone (`x360tool cover`).
+- **Any format**: an archive of any kind 7-Zip opens (7z, zip, rar and rar5 in parts, `.001`
+  splits, tar, gz, bz2, xz, zst, cab, wim; a split set from any part), a disc image (`.iso`), a
+  Games on Demand or **Xbox Live Arcade** package, a folder, or archives inside archives (a disc
+  image in a .rar, a .tar in a .gz). What a file is comes from its content, not its name.
+  **Password-protected archives** ask for the password. Downloadable content is recognised by its
+  package header wherever it is, and a pack added on its own goes to its game.
+- **The Kinect debug window** (F3, or from F2): the camera's image with every body's skeleton, the
+  depth image, the play space from above and from the side, the main player's joints, the
+  sensor's state and the last 10 seconds of timings, in a window of its own for a second monitor.
+  It doesn't take the game's focus, runs on its own thread and reopens where it was.
+- `x360tool stfs-extract --verify`: every block's SHA-1 and every hash table checked.
+- `launcher_core` (the launcher's logic, without a window) with its own tests; `AnyX360.exe
+  --screenshot` draws any state of the launcher into a PNG, and `--quit-when-done --result` runs a
+  job unattended.
+
+### Changed
+
+- **The settings panel (F2)** is a sidebar of pages in titled sections, with switches and
+  segmented choices, in **Inter** and a dark theme; the performance overlay (F1) too.
+- **Sharp at any display scale**: the games are per-monitor DPI aware, so their window, the F1 and
+  F2 panels and the fonts are drawn at the screen's own resolution instead of stretched by Windows.
+  The window size ("resolution") is in the screen's real pixels, and it keeps its size on a
+  monitor with another scale.
+- Long paths in the launcher and the games (a release deep in a folder tree).
+- XDVDFS and STFS file names are read as Windows-1252; STFS packages with two copies of each hash
+  table follow the current one through every level.
+
+### Fixed
+
+- **With F2 open, Dance Central 3 ran at 20 FPS**: the panel repainted between the game's frames
+  and filled the swap chain's queue. It is now drawn with the game's frames (60 FPS with it open).
+- A cancel while 7-Zip was starting didn't stop it.
+- Removing a game said "Checking the game…".
+
 ## [0.5.0] - 2026-10-20
 
 Third game: Kinect Adventures. The virtual Kinect is steadier, quicker and more precise, and
@@ -195,7 +246,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.2.0...v0.3.0

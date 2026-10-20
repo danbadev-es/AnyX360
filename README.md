@@ -5,7 +5,7 @@
 **An unofficial, fan-made project that ports Xbox 360 games natively to PC through static recompilation.**
 
 [![Unofficial](https://img.shields.io/badge/unofficial-fan%20project-critical)](#legal-and-disclaimer)
-[![Version](https://img.shields.io/badge/version-0.5.0-2ea44f)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.6.0-2ea44f)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?logo=windows)](#system-requirements)
 [![Graphics](https://img.shields.io/badge/graphics-Direct3D%2012-5C2D91)](#how-it-works)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus)](#building)
@@ -38,9 +38,9 @@ the sensor.
 - **Kinect Adventures** (in testing): the game that came with the Kinect, played with the same
   webcam, from a Games on Demand copy with its downloadable content.
 
-<!-- Screenshot: add docs/images/gow3.png and uncomment.
-<img width="1920" height="1080" alt="Gears of War 3 running on AnyX360" src="docs/images/gow3.png" />
--->
+<img width="1280" height="800" alt="The AnyX360 launcher with three games added" src="docs/images/launcher.png" />
+
+<sub>The launcher (shown without box art: the release has each game's front cover).</sub>
 
 ## Installation
 
@@ -50,17 +50,18 @@ the sensor.
    you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3 and 8 GB for
    Kinect Adventures.
 3. Run **`AnyX360.exe`** and accept the terms of use.
-4. Click **Add game…** (or the **+** tile) and choose where your copy of the disc is:
-   - **From an archive** (.7z, .rar or .zip): the launcher extracts it into its `games` folder. It
-     finds the game inside whatever folders the archive has.
-   - **From a game folder**: the launcher uses the folder that contains `default.xex` where it is.
-   - **A Games on Demand copy** (a `<title ID>\00007000\` package, in an archive or a folder) is
-     converted to a game folder. Downloadable content for the same game, next to it, is installed
-     too; a title update and other games' content are skipped.
+4. Choose **Add game** (the **+** tile), or drop your copy on the window, as you have it:
+   - **A file**: an archive of any kind (.7z, .rar, .zip, split or not, .tar.gz...), a disc image
+     (.iso), or a Games on Demand or Xbox Live Arcade package. It is extracted or written out into
+     the launcher's `games` folder; you can delete the original afterwards. A password-protected
+     archive asks for its password.
+   - **A folder** with the disc's files: it is used where it is.
 
-   The launcher recognises the game by its title ID and checks the copy is complete. Add each
-   game you have the same way: they appear in the gallery with the game's own icon.
-5. Choose a game and click **Play**.
+   The launcher recognises the game by its content and its title ID and checks the copy is
+   complete. The game's downloadable content in the copy is installed too; title updates and other
+   games' content are left out. Add each game you have the same way: it appears with its box art.
+5. Choose a game and press **Play**. The launcher works with the mouse, the keyboard or an Xbox
+   controller.
 
 Settings can be changed while playing in the **F2** panel. They are saved to
 `%LOCALAPPDATA%\AnyX360\<game>\settings.toml`, next to your saves. The release's `README.txt`
@@ -89,6 +90,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 - **Display-Locked Frame Pacing** - The game's vertical blank follows your monitor's refresh, so
   every frame stays on screen for the same time on 60 Hz and 120 Hz displays.
 - **Performance Overlay** - F1 shows FPS, frame-time and present graphs, VRAM and RAM use.
+- **Sharp at Any Scale** - Per-monitor DPI aware: the window and the panels are drawn at the
+  screen's own resolution at 125 %, 150 % or 200 % scaling.
 
 ### Input
 
@@ -105,11 +108,13 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 
 ### General
 
-- **Settings Panel** - F2 opens an in-game panel; changes apply immediately and are saved.
-- **Launcher** - One `AnyX360.exe` for every game, in English and Spanish: a gallery of the games
-  you added, with each game's dashboard icon (or a cover you choose). It recognises a copy by its
-  title ID, extracts disc archives, starts the game without a console, keeps a log per game and
-  points you to it if the game closes with an error.
+- **Settings Panel** - F2 opens an in-game panel (display, controls, players, Kinect,
+  performance); changes apply immediately and are saved.
+- **Launcher** - One `AnyX360.exe` for every game, in English and Spanish, in the style of the Xbox
+  360's last dashboard: your games' box art, a drawer with the compatible and coming games, mouse,
+  keyboard and controller. It takes your copy in any format, recognises it by its content, starts
+  the game without a console, keeps a log per game and points you to it if the game closes with an
+  error.
 - **Shader Cache** - Shaders and pipelines are cached between runs, so stutter fades after the
   first play.
 - **Saves and Profiles** - Stored in `%LOCALAPPDATA%\AnyX360\<game>`, kept across versions.
@@ -131,6 +136,9 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   the webcam and changes mirroring, field of view, smoothing, players, the pose model and the tilt.
 - **Kinect Guide Gesture** - The left arm held out and down at 45 degrees pauses the game, as on
   the console.
+- **Kinect Debug Window** - F3 opens a window of its own, for a second monitor, with everything the
+  virtual Kinect sees: the image with every skeleton, the depth image, the play space from above
+  and from the side, each joint and the latency over the last 10 seconds.
 - **Mouse Mode** - Without a webcam, the mouse drives the menus: the right hand follows the cursor.
 - **Private** - The webcam's images are processed on your computer in real time, and never saved
   or sent.
@@ -203,6 +211,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | ------------------------ | ------------------------------ |
 | **F1**                   | Performance overlay            |
 | **F2**                   | Settings panel (Esc closes it) |
+| **F3**                   | Kinect debug window (Kinect games) |
 | **F11** or **Alt+Enter** | Fullscreen                     |
 | **Alt+Tab**              | Releases the mouse             |
 
@@ -219,7 +228,6 @@ Dance Central 3:
 - A webcam has no depth camera: turning your back to it, very fast moves and two overlapping
   players can be misread, and there is a little more latency than with a Kinect.
 - Voice commands don't work.
-- With the F2 panel open during a song, the game runs at 20 FPS; close it to dance.
 
 Kinect Adventures:
 
@@ -392,9 +400,11 @@ games/gow3/       Gears of War 3: recompiler config, entry point, game-specific 
 games/dc3/        Dance Central 3: recompiler config, entry point, Kinect bindings, notes
 games/ka/         Kinect Adventures: recompiler config, entry point, Kinect bindings, notes
 runtime/          Kernel and XAM reimplementation, input, settings, GPU and audio glue,
-                  and the virtual Kinect (runtime/src/nui)
+                  the virtual Kinect (runtime/src/nui) and its debug window (runtime/kinect_window)
 tools/x360tool/   Disc and XEX tooling
-tools/launcher/   Windows launcher with the games' gallery (English and Spanish) and its terms of use
+tools/launcher/   The launcher: core/ (its logic, launcher_core) and ui/ (the Direct2D window), terms of use
+ui/               Drawing shared by the launcher, x360tool and the Kinect window (Direct2D, WIC)
+covers/           The games' box art (git-ignored; the release ships the front covers)
 tools/package/    Release packaging: the release's README and each game's section
 tools/pose_bridge/ The webcam pose bridge (Python, MediaPipe) and its build
 tools/scripts/    Analysis helpers (frame timing, switch helpers, NUI reconnaissance)
@@ -419,6 +429,8 @@ Raw/, extracted/ Your game files (git-ignored)
   the launcher shows before first use.
 - Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Xbox and Xbox 360 are trademarks
   of their respective owners, used here only to identify the games AnyX360 is compatible with.
+- The box art in the release belongs to its publishers and is shown only to identify the games;
+  it is not kept in this repository.
 - Rights holders can reach the developer through this repository's issues to request a review.
 
 ## Credits
@@ -433,6 +445,8 @@ Raw/, extracted/ Your game files (git-ignored)
 - [MediaPipe](https://ai.google.dev/edge/mediapipe), [OpenCV](https://opencv.org/),
   [NumPy](https://numpy.org/) and [PyInstaller](https://pyinstaller.org/), behind the webcam pose
   bridge.
+- [Inter](https://rsms.me/inter/) by Rasmus Andersson (SIL Open Font License), the in-game panels'
+  font.
 - [AMD FidelityFX](https://gpuopen.com/fidelityfx-superresolution/), [Dear ImGui](https://github.com/ocornut/imgui),
   [FFmpeg](https://ffmpeg.org/), [7-Zip](https://www.7-zip.org/) and the other libraries listed in
   the release's `licenses` folder.
