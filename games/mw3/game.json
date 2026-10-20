@@ -4,6 +4,7 @@
   "cover": "call-of-duty-modern-warfare-3",
   "status": "testing",
   "exe": "ModernWarfare3",
+  "executables": {"default.xex": "ModernWarfare3", "default_mp.xex": "ModernWarfare3MP"},
   "user_dir": "ModernWarfare3",
   "title_id": "415608CB",
   "dev_game_dir": "extracted/mw3/game",
