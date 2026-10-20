@@ -1,0 +1,47 @@
+# Call of Duty: Black Ops II recompiler configuration (XenonRecomp format). Paths are relative to
+# this file. This file contains no game code or data; it only describes where things are.
+#
+# file_path is the single-player default.xex (default.pe: the campaign) of the Games on Demand package
+# written out with x360tool god-extract (see docs/BLACKOPS2.md). It is encrypted with the retail key
+# and uses basic (zero-fill) compression. The other executable, default_mp.xex (multiplayer and
+# Zombies), is not recompiled.
+
+[main]
+file_path = "../../extracted/bo2/game/default.xex"
+out_directory_path = "recomp"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x826C7650
+savegprlr_14_address = 0x826C7600
+restfpr_14_address = 0x826C76FC
+savefpr_14_address = 0x826C76B0
+restvmx_14_address = 0x826C9C48
+savevmx_14_address = 0x826C99B0
+restvmx_64_address = 0x826C9CDC
+savevmx_64_address = 0x826C9A44
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: the same code as Modern
+# Warfare 3's, apart from the global they read and their calls). The second longjmp candidate,
+# 0x8258D760, is an ordinary function (a switch). 18 calls to setjmp, 12 to longjmp.
+setjmp_address = 0x826CA660
+longjmp_address = 0x826CAAF0
+
+# Functions the analyser gets wrong (address + size), added as they are found.
+functions = [
+  # A leaf function with a switch, whose other cases count down CTR with bdz. The last bdz targets
+  # the next instruction, which the analyser takes for an empty block: it cut the function there,
+  # and the switch's default case (0x82539DD0) ended up outside it.
+  { address = 0x82539CB8, size = 0x130 },
+]
