@@ -1,0 +1,41 @@
+# Kinect Joy Ride recompiler configuration (XenonRecomp format). Paths are relative to this file.
+# This file contains no game code or data; it only describes where things are.
+#
+# file_path is the default.xex of the Games on Demand package written out with x360tool
+# god-extract (see docs/KINECTJOYRIDE.md). It is encrypted with the retail key and LZX-compressed.
+
+[main]
+file_path = "../../extracted/kjr/game/default.xex"
+out_directory_path = "recomp3"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x829F7710
+savegprlr_14_address = 0x829F76C0
+restfpr_14_address = 0x829F969C
+savefpr_14_address = 0x829F9650
+restvmx_14_address = 0x829FA0A8
+savevmx_14_address = 0x829F9E10
+restvmx_64_address = 0x829FA13C
+savevmx_64_address = 0x829F9EA4
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: word for word Kinect Sports'
+# 82F6C150/82F6C420). The other longjmp candidates are ordinary functions.
+setjmp_address = 0x829FD5A0
+longjmp_address = 0x829FD870
+
+# Functions the analyser misses (address + size), added as they are found.
+# functions = [
+#   { address = 0x0, size = 0x0 },
+# ]
