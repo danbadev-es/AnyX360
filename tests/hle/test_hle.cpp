@@ -21,6 +21,9 @@ PPC_EXTERN_FUNC(__imp__XeCryptAesCbc);
 PPC_EXTERN_FUNC(__imp__XeCryptAesEcb);
 PPC_EXTERN_FUNC(__imp__sprintf);
 PPC_EXTERN_FUNC(__imp__vswprintf);
+PPC_EXTERN_FUNC(__imp__XamLoaderSetLaunchData);
+PPC_EXTERN_FUNC(__imp__XamLoaderGetLaunchDataSize);
+PPC_EXTERN_FUNC(__imp__XamLoaderGetLaunchData);
 PPC_EXTERN_FUNC(__imp__KeBlowFuses);  // not implemented: must resolve to the weak stub
 PPC_EXTERN_FUNC(__imp__XamShowRecentMessageUI);
 
@@ -165,6 +168,23 @@ int main() {
       same &= mem.read<uint16_t>(wout + uint32_t(i) * 2) == uint16_t(expected[i]);
     CHECK(same);
     CHECK(ctx.r3.u32 == 9);
+  }
+
+  // Launch data: a title reads back what it set; a short buffer gets what fits, and that is a
+  // success (Xenia's behaviour).
+  {
+    const guest_addr data = kHeap + 0xB00, size = kHeap + 0xB80, out = kHeap + 0xC00;
+    std::memcpy(mem.translate(data), "launch-data", 12);
+    ctx.r3.u64 = data, ctx.r4.u64 = 12;
+    __imp__XamLoaderSetLaunchData(ctx, base);
+    CHECK(ctx.r3.u32 == 0);
+    ctx.r3.u64 = size;
+    __imp__XamLoaderGetLaunchDataSize(ctx, base);
+    CHECK(ctx.r3.u32 == 0 && mem.read<uint32_t>(size) == 12);
+    std::memset(mem.translate(out), 0, 16);
+    ctx.r3.u64 = out, ctx.r4.u64 = 6;
+    __imp__XamLoaderGetLaunchData(ctx, base);
+    CHECK(ctx.r3.u32 == 0 && std::memcmp(mem.translate(out), "launch\0", 7) == 0);
   }
 
   // Weak stubs: link, log once, return 0

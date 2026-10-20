@@ -482,13 +482,12 @@ void SetFxaa(bool fxaa) {
 }
 
 std::string Restart() {
-  settings::SaveNow();
   wchar_t exe[MAX_PATH];
   GetModuleFileNameW(nullptr, exe, MAX_PATH);
   // Same arguments without the display flags (the saved settings apply) and the previous restart.
   int argc = 0;
   LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-  std::wstring command = QuoteArgument(exe);
+  std::vector<std::wstring> arguments;
   for (int i = 1; i < argc; ++i) {
     std::wstring arg = argv[i];
     if (arg == L"--resolution" || arg == L"--scale" || arg == L"--fps" || arg == L"--upscale" ||
@@ -497,9 +496,16 @@ std::string Restart() {
       continue;
     }
     if (arg == L"--fxaa" || arg == L"--fullscreen") continue;
-    command += L" " + QuoteArgument(arg);
+    arguments.push_back(arg);
   }
   LocalFree(argv);
+  return "could not start the game again (" + ReplaceProcess(exe, arguments) + ")";
+}
+
+std::string ReplaceProcess(const std::filesystem::path& exe, const std::vector<std::wstring>& arguments) {
+  settings::SaveNow();
+  std::wstring command = QuoteArgument(exe.wstring());
+  for (const std::wstring& arg : arguments) command += L" " + QuoteArgument(arg);
   command += L" --restarted-from " + std::to_wstring(GetCurrentProcessId());
   STARTUPINFOW startup{sizeof(startup)};
   HANDLE output = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -513,12 +519,13 @@ std::string Restart() {
   SetEnvironmentVariableW(L"ANYX360_SETTINGS_TEST", nullptr);
   SetEnvironmentVariableW(L"ANYX360_FPS_SWITCH", nullptr);
   PROCESS_INFORMATION process{};
-  if (!CreateProcessW(exe, command.data(), nullptr, nullptr, TRUE, 0, nullptr, nullptr, &startup, &process)) {
+  if (!CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, TRUE, 0, nullptr, nullptr, &startup,
+                      &process)) {
     DWORD error = GetLastError();
-    KLOG_E("restart failed (%lu)", error);
-    return "could not start the game again (error " + std::to_string(error) + ")";
+    KLOG_E("starting %s failed (%lu)", exe.string().c_str(), error);
+    return "error " + std::to_string(error);
   }
-  KLOG_I("restarting: new process %lu", process.dwProcessId);
+  KLOG_I("starting %s: new process %lu", exe.filename().string().c_str(), process.dwProcessId);
   std::fflush(nullptr);
   std::_Exit(0);
 }
