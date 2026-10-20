@@ -1,0 +1,18 @@
+{
+  "id": "ks",
+  "title": "Kinect Sports",
+  "cover": "kinect-sports",
+  "status": "testing",
+  "exe": "KinectSports",
+  "user_dir": "KinectSports",
+  "title_id": "4D5308C9",
+  "dev_game_dir": "extracted/ks/game",
+  "launcher_name": "AnyX360 Kinect Sports",
+  "size_gb": 4,
+  "archive_hint": "Kinect Sports (Games on Demand or disc)",
+  "input": "webcam",
+  "required_files": ["AM/catalogue.bin", "nuiidentity.bin.be"],
+  "owners": "Microsoft Corporation, Xbox Game Studios, Rare",
+  "trademarks": ["Xbox", "Xbox 360", "Kinect", "Kinect Sports"],
+  "components": ["MediaPipe (Apache 2.0)", "OpenCV (Apache 2.0)", "NumPy (BSD)", "Python (PSF)"]
+}

@@ -1,0 +1,41 @@
+# Kinect Sports recompiler configuration (XenonRecomp format). Paths are relative to this file.
+# This file contains no game code or data; it only describes where things are.
+#
+# file_path is the default.xex of the Games on Demand package written out with x360tool
+# god-extract (see docs/KINECTSPORTS.md). It is encrypted with the retail key and LZX-compressed.
+
+[main]
+file_path = "../../extracted/ks/game/default.xex"
+out_directory_path = "recomp2"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x82F68B90
+savegprlr_14_address = 0x82F68B40
+restfpr_14_address = 0x82F6A55C
+savefpr_14_address = 0x82F6A510
+restvmx_14_address = 0x82F6DA48
+savevmx_14_address = 0x82F6D7B0
+restvmx_64_address = 0x82F6DADC
+savevmx_64_address = 0x82F6D844
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: the same code as Fruit Ninja
+# Kinect's and Doritos Crash Course's).
+setjmp_address = 0x82F6C150
+longjmp_address = 0x82F6C420
+
+# Functions the analyser misses (address + size), added as they are found.
+# functions = [
+#   { address = 0x0, size = 0x0 },
+# ]
