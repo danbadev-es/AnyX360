@@ -8,8 +8,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-20
+
+Call of Duty: Modern Warfare 3.
+
 ### Added
 
+- **Call of Duty: Modern Warfare 3** (in testing): the single-player executable from a Games on
+  Demand copy or the disc's files, with keyboard and mouse or a controller, at 60 FPS. The
+  opening videos, the menus, the settings and saves, the campaign's intro level and Black Tuesday
+  (the briefing, New York, the firefight) work. Multiplayer is a separate program, not recompiled.
 - I/O completion routines (`ReadFileEx`, `WriteFileEx`) run as user APCs at the thread's next
   alertable wait (`SleepEx(..., TRUE)`, alertable `WaitFor*`), which returns "user APC". Before,
   a title that waited for them that way waited forever.
@@ -370,7 +378,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.6.0...v0.7.0

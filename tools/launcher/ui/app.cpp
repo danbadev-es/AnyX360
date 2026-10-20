@@ -575,7 +575,7 @@ void App::DrawDetails(Canvas& c) {
     const bool first = tiles_.size() == 1;
     c.Text(first ? Tr(kTextAddFirst) : Tr(kTextAddTile), {kMargin, y, w, 46}, Style(34, DWRITE_FONT_WEIGHT_LIGHT, kText));
     TextStyle hint = Body();
-    // Up to three lines: the formats and the list of games (six of them) in the narrowest window.
+    // Up to three lines: the formats and the release's games, in the narrowest window.
     c.Text(Tr(kTextAddFirstHint, {JoinTitles(AvailableGames())}), {kMargin, y + 50, w, 70}, hint);
     below = 20;
     Button(c, {kMargin, y + 108 + below, 210, 50}, Tr(kTextAddTile), kIdPlay, [this] { OpenAdd(); }, true, !working_);

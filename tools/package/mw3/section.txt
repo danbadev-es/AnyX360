@@ -1,0 +1,33 @@
+CALL OF DUTY: MODERN WARFARE 3 (in testing)
+==========================================================
+Your copy: the Games on Demand package (in an archive or a folder) or a folder with the disc's
+files. The campaign and Special Ops; multiplayer is a separate program that isn't included.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\ModernWarfare3
+
+CONTROLS
+Player 1: keyboard and mouse, standing in for a controller. To play with a controller, open
+F2 > Players and set Player 1 to "Controller".
+
+  Move / Look                           W A S D / Mouse
+  Aim / Fire (LT / RT)                  Right click / Left click
+  Jump (A)                              Space  (also Left Shift or Enter)
+  Crouch, prone (B)                     V  (also Backspace)
+  Reload, use (X)                       E
+  Switch weapon (Y)                     F
+  Tactical grenade (LB)                 Q
+  Frag grenade (RB)                     R
+  Sprint (L3)                           C
+  Melee (R3)                            Middle click
+  Pause (Start)                         Esc
+  Objectives (Back)                     Tab
+
+In menus: Space or Enter accepts, V or Backspace goes back. The game's text follows the
+language of Windows.
+
+KNOWN ISSUES
+- About one start in fifteen stays on a black screen after the first frame: close the game and
+  start it again.
+- Choosing Multiplayer closes the game: multiplayer is a different program, not recompiled.
+- In testing: the menus and the campaign's opening have been played; Special Ops, Survival, the
+  downloadable content and split screen haven't been tried yet.
+- In the intro level the snowy trees may look flat white.

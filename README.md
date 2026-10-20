@@ -5,7 +5,7 @@
 **An unofficial, fan-made project that ports Xbox 360 games natively to PC through static recompilation.**
 
 [![Unofficial](https://img.shields.io/badge/unofficial-fan%20project-critical)](#legal-and-disclaimer)
-[![Version](https://img.shields.io/badge/version-0.8.0-2ea44f)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.9.0-2ea44f)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?logo=windows)](#system-requirements)
 [![Graphics](https://img.shields.io/badge/graphics-Direct3D%2012-5C2D91)](#how-it-works)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus)](#building)
@@ -19,7 +19,8 @@
 > [!CAUTION]
 > **AnyX360 is an unofficial fan project.** It is not affiliated with, authorized, sponsored or
 > endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games, Harmonix, Good Science Studio,
-> Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay or any other rights holder.
+> Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay, Activision, Infinity Ward, Sledgehammer
+> Games or any other rights holder.
 > It contains **no game code, assets or files**: you must own a legally acquired copy of the game,
 > and you provide its files yourself.
 
@@ -42,6 +43,8 @@ the sensor.
 - **Doritos Crash Course** (in testing): the Xbox Live Arcade obstacle race with a controller, where
   everyone is an Xbox Avatar.
 - **Kinect Sports** (in testing): Rare's six sports, played with the webcam, with Xbox Avatars.
+- **Call of Duty: Modern Warfare 3** (in testing): the campaign at 60 FPS, with keyboard and mouse
+  or a controller.
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
 carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for.
@@ -56,8 +59,8 @@ carries: AnyX360 builds each avatar from it, with the clothes, hair and face the
    `AnyX360-<version>.zip`. One release has every game.
 2. Extract it to a regular folder (not inside _Program Files_), on a drive with room for the games
    you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3, 8 GB for
-   Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for Doritos Crash Course and 4 GB for
-   Kinect Sports.
+   Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for Doritos Crash Course, 4 GB for
+   Kinect Sports and 8 GB for Call of Duty: Modern Warfare 3.
 3. Run **`AnyX360.exe`** and accept the terms of use.
 4. Choose **Add game** (the **+** tile), or drop your copy on the window, as you have it:
    - **A file**: an archive of any kind (.7z, .rar, .zip, split or not, .tar.gz...), a disc image
@@ -211,6 +214,13 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Other sports, two players        | 🧪 Not tried yet                               |
 | Online, avatar awards            | ❌ Not available: they need Xbox Live          |
 
+| Call of Duty: Modern Warfare 3   | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Menus, settings, saves           | ✅ Working                                     |
+| Campaign                         | 🧪 The opening missions played; the rest not tried yet |
+| Special Ops, Survival            | 🧪 Not tried yet                               |
+| Multiplayer                      | ❌ Not available: a separate program, not recompiled |
+
 ## Controls
 
 ### Gears of War 3
@@ -265,6 +275,22 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Skip ahead when stuck    | R                              | RB                 |
 | Back (menus)             | V (also Backspace)             | B                  |
 | Pause                    | Esc                            | Start              |
+
+### Call of Duty: Modern Warfare 3
+
+The keyboard and mouse stand in for a controller, as in Gears of War 3.
+
+| Action                   | Keyboard and mouse             | Controller         |
+| ------------------------ | ------------------------------ | ------------------ |
+| Move / Look              | W A S D / Mouse                | Left / right stick |
+| Aim / Fire               | Right / left mouse button      | LT / RT            |
+| Jump                     | Space (also Left Shift, Enter) | A                  |
+| Crouch, prone            | V (also Backspace)             | B                  |
+| Reload, use              | E                              | X                  |
+| Switch weapon            | F                              | Y                  |
+| Tactical / frag grenade  | Q / R                          | LB / RB            |
+| Sprint / melee           | C / middle mouse button        | L3 / R3            |
+| Pause / objectives       | Esc / Tab                      | Start / Back       |
 
 ### Kinect Sports
 
@@ -326,6 +352,13 @@ Kinect Sports:
 - You play as the default avatar. The avatars' face shapes (chin, nose, ears) aren't applied, and
   tight clothes can show the body through them.
 - Same webcam limits as Dance Central 3.
+
+Call of Duty: Modern Warfare 3:
+
+- About one start in fifteen stays on a black screen after the first frame: start the game again.
+- Choosing Multiplayer closes the game (multiplayer is a separate program, not recompiled).
+- Only the campaign's opening has been played; in the intro level the snowy trees may look flat
+  white.
 
 Found something else? Open an issue with the version (shown in the launcher) and the game's
 `logs\<game>\last_run.log` file.
@@ -389,6 +422,8 @@ environment with pinned, hash-checked packages.
   [docs/DORITOSCRASHCOURSE.md](docs/DORITOSCRASHCOURSE.md#reproducing)).
 - Kinect Sports: extract the Games on Demand package's disc files to `extracted/ks/game/` with
   `x360tool god-extract` (see [docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing)).
+- Call of Duty: Modern Warfare 3: the same, to `extracted/mw3/game/` (see
+  [docs/MODERNWARFARE3.md](docs/MODERNWARFARE3.md#reproducing)).
 - Put the XEX2 retail key in `keys/xex2_retail.key` (see [keys/README.md](keys/README.md)).
 
 Both folders are git-ignored.
@@ -396,8 +431,9 @@ Both folders are git-ignored.
 > [!IMPORTANT]
 > The targets are the base executables, without title updates: Gears of War 3 (title
 > `4D5308AB`), Dance Central 3 (title `373307D9`), Kinect Adventures (title `4D5308ED`), Fruit
-> Ninja Kinect (title `58410B79`), Doritos Crash Course (title `58410A71`) and Kinect Sports
-> (title `4D5308C9`).
+> Ninja Kinect (title `58410B79`), Doritos Crash Course (title `58410A71`), Kinect Sports
+> (title `4D5308C9`) and Call of Duty: Modern Warfare 3 (title `415608CB`, its single-player
+> `default.xex`).
 
 ### 4. Recompile the Game
 
@@ -406,8 +442,9 @@ names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing-fro
 [docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing),
 [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing),
 [docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md#reproducing),
-[docs/DORITOSCRASHCOURSE.md](docs/DORITOSCRASHCOURSE.md#reproducing) and
-[docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing). For Gears of War 3:
+[docs/DORITOSCRASHCOURSE.md](docs/DORITOSCRASHCOURSE.md#reproducing),
+[docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing) and
+[docs/MODERNWARFARE3.md](docs/MODERNWARFARE3.md#reproducing). For Gears of War 3:
 
 ```bat
 build.bat
@@ -521,8 +558,9 @@ Raw/, extracted/ Your game files (git-ignored)
 
 - **AnyX360 is an unofficial, independent, non-commercial fan project.** It is not affiliated with,
   authorized, sponsored or endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games,
-  Harmonix, Good Science Studio, Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay or any
-  other rights holder, and it is not an official product or port of any game.
+  Harmonix, Good Science Studio, Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay,
+  Activision, Infinity Ward, Sledgehammer Games or any other rights holder, and it is not an
+  official product or port of any game.
 - This repository contains **no game code, assets or console keys**, and never will. The
   third-party XenonRecomp submodule (like Xenia) embeds the publicly known XEX2 retail key in its
   source to load executables; AnyX360's own tools read the key from `keys/` instead.
@@ -532,7 +570,8 @@ Raw/, extracted/ Your game files (git-ignored)
 - Release packages contain no game data and are covered by the [terms of use](tools/launcher/terms_en.txt)
   the launcher shows before first use.
 - Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Kinect Sports, Fruit Ninja,
-  Halfbrick, Doritos, Rare, Xbox and Xbox 360 are trademarks of their respective owners, used here only to identify the games AnyX360
+  Halfbrick, Doritos, Rare, Call of Duty, Modern Warfare, Activision, Xbox and Xbox 360 are
+  trademarks of their respective owners, used here only to identify the games AnyX360
   is compatible with.
 - The box art in the release belongs to its publishers and is shown only to identify the games;
   it is not kept in this repository.
