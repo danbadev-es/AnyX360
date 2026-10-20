@@ -1,0 +1,1 @@
+AnyX360's logo: `anyx360-logo-clean.png` is the mark alone and `anyx360-logo-with-text.png` the mark over the "anyX360" wordmark (both on black); the executables' icon and the launcher's logos are generated from them (`tools/launcher/ui/make_icon.py`, `make_logos.py`).
