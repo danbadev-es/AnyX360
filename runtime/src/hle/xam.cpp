@@ -1200,17 +1200,18 @@ uint32_t XGetLanguage() { return 1; }  // English
 
 // Media verification: the disc's blocks checked against the title's hashes. Titles find these exports
 // with XexGetProcedureAddress. A copy on the hard disk has nothing to check: every verification
-// succeeds at once, and the callback runs as a user APC at the caller's next alertable wait (Black
-// Ops II sleeps until it has run before loading each level). As in Xenia.
+// succeeds at once. Titles learn it from the overlapped (Gears of War 3 polls it) or from the
+// callback, which runs as a user APC at the caller's next alertable wait (Black Ops II sleeps until
+// it has run before loading each level, as in Xenia).
 uint32_t XamMediaVerificationCreate(uint32_t flags) {
   (void)flags;
   return X_ERROR_SUCCESS;
 }
 uint32_t XamMediaVerificationClose() { return X_ERROR_SUCCESS; }
 uint32_t XamMediaVerificationVerify(uint32_t blocks, uint32_t overlapped, uint32_t callback) {
-  (void)blocks, (void)overlapped;
+  (void)blocks;
   if (Thread* thread = CurrentThread(); thread && callback) QueueUserApc(*thread, callback & ~1u, 0, 0, 0);
-  return X_ERROR_SUCCESS;
+  return Complete(overlapped, X_ERROR_SUCCESS);
 }
 // X_SECURITY_FAILURE_INFORMATION: size, failed reads, failed hashes, blocks checked, total blocks,
 // complete.
