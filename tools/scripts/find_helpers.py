@@ -6,7 +6,7 @@ usage: python -I find_helpers.py <image.bin> [--base 0x82000000]
 <image.bin> is the loaded PE image (x360tool xex-extract). Each byte pattern from the XenonRecomp
 README must occur exactly once in the executable sections; otherwise nothing is printed and the
 exit code is 1. setjmp/longjmp are only candidates (functions that save or restore most
-non-volatile registers through r3): check them before using them.
+non-volatile registers through one register): check them before using them.
 """
 
 import argparse
@@ -85,30 +85,69 @@ def functions(image, base):
     return result
 
 
+BLR, BCTR = 0x4E800020, 0x4E800420
+
+
+def ends_function(word):
+    """blr, bctr or b (no link): the last instruction of a function."""
+    return word in (BLR, BCTR) or word & 0xFC000003 == 0x48000000
+
+
+def leaf_pieces(image, base, known):
+    """Code that no .pdata entry covers (hand-written leaf functions such as setjmp), cut after
+    each blr, bctr or b, without the zero padding between functions."""
+    covered = sorted(known)
+    result = []
+    for start, end in code_ranges(image):
+        at = base + start
+        for begin, finish in covered + [(base + end, base + end)]:
+            if begin < base + start or begin > base + end:
+                continue
+            piece = None
+            for pc in range(at, begin, 4):
+                word = struct.unpack_from(">I", image, pc - base)[0]
+                if piece is None and word:
+                    piece = pc
+                if piece is not None and ends_function(word):
+                    result.append((piece, pc + 4))
+                    piece = None
+            at = max(at, finish)
+    return result
+
+
 LI_R3_0 = 0x38600000  # li r3, 0 (setjmp returns 0)
-MR_R3_R4 = 0x7C832378  # mr r3, r4 (longjmp makes setjmp return its second argument)
+
+
+def is_mr_r3(word):
+    """mr r3, rX (or r3, rX, rX): longjmp makes setjmp return its second argument."""
+    return word & 0xFC1F07FF == 0x7C030378 and (word >> 21) & 31 == (word >> 11) & 31
 
 
 def jmp_candidates(image, base):
-    """Short functions that store (setjmp) or load (longjmp) at least 18 GPRs/FPRs relative to r3,
-    with the link register and the return value setjmp/longjmp have."""
+    """Functions that store (setjmp) or load (longjmp) at least 18 GPRs/FPRs relative to one register
+    (r3 in setjmp; longjmp may copy it first), with the link register and the return value
+    setjmp/longjmp have. They also save the 128 vector registers, so they can be 0x500 bytes long."""
     setjmp, longjmp = [], []
-    for start, end in functions(image, base):
-        if end - start > 0x200:
+    known = functions(image, base)
+    for start, end in known + leaf_pieces(image, base, known):
+        if end - start > 0x600:
             continue
-        stores = loads = 0
+        stores = 0
+        loads = {}
         words = set()
+        mr_r3 = False
         for pc in range(start, end, 4):
             word = struct.unpack_from(">I", image, pc - base)[0]
             words.add(word & 0xFC1FFFFF if word & 0xFC1FFFFF in (0x7C0802A6, 0x7C0803A6) else word)
+            mr_r3 = mr_r3 or is_mr_r3(word)
             op, ra = word >> 26, (word >> 16) & 31
             if ra == 3 and ((op == 62 and word & 3 == 0) or op == 54):  # std / stfd rS, d(r3)
                 stores += 1
-            if ra == 3 and ((op == 58 and word & 3 == 0) or op == 50):  # ld / lfd rT, d(r3)
-                loads += 1
+            if (op == 58 and word & 3 == 0) or op == 50:  # ld / lfd rT, d(rA)
+                loads[ra] = loads.get(ra, 0) + 1
         if stores >= 18 and 0x7C0802A6 in words and LI_R3_0 in words:  # mflr
             setjmp.append(start)
-        if loads >= 18 and 0x7C0803A6 in words and MR_R3_R4 in words:  # mtlr
+        if max(loads.values(), default=0) >= 18 and 0x7C0803A6 in words and mr_r3:  # mtlr
             longjmp.append(start)
     return setjmp, longjmp
 

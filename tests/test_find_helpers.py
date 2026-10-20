@@ -91,10 +91,29 @@ class FindHelpersTest(unittest.TestCase):
         for i, word in enumerate(body):
             words[setjmp + i * 4] = word
         restore = [0xE8030000 | (r << 21) | (r * 8) for r in range(14, 32)]  # ld r14..r31, d(r3)
-        restore += [0x7D8803A6, find_helpers.MR_R3_R4, 0x4E800020]  # mtlr r12
+        restore += [0x7D8803A6, 0x7C832378, 0x4E800020]  # mtlr r12; mr r3, r4
         for i, word in enumerate(restore):
             words[longjmp + i * 4] = word
         image = make_image(words, [(BASE + setjmp, len(body)), (BASE + longjmp, len(restore))])
+        self.assertEqual(find_helpers.jmp_candidates(bytes(image), BASE), ([BASE + setjmp], [BASE + longjmp]))
+
+    def test_leaf_setjmp_and_longjmp_through_another_register(self):
+        # Fruit Ninja Kinect's: setjmp has no .pdata entry and starts with a hook (bnectr) after
+        # padding; longjmp copies r3 to r7 and returns r6.
+        words = {}
+        other, setjmp, longjmp = TEXT + 0x700, TEXT + 0x800, TEXT + 0xA00
+        words[other] = 0x4E800020  # blr: a function .pdata knows ends before the padding
+        body = [0x7C0903A6, 0x4C820420, 0x7C0802A6]  # mtctr r0; bnectr; mflr r0
+        body += [0xF8030000 | (r << 21) | (r * 8) for r in range(13, 32)]  # std r13..r31, d(r3)
+        body += [find_helpers.LI_R3_0, 0x4E800020]
+        for i, word in enumerate(body):
+            words[setjmp + i * 4] = word
+        restore = [0x7C671B78]  # mr r7, r3
+        restore += [0xE8070000 | (r << 21) | (r * 8) for r in range(13, 32)]  # ld r13..r31, d(r7)
+        restore += [0x7CA803A6, 0x7CC33378, 0x4E800020]  # mtlr r5; mr r3, r6
+        for i, word in enumerate(restore):
+            words[longjmp + i * 4] = word
+        image = make_image(words, [(BASE + other, 1), (BASE + longjmp, len(restore))])
         self.assertEqual(find_helpers.jmp_candidates(bytes(image), BASE), ([BASE + setjmp], [BASE + longjmp]))
 
     def test_command_line(self):

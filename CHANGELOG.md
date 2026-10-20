@@ -8,6 +8,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-20
+
+### Fixed
+
+- **Fruit Ninja Kinect closed when a round started with its DLC installed** (the launcher installs
+  it by default). Loading a DLC texture, the game's image library tries it as a JPEG first and
+  gives up through libjpeg's error path, which leaves with `longjmp`. The game's `setjmp` and
+  `longjmp` now run as the host's; recompiled as guest code, `longjmp` could not go back to where
+  `setjmp` was called.
+- `tools/scripts/find_helpers.py` finds `setjmp`/`longjmp` that have no unwind entry or copy their
+  buffer's address to another register first, as Fruit Ninja Kinect's do. It also lists
+  candidates in Kinect Adventures and Gears of War 3, whose recompiled code doesn't use them yet.
+
 ## [0.7.0] - 2026-10-20
 
 Fruit Ninja Kinect, the first Xbox Live Arcade game, and progress that is finally saved.
@@ -278,7 +291,9 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.3.0...v0.4.0

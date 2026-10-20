@@ -37,6 +37,11 @@ game read compressed bytes and loaded `particles.fnk` again and again behind the
 ## Recompiler configuration
 - **Register save/restore helpers**: found with `tools/scripts/find_helpers.py`; the addresses are
   in [config.toml](../games/fnk/config.toml).
+- **setjmp/longjmp**: the CRT's (`823BB4C0`, `823BB0B0`) are called as the host's. libjpeg's
+  error handling needs them: D3DX tries each DLC texture (TGA) as a JPEG first, and libjpeg gives up
+  with `longjmp`. Recompiled as guest code, `longjmp` returned to its own caller instead, and the
+  game crashed in `jpeg_consume_input` when a round started. The `setjmp` has no `.pdata` entry and
+  the `longjmp` loads through `r7`, so `find_helpers.py` now looks for both shapes.
 - **Jump tables**: the fork's dataflow detector finds 181; two table-driven `bctr` stay unresolved,
   listed at the end of [switch_tables.toml](../games/fnk/switch_tables.toml).
 - **Instructions**: the game needed `cctph`, `cror`, `crorc`, `lwaux`, `vaddsbs`, `vavguh`,
@@ -107,7 +112,8 @@ stop without a message. To try the DLC in a developer build, extract each pack f
 
 ## Status (2026-10-20)
 - **Boot, calibration, menus, DLC**: the game boots to its title screen, calibrates, and the menus
-  work by slicing their fruit. The eight DLC packs are found and mounted.
+  work by slicing their fruit. The eight DLC packs are found and mounted, and rounds play with
+  them installed (0.7.1).
 - **Arcade and Classic**: whole rounds play with the scripted player: fruit, bombs, the Freeze
   banana, combos, the final pomegranate, the results screen; the best score is kept between
   sessions.

@@ -6,7 +6,7 @@
 
 [main]
 file_path = "../../extracted/fnk/game/default.xex"
-out_directory_path = "recomp4"
+out_directory_path = "recomp5"
 switch_table_file_path = "switch_tables.toml"
 
 # Optimisations stay off until the game runs (XenonRecomp recommendation).
@@ -30,9 +30,11 @@ savevmx_14_address = 0x823B9790
 restvmx_64_address = 0x823B9ABC
 savevmx_64_address = 0x823B9824
 
-# setjmp/longjmp: no candidates.
-# setjmp_address = 0x0
-# longjmp_address = 0x0
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: setjmp saves the non-volatile
+# registers at r3 and returns 0; longjmp restores them through r7 and returns r4, or 1). libjpeg's error
+# handling needs them: D3DX tries a DLC texture as a JPEG and returns E_FAIL through longjmp.
+setjmp_address = 0x823BB4C0
+longjmp_address = 0x823BB0B0
 
 # Functions the analyser misses (address + size), added as they are found.
 # functions = [
