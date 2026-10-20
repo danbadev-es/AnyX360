@@ -18,6 +18,7 @@
 
 #include "core/jobs.h"
 #include "core/library.h"
+#include "x360/profile.h"
 #include "d2d/canvas.h"
 #include "ui/images.h"
 
@@ -154,6 +155,8 @@ class App : public JobObserver {
   void ShowTerms(bool require_acceptance);
   void ToggleCompatible();
   void ToggleLanguage();
+  // The players' names and the games' language (x360/profile.h), for every game.
+  void OpenProfile();
   void PushOverlay(Overlay overlay);
   void PopOverlay();
   void Finish(const Outcome& outcome);
@@ -166,6 +169,7 @@ class App : public JobObserver {
   int selected_ = 0;                 // index into tiles_
   std::vector<CompatibleItem> compatible_;
   bool compatible_open_ = false;
+  x360::profile::Profile profile_;
 
   // The layout of the last Paint.
   std::vector<Target> targets_;

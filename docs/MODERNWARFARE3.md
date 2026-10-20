@@ -64,7 +64,8 @@ Update (`000B0000`). None of them is used yet.
 - **Message boxes**: `XamShowMessageBoxUIEx` read its result from the wrong argument (it has one
   more than `XamShowMessageBoxUI`); fixed for every game.
 - **Pacing**: one vblank per frame: 60 FPS in the menus and the levels.
-- The game's language follows the system's (Spanish here).
+- The copy used here is a Spanish disc: its files carry only Spanish, whatever language the
+  game is told (`XGetLanguage`, the launcher's profile).
 
 ## Status (2026-10-20)
 - **Played by a person**: the user tried it and reports that it runs well and looks right (how

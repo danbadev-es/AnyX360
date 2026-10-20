@@ -7,6 +7,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cwctype>
 #include <fstream>
 
 #include "anyx360_version.h"
@@ -60,12 +61,31 @@ enum : int {
   kIdPassword,
   kIdTermsCheck,
   kIdTermsText,
+  kIdProfile,
+  kIdProfileLanguage,
   kIdTile = 1000,
   kIdCompatible = 2000,
   kIdButton = 3000,
   kIdChoice = 3100,
   kIdMenuItem = 3200,
+  kIdProfileName = 3300,  // + player 0-3
 };
+
+// The profile's file, in AnyX360's folder of %LOCALAPPDATA% (next to the games' own folders).
+fs::path ProfileFile() { return x360::profile::File(LocalAppData() / L"AnyX360"); }
+
+// What the games are told for a profile language ("auto": Windows').
+std::wstring LanguageLabel(const std::string& tag) {
+  for (const auto& language : x360::profile::Languages())
+    if (tag == language.tag) return language.name;
+  const uint32_t windows = x360::profile::WindowsLanguage();
+  for (const auto& language : x360::profile::Languages())
+    if (language.xbox == windows) return Tr(kTextLanguageAuto, {language.name});
+  return Tr(kTextLanguageNoAuto);
+}
+
+// A gamertag's characters: letters and digits (ASCII) and spaces.
+bool NameCharacter(wchar_t ch) { return ch < 0x80 && (std::iswalnum(ch) || ch == L' '); }
 
 bool g_instant = false;  // screenshots: every animation at its end
 
@@ -194,7 +214,7 @@ struct App::Target {
   bool focusable = true;
 };
 
-enum class OverlayKind { kAdd, kProgress, kMessage, kPassword, kMenu, kTerms };
+enum class OverlayKind { kAdd, kProgress, kMessage, kPassword, kMenu, kTerms, kProfile };
 
 struct App::Overlay {
   struct Action {
@@ -216,6 +236,9 @@ struct App::Overlay {
   // The ⋯ menu.
   RectF anchor;
   std::vector<Action> items;
+  // The profile being edited.
+  std::wstring names[x360::profile::kPlayers];
+  std::string language;
   // The terms.
   bool require_acceptance = false, checked = false;
   float scroll = 0, content = 0, view = 0;
@@ -225,6 +248,7 @@ struct App::Overlay {
 
 App::App(Host& host) : host_(host), images_([&host] { host.Post([&host] { host.Invalidate(); }); }) {
   compatible_open_ = ReadSetting(SettingsFile(L"launcher_compatible.txt")) == L"1";
+  profile_ = x360::profile::Read(ProfileFile());
   drawer_.Go(compatible_open_ ? 1.0f : 0.0f, 0, 0);
   selection_.Go(1, 0, 0);
   background_fade_.Go(1, 0, 0);
@@ -438,6 +462,8 @@ void App::DrawHeader(Canvas& c) {
   };
   link(Tr(kTextTermsLink), kIdTerms, [this] { ShowTerms(false); });
   link(Tr(kTextOtherLanguage), kIdLanguage, [this] { ToggleLanguage(); });
+  link(profile_.names[0].empty() ? Tr(kTextProfileLink) : Widen(profile_.names[0]), kIdProfile,
+       [this] { OpenProfile(); });
   TextStyle by = Style(13, DWRITE_FONT_WEIGHT_NORMAL, kTextTertiary);
   const std::wstring developed = Tr(kTextDeveloped);
   const float by_w = c.MeasureText(developed, by).width;
@@ -739,6 +765,7 @@ void App::DrawOverlay(Canvas& c, Overlay& overlay, bool top) {
   if (overlay.kind == OverlayKind::kAdd) extra = 150 + 34;
   if (overlay.kind == OverlayKind::kProgress) extra = 40;
   if (overlay.kind == OverlayKind::kPassword) extra = 64 + 26 + (overlay.wrong ? 22 : 0);
+  if (overlay.kind == OverlayKind::kProfile) extra = x360::profile::kPlayers * 52 + 30 + 52;
   const float band_h = 40 + 48 + 14 + text_h + (extra ? 22 + extra : 0) + 30 + 42 + 40;
   const float band_y = std::round((height_ - band_h) / 2 + (1 - fade) * 14);
   c.FillRect({0, band_y, width_, band_h}, kPanel.Alpha(fade));
@@ -816,6 +843,53 @@ void App::DrawOverlay(Canvas& c, Overlay& overlay, bool top) {
       note_y += 22;
     }
     c.Text(Tr(kTextPasswordKeyboard), {x, note_y, column_w, 20}, Style(13, DWRITE_FONT_WEIGHT_NORMAL, kTextTertiary.Alpha(fade)));
+    y += extra;
+  } else if (overlay.kind == OverlayKind::kProfile) {
+    const float label_w = 190;
+    TextStyle label = Style(15, DWRITE_FONT_WEIGHT_NORMAL, kTextSecondary.Alpha(fade));
+    label.vertical = Align::kCenter;
+    TextStyle value = Style(17, DWRITE_FONT_WEIGHT_NORMAL, kText.Alpha(fade));
+    value.vertical = Align::kCenter;
+    auto box = [&](const RectF& r, bool focused) {
+      c.FillRect(r, Color::Hex(0x0F0F0F, fade));
+      c.StrokeRect(r, (focused ? kGreen : Color::Hex(0x444444)).Alpha(fade), focused ? 2.0f : 1.0f);
+    };
+    float row_y = y;
+    for (int i = 0; i < x360::profile::kPlayers; ++i, row_y += 52) {
+      c.Text(Tr(kTextPlayerName, {std::to_wstring(i + 1)}), {x, row_y, label_w, 44}, label);
+      const RectF field{x + label_w, row_y, column_w - label_w, 44};
+      const int id = kIdProfileName + i;
+      const bool focused = focus_ == id;
+      box(field, focused);
+      c.Text(overlay.names[i], field.Inset(14, 0), value);
+      if (focused) {
+        const float caret = field.x + 14 + c.MeasureText(overlay.names[i], value).width + 2;
+        c.Line(caret, field.y + 10, caret, field.bottom() - 10, kText.Alpha(fade), 1.5f);
+      }
+      if (top) AddTarget(field, id, [] {});
+    }
+    c.Text(Tr(kTextNameRules), {x + label_w, row_y - 4, column_w - label_w, 20},
+           Style(13, DWRITE_FONT_WEIGHT_NORMAL, kTextTertiary.Alpha(fade)));
+    row_y += 30;
+    // The language: Enter, A or a click goes to the next one (a list of 17 would be taller than the window).
+    c.Text(Tr(kTextGameLanguage), {x, row_y, label_w, 44}, label);
+    const RectF chooser{x + label_w, row_y, column_w - label_w, 44};
+    box(chooser, focus_ == kIdProfileLanguage);
+    if (hover_ == kIdProfileLanguage) c.FillRect(chooser.Inset(1, 1), kPanelHover.Alpha(fade));
+    c.Text(LanguageLabel(overlay.language), chooser.Inset(14, 0), value);
+    TextStyle arrow = Style(17, DWRITE_FONT_WEIGHT_NORMAL, kTextSecondary.Alpha(fade), Align::kEnd);
+    arrow.vertical = Align::kCenter;
+    c.Text(L"›", chooser.Inset(14, 0), arrow);
+    if (top) {
+      AddTarget(chooser, kIdProfileLanguage, [this] {
+        Overlay& profile = overlays_.back();
+        std::vector<std::string> tags = {"auto"};
+        for (const auto& language : x360::profile::Languages()) tags.push_back(language.tag);
+        auto at = std::find(tags.begin(), tags.end(), profile.language);
+        profile.language = (at == tags.end() || at + 1 == tags.end()) ? tags[0] : *(at + 1);
+        host_.Invalidate();
+      });
+    }
     y += extra;
   }
 
@@ -945,6 +1019,7 @@ void App::FocusFirst() {
   if (!overlays_.empty()) {
     switch (overlays_.back().kind) {
       case OverlayKind::kPassword: preferred = {kIdPassword}; break;
+      case OverlayKind::kProfile: preferred = {kIdProfileName}; break;
       case OverlayKind::kAdd: preferred = {kIdChoice}; break;
       case OverlayKind::kMenu:
         for (int i = 0; i < 8; ++i) preferred.push_back(kIdMenuItem + i);
@@ -1145,12 +1220,28 @@ void App::KeyPressed(Key key, bool from_pad) {
 }
 
 bool App::WantsText() const {
-  return !overlays_.empty() && overlays_.back().kind == OverlayKind::kPassword && focus_ == kIdPassword;
+  if (overlays_.empty()) return false;
+  const OverlayKind kind = overlays_.back().kind;
+  return (kind == OverlayKind::kPassword && focus_ == kIdPassword) ||
+         (kind == OverlayKind::kProfile && focus_ >= kIdProfileName && focus_ < kIdProfileName + x360::profile::kPlayers);
 }
 
 void App::Character(wchar_t ch) {
   if (!WantsText()) return;
   Overlay& overlay = overlays_.back();
+  if (overlay.kind == OverlayKind::kProfile) {
+    std::wstring& name = overlay.names[focus_ - kIdProfileName];
+    if (ch == L'\b') {
+      if (!name.empty()) name.pop_back();
+    } else if (ch == L'\r') {
+      overlay.buttons[0].run();
+    } else if (ch == 27) {
+      Back();
+    } else if (NameCharacter(ch) && name.size() < x360::profile::kNameLength) {
+      name += ch;
+    }
+    return host_.Invalidate();
+  }
   if (ch == L'\b') {
     if (!overlay.typed.empty()) overlay.typed.pop_back();
   } else if (ch == L'\r') {
@@ -1165,6 +1256,11 @@ void App::Character(wchar_t ch) {
 
 void App::Paste(const std::wstring& text) {
   if (!WantsText()) return;
+  if (overlays_.back().kind == OverlayKind::kProfile) {
+    for (wchar_t ch : text)
+      if (NameCharacter(ch)) Character(ch);
+    return;
+  }
   for (wchar_t ch : text)
     if (ch >= 32 && overlays_.back().typed.size() < 256) overlays_.back().typed += ch;
   host_.Invalidate();
@@ -1329,6 +1425,29 @@ void App::OpenMore(const RectF& anchor) {
                              confirm.back = [this] { PopOverlay(); };
                              PushOverlay(std::move(confirm));
                            }});
+  overlay.back = [this] { PopOverlay(); };
+  PushOverlay(std::move(overlay));
+}
+
+void App::OpenProfile() {
+  Overlay overlay;
+  overlay.kind = OverlayKind::kProfile;
+  overlay.title = Tr(kTextProfileTitle);
+  overlay.text = Tr(kTextProfileText);
+  for (int i = 0; i < x360::profile::kPlayers; ++i) overlay.names[i] = Widen(profile_.names[i]);
+  overlay.language = profile_.language;
+  overlay.buttons.push_back({Tr(kTextSave), [this] {
+                               const Overlay& edited = overlays_.back();
+                               x360::profile::Profile profile;
+                               for (int i = 0; i < x360::profile::kPlayers; ++i)
+                                 profile.names[i] = x360::profile::CleanName(Narrow(edited.names[i]));
+                               profile.language = edited.language;
+                               if (!x360::profile::Write(ProfileFile(), profile))
+                                 return ShowMessage(Tr(kTextProblemTitle), ShortPath(ProfileFile()), true);
+                               profile_ = profile;
+                               PopOverlay();
+                             }});
+  overlay.buttons.push_back({Tr(kTextCancel), [this] { PopOverlay(); }});
   overlay.back = [this] { PopOverlay(); };
   PushOverlay(std::move(overlay));
 }
@@ -1498,6 +1617,12 @@ void App::ShowState(std::wstring_view state) {
     focus_visible_ = true;
   } else if (state == L"terms") {
     ShowTerms(true);
+  } else if (state == L"profile") {
+    profile_.names[0] = "Daniel";
+    profile_.names[1] = "Ana";
+    profile_.language = "auto";
+    OpenProfile();
+    focus_visible_ = true;
   }
   host_.Invalidate();
 }

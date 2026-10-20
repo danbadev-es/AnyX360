@@ -138,7 +138,11 @@ void InitUsers() {
   std::lock_guard lock(g_user_mutex);
   for (uint32_t i = 0; i < 4; ++i) {
     g_users[i].xuid = kXuid + i;
-    g_users[i].name = s.players[i].name.empty() ? "Player " + std::to_string(i + 1) : s.players[i].name;
+    // The launcher's profile first, then settings.toml (development runs).
+    const std::string& chosen = TitlePaths().player_names[i];
+    g_users[i].name = !chosen.empty()              ? chosen
+                      : s.players[i].name.empty() ? "Player " + std::to_string(i + 1)
+                                                  : s.players[i].name;
     g_users[i].signed_in = i == 0 || (s.sign_in == "at_start" && x360::input::IsConnected(i));
     if (i && g_users[i].signed_in) KLOG_I("users: player %u (%s) signed in at startup", i + 1, g_users[i].name.c_str());
   }
@@ -257,7 +261,7 @@ uint32_t XamUserGetMembershipTierFromXUID(uint64_t xuid) {
 }
 uint32_t XamUserGetOnlineCountryFromXUID(uint64_t xuid) {
   (void)xuid;
-  return 103;  // United States, as ExGetXConfigSetting reports
+  return TitlePaths().country;  // as ExGetXConfigSetting reports
 }
 uint32_t XamUserGetCachedUserFlags(uint32_t user_index) {
   (void)user_index;
@@ -1193,7 +1197,8 @@ uint32_t XNetLogonGetTitleID() { return Title().title_id; }
 
 uint32_t XGetAVPack() { return 6; }  // HDMI
 uint32_t XGetGameRegion() { return 0xFFFF; }
-uint32_t XGetLanguage() { return 1; }  // English
+// The player profile's language (Windows' by default): a game without it chooses its own.
+uint32_t XGetLanguage() { return TitlePaths().language; }
 
 void XGetVideoMode(uint32_t mode) {
   std::memset(Ptr(mode), 0, 0x30);

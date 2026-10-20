@@ -2,10 +2,12 @@
 // with arguments in PPC registers and guest pointers into a real 4 GiB guest address space.
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 
 #include "x360/hle.h"
 #include "x360/kernel.h"
 #include "x360/memory.h"
+#include "x360/profile.h"
 
 // Declared exactly as XenonRecomp's generated ppc_recomp_shared.h does.
 PPC_EXTERN_FUNC(__imp__RtlInitAnsiString);
@@ -165,6 +167,30 @@ int main() {
       same &= mem.read<uint16_t>(wout + uint32_t(i) * 2) == uint16_t(expected[i]);
     CHECK(same);
     CHECK(ctx.r3.u32 == 9);
+  }
+
+  // The player profile (x360/profile.h): written by the launcher, read by every game.
+  {
+    namespace fs = std::filesystem;
+    const fs::path folder = fs::temp_directory_path() / "anyx360_test_profile";
+    fs::remove_all(folder);
+    profile::Profile written;
+    written.names[0] = "  Daniel  B!rr@to ";
+    written.names[1] = "Ana";
+    written.language = "es";
+    CHECK(profile::Write(profile::File(folder), written));
+    const profile::Profile read = profile::Read(profile::File(folder));
+    CHECK(read.names[0] == "Daniel Brrto");  // a gamertag's letters, digits and single spaces
+    CHECK(read.names[1] == "Ana" && read.names[2].empty() && read.names[3].empty());
+    CHECK(read.language == "es");
+    CHECK(profile::CleanName("ABCDEFGHIJKLMNOPQRS") == "ABCDEFGHIJKLMNO");
+    CHECK(profile::Read(folder / "missing.txt").language == "auto");
+    CHECK(profile::Resolve("es").language == 5 && profile::Resolve("en").language == 1);
+    const uint32_t windows = profile::WindowsLanguage();
+    CHECK(profile::Resolve("auto").language == (windows ? windows : 1));
+    const uint32_t country = profile::Resolve("es").country;
+    CHECK(country >= 1 && country <= 110);
+    fs::remove_all(folder);
   }
 
   // Weak stubs: link, log once, return 0

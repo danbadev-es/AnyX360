@@ -353,6 +353,10 @@ struct TitleInfo {
   bool avatar_system = false;         // XamAvatarInitialize succeeds (GameDescriptor::avatar_system)
   uint32_t avatar_skeleton = 0;       // the avatar library's skeleton builder (GameDescriptor)
   uint8_t main_thread_processor = 1;  // hardware thread of the main thread (GameDescriptor)
+  // From the player profile the launcher sets (x360/profile.h): the players' names (empty:
+  // settings.toml's, else "Player N") and the language and country games are told.
+  std::string player_names[4];
+  uint32_t language = 1, country = 103;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).
   std::function<void()> on_function_table;
 };
