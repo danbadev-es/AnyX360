@@ -1085,6 +1085,12 @@ void App::RightClick(float x, float y) {
   if (SelectedGame() >= 0) OpenMore({x, y, 0, 0});
 }
 
+void App::PadConnected() {
+  if (pad_used_) return;
+  pad_used_ = true;
+  host_.Invalidate();
+}
+
 void App::KeyPressed(Key key, bool from_pad) {
   focus_visible_ = true;
   pad_used_ = from_pad;

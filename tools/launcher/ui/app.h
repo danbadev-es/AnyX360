@@ -66,6 +66,8 @@ class App : public JobObserver {
   // The pointer is on something that acts (the hand cursor).
   bool PointerOnTarget() const { return hover_ >= 0; }
   void KeyPressed(Key key, bool from_pad);
+  // A controller is connected: its button hints show.
+  void PadConnected();
   void Character(wchar_t c);
   void Paste(const std::wstring& text);
   bool WantsText() const;

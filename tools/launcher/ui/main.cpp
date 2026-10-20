@@ -117,17 +117,61 @@ struct Pad {
 Pad g_pads[XUSER_MAX_COUNT];
 unsigned g_pad_tick = 0;
 
+// --pad "<seconds>:<button>,...": buttons pressed on the first controller at those times after the
+// window opens (A B X Y START LB RB UP DOWN LEFT RIGHT), each held 150 ms: the controller navigation
+// tested unattended.
+struct ScriptedPress {
+  ULONGLONG at;
+  WORD button;
+};
+std::vector<ScriptedPress> g_pad_script;
+ULONGLONG g_pad_start = 0;
+
+void ParsePadScript(const std::wstring& text) {
+  static const std::pair<const wchar_t*, WORD> kButtons[] = {
+      {L"A", XINPUT_GAMEPAD_A},         {L"B", XINPUT_GAMEPAD_B},
+      {L"X", XINPUT_GAMEPAD_X},         {L"Y", XINPUT_GAMEPAD_Y},
+      {L"START", XINPUT_GAMEPAD_START}, {L"LB", XINPUT_GAMEPAD_LEFT_SHOULDER},
+      {L"RB", XINPUT_GAMEPAD_RIGHT_SHOULDER}, {L"UP", XINPUT_GAMEPAD_DPAD_UP},
+      {L"DOWN", XINPUT_GAMEPAD_DPAD_DOWN},    {L"LEFT", XINPUT_GAMEPAD_DPAD_LEFT},
+      {L"RIGHT", XINPUT_GAMEPAD_DPAD_RIGHT}};
+  size_t start = 0;
+  while (start < text.size()) {
+    size_t end = text.find(L',', start);
+    if (end == std::wstring::npos) end = text.size();
+    const std::wstring item = text.substr(start, end - start);
+    const size_t colon = item.find(L':');
+    if (colon != std::wstring::npos) {
+      const std::wstring name = item.substr(colon + 1);
+      for (const auto& [button, bit] : kButtons)
+        if (name == button) g_pad_script.push_back({ULONGLONG(_wtof(item.substr(0, colon).c_str()) * 1000), bit});
+    }
+    start = end + 1;
+  }
+}
+
+WORD ScriptedButtons(ULONGLONG now) {
+  WORD buttons = 0;
+  for (const ScriptedPress& press : g_pad_script)
+    if (now >= g_pad_start + press.at && now < g_pad_start + press.at + 150) buttons |= press.button;
+  return buttons;
+}
+
 void PollPads() {
   ++g_pad_tick;
   const ULONGLONG now = GetTickCount64();
   for (DWORD user = 0; user < XUSER_MAX_COUNT; ++user) {
     Pad& pad = g_pads[user];
+    const bool scripted = user == 0 && !g_pad_script.empty();
     // An empty slot is slow to ask: about once a second.
-    if (!pad.connected && g_pad_tick % 60 != user) continue;
+    if (!pad.connected && !scripted && g_pad_tick % 60 != user) continue;
     XINPUT_STATE state{};
-    pad.connected = XInputGetState(user, &state) == ERROR_SUCCESS;
+    const bool was_connected = pad.connected;
+    pad.connected = XInputGetState(user, &state) == ERROR_SUCCESS || scripted;
     if (!pad.connected) continue;
-    const WORD buttons = state.Gamepad.wButtons;
+    // A controller plugged in (or on at start): its button hints show before it is used.
+    if (!was_connected || g_pad_tick == 1) g_app->PadConnected();
+    const WORD buttons = state.Gamepad.wButtons | (scripted ? ScriptedButtons(now) : 0);
     const WORD pressed = buttons & ~pad.buttons;
     pad.buttons = buttons;
     if (pressed & XINPUT_GAMEPAD_A) g_app->KeyPressed(Key::kActivate, true);
@@ -139,7 +183,7 @@ void PollPads() {
     if (pressed & XINPUT_GAMEPAD_RIGHT_SHOULDER) g_app->KeyPressed(Key::kNext, true);
     // The d-pad or the left stick, repeating while held.
     const SHORT x = state.Gamepad.sThumbLX, y = state.Gamepad.sThumbLY;
-    constexpr SHORT kDead = 16000;
+    constexpr SHORT kDead = 10000;  // about 30 %: a light push moves the focus
     int direction = -1;
     if ((buttons & XINPUT_GAMEPAD_DPAD_LEFT) || x < -kDead) direction = int(Key::kLeft);
     else if ((buttons & XINPUT_GAMEPAD_DPAD_RIGHT) || x > kDead) direction = int(Key::kRight);
@@ -324,11 +368,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
       return 0;
     case WM_ACTIVATE:
       // The controller is read only while the launcher is in front.
-      if (LOWORD(wparam) == WA_INACTIVE) KillTimer(hwnd, kPadTimer);
-      else SetTimer(hwnd, kPadTimer, 16, nullptr);
+      if (LOWORD(wparam) == WA_INACTIVE) {
+        if (g_pad_script.empty()) KillTimer(hwnd, kPadTimer);
+      } else {
+        SetTimer(hwnd, kPadTimer, 16, nullptr);
+      }
       break;
     case WM_TIMER:
-      if (wparam == kPadTimer && g_app && IsWindowVisible(hwnd) && GetForegroundWindow() == hwnd) PollPads();
+      // Only while the launcher is in front, so a controller used in another program doesn't move it
+      // (a scripted test reads it anyway: started from a background program, it can't come in front).
+      if (wparam == kPadTimer && g_app && IsWindowVisible(hwnd) &&
+          (GetForegroundWindow() == hwnd || !g_pad_script.empty()))
+        PollPads();
       return 0;
     case kMsgRun:
       g_host.RunPosted();
@@ -408,6 +459,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     else if (arg == L"--dpi") shot_dpi = float(_wtof(argv[++i]));
     else if (arg == L"--root") SetRootForTesting(argv[++i]);
     else if (arg == L"--size") swscanf_s(argv[++i], L"%dx%d", &shot_w, &shot_h);
+    else if (arg == L"--pad") ParsePadScript(argv[++i]);
   }
   LocalFree(argv);
   if (language == L"es" || language == L"en") SetLanguage(language == L"es" ? Language::kSpanish : Language::kEnglish);
@@ -460,6 +512,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     if (!password.empty()) app.SetPassword(password);
     if (quit_when_done && !result.empty()) app.QuitWhenDone(result);
     ShowWindow(hwnd, show);
+    // In front, and the controller read from the start: activation alone may not come (a launcher
+    // started from another program's window), and the pad would do nothing until a click.
+    SetForegroundWindow(hwnd);
+    SetTimer(hwnd, kPadTimer, 16, nullptr);
+    g_pad_start = GetTickCount64();
     RegisterDragDrop(hwnd, &g_drop);
     if (!source.empty() && TermsAccepted()) app.AddSource(source);
 
