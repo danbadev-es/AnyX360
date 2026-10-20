@@ -1,6 +1,31 @@
+# Inter (thirdparty/fonts/inter, SIL Open Font License 1.1), embedded for the in-game panels and the
+# Kinect debug window: the TTFs become arrays in a generated source of this game-independent library
+# (the GPU sources are compiled once per game).
+set(ANYX360_INTER_DIR ${ANYX360_THIRDPARTY}/fonts/inter)
+set(inter_cpp ${CMAKE_CURRENT_BINARY_DIR}/generated/inter_fonts.cpp)
+set(inter_arrays "")
+foreach(weight Regular SemiBold)
+  set(ttf ${ANYX360_INTER_DIR}/Inter-${weight}.ttf)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ttf})
+  file(READ ${ttf} hex HEX)
+  string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," bytes "${hex}")
+  string(APPEND inter_arrays "const uint8_t kInter${weight}[] = {${bytes}};\n")
+endforeach()
+file(CONFIGURE OUTPUT ${inter_cpp} CONTENT "// Generated from thirdparty/fonts/inter (runtime/CMakeLists.txt).
+#include \"x360/fonts.h\"
+
+namespace x360::fonts {
+namespace {
+${inter_arrays}}  // namespace
+std::span<const uint8_t> InterRegular() { return kInterRegular; }
+std::span<const uint8_t> InterSemiBold() { return kInterSemiBold; }
+}  // namespace x360::fonts
+")
+
 # Game-independent runtime pieces.
 add_library(x360_runtime STATIC
   src/memory.cpp
+  ${inter_cpp}
 )
 target_include_directories(x360_runtime PUBLIC include)
 

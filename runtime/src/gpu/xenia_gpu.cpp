@@ -15,6 +15,7 @@
 #include "gpu_internal.h"
 #include "host_vblank.h"
 #include "stats_overlay.h"
+#include "ui_theme.h"
 #include "x360/input.h"
 #include "x360/kernel.h"
 #include "x360/settings.h"
@@ -313,6 +314,11 @@ void InterruptThreadBody() {
 
 class WindowListener final : public xe::ui::WindowListener {
  public:
+  // Another monitor's scale: the panels' fonts and sizes follow.
+  void OnDpiChanged(xe::ui::UISetupEvent& e) override {
+    (void)e;
+    theme::OnDpiChanged();
+  }
   void OnClosing(xe::ui::UIEvent& e) override {
     (void)e;
     KLOG_I("window closed: exiting");

@@ -1,8 +1,9 @@
 // Performance overlay drawn with Xenia's ImGui drawer over the presented frame (top-left corner,
-// F1 toggles it): guest frame rate and frame time (from VdSwap), frame interval graphs, the
+// F1 toggles it; ui_theme's look): guest frame rate and frame time (from VdSwap), frame interval graphs, the
 // process's video memory use (DXGI), host and guest RAM, and the virtual Kinect (Kinect games).
 #include "stats_overlay.h"
 #include "frame_timing.h"
+#include "ui_theme.h"
 #include "x360/gpu.h"
 #include "x360/nui.h"
 #include "x360/settings.h"
@@ -69,39 +70,57 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
       Refresh();
       last_sample_ = now;
     }
-    ImGui::SetNextWindowPos(ImVec2(8, 8), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.55f);
+    using namespace theme;
+    ImGui::SetNextWindowPos(ImVec2(Px(12), Px(12)), ImGuiCond_Always);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, color::Vec(color::Rgb(0x121417, 215)));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(Px(12), Px(10)));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(Px(8), Px(3)));
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                              ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                              ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs;
     if (ImGui::Begin("##anyx360_stats", nullptr, flags)) {
       const double mb = 1024.0 * 1024.0;
-      ImGui::Text("%.0f FPS  %.2f ms (worst %.1f ms)", s_.fps, s_.frame_ms, s_.worst_ms);
+      ImGui::PushFont(Title());
+      ImGui::TextColored(color::Vec(s_.fps >= 55 ? color::kGreenBright : s_.fps >= 28 ? color::kAmber : color::kRed),
+                         "%.0f FPS", s_.fps);
+      ImGui::PopFont();
+      ImGui::SameLine();
+      ImGui::AlignTextToFramePadding();
+      ImGui::TextDisabled("%.2f ms, worst %.1f ms", s_.frame_ms, s_.worst_ms);
+      ImGui::PushFont(Small());
       const DisplayConfig& display = GetDisplayConfig();
       uint32_t scale = display.render_scale;
       const char* upscale = display.upscale == DisplayConfig::Upscale::kFsr   ? "FSR"
                             : display.upscale == DisplayConfig::Upscale::kCas ? "CAS"
                                                                               : "bilinear";
-      ImGui::Text("Render %ux%u (%ux)  Output %ux%u %s%s%s", g_frontbuffer_width.load() * scale,
-                  g_frontbuffer_height.load() * scale, scale, window_->GetActualPhysicalWidth(),
-                  window_->GetActualPhysicalHeight(), upscale, display.fxaa ? " +FXAA" : "",
-                  window_->IsFullscreen() ? " fullscreen" : "");
+      auto line = [](const char* label, const char* format, auto... values) {
+        ImGui::TextDisabled("%s", label);
+        ImGui::SameLine(Px(64));
+        ImGui::Text(format, values...);
+      };
+      line("Render", "%ux%u (%ux), output %ux%u %s%s%s", g_frontbuffer_width.load() * scale,
+           g_frontbuffer_height.load() * scale, scale, window_->GetActualPhysicalWidth(),
+           window_->GetActualPhysicalHeight(), upscale, display.fxaa ? " +FXAA" : "",
+           window_->IsFullscreen() ? ", fullscreen" : "");
       if (adapter_)
-        ImGui::Text("VRAM %.0f MB / %.0f MB  (shared %.0f MB)", s_.vram_used / mb, s_.vram_budget / mb,
-                    s_.shared_used / mb);
-      ImGui::Text("RAM  %.0f MB (commit %.0f MB)", s_.working_set / mb, s_.commit / mb);
-      ImGui::Text("Guest %.0f MB virtual + %.0f MB physical", s_.guest_virtual / mb, s_.guest_physical / mb);
-      if (!s_.kinect.empty()) ImGui::Text("Kinect: %s", s_.kinect.c_str());
+        line("VRAM", "%.0f / %.0f MB (shared %.0f MB)", s_.vram_used / mb, s_.vram_budget / mb, s_.shared_used / mb);
+      line("RAM", "%.0f MB (commit %.0f MB)", s_.working_set / mb, s_.commit / mb);
+      line("Guest", "%.0f MB virtual + %.0f MB physical", s_.guest_virtual / mb, s_.guest_physical / mb);
+      if (!s_.kinect.empty()) line("Kinect", "%s", s_.kinect.c_str());
       // Frame intervals: the title's submissions (VdSwap) and what reached the screen (presents of new
       // frames), 0-50 ms; a steady 60 FPS is a flat line at 16.7 ms.
-      ImGui::Text("Presents: %s thread", s_.presents_ui > s_.presents_gpu ? "UI" : "GPU");
+      line("Presents", "%s thread", s_.presents_ui > s_.presents_gpu ? "UI" : "GPU");
       float values[120];
+      ImGui::Dummy(ImVec2(0, Px(2)));
       size_t count = timing::RecentIntervals(timing::Event::kVdSwap, values, 120);
-      ImGui::PlotLines("swap", values, int(count), 0, nullptr, 0.0f, 50.0f, ImVec2(240, 40));
+      ImGui::PlotLines("##swap", values, int(count), 0, "frames", 0.0f, 50.0f, ImVec2(Px(300), Px(34)));
       count = timing::RecentIntervals(timing::Event::kPresentGpuThread, values, 120);
-      ImGui::PlotLines("present", values, int(count), 0, nullptr, 0.0f, 50.0f, ImVec2(240, 40));
+      ImGui::PlotLines("##present", values, int(count), 0, "presents", 0.0f, 50.0f, ImVec2(Px(300), Px(34)));
+      ImGui::PopFont();
     }
     ImGui::End();
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor();
   }
 
  private:
@@ -179,6 +198,7 @@ bool g_overlay_visible = false;
 
 void StartStatsOverlay(xe::ui::Window* window, xe::gpu::GraphicsSystem* graphics, xe::Memory* memory) {
   g_imgui = std::make_unique<xe::ui::ImGuiDrawer>(window, 1);
+  theme::Setup(g_imgui.get());  // Inter and the dark theme, before the font texture is made
   g_immediate = graphics->provider()->CreateImmediateDrawer();
   g_imgui->SetPresenterAndImmediateDrawer(graphics->presenter(), g_immediate.get());
   // The overlay only shows text: draw it with new guest frames instead of at the monitor rate.
