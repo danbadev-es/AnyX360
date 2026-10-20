@@ -4,6 +4,7 @@
 // ever received, as on a console with no other machine on the network.
 #include <mutex>
 #include <random>
+#include <set>
 #include <unordered_map>
 
 #include "x360/kernel.h"
@@ -279,6 +280,61 @@ uint32_t NetDll_XNetGetConnectStatus(uint32_t caller, uint32_t address) {
 
 uint32_t NetDll_ErrorStatus() { return 0x80070000u | kWsaENetDown; }
 
+// A session's key (XNKID, XNKEY) is registered with the console's own network stack, which works
+// without a network: hosts register their session's key, local games included. As in Xenia.
+uint32_t NetDll_XNetRegisterKey(uint32_t caller, uint32_t key_id, uint32_t exchange_key) {
+  (void)caller, (void)key_id, (void)exchange_key;
+  return 0;
+}
+uint32_t NetDll_XNetUnregisterKey(uint32_t caller, uint32_t key_id) {
+  (void)caller, (void)key_id;
+  return 0;
+}
+
+// QoS listening: a host registers the data its session's QoS probes answer with (by the session's
+// key), in the console's own network stack, which works without a network. Black Ops II's local
+// lobby stops with an error when it fails. Nothing ever probes it here.
+uint32_t NetDll_XNetQosListen(uint32_t caller, uint32_t key_id, uint32_t data, uint32_t size, uint32_t bits_per_sec,
+                              uint32_t flags) {
+  (void)caller, (void)key_id, (void)data, (void)size, (void)bits_per_sec, (void)flags;
+  return 0;
+}
+
+// The QoS service lookup (Xbox Live's data centres) finds none: an XNQOS with no entries, as in
+// Xenia (titles read it even when the lookup fails). XNetQosRelease frees it.
+std::mutex g_qos_mutex;
+std::set<uint32_t> g_qos_results;  // XNQOS blocks given out, for XNetQosRelease
+
+uint32_t NetDll_XNetQosServiceLookup(uint32_t caller, uint32_t flags, uint32_t event, uint32_t qos_ptr) {
+  (void)caller, (void)flags;
+  if (qos_ptr) {
+    uint32_t qos = SystemAlloc(0x20);
+    std::memset(Ptr(qos), 0, 0x20);  // count, pending count, one empty XNQOSINFO
+    Store<uint32_t>(qos_ptr, qos);
+    std::lock_guard lock(g_qos_mutex);
+    g_qos_results.insert(qos);
+  }
+  if (event) {
+    if (uint32_t body = ObjectFromHandle(event)) SetEvent(body);
+  }
+  return 0;
+}
+
+uint32_t NetDll_XNetQosRelease(uint32_t caller, uint32_t qos) {
+  (void)caller;
+  std::lock_guard lock(g_qos_mutex);
+  if (!g_qos_results.erase(qos)) return 0x80070000u | kWsaENetDown;
+  SystemFree(qos);
+  return 0;
+}
+
+// The machine ID comes with an Xbox Live logon (X_ONLINE_E_LOGON_NOT_LOGGED_ON otherwise, as in
+// Xenia).
+uint32_t XNetLogonGetMachineID(uint32_t machine_id_ptr) {
+  if (machine_id_ptr) Store<uint64_t>(machine_id_ptr, 0);
+  return 0x80151802;
+}
+
 }  // namespace
 
 X360_EXPORT(NetDll_WSAStartup, NetDll_WSAStartup)
@@ -315,6 +371,9 @@ X360_EXPORT(NetDll___WSAFDIsSet, NetDll___WSAFDIsSet)
 X360_EXPORT(NetDll_XNetInAddrToString, NetDll_XNetInAddrToString)
 X360_EXPORT(NetDll_XNetXnAddrToMachineId, NetDll_XNetXnAddrToMachineId)
 X360_EXPORT(NetDll_XNetGetConnectStatus, NetDll_XNetGetConnectStatus)
+X360_EXPORT(NetDll_XNetRegisterKey, NetDll_XNetRegisterKey)
+X360_EXPORT(NetDll_XNetUnregisterKey, NetDll_XNetUnregisterKey)
+X360_EXPORT(XNetLogonGetMachineID, XNetLogonGetMachineID)
 X360_EXPORT(NetDll_XnpGetConfigStatus, NetDll_ErrorStatus)
 // XNet services: unavailable.
 X360_EXPORT(NetDll_XNetConnect, NetDll_ErrorStatus)
@@ -323,11 +382,10 @@ X360_EXPORT(NetDll_XNetDnsRelease, NetDll_ErrorStatus)
 X360_EXPORT(NetDll_XNetInAddrToXnAddr, NetDll_ErrorStatus)
 X360_EXPORT(NetDll_XNetXnAddrToInAddr, NetDll_ErrorStatus)
 X360_EXPORT(NetDll_XNetServerToInAddr, NetDll_ErrorStatus)
-X360_EXPORT(NetDll_XNetRegisterKey, NetDll_ErrorStatus)
-X360_EXPORT(NetDll_XNetUnregisterKey, NetDll_ErrorStatus)
 X360_EXPORT(NetDll_XNetUnregisterInAddr, NetDll_ErrorStatus)
-X360_EXPORT(NetDll_XNetQosListen, NetDll_ErrorStatus)
+X360_EXPORT(NetDll_XNetQosListen, NetDll_XNetQosListen)
+X360_EXPORT(NetDll_XNetQosServiceLookup, NetDll_XNetQosServiceLookup)
 X360_EXPORT(NetDll_XNetQosLookup, NetDll_ErrorStatus)
-X360_EXPORT(NetDll_XNetQosRelease, NetDll_ErrorStatus)
+X360_EXPORT(NetDll_XNetQosRelease, NetDll_XNetQosRelease)
 X360_EXPORT(NetDll_XNetQosGetListenStats, NetDll_ErrorStatus)
 X360_EXPORT(NetDll_XNetSetSystemLinkPort, NetDll_ErrorStatus)

@@ -1184,6 +1184,27 @@ constexpr uint32_t kHrSuccess = 0x00000000;
 constexpr uint32_t kHrFail = 0x80004005;
 constexpr uint32_t kHrNotLoggedOn = 0x80151802;  // X_ONLINE_E_LOGON_NOT_LOGGED_ON
 
+// XSessionCreate {session object, flags, public slots, private slots, user index, XSESSION_INFO*,
+// nonce*}: a host gets its session's ID (XNKID), its own address (XNADDR) and a key exchange key
+// (XNKEY), offline sessions included; a client passes the host's in. The ID is a system link one
+// (flag bits 0 in its first byte) and never zero: Black Ops II's lobby took a zero ID for a failed
+// session ("you must have an active network connection").
+void CreateSessionInfo(uint32_t buffer) {
+  constexpr uint32_t kCreateHost = 0x00000001;
+  static std::mt19937_64 rng{std::random_device{}()};
+  if (!(Load<uint32_t>(buffer + 0x04) & kCreateHost)) return;
+  if (uint32_t info = Load<uint32_t>(buffer + 0x14)) {
+    uint64_t id = rng() & 0x0FFFFFFFFFFFFFFFull;
+    Store<uint64_t>(info, id ? id : 1);
+    std::memset(Ptr(info + 8), 0, 0x24);  // the address XNetGetTitleXnAddr reports
+    Store<uint32_t>(info + 8, 0x7F000001);
+    std::memset(Ptr(info + 8 + 10), 0xCC, 6);
+    Store<uint64_t>(info + 0x2C, rng());
+    Store<uint64_t>(info + 0x34, rng());
+  }
+  if (uint32_t nonce = Load<uint32_t>(buffer + 0x18)) Store<uint64_t>(nonce, rng());
+}
+
 uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_t length) {
   (void)length;
   switch (app) {
@@ -1204,10 +1225,12 @@ uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_
       }
     case 0xFB:  // XGI: contexts, properties, achievements, local sessions
       switch (message) {
+        case 0x000B0010:  // XSessionCreate (offline sessions are allowed)
+          if (buffer) CreateSessionInfo(buffer);
+          return kHrSuccess;
         case 0x000B0006:  // XUserSetContext
         case 0x000B0007:  // XUserSetPropertyEx
         case 0x000B0008:  // XUserWriteAchievements
-        case 0x000B0010:  // XSessionCreate (offline sessions are allowed)
         case 0x000B0011:  // XSessionDelete
         case 0x000B0012:  // XSessionJoinLocal
         case 0x000B0013:  // XSessionLeaveLocal
