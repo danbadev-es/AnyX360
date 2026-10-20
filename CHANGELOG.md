@@ -8,6 +8,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-20
+
+Fruit Ninja Kinect, the first Xbox Live Arcade game, and progress that is finally saved.
+
+### Added
+
+- **Fruit Ninja Kinect** (in testing): the Xbox Live Arcade game, played with the webcam. The
+  title screen's calibration, the menus, and whole Arcade and Classic rounds (fruit, bombs, the
+  special bananas, combos, the results) play with the scripted test player; its eight DLC packs
+  are installed by the launcher. Notes in [docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md).
+- Xbox Live Arcade titles: the deployment type and the content volume say "downloaded"; the
+  marketplace screens open and close at once (the license is always full).
+- Files the title expands itself as it reads them (XMemCompress, `0FF512ED`) are reported as
+  compressed.
+- The scripted test player's `hand_y_<cm>` action.
+
+### Fixed
+
+- **Games' progress in the profile was never saved**: the profile settings were read and written
+  with the wrong layout, so no title-specific setting (a game's saved options and progress) ever
+  reached the disk. They are saved in `%LOCALAPPDATA%\AnyX360\<game>\profile`.
+- **The recompiler**: a function whose last instruction could fall through returned early instead
+  of going on into the next function (the analysis ends a function where a branch lands on the
+  next address). This applies to games recompiled from this version on; Fruit Ninja Kinect had
+  about 230 such functions, one of them in its audio engine.
+- The virtual Kinect fills each body's user index as the console does (`XUSER_INDEX_NONE` unless a
+  signed-in player is bound to it): games that pair players with bodies by it found nobody.
+- `ObOpenObjectByName`, `XSessionLeaveLocal`, `XSessionWriteStats` and `XamWriteGamerTile`, which
+  failed or weren't there.
+- A path relative to no device (some games try one before `game:\`) is no longer a warning in the
+  log.
+
 ## [0.6.0] - 2026-10-20
 
 A new launcher that takes games in any format, a Kinect debug window for a second monitor, and the

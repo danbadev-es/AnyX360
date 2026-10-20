@@ -5,7 +5,7 @@
 **An unofficial, fan-made project that ports Xbox 360 games natively to PC through static recompilation.**
 
 [![Unofficial](https://img.shields.io/badge/unofficial-fan%20project-critical)](#legal-and-disclaimer)
-[![Version](https://img.shields.io/badge/version-0.6.0-2ea44f)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.7.0-2ea44f)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?logo=windows)](#system-requirements)
 [![Graphics](https://img.shields.io/badge/graphics-Direct3D%2012-5C2D91)](#how-it-works)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus)](#building)
@@ -18,8 +18,8 @@
 
 > [!CAUTION]
 > **AnyX360 is an unofficial fan project.** It is not affiliated with, authorized, sponsored or
-> endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games, Harmonix, Good Science Studio
-> or any other rights holder.
+> endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games, Harmonix, Good Science Studio,
+> Halfbrick Studios or any other rights holder.
 > It contains **no game code, assets or files**: you must own a legally acquired copy of the game,
 > and you provide its files yourself.
 
@@ -37,6 +37,8 @@ the sensor.
   turns the webcam's image into the Kinect's skeletons, color image and depth image.
 - **Kinect Adventures** (in testing): the game that came with the Kinect, played with the same
   webcam, from a Games on Demand copy with its downloadable content.
+- **Fruit Ninja Kinect** (in testing): the Xbox Live Arcade game, slicing fruit with your hands in
+  front of the webcam, with its downloadable content.
 
 <img width="1280" height="800" alt="The AnyX360 launcher with three games added" src="docs/images/launcher.png" />
 
@@ -47,8 +49,8 @@ the sensor.
 1. Download the release from [Releases](https://github.com/danielbarretoes/AnyX360/releases):
    `AnyX360-<version>.zip`. One release has every game.
 2. Extract it to a regular folder (not inside _Program Files_), on a drive with room for the games
-   you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3 and 8 GB for
-   Kinect Adventures.
+   you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3, 8 GB for
+   Kinect Adventures and 1 GB for Fruit Ninja Kinect.
 3. Run **`AnyX360.exe`** and accept the terms of use.
 4. Choose **Add game** (the **+** tile), or drop your copy on the window, as you have it:
    - **A file**: an archive of any kind (.7z, .rar, .zip, split or not, .tar.gz...), a disc image
@@ -119,7 +121,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   first play.
 - **Saves and Profiles** - Stored in `%LOCALAPPDATA%\AnyX360\<game>`, kept across versions.
 
-### Kinect (Dance Central 3, Kinect Adventures)
+### Kinect (Dance Central 3, Kinect Adventures, Fruit Ninja Kinect)
 
 - **Webcam as the Kinect** - MediaPipe pose estimation turns the webcam's image into Kinect
   skeletons for up to two players. It also makes the Kinect's color and depth images, so the game's
@@ -169,6 +171,15 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Downloadable content             | ✅ Installed by the launcher                   |
 | Avatars, voice, online           | ❌ Not available (the game uses its stand-ins) |
 
+| Fruit Ninja Kinect               | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Calibration, menus               | ✅ Working (slice a fruit to choose)           |
+| Arcade, Classic                  | ✅ Playable with the scripted player           |
+| Zen, Party (two players)         | 🧪 Not tried yet                               |
+| Progress and best scores         | ✅ Saved                                       |
+| Downloadable content             | ✅ Installed by the launcher                   |
+| Leaderboards, avatar awards      | ❌ Not available: they need Xbox Live          |
+
 ## Controls
 
 ### Gears of War 3
@@ -205,6 +216,15 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Play                 | Your whole body: jump, duck, lean and step, as each activity shows |
 | Pause                | Left arm out and down at 45° for a moment (the Kinect Guide gesture) |
 
+### Fruit Ninja Kinect
+
+| Action               | Gesture                                                          |
+| -------------------- | ---------------------------------------------------------------- |
+| Slice                | Swipe a hand through the fruit: both hands are blades            |
+| Choose a menu item   | Slice its fruit                                                  |
+| Kinect Tuner         | Y on a controller                                                |
+| Pause                | Left arm out and down at 45° for a moment (the Kinect Guide gesture) |
+
 ### Program Keys
 
 | Key                      | Action                         |
@@ -234,6 +254,12 @@ Kinect Adventures:
 - Reflex Ridge and Space Pop wait at their start ("grab bars", "flap your arms") for the scripted
   test player; they haven't been tried by a person yet.
 - There are no avatars: the game shows its stand-ins.
+- Same webcam limits as Dance Central 3.
+
+Fruit Ninja Kinect:
+
+- The calibration doesn't move a camera: frame yourself with the webcam (head and hands in view).
+- Zen and Party modes haven't been tried yet.
 - Same webcam limits as Dance Central 3.
 
 Found something else? Open an issue with the version (shown in the launcher) and the game's
@@ -292,20 +318,24 @@ environment with pinned, hash-checked packages.
   directory junction to your disc folder (see [docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing)).
 - Kinect Adventures: extract the Games on Demand package's disc files to `extracted/ka/game/` with
   `x360tool god-extract` (see [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing)).
+- Fruit Ninja Kinect: extract the Xbox Live Arcade package to `extracted/fnk/game/` with
+  `x360tool stfs-extract` (see [docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md#reproducing)).
 - Put the XEX2 retail key in `keys/xex2_retail.key` (see [keys/README.md](keys/README.md)).
 
 Both folders are git-ignored.
 
 > [!IMPORTANT]
 > The targets are the base executables, without title updates: Gears of War 3 (title
-> `4D5308AB`), Dance Central 3 (title `373307D9`) and Kinect Adventures (title `4D5308ED`).
+> `4D5308AB`), Dance Central 3 (title `373307D9`), Kinect Adventures (title `4D5308ED`) and Fruit
+> Ninja Kinect (title `58410B79`).
 
 ### 4. Recompile the Game
 
 Build the tools, analyse the executable and generate the C++ sources in the folder `config.toml`
 names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing-from-the-7z-in-raw),
-[docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing) and
-[docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing). For Gears of War 3:
+[docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing),
+[docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing) and
+[docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md#reproducing). For Gears of War 3:
 
 ```bat
 build.bat
@@ -315,14 +345,15 @@ cd games\gow3
 ```
 
 > [!WARNING]
-> Regenerate into an empty `recomp/` folder: XenonRecomp doesn't delete files from an earlier run,
-> and stale ones break the link.
+> Regenerate into an empty folder (the one `config.toml` names, which must exist): XenonRecomp
+> doesn't delete files from an earlier run, and stale ones break the link.
 
 ### 5. Build the Project
 
 - Run `build.bat` again. The first build compiles the whole recompiled game and takes a while.
 - When it finishes, run `build\games\gow3\Release\GearsOfWar3.exe` (or
-  `build\games\dc3\Release\DanceCentral3.exe`, `build\games\ka\Release\KinectAdventures.exe`). It
+  `build\games\dc3\Release\DanceCentral3.exe`, `build\games\ka\Release\KinectAdventures.exe`,
+  `build\games\fnk\Release\FruitNinjaKinect.exe`). It
   finds `extracted/` and `keys/` on its own, or use `--game` and `--key`. The launcher,
   `build\launcher\Release\AnyX360.exe`, also runs from the build folder and finds the games there.
 - For the Kinect games' webcam, build the pose bridge:
@@ -357,8 +388,8 @@ flowchart LR
   [MediaPipe](https://ai.google.dev/edge/mediapipe) on the webcam, or from the mouse.
 
 More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/GEARS3.md](docs/GEARS3.md),
-[docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md), [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md)
-and [docs/ROADMAP.md](docs/ROADMAP.md).
+[docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md), [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md),
+[docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Versioning
 
@@ -390,7 +421,7 @@ To release a version:
 | `xex-icon <xex> <out.png> [--key f]`    | Writes the title image: the dashboard icon the launcher shows                     |
 | `content-info <package>`                | A content package's header (type, title, volume) and its files                    |
 | `god-extract <header> <dir> [paths…]`   | Extracts a Games on Demand package's disc files                                   |
-| `stfs-extract <package> <dir>`          | Extracts an STFS package (downloadable content)                                   |
+| `stfs-extract <package> <dir> [--verify]` | Extracts an STFS package (an arcade game, downloadable content); checks its hashes |
 
 ## Project Layout
 
@@ -399,6 +430,7 @@ docs/             Architecture, roadmap, format notes, per-game notes
 games/gow3/       Gears of War 3: recompiler config, entry point, game-specific hooks
 games/dc3/        Dance Central 3: recompiler config, entry point, Kinect bindings, notes
 games/ka/         Kinect Adventures: recompiler config, entry point, Kinect bindings, notes
+games/fnk/        Fruit Ninja Kinect: recompiler config, entry point, Kinect bindings, notes
 runtime/          Kernel and XAM reimplementation, input, settings, GPU and audio glue,
                   the virtual Kinect (runtime/src/nui) and its debug window (runtime/kinect_window)
 tools/x360tool/   Disc and XEX tooling
@@ -417,7 +449,7 @@ Raw/, extracted/ Your game files (git-ignored)
 
 - **AnyX360 is an unofficial, independent, non-commercial fan project.** It is not affiliated with,
   authorized, sponsored or endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games,
-  Harmonix, Good Science Studio or any other rights holder, and it is not an official product or
+  Harmonix, Good Science Studio, Halfbrick Studios or any other rights holder, and it is not an official product or
   port of any game.
 - This repository contains **no game code, assets or console keys**, and never will. The
   third-party XenonRecomp submodule (like Xenia) embeds the publicly known XEX2 retail key in its
@@ -427,8 +459,9 @@ Raw/, extracted/ Your game files (git-ignored)
   is derived from the game's code.
 - Release packages contain no game data and are covered by the [terms of use](tools/launcher/terms_en.txt)
   the launcher shows before first use.
-- Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Xbox and Xbox 360 are trademarks
-  of their respective owners, used here only to identify the games AnyX360 is compatible with.
+- Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Fruit Ninja, Halfbrick, Xbox and
+  Xbox 360 are trademarks of their respective owners, used here only to identify the games AnyX360
+  is compatible with.
 - The box art in the release belongs to its publishers and is shown only to identify the games;
   it is not kept in this repository.
 - Rights holders can reach the developer through this repository's issues to request a review.

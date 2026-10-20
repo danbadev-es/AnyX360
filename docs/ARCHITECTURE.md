@@ -35,12 +35,12 @@ realistic for this console (see [Why the Xbox 360 is harder](#why-the-xbox-360-i
 | Path | Role | Status |
 |---|---|---|
 | `tools/x360tool` | Disc extraction, XEX2 inspection, decryption and decompression, import and section inventory; Games on Demand (SVOD) and STFS packages | Working |
-| `thirdparty/XenonRecomp` | PPC → C++ recompiler and XEX analyser (fork: devkit key, dataflow jump tables, missing instructions) | Working |
+| `thirdparty/XenonRecomp` | PPC → C++ recompiler and XEX analyser (fork: devkit key, dataflow jump tables, missing instructions, fall-through into the next function) | Working |
 | `runtime/` `x360/endian.h`, `x360/memory.h` | Big-endian access helpers and the 4 GiB guest address-space reservation | Working |
 | `runtime/src/kernel`, `runtime/src/hle` | HLE of the `xboxkrnl.exe` and `xam.xex` exports the titles call; the shared host entry point | Working for both titles |
 | `runtime/src/gpu` | Xenia's Direct3D 12 back end, display pacing, the F1 overlay and the F2 settings panel (ImGui in physical pixels, Inter, `ui_theme`); the games are per-monitor DPI aware (`runtime/game.manifest`) | Working |
 | `runtime/src/input` | Keyboard and mouse, XInput controllers, per-player devices | Working |
-| `runtime/src/nui` | The virtual Kinect: the NUI API on the host, with webcam, mouse and scripted sources | Working (Dance Central 3, Kinect Adventures) |
+| `runtime/src/nui` | The virtual Kinect: the NUI API on the host, with webcam, mouse and scripted sources | Working (Dance Central 3, Kinect Adventures, Fruit Ninja Kinect) |
 | `runtime/kinect_window` | The Kinect debug window (F3): its own thread and Direct2D window, game-independent; calls the game's `nui::GetDebugView` | Working |
 | `ui/` | `ui_d2d` (Direct2D and DirectWrite canvas, fonts from memory; no COM, usable in the games) and `ui_wic` (pictures through WIC: any format, box art's front, JPEG and PNG; launcher and x360tool only) | Working |
 | `tools/pose_bridge` | The webcam pose bridge: MediaPipe pose estimation → Kinect skeletons and images | Working; webcam use in testing |
@@ -49,6 +49,7 @@ realistic for this console (see [Why the Xbox 360 is harder](#why-the-xbox-360-i
 | `games/gow3` | Gears of War 3 configuration, hooks and patches | Playable (0.1.0) |
 | `games/dc3` | Dance Central 3 configuration, Milo hooks and NUI bindings | Playable, in testing |
 | `games/ka` | Kinect Adventures configuration and NUI bindings | Partly played, in testing |
+| `games/fnk` | Fruit Ninja Kinect (Xbox Live Arcade) configuration and NUI bindings | Playable, in testing |
 
 ## Key design decisions
 
