@@ -688,19 +688,23 @@ uint32_t RtlTimeFieldsToTime(uint32_t fields_ptr, uint32_t time_ptr) {
 
 namespace x360::kernel {
 
-// KeTimeStampBundle: interrupt time and system time (100 ns), tick count (ms).
+// KeTimeStampBundle: interrupt time and system time (100 ns), tick count (ms). The tick count
+// advances every millisecond, as the console's clock interrupt does: Windows' own tick count moves in
+// 15.6 ms steps, and Black Ops II's frame limiter (16 ms a frame, measured with GetTickCount) then
+// waited for two steps every other frame (40 FPS).
 void InitTime() {
   uint32_t bundle = KernelVariable("KeTimeStampBundle");
   if (!bundle) return;
   std::thread([bundle] {
     SetThreadDescription(GetCurrentThread(), L"KeTimeStampBundle");
     auto start = std::chrono::steady_clock::now();
+    const uint64_t start_ticks = GetTickCount64();
     for (;;) {
       auto elapsed = std::chrono::steady_clock::now() - start;
       uint64_t interrupt = uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count() / 100);
       Store<uint64_t>(bundle + 0x00, interrupt);
       Store<uint64_t>(bundle + 0x08, SystemTime());
-      Store<uint32_t>(bundle + 0x10, uint32_t(GetTickCount64()));
+      Store<uint32_t>(bundle + 0x10, uint32_t(start_ticks + interrupt / 10000));
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
   }).detach();
