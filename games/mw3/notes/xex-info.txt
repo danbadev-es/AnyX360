@@ -1,0 +1,65 @@
+== XEX2 header ==
+module flags:     0x00000001 title
+PE data offset:   0x00005000
+base address:     0x82000000
+entry point:      0x82459E58
+image size:       0x02330000 (35.19 MiB)
+page size:        0x10000
+encryption:       AES-128 (normal)
+compression:      basic (zero-fill blocks), 5 blocks
+region:           0x00FF00FF
+allowed media:    0x00000004
+original PE name: iw5sp_ship.exe
+
+== Execution info ==
+title id:         415608CB
+media id:         20344957
+version:          0.0.0.8 (base 0.0.0.8)
+disc:             1 of 1
+savegame id:      00000000
+default stack:    0x10000
+system flags:     0x00000600
+
+== Optional headers (17) ==
+  000002FF  RESOURCE_INFO                  value/offset 0x000036EC
+  000003FF  FILE_FORMAT_INFO               value/offset 0x00003700
+  00004304  ?                              value/offset 0x00003730
+  00010100  ENTRY_POINT                    value/offset 0x82459E58
+  00010201  IMAGE_BASE_ADDRESS             value/offset 0x82000000
+  000103FF  IMPORT_LIBRARIES               value/offset 0x00004748
+  00018002  CHECKSUM_TIMESTAMP             value/offset 0x00003740
+  000183FF  ORIGINAL_PE_NAME               value/offset 0x00003748
+  000200FF  STATIC_LIBRARIES               value/offset 0x0000375C
+  00020104  TLS_INFO                       value/offset 0x00003840
+  00020200  DEFAULT_STACK_SIZE             value/offset 0x00010000
+  00030000  SYSTEM_FLAGS                   value/offset 0x00000600
+  00040006  EXECUTION_INFO                 value/offset 0x00003850
+  00040310  GAME_RATINGS                   value/offset 0x00003868
+  00040404  LAN_KEY                        value/offset 0x000038A8
+  000405FF  XBOX360_LOGO                   value/offset 0x000038B8
+  000407FF  ALTERNATE_TITLE_IDS            value/offset 0x00003F80
+
+== Import libraries (2) ==
+  xam.xex          v2.0.20500.0    (min 2.0.13599.0)  196 import records
+  xboxkrnl.exe     v2.0.20500.0    (min 2.0.13599.0)  333 import records
+
+== Statically linked SDK libraries (14) ==
+  XGRAPHC  2.0.20500  (tail 0x4000)
+  XAPILIB  2.0.20500  (tail 0x4000)
+  XBOXKRNL 2.0.20500  (tail 0x4000)
+  XAUD     2.0.8276  (tail 0x4000)
+  XNET     2.0.20500  (tail 0x4000)
+  XONLINE  2.0.20500  (tail 0x4000)
+  XHV      2.0.8276  (tail 0x4000)
+  XPARTY   2.0.20500  (tail 0x4000)
+  LIBCMT   2.0.11886  (tail 0x0400)
+  D3D9LTCG 2.0.20500  (tail 0x4000)
+  X3DAUDL  2.0.20500  (tail 0x4000)
+  LINK     10.0.11886  (tail 0x4400)
+  C2       16.0.11886  (tail 0x4400)
+  C1       16.0.11886  (tail 0x4400)
+
+== Page descriptors (563) ==
+  code       4.44 MiB
+  data       29.50 MiB
+  read-only  1.25 MiB

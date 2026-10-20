@@ -1,0 +1,43 @@
+# Call of Duty: Modern Warfare 3 recompiler configuration (XenonRecomp format). Paths are relative to
+# this file. This file contains no game code or data; it only describes where things are.
+#
+# file_path is the single-player default.xex (iw5sp_ship.exe) of the Games on Demand package written
+# out with x360tool god-extract (see docs/MODERNWARFARE3.md). It is encrypted with the retail key and
+# uses basic (zero-fill) compression. The multiplayer executable, default_mp.xex, is not recompiled.
+
+[main]
+file_path = "../../extracted/mw3/game/default.xex"
+out_directory_path = "recomp2"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x824BED50
+savegprlr_14_address = 0x824BED00
+restfpr_14_address = 0x824BEDFC
+savefpr_14_address = 0x824BEDB0
+restvmx_14_address = 0x824C01D8
+savevmx_14_address = 0x824BFF40
+restvmx_64_address = 0x824C026C
+savevmx_64_address = 0x824BFFD4
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: the same code as Kinect
+# Sports', Fruit Ninja Kinect's and Doritos Crash Course's). The engine's error handling (Com_Error,
+# from Quake III) leaves the failed frame with longjmp: 13 calls to setjmp, 46 to longjmp.
+setjmp_address = 0x824C0AF0
+longjmp_address = 0x824C1590
+
+# Functions the analyser misses (address + size), added as they are found.
+# functions = [
+#   { address = 0x0, size = 0x0 },
+# ]
