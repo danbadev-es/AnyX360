@@ -19,7 +19,7 @@ PPC_EXTERN_FUNC(__imp__XamMediaVerificationFailedBlocks);
 namespace {
 
 // What the console kernel returns for an export it does not have; the XDK's wrappers for optional
-// exports (e.g. XamMediaVerificationVerify) treat the resulting ERROR_PROC_NOT_FOUND as "absent".
+// exports (e.g. XamVoiceSetMicArrayIdleUsers) treat the resulting ERROR_PROC_NOT_FOUND as "absent".
 constexpr uint32_t kStatusDriverEntrypointNotFound = 0xC0000263;
 constexpr uint32_t kKernelModuleHandle = 0x80010000;
 constexpr uint32_t kXamModuleHandle = 0x80020000;
