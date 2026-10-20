@@ -1,0 +1,4 @@
+// Every game executable's icon: AnyX360's (tools/launcher/ui/make_icon.py). The name is the one
+// Xenia's window class loads for the game window's title bar and taskbar button; the Kinect window
+// loads it too.
+MAINICON ICON "../tools/launcher/ui/launcher.ico"

@@ -594,7 +594,7 @@ void Thread(std::string placement, HWND game) {
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = GetModuleHandleW(nullptr);
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-    wc.hIcon = LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1));
+    wc.hIcon = LoadIconW(GetModuleHandleW(nullptr), L"MAINICON");  // the game's (runtime/game.rc)
     wc.hbrBackground = CreateSolidBrush(RGB(0x12, 0x14, 0x17));
     wc.lpszClassName = L"AnyX360KinectWindow";
     return RegisterClassExW(&wc);
