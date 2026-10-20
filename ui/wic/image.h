@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -30,6 +31,12 @@ Rect FrontCoverRect(uint32_t width, uint32_t height);
 // aspect (0: no limit). False and `error` on failure.
 bool DecodePicture(const std::filesystem::path& path, Image& out, std::string& error, uint32_t max_width = 0,
                uint32_t max_height = 0, const Rect* crop = nullptr);
+
+// Decodes a picture held in memory (one embedded in the executable), scaled to fit within
+// max_width x max_height. It is scaled premultiplied, so a transparent background doesn't darken
+// the edges.
+bool DecodePictureData(std::span<const uint8_t> data, Image& out, std::string& error, uint32_t max_width = 0,
+                       uint32_t max_height = 0);
 
 // The front cover of a box picture (FrontCoverRect), scaled to fit width x height.
 bool LoadFrontCover(const std::filesystem::path& path, uint32_t width, uint32_t height, Image& out,

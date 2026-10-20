@@ -71,8 +71,12 @@ inline constexpr uint32_t kTitleId = 0x${title_id};
 }  // namespace game_info
 ")
 
-  # The manifest: per-monitor DPI awareness (sizes are physical pixels), long paths.
-  add_executable(${id} ${GAME_SOURCES} ${PROJECT_SOURCE_DIR}/runtime/game.manifest)
+  # The manifest: per-monitor DPI awareness (sizes are physical pixels), long paths. game.rc: the
+  # AnyX360 icon, for the executable and the game's window.
+  add_executable(${id} ${GAME_SOURCES} ${PROJECT_SOURCE_DIR}/runtime/game.manifest
+                 ${PROJECT_SOURCE_DIR}/runtime/game.rc)
+  set_source_files_properties(${PROJECT_SOURCE_DIR}/runtime/game.rc PROPERTIES OBJECT_DEPENDS
+    ${PROJECT_SOURCE_DIR}/tools/launcher/ui/launcher.ico)
   target_link_libraries(${id} PRIVATE ${id}_ppc ${id}_hle)
   target_include_directories(${id} PRIVATE ${generated} ${ANYX360_GENERATED_DIR})
   target_compile_options(${id} PRIVATE -msse4.1 -gline-tables-only)

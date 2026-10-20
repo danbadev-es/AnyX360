@@ -93,6 +93,19 @@ anyx360::ui::Canvas* g_canvas = nullptr;
 
 float Dips(HWND hwnd, int pixels) { return float(pixels) * 96.0f / float(GetDpiForWindow(hwnd)); }
 
+// The icon (launcher.rc) at the sizes for the window's DPI: the small one for the title bar, the big
+// one for the taskbar and Alt+Tab. The class's are at the system's DPI, which may be another monitor's.
+void SetIcons(HWND hwnd) {
+  const UINT dpi = GetDpiForWindow(hwnd);
+  for (const auto [which, metric] : {std::pair{ICON_SMALL, SM_CXSMICON}, std::pair{ICON_BIG, SM_CXICON}}) {
+    const int size = GetSystemMetricsForDpi(metric, dpi);
+    HANDLE icon = LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1), IMAGE_ICON, size, size, LR_DEFAULTCOLOR);
+    if (!icon) continue;
+    if (HICON previous = reinterpret_cast<HICON>(SendMessageW(hwnd, WM_SETICON, which, reinterpret_cast<LPARAM>(icon))))
+      DestroyIcon(previous);
+  }
+}
+
 // ---- the Xbox controller --------------------------------------------------------------------------
 
 struct Pad {
@@ -237,6 +250,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
       SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, suggested->right - suggested->left,
                    suggested->bottom - suggested->top, SWP_NOZORDER | SWP_NOACTIVATE);
       if (g_canvas) g_canvas->Resize();
+      SetIcons(hwnd);
       return 0;
     }
     case WM_GETMINMAXINFO: {
@@ -408,6 +422,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   wc.hInstance = instance;
   wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
   wc.hIcon = LoadIconW(instance, MAKEINTRESOURCEW(1));
+  wc.hIconSm = static_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
+                                             GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR | LR_SHARED));
   wc.hbrBackground = CreateSolidBrush(RGB(0x14, 0x14, 0x14));
   wc.lpszClassName = L"AnyX360Launcher";
   RegisterClassExW(&wc);
@@ -416,6 +432,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
                               nullptr, instance, nullptr);
   if (!hwnd) return 1;
   g_host.hwnd = hwnd;
+  SetIcons(hwnd);
   // Dark title bar (and, on Windows 11, the background's color).
   BOOL dark = TRUE;
   DwmSetWindowAttribute(hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof(dark));

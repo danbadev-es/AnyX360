@@ -59,6 +59,42 @@ WICBitmapTransformOptions UprightTransform(IWICBitmapFrameDecode* frame) {
   }
 }
 
+// `source` (width x height) scaled down to fit within max_width x max_height keeping its aspect
+// (0: no limit); `width` and `height` become its new size.
+bool FitWithin(IWICImagingFactory* factory, ComPtr<IWICBitmapSource>& source, UINT& width, UINT& height,
+               uint32_t max_width, uint32_t max_height, std::string& error) {
+  double scale = 1.0;
+  if (max_width) scale = std::min(scale, double(max_width) / width);
+  if (max_height) scale = std::min(scale, double(max_height) / height);
+  if (scale >= 1.0) return true;
+  const UINT w = std::max<UINT>(1, UINT(std::lround(width * scale)));
+  const UINT h = std::max<UINT>(1, UINT(std::lround(height * scale)));
+  ComPtr<IWICBitmapScaler> scaler;
+  HRESULT hr;
+  if (FAILED(hr = factory->CreateBitmapScaler(&scaler)) ||
+      FAILED(hr = scaler->Initialize(source.Get(), w, h, WICBitmapInterpolationModeHighQualityCubic))) {
+    error = HrText("cannot scale the picture", hr);
+    return false;
+  }
+  source = scaler;
+  width = w;
+  height = h;
+  return true;
+}
+
+// The pixels of `source`, already premultiplied BGRA.
+bool CopyOut(IWICBitmapSource* source, UINT width, UINT height, Image& out, std::string& error) {
+  out.width = width;
+  out.height = height;
+  out.bgra.resize(size_t(width) * height * 4);
+  if (const HRESULT hr = source->CopyPixels(nullptr, width * 4, UINT(out.bgra.size()), out.bgra.data()); FAILED(hr)) {
+    out = {};
+    error = HrText("cannot decode the picture", hr);
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 Rect FrontCoverRect(uint32_t width, uint32_t height) {
@@ -120,22 +156,7 @@ bool DecodePicture(const std::filesystem::path& path, Image& out, std::string& e
     height = UINT(rect.Height);
   }
 
-  double scale = 1.0;
-  if (max_width) scale = std::min(scale, double(max_width) / width);
-  if (max_height) scale = std::min(scale, double(max_height) / height);
-  if (scale < 1.0) {
-    const UINT w = std::max<UINT>(1, UINT(std::lround(width * scale)));
-    const UINT h = std::max<UINT>(1, UINT(std::lround(height * scale)));
-    ComPtr<IWICBitmapScaler> scaler;
-    if (FAILED(hr = factory->CreateBitmapScaler(&scaler)) ||
-        FAILED(hr = scaler->Initialize(source.Get(), w, h, WICBitmapInterpolationModeHighQualityCubic))) {
-      error = HrText("cannot scale the picture", hr);
-      return false;
-    }
-    source = scaler;
-    width = w;
-    height = h;
-  }
+  if (!FitWithin(factory.Get(), source, width, height, max_width, max_height, error)) return false;
 
   ComPtr<IWICFormatConverter> converter;
   if (FAILED(hr = factory->CreateFormatConverter(&converter)) ||
@@ -144,15 +165,39 @@ bool DecodePicture(const std::filesystem::path& path, Image& out, std::string& e
     error = HrText("cannot convert the picture's colors", hr);
     return false;
   }
-  out.width = width;
-  out.height = height;
-  out.bgra.resize(size_t(width) * height * 4);
-  if (FAILED(hr = converter->CopyPixels(nullptr, width * 4, UINT(out.bgra.size()), out.bgra.data()))) {
-    out = {};
-    error = HrText("cannot decode the picture", hr);
+  return CopyOut(converter.Get(), width, height, out, error);
+}
+
+bool DecodePictureData(std::span<const uint8_t> data, Image& out, std::string& error, uint32_t max_width,
+                       uint32_t max_height) {
+  out = {};
+  ComPtr<IWICImagingFactory> factory;
+  if (!Factory(factory, error)) return false;
+  ComPtr<IWICStream> stream;
+  ComPtr<IWICBitmapDecoder> decoder;
+  ComPtr<IWICBitmapFrameDecode> frame;
+  HRESULT hr = factory->CreateStream(&stream);
+  if (SUCCEEDED(hr)) hr = stream->InitializeFromMemory(const_cast<BYTE*>(data.data()), DWORD(data.size()));
+  if (SUCCEEDED(hr)) hr = factory->CreateDecoderFromStream(stream.Get(), nullptr, WICDecodeMetadataCacheOnDemand, &decoder);
+  if (SUCCEEDED(hr)) hr = decoder->GetFrame(0, &frame);
+  if (FAILED(hr)) {
+    error = HrText("not a picture Windows can read", hr);
     return false;
   }
-  return true;
+  // Premultiplied first: scaling straight alpha would blend the transparent pixels' color into
+  // the edges.
+  ComPtr<IWICFormatConverter> converter;
+  if (FAILED(hr = factory->CreateFormatConverter(&converter)) ||
+      FAILED(hr = converter->Initialize(frame.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr,
+                                        0.0, WICBitmapPaletteTypeCustom))) {
+    error = HrText("cannot convert the picture's colors", hr);
+    return false;
+  }
+  ComPtr<IWICBitmapSource> source = converter;
+  UINT width = 0, height = 0;
+  source->GetSize(&width, &height);
+  if (!FitWithin(factory.Get(), source, width, height, max_width, max_height, error)) return false;
+  return CopyOut(source.Get(), width, height, out, error);
 }
 
 bool LoadFrontCover(const std::filesystem::path& path, uint32_t width, uint32_t height, Image& out,

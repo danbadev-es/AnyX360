@@ -235,6 +235,9 @@ constexpr char kTermsEsUtf8[] = R\"terms(@ANYX360_TERMS_es@)terms\";
     ${ui}/images.cpp
     ${ui}/launcher.rc
     ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.manifest)
+  # The icon and the logos it embeds (the build doesn't see what a .rc names on its own).
+  set_source_files_properties(${ui}/launcher.rc PROPERTIES OBJECT_DEPENDS
+    "${ui}/launcher.ico;${ui}/logo_mark.png;${ui}/logo_full.png")
   set_target_properties(anyx360_launcher PROPERTIES OUTPUT_NAME AnyX360 RUNTIME_OUTPUT_DIRECTORY ${dir}/$<CONFIG>)
   target_compile_options(anyx360_launcher PRIVATE /utf-8)
   target_include_directories(anyx360_launcher PRIVATE ${ANYX360_GENERATED_DIR})
