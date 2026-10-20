@@ -10,6 +10,12 @@
 
 using namespace x360::kernel;
 
+// xam.cpp
+PPC_EXTERN_FUNC(__imp__XamMediaVerificationCreate);
+PPC_EXTERN_FUNC(__imp__XamMediaVerificationClose);
+PPC_EXTERN_FUNC(__imp__XamMediaVerificationVerify);
+PPC_EXTERN_FUNC(__imp__XamMediaVerificationFailedBlocks);
+
 namespace {
 
 // What the console kernel returns for an export it does not have; the XDK's wrappers for optional
@@ -53,10 +59,28 @@ uint32_t XexGetModuleSection(uint32_t module, uint32_t name_ptr, uint32_t data_p
   return X_STATUS_SUCCESS;
 }
 
+// The exports titles look up by ordinal rather than import, among those implemented. Any other
+// ordinal is reported missing, which the XDK's wrappers take as "feature absent".
+struct ProcedureExport {
+  uint32_t module;
+  uint32_t ordinal;
+  PPCFunc* function;
+};
+const ProcedureExport kProcedureExports[] = {
+    {kXamModuleHandle, 0x9BB, __imp__XamMediaVerificationCreate},
+    {kXamModuleHandle, 0x9BC, __imp__XamMediaVerificationClose},
+    {kXamModuleHandle, 0x9BD, __imp__XamMediaVerificationVerify},
+    {kXamModuleHandle, 0x9BE, __imp__XamMediaVerificationFailedBlocks},
+};
+
 uint32_t XexGetProcedureAddress(uint32_t module, uint32_t ordinal, uint32_t out_ptr) {
-  KLOG_W("XexGetProcedureAddress(%08X, %u) not supported", module, ordinal);
-  if (out_ptr) Store<uint32_t>(out_ptr, 0);
-  return kStatusDriverEntrypointNotFound;
+  uint32_t address = 0;
+  for (const ProcedureExport& e : kProcedureExports) {
+    if (e.module == module && e.ordinal == ordinal) address = GuestAddressOf(e.function);
+  }
+  if (!address) KLOG_W("XexGetProcedureAddress(%08X, %u) not supported", module, ordinal);
+  if (out_ptr) Store<uint32_t>(out_ptr, address);
+  return address ? X_STATUS_SUCCESS : kStatusDriverEntrypointNotFound;
 }
 
 uint32_t XexLoadImage(uint32_t name_ptr, uint32_t flags, uint32_t min_version, uint32_t handle_ptr) {

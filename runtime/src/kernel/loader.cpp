@@ -185,6 +185,25 @@ uint32_t KernelVariable(const char* name) {
   return it == g_variables.end() ? 0 : it->second;
 }
 
+// Indirect calls go through the function table, which only covers the title's code. The address
+// given out is a zero word of padding between two of its functions (an invalid instruction, so no
+// code starts or runs there), taken from the end of the code.
+uint32_t GuestAddressOf(PPCFunc* host) {
+  static std::mutex mutex;
+  static std::unordered_map<PPCFunc*, uint32_t> given;
+  static uint32_t next = uint32_t(PPC_CODE_BASE + PPC_CODE_SIZE);
+  std::lock_guard lock(mutex);
+  if (auto it = given.find(host); it != given.end()) return it->second;
+  while (next > PPC_CODE_BASE) {
+    next -= 4;
+    if (Load<uint32_t>(next) != 0 || PPC_LOOKUP_FUNC(g_base, next) != UnknownIndirectCall) continue;
+    PPC_LOOKUP_FUNC(g_base, next) = host;
+    given[host] = next;
+    return next;
+  }
+  return 0;
+}
+
 // Windows' default timer resolution (15.6 ms) makes every short sleep and timed wait (the title's
 // KeDelayExecutionThread, vblank and audio pacing) last ~15.6 ms. Use the finest one, as Xenia does.
 void RaiseTimerResolution() {
