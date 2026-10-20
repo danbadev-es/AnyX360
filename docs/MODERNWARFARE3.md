@@ -91,8 +91,10 @@ Update (`000B0000`). None of them is used yet.
     handler (device+16848 to reach device+16840, `sub_820A0EE8`), which never happens; the fast
     file loader then waits for that lock and the main thread for the loader. A restart gets past
     it. Not understood yet; a race between the swap queue and the interrupt handler (on the
-    console Direct3D can mask interrupts on its processor, which does nothing here) is the main
-    suspect.
+    console Direct3D can mask interrupts on its processor, which does nothing here) was the main
+    suspect. Since multiplayer, a more likely one: the same symptoms came from a lost GPU device
+    in Survival (see [Multiplayer](#known-issues)), fixed in the fork; if it happens again,
+    Xenia's log (stdout, the launcher's `last_run.log`) says whether the device was lost.
   - In the intro level the snowy trees look flat white against a black sky (possibly a
     rendering difference; not compared with a console).
   - Not tried: Special Ops missions, the DLC, later missions, saving mid-mission. Survival and
@@ -154,20 +156,30 @@ DOWN and A open Split Screen; A for each player joins, then A for each continues
 match; A for each auto-assigns a team and A takes the first class (player 2's class menu needs
 the later presses).
 
-From the campaign's executable, after the campaign route's first ten presses (to the main menu):
-`...,72:A,78:RIGHT,81:A,85:DOWN,88:A` picks Multiplayer and confirms past the notice; give the
-multiplayer process its own script with `ANYX360_INPUT_NEXT`. `UP` and `A` in the multiplayer
-menu go back to the campaign.
+From the campaign's executable: the campaign route up to `72:A` (the content warning) reaches
+the main menu, then `78:RIGHT,81:A,85:DOWN,88:A` picks Multiplayer and confirms past the notice;
+give the multiplayer process its own script with `ANYX360_INPUT_NEXT`. `UP` and `A` in the
+multiplayer menu go back to the campaign.
 
-Special Ops split screen Survival: `...,72:A,78:LEFT,81:A,88:A,98:DOWN,100:DOWN,102:DOWN,105:A,
-112:A@1,118:A,122:A@1,146:A,152:A,158:A` (Special Ops, past the notice, Split Screen, both join
-and continue, Survival, the first map, start).
+Special Ops split screen Survival, after the campaign route up to `72:A`:
+`78:LEFT,81:A,88:A,98:DOWN,100:DOWN,102:DOWN,105:A,112:A@1,118:A,122:A@1,146:A,152:A,158:A`
+(Special Ops, past the notice, Split Screen, both join and continue, Survival, the first map,
+start). Alone: `78:LEFT,81:A,88:A,98:DOWN,100:DOWN,105:A,112:A,118:A,124:A,130:A`.
 
 ### Known issues
-- Loading a Survival map stopped in two of six tries (alone and in split screen): the GPU stops
-  consuming its ring buffer, the render thread ("Backend") waits for it inside Direct3D while it
-  holds a lock, and the fast file loader and the cinematic thread wait for that lock. The same
-  family as the campaign's black screen at start; a restart gets past it.
+- **Fixed: loading a Survival map stopped** in 4 of 16 tries (alone and in split screen). The
+  GPU's command processor stopped consuming the ring buffer, the render thread ("Backend")
+  waited for it inside Direct3D (`sub_8209B5E8`, ring space) or for its worker jobs while holding
+  a lock, and the fast file loader and the cinematic thread waited for that lock. Xenia's log
+  (stdout) told why: `D3D12Texture: Failed to load 3D-as-2D texture data`, then `Graphics device
+  lost`, whose error box (`xe::FatalError`) blocked the command processor (and took the focus:
+  "input: cursor released" in the log). The texture cache loads a 2D copy of a 3D texture's first
+  slice for shaders that sample it as 2D; the load fails when the CPU rewrites the memory while it
+  loads (half the Survival loads), after it has recorded the GPU work that writes the copy, and
+  the copy was then destroyed at once: the GPU wrote a released resource and the device was lost.
+  The fork now keeps the copy with its texture and loads it again on its next use (thirdparty/xenia
+  `anyx360-mp`). The campaign's black screen at start may be the same; not verified. Since then
+  the thread dump after 10 s without frames also prints the command processor's host stack.
 - Split screen matches run below 60 FPS when the machine is busy.
 - The DLC maps aren't available (the DLC packs aren't mounted yet).
 - Not tried: three or four players, a match played to its end, other modes, hosting a System

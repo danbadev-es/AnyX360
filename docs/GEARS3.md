@@ -230,7 +230,7 @@ All opt-in through environment variables read by the runtime:
 | `ANYX360_NO_DISPLAY_LOCK` | Free-running vblank instead of locking it to the display |
 | `ANYX360_DISPATCH_SAFETY_MS` | Interval of the dispatcher's missed-wakeup re-check for infinite waits (default 250, 0 disables) |
 | `ANYX360_CAPTURE_DIR` | Saves the guest frame as BMP every 5 s |
-| `ANYX360_DUMP_AT` | Thread dumps at the given seconds (`"95,100"`) |
+| `ANYX360_DUMP_AT` | Thread dumps at the given seconds (`"95,100"`); without it, one comes after 10 s without frames, with the GPU command processor's host stack |
 | `ANYX360_MEMSCAN` | With `ANYX360_DUMP_AT`: logs guest memory holding that text (ASCII or UTF-16BE) |
 | `ANYX360_TRACE` | Logs the exports a thread calls after a time: `"11:75"` (`FFFF` = all threads) |
 | `ANYX360_HOOK` | Logs indirect calls to guest functions: `"8252A040,..."` |

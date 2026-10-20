@@ -26,11 +26,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   A title without one ends as before.
 - `XamShowGameVoiceChannelUI` (a system UI that isn't shown).
 - The recompiler: `vmaxsb`.
+- When no frame has been presented for ten seconds, the thread dump also prints the host call
+  stack of the GPU's command processor, to see what it stopped on.
 
 ### Changed
 
 - `XamLoaderGetLaunchData` copies what fits into the buffer and succeeds, and
   `XamLoaderGetLaunchDataSize` refuses a null pointer, as in Xenia.
+
+### Fixed
+
+- **A lost GPU device when a 2D copy of a 3D texture failed to load**: the texture cache destroyed
+  the copy at once although the GPU was still to write it, and the device was lost; the game
+  stopped behind an error box (Modern Warfare 3, about one Survival load in four). The copy now
+  stays with its texture and loads again on its next use. Any game whose shaders sample a 3D
+  texture as 2D.
 
 ## [0.9.0] - 2026-10-20
 

@@ -1,11 +1,18 @@
 // Tests the HLE bridge the same way recompiled code uses it: by calling __imp__<Export>(ctx, base)
 // with arguments in PPC registers and guest pointers into a real 4 GiB guest address space.
+#include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <thread>
 
 #include "x360/hle.h"
 #include "x360/kernel.h"
 #include "x360/memory.h"
+
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
 
 // Declared exactly as XenonRecomp's generated ppc_recomp_shared.h does.
 PPC_EXTERN_FUNC(__imp__RtlInitAnsiString);
@@ -185,6 +192,27 @@ int main() {
     ctx.r3.u64 = out, ctx.r4.u64 = 6;
     __imp__XamLoaderGetLaunchData(ctx, base);
     CHECK(ctx.r3.u32 == 0 && std::memcmp(mem.translate(out), "launch\0", 7) == 0);
+  }
+
+  // A named host thread's call stack (the stall dump prints the GPU command processor's): the thread
+  // is stopped only while it is unwound, and runs on afterwards.
+  {
+    std::atomic<bool> stop{false};
+    std::atomic<uint64_t> ticks{0};
+    std::thread sleeper([&] {
+      SetThreadDescription(GetCurrentThread(), L"stack test");
+      while (!stop) {
+        ++ticks;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    kernel::PrintHostThreadStack(L"stack test");
+    uint64_t before = ticks;
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    CHECK(ticks > before);
+    stop = true;
+    sleeper.join();
   }
 
   // Weak stubs: link, log once, return 0

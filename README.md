@@ -358,8 +358,7 @@ Kinect Sports:
 
 Call of Duty: Modern Warfare 3:
 
-- About one start in fifteen stays on a black screen after the first frame, and loading a
-  Survival map can stop the same way: start the game again.
+- About one start in fifteen stays on a black screen after the first frame: start the game again.
 - Multiplayer is a second program: switching between it and the campaign closes the window and
   opens another, and the launcher closes.
 - Split screen matches can run below 60 FPS.

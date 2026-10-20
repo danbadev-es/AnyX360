@@ -391,6 +391,9 @@ int Run(const TitleInfo& info);
 void InstallCrashHandler();
 // Guest call stack of the current thread (LR, then saved return addresses).
 std::string GuestBacktrace(int max_frames = 12);
+// Prints the host call stack of the process's thread with this name (a debugging aid: the GPU
+// command processor's, "GPU Commands", when frames stop). Any thread but that one.
+void PrintHostThreadStack(const wchar_t* name);
 void InitTime();
 void InitIo(const TitleInfo& info);
 void InitXam();

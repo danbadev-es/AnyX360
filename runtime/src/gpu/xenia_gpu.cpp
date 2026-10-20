@@ -658,7 +658,11 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
       if (frametimes) timing::AppendCsv(frametimes);
       static int stalled = 0;
       stalled = (swaps == last_swaps) ? stalled + 1 : 0;
-      if (stalled == 2) DumpThreads();
+      if (stalled == 2) {
+        DumpThreads();
+        // What the GPU is busy with or waiting for, when the frames stopped on its side.
+        PrintHostThreadStack(L"GPU Commands");
+      }
       last_swaps = swaps;
       static const char* capture_dir = std::getenv("ANYX360_CAPTURE_DIR");
       static int capture_index = 0;
