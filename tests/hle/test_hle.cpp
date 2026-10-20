@@ -1,13 +1,17 @@
 // Tests the HLE bridge the same way recompiled code uses it: by calling __imp__<Export>(ctx, base)
 // with arguments in PPC registers and guest pointers into a real 4 GiB guest address space.
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 
 #include "x360/hle.h"
 #include "x360/kernel.h"
 #include "x360/memory.h"
 #include "x360/profile.h"
+#include "x360/settings.h"
+#include "../../runtime/src/input/input_internal.h"
 
 // Declared exactly as XenonRecomp's generated ppc_recomp_shared.h does.
 PPC_EXTERN_FUNC(__imp__RtlInitAnsiString);
@@ -190,6 +194,44 @@ int main() {
     CHECK(profile::Resolve("auto").language == (windows ? windows : 1));
     const uint32_t country = profile::Resolve("es").country;
     CHECK(country >= 1 && country <= 110);
+    fs::remove_all(folder);
+  }
+
+  // Mouse look: the mouse's speed as the right stick.
+  {
+    settings::InputSettings in;  // the defaults
+    double rx, ry;
+    input::detail::MouseLook(0, 0, false, in, rx, ry);
+    CHECK(rx == 0 && ry == 0);
+    // A slow movement (400 counts/s, about 1.3 cm/s at 800 DPI) deflects the stick well past the
+    // anti dead zone; with the old linear mapping (sensitivity 1) it was 0.325.
+    input::detail::MouseLook(400, 0, false, in, rx, ry);
+    CHECK(rx > 0.45 && rx < 0.55 && ry == 0);
+    input::detail::MouseLook(100000, 0, false, in, rx, ry);
+    CHECK(std::abs(rx - 1.0) < 1e-9);  // never past the whole stick
+    double aim_x, aim_y;
+    input::detail::MouseLook(400, 0, true, in, aim_x, aim_y);
+    CHECK(aim_x == rx || std::abs(aim_x - 0.5) < 0.05);  // aiming: the games slow it themselves
+    input::detail::MouseLook(0, 400, false, in, rx, ry);
+    CHECK(ry < 0);  // the mouse down looks down
+    in.invert_y = true;
+    input::detail::MouseLook(0, 400, false, in, rx, ry);
+    CHECK(ry > 0);
+  }
+
+  // Settings files from version 1 still at its mouse defaults take the new ones; chosen values stay.
+  {
+    namespace fs = std::filesystem;
+    const fs::path folder = fs::temp_directory_path() / "anyx360_test_settings";
+    fs::remove_all(folder);
+    fs::create_directories(folder);
+    std::ofstream(folder / "settings.toml") << "version = 1\n[input]\nsensitivity = 1.0\naim_sensitivity = 0.45\n";
+    settings::SetDefaults(settings::Settings{});
+    settings::Load(folder / "settings.toml");
+    const settings::Settings loaded = settings::Get();
+    CHECK(loaded.input.sensitivity == settings::InputSettings{}.sensitivity);  // was the old default
+    CHECK(loaded.input.aim_sensitivity == 0.45f);                              // chosen: kept
+    CHECK(loaded.version == settings::Settings{}.version);
     fs::remove_all(folder);
   }
 

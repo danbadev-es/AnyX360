@@ -47,7 +47,18 @@ void Read(const toml::node_view<const toml::node>& node, T& value) {
   if (auto v = node.value<T>()) value = *v;
 }
 
+// Files from earlier versions: values still at that version's defaults take the current ones (the
+// player didn't choose them); the others are kept.
+void Migrate(Settings& s, const Settings& defaults) {
+  if (s.version < 2) {
+    if (s.input.sensitivity == 1.0f) s.input.sensitivity = defaults.input.sensitivity;
+    if (s.input.aim_sensitivity == 0.6f) s.input.aim_sensitivity = defaults.input.aim_sensitivity;
+  }
+  s.version = defaults.version;
+}
+
 void Parse(const toml::table& t, Settings& s) {
+  s.version = 1;  // a file without a version is from the first one
   Read(t["version"], s.version);
   auto display = t["display"];
   uint32_t lines = ResolutionLines(s.display);
@@ -71,10 +82,12 @@ void Parse(const toml::table& t, Settings& s) {
   Read(input["invert_y"], s.input.invert_y);
   Read(input["smoothing_ms"], s.input.smoothing_ms);
   Read(input["anti_deadzone"], s.input.anti_deadzone);
+  Read(input["response"], s.input.response);
   s.input.sensitivity = std::clamp(s.input.sensitivity, 0.05f, 20.0f);
   s.input.aim_sensitivity = std::clamp(s.input.aim_sensitivity, 0.05f, 4.0f);
   s.input.smoothing_ms = std::clamp(s.input.smoothing_ms, 4u, 100u);
   s.input.anti_deadzone = std::clamp(s.input.anti_deadzone, 0.0f, 0.9f);
+  s.input.response = std::clamp(s.input.response, 0.3f, 1.0f);
   if (const toml::table* bindings = input["bindings"].as_table())
     for (auto&& [control, keys] : *bindings)
       if (auto v = keys.value<std::string>()) s.input.bindings[std::string(control.str())] = *v;
@@ -152,7 +165,8 @@ std::string Serialize(const Settings& s) {
     << "aim_sensitivity = " << Float(s.input.aim_sensitivity) << "\n"
     << "invert_y = " << (s.input.invert_y ? "true" : "false") << "\n"
     << "smoothing_ms = " << s.input.smoothing_ms << "\n"
-    << "anti_deadzone = " << Float(s.input.anti_deadzone) << "\n\n"
+    << "anti_deadzone = " << Float(s.input.anti_deadzone) << "\n"
+    << "response = " << Float(s.input.response) << "  # 0.3-1: below 1, slow movements turn faster\n\n"
     << "# Overrides of the default bindings, e.g. A = \"SPACE LSHIFT\". Controls: A B X Y LB RB LT RT\n"
     << "# LS RS BACK START UP DOWN LEFT RIGHT LUP LDOWN LLEFT LRIGHT. Keys: letters, digits, F1-F12,\n"
     << "# SPACE RETURN ESCAPE TAB BACK LSHIFT RSHIFT LCTRL RCTRL LALT UP DOWN LEFT RIGHT, mouse\n"
@@ -240,6 +254,11 @@ void SetDefaults(const Settings& defaults) {
   g_defaults = defaults;
 }
 
+Settings Defaults() {
+  std::lock_guard lock(g_mutex);
+  return g_defaults;
+}
+
 void Load(const std::filesystem::path& path) {
   Settings s = [] {
     std::lock_guard lock(g_mutex);
@@ -250,6 +269,7 @@ void Load(const std::filesystem::path& path) {
     try {
       toml::table table = toml::parse_file(path.string());
       Parse(table, s);
+      Migrate(s, Defaults());
       KLOG_I("settings: %s", path.string().c_str());
     } catch (const toml::parse_error& e) {
       std::filesystem::path bad = path;

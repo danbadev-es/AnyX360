@@ -474,10 +474,13 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
       Row("Anti dead zone", "Minimum stick deflection for any mouse movement, so slow movements still turn the camera.");
       ImGui::SetNextItemWidth(Px(300));
       changed |= ImGui::SliderFloat("##antideadzone", &in.anti_deadzone, 0.0f, 0.5f, "%.2f");
+      Row("Response", "Below 1, slow movements turn the camera faster; 1: the stick follows the mouse's speed.");
+      ImGui::SetNextItemWidth(Px(300));
+      changed |= ImGui::SliderFloat("##response", &in.response, 0.3f, 1.0f, "%.2f");
       ImGui::EndTable();
     }
     if (ImGui::Button("Reset mouse settings")) {
-      settings::InputSettings defaults;
+      settings::InputSettings defaults = settings::Defaults().input;  // the game's
       defaults.bindings = in.bindings;
       in = defaults;
       changed = true;

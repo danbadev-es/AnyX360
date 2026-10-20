@@ -16,11 +16,14 @@
 namespace x360::settings {
 
 struct InputSettings {
-  float sensitivity = 1.0f;     // mouse to right stick
-  float aim_sensitivity = 0.6f;  // multiplier while aiming (left trigger held)
+  float sensitivity = 1.5f;      // mouse to right stick
+  float aim_sensitivity = 1.0f;  // multiplier while aiming (left trigger held); the games slow aiming already
   bool invert_y = false;
-  uint32_t smoothing_ms = 16;   // mouse speed is measured over this window
-  float anti_deadzone = 0.25f;  // added to any mouse movement so the game's stick dead zone doesn't eat it
+  uint32_t smoothing_ms = 16;    // mouse speed is measured over this window
+  float anti_deadzone = 0.25f;   // added to any mouse movement so the game's stick dead zone doesn't eat it
+  // The stick's deflection grows as the mouse's speed to this power: below 1 slow movements deflect
+  // the stick more, against the titles' own stick curves, which turn small deflections very slowly.
+  float response = 0.6f;
   // Overrides of the default bindings: pad control -> space-separated key names (see input.h).
   std::map<std::string, std::string> bindings;
 };
@@ -62,7 +65,9 @@ struct KinectSettings {
 };
 
 struct Settings {
-  int version = 1;
+  // The file's format. 2: the mouse's response curve and its new defaults (a version 1 file still
+  // at the old defaults takes the new ones).
+  int version = 2;
   gpu::DisplayConfig display;
   bool show_stats = false;
   // The Kinect debug window (F3): open, and where it was ("left,top,right,bottom,maximized" in
@@ -82,6 +87,8 @@ struct Settings {
 // The game's defaults (values missing from the file). Call before Load; without it the defaults are
 // Settings{}.
 void SetDefaults(const Settings& defaults);
+// The game's defaults (F2's resets).
+Settings Defaults();
 // Reads the file (missing: defaults; unreadable: renamed to settings.toml.bad, defaults). Call once,
 // before anything else uses the settings.
 void Load(const std::filesystem::path& path);
