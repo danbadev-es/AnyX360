@@ -40,10 +40,10 @@ packs (`*.ipak`; `base.ipak` is 2.6 GB), sound banks (`stream\*.sabs`, `load\*.s
 WebM (`*.webm`: the opening and the loading videos) and Bink (`*.bik`), and `weapons.clump`.
 
 The package's other content: 8 DLC packages (content type 2): two licences of 57 KB ("Season Pass"
-and "Premium Content 1") and six content packages of 129 MB to 2.13 GB (presumably the map packs), 30 avatar
-items (content type `0x9000`) and a Title Update (`000B0000`, 51 files, 85.74 MiB: `default.xexp`,
-`default_mp.xexp`, patch fast files and `patch_all.ipak`). The game asks for `update:\patch.ff` and
-`update:\frontend_patch.ff`, which aren't mounted. None of them is used yet.
+and "Premium Content 1") and six content packages of 129 MB to 2.13 GB (presumably the map packs);
+30 avatar items (content type `0x9000`) and a Title Update (`000B0000`, 51 files, 85.74 MiB:
+`default.xexp`, `default_mp.xexp`, patch fast files and `patch_all.ipak`). The game asks for
+`update:\patch.ff` and `update:\frontend_patch.ff`, which aren't mounted. None of them is used yet.
 
 ## Recompiler configuration
 - **Register save/restore helpers** and **setjmp/longjmp** (`826CA660`, `826CAAF0`, the same CRT
@@ -70,8 +70,9 @@ items (content type `0x9000`) and a Title Update (`000B0000`, 51 files, 85.74 Mi
   imported, then sleeps alertably until its callback has run. The XDK's wrapper takes a missing
   export for success, so the game slept forever on a black screen after "Start level". The four
   media verification exports now exist (a copy on the hard disk has nothing to verify; the
-  callback runs as a user APC), and `XexGetProcedureAddress` returns them: their guest address is
-  a word of padding in the title's code whose function table slot calls the export.
+  callback runs as a user APC, an overlapped is completed), and `XexGetProcedureAddress` returns
+  them: their guest address is a word of padding in the title's code whose function table slot
+  calls the export. Gears of War 3 looks them up too, with an overlapped instead of a callback.
 - **Kernel exports**: the incremental SHA functions (`XeCryptShaInit/Update/Final` and the
   SHA-256, SHA-384 and SHA-512 ones, the context in guest memory), `MmQueryStatistics` and
   `XGetVideoCapabilities`.
@@ -80,8 +81,9 @@ items (content type `0x9000`) and a Title Update (`000B0000`, 51 files, 85.74 Mi
   Backend on 5. The main thread starts on 0, as on the console
   (`GameDescriptor::main_thread_processor`, as for Modern Warfare 3); 1 wasn't tried.
 - **Pacing**: one vblank per frame: 60 FPS in the menus and the level.
-- Still asked for and missing, harmlessly: xam ordinals 1164 (`XamVoiceSetMicArrayIdleUsers`), 80
-  and 36 (`NetDll_XNetStartupEx`, `NetDll_WSAStartupEx`), by ordinal as well; `XexLoadImage("xam.xex")`.
+- Still asked for and missing, harmlessly: xam ordinals 1164 (`XamVoiceSetMicArrayIdleUsers`),
+  80 and 36 (`NetDll_XNetStartupEx`, `NetDll_WSAStartupEx`), by ordinal as well, and
+  `XexLoadImage("xam.xex")`.
 
 ## Status (2026-10-20)
 - **Boot and menus** (scripted pad): the opening videos (Dolby, Treyarch, the intro), the story
@@ -94,11 +96,15 @@ items (content type `0x9000`) and a Title Update (`000B0000`, 51 files, 85.74 Mi
   opening (Savimbi's convoy) and hands over: the scripted player follows the convoy, aims, fires,
   picks up ammunition, reaches checkpoints, dies (it walks into the open) and restarts from the
   checkpoint; the HUD, compass, objectives and audio (XMA) work. 57-60 FPS, with stalls of up to
-  1.5 s around loading; about four minutes in the level tested.
+  1.5 s around loading. A scripted session of ten minutes in the level (moving and firing in a
+  loop) ran without a crash and reached the next objective.
 - The text and voices are Latin American Spanish: the copy has only those sound banks.
 - **Known issues**:
   - Multiplayer and Zombies start `default_mp.xex`, which isn't recompiled: the process ends.
   - The Title Update isn't applied (`update:\` isn't mounted).
+  - One long session slowed to a few frames per second for about 20 s, nine minutes in, as the
+    action moved on (a helicopter, new effects); the same route again, with the shaders cached,
+    didn't. Possibly the host compiling new shaders, or another program loading the machine.
   - Not tried: the rest of the campaign, Strike Force missions, split screen, the DLC, long
     sessions; whether Modern Warfare 3's occasional black screen at start happens here (not seen
     in about twenty starts).
