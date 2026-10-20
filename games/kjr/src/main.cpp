@@ -16,8 +16,11 @@ int main(int argc, char** argv) {
   game.user_dir = game_info::kUserDir;
   game.dev_game_dir = game_info::kDevGameDir;
   game.title_id = game_info::kTitleId;
-  // The game presents every second vblank (30 FPS on the console): two vblanks per frame is 60 FPS.
+  // The game presents every second vblank: 30 FPS at 60 Hz, as on the console, and only that. Its
+  // clock counts vblanks, so a faster vblank (the 60 FPS setting) ran the whole game twice as fast:
+  // a race's timer went 20 s in 10 s.
   game.vblanks_per_frame = 2;
+  game.fixed_fps = 30;
   // The drivers are avatars: the avatar system starts, and avatars are made from the asset pack
   // with the avatar library's skeleton builder (the same XAVATAR 2.0.11775 as Kinect Sports').
   game.avatar_system = true;
