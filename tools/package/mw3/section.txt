@@ -1,12 +1,25 @@
 CALL OF DUTY: MODERN WARFARE 3 (in testing)
 ==========================================================
 Your copy: the Games on Demand package (in an archive or a folder) or a folder with the disc's
-files. The campaign and Special Ops; multiplayer is a separate program that isn't included.
+files. The campaign, Special Ops and multiplayer on one machine (split screen); Xbox LIVE is
+gone, so online play isn't available.
 Saved games and settings: %LOCALAPPDATA%\AnyX360\ModernWarfare3
+
+MULTIPLAYER
+Multiplayer is a separate program (ModernWarfare3MP.exe, next to the campaign's): choosing
+Multiplayer in the main menu closes the game and opens it again in multiplayer, and its Main
+Menu entry goes back to the campaign. The launcher closes when the game switches; the log
+keeps going to logs\mw3\last_run.log.
+- Split Screen: up to four players on one screen. Players 2-4 use controllers: each presses A
+  in their corner to join (as a guest, or with their profile if they are signed in:
+  F2 > Players), then everyone presses A to continue, and Start Match.
+- Special Ops: Split Screen in its menu plays Survival with a second player the same way (the
+  missions haven't been tried yet).
+- Xbox LIVE says to sign in to Xbox LIVE; System Link finds no games.
 
 CONTROLS
 Player 1: keyboard and mouse, standing in for a controller. To play with a controller, open
-F2 > Players and set Player 1 to "Controller".
+F2 > Players and set Player 1 to "Controller". Players 2-4: controllers.
 
   Move / Look                           W A S D / Mouse
   Aim / Fire (LT / RT)                  Right click / Left click
@@ -25,9 +38,10 @@ In menus: Space or Enter accepts, V or Backspace goes back. The game's text foll
 language of Windows.
 
 KNOWN ISSUES
-- About one start in fifteen stays on a black screen after the first frame: close the game and
-  start it again.
-- Choosing Multiplayer closes the game: multiplayer is a different program, not recompiled.
-- In testing: the menus and the campaign's opening have been played; Special Ops, Survival, the
-  downloadable content and split screen haven't been tried yet.
+- About one start in fifteen stays on a black screen after the first frame, and loading a
+  Survival map can stop the same way: close the game and start it again.
+- Split screen runs below 60 FPS in matches on slower machines.
+- In testing: the menus, the campaign's opening, a split screen match on Seatown and
+  Survival on Resistance have been played; the downloadable content and three or four
+  players haven't been tried yet.
 - In the intro level the snowy trees may look flat white.

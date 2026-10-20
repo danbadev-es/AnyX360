@@ -14,12 +14,14 @@ Call of Duty: Modern Warfare 3. Every value below comes from its `default.xex`, 
 | Functions | 36,494 (15,024 in `.pdata`) |
 | XDK | 2.0.20500; links D3D9LTCG, XGRAPHC, XAPILIB, XNET, XONLINE, XPARTY, X3DAUDL, LIBCMT and the older XAUD and XHV 2.0.8276; compiler 16.0.11886 |
 | Imports | `xboxkrnl.exe`: 160 functions and 13 variables; `xam.xex`: 98 functions ([list](../games/mw3/notes/imports.txt)) |
-| Target version | The single-player executable of the base game; no Title Update |
+| Multiplayer XEX | `default_mp.xex` (`iw5mp_ship.exe`): same title ID, key and compression; entry `0x824DBAE0`; 31.6 MiB image (4.9 MiB code); 38,186 functions; imports 161 + 13 from `xboxkrnl.exe`, 101 from `xam.xex` ([info](../games/mw3/notes/xex-info_mp.txt), [imports](../games/mw3/notes/imports_mp.txt)) |
+| Target version | Both executables of the base game; no Title Update |
 
 The game folder holds two executables: `default.xex` (campaign and Special Ops) and
-`default_mp.xex` (multiplayer), which the single-player one starts with `XamLoaderLaunchTitle`.
-Only `default.xex` is recompiled; choosing Multiplayer ends the process. The game's data are IW
-fast files (`*.ff`), Bink videos (`*.bik`) and `imagefile*.pak`/`packfile1.pak`.
+`default_mp.xex` (multiplayer). Each is recompiled into its own program, `ModernWarfare3.exe` and
+`ModernWarfare3MP.exe`, and each starts the other with `XamLoaderLaunchTitle` (see
+[Multiplayer](#multiplayer)). The game's data are IW fast files (`*.ff`), Bink videos (`*.bik`) and
+`imagefile*.pak`/`packfile1.pak`.
 
 The package's other content: 26 DLC packs (content type 2: the Collections, Elite drops and the
 free maps, for multiplayer and Survival), 43 avatar items (content type `0x9000`) and a Title
@@ -40,6 +42,11 @@ Update (`000B0000`). None of them is used yet.
   high half) before a switch. The bounds check only looks at the low word, but the generated
   `switch` used the whole register and jumped outside the host's jump table: a crash about five
   minutes into the campaign. The fork now switches on the low word.
+- **Multiplayer** ([config_mp.toml](../games/mw3/config_mp.toml), output in `recomp_mp`): the
+  register helpers from `find_helpers.py`; setjmp/longjmp at `82544510`/`825452B0`, checked by
+  hand (word for word the campaign's, apart from relocated addresses); 156 jump tables (5 fixed
+  patterns, 151 from the dataflow detector; 14 table-driven `bctr` left as indirect calls).
+  `vmaxsb` (signed byte maximum), which only the multiplayer code uses, was added to the fork.
 
 ## Bring-up
 - **Kernel exports**: kernel semaphores (`KeInitializeSemaphore`, `KeReleaseSemaphore`),
@@ -88,8 +95,83 @@ Update (`000B0000`). None of them is used yet.
     suspect.
   - In the intro level the snowy trees look flat white against a black sky (possibly a
     rendering difference; not compared with a console).
-  - Choosing Multiplayer starts `default_mp.xex`, which isn't recompiled: the process ends.
-  - Not tried: Special Ops, Survival, the DLC, split screen, later missions, saving mid-mission.
+  - Not tried: Special Ops missions, the DLC, later missions, saving mid-mission. Survival and
+    split screen: see [Multiplayer](#multiplayer).
+
+## Multiplayer
+
+### Two programs
+`default_mp.xex` is a program of its own, so it is recompiled on its own: `ModernWarfare3MP.exe`
+(target `mw3_mp`, built with `mw3`), next to `ModernWarfare3.exe`. game.json lists both
+(`"executables"`); the launcher shows one tile and starts the campaign's, and the release ships
+both. They share the title ID, the user folder, the profile and the shader cache. The
+multiplayer executable's descriptor is the campaign's (60 FPS, main thread on hardware thread 0).
+
+### Switching between them
+On the console, `XamLoaderLaunchTitle` ends the title and boots the XEX it names. Here:
+
+- The campaign's main menu → Multiplayer (after a notice recommending the campaign first) calls
+  `XamLoaderLaunchTitle("default_mp.xex", 0)` after `XamLoaderSetLaunchData` (1000 bytes). The
+  runtime finds the executable recompiled from that XEX next to the running one, writes
+  `<user>\launch_data.bin` (Xenia's LoaderData layout: host path, launch path, flags, data),
+  starts it with the same `--game`, `--user` and `--key` and `--restarted-from <pid>`, and exits.
+  The new process waits for the old one to exit, reads the launch data (`XamLoaderGetLaunchData`
+  returns it) and deletes the file.
+- Multiplayer's Main Menu calls `XamLoaderLaunchTitle("default.xex", 0)` the same way; the
+  campaign's executable then skips the opening videos and shows its main menu.
+- The window closes and another opens (a few seconds). The new process inherits the standard
+  handles, so the launcher's `logs\mw3\last_run.log` keeps receiving both.
+- The launcher waits for the process it started: when the campaign exits (code 0) to start
+  multiplayer it closes, as after any normal exit, and the game keeps running.
+- A launch path without a recompiled executable (or an empty one: back to the dashboard) ends the
+  process, as before. Test hook: `ANYX360_INPUT_NEXT` becomes the next process's
+  `ANYX360_INPUT`.
+
+### Status (2026-10-20, scripted pads)
+- **Menus**: Xbox LIVE, Split Screen, System Link, Elite, Theater, Store, Options and Main Menu,
+  at 60 FPS. No imports were missing besides `XamShowGameVoiceChannelUI` (a system UI stub).
+- **Online**: Xbox LIVE shows "you have to sign in to Xbox LIVE" and returns to the menu; System
+  Link opens an empty game list (sockets are local; nothing else is on the network).
+- **Split screen**: in the sign-in screen each player presses A in their quadrant; player 2
+  joins as a guest ("Guest 2") or with their profile if signed in (F2 > Players), and each
+  continues with A. The lobby (Start Match, Game Setup, Create a Class, Barracks) starts a Team
+  Deathmatch on Seatown in about ten seconds. Each player picks a team (auto-assign) and a class
+  and plays: both move, aim, fire and reload, each with their own HUD, compass and score. 35-57
+  FPS during the match on the test machine, which was busy with other builds at the time.
+- **Special Ops** (the campaign's executable): Split Screen joins player 2 the same way and offers
+  Survival or Missions. Survival on Resistance plays in split screen (wave 1, a player downed and
+  the revive prompt for the other) and alone.
+
+### Routes
+Multiplayer split screen match, from `ModernWarfare3MP.exe` with an existing user folder (times
+from the first input poll):
+
+```
+ANYX360_INPUT=15:DOWN,18:A,22:A,24:A@1,28:A,30:A@1,40:A,56:A,57:A@1,63:A,64:A@1,67:A@1,71:A@1
+```
+
+DOWN and A open Split Screen; A for each player joins, then A for each continues; A starts the
+match; A for each auto-assigns a team and A takes the first class (player 2's class menu needs
+the later presses).
+
+From the campaign's executable, after the campaign route's first ten presses (to the main menu):
+`...,72:A,78:RIGHT,81:A,85:DOWN,88:A` picks Multiplayer and confirms past the notice; give the
+multiplayer process its own script with `ANYX360_INPUT_NEXT`. `UP` and `A` in the multiplayer
+menu go back to the campaign.
+
+Special Ops split screen Survival: `...,72:A,78:LEFT,81:A,88:A,98:DOWN,100:DOWN,102:DOWN,105:A,
+112:A@1,118:A,122:A@1,146:A,152:A,158:A` (Special Ops, past the notice, Split Screen, both join
+and continue, Survival, the first map, start).
+
+### Known issues
+- Loading a Survival map stopped in two of six tries (alone and in split screen): the GPU stops
+  consuming its ring buffer, the render thread ("Backend") waits for it inside Direct3D while it
+  holds a lock, and the fast file loader and the cinematic thread wait for that lock. The same
+  family as the campaign's black screen at start; a restart gets past it.
+- Split screen matches run below 60 FPS when the machine is busy.
+- The DLC maps aren't available (the DLC packs aren't mounted yet).
+- Not tried: three or four players, a match played to its end, other modes, hosting a System
+  Link game, the Special Ops missions.
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `415608CB`):
@@ -104,11 +186,23 @@ cd games\mw3
 mkdir recomp3
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 cd ..\..
+```
+
+The multiplayer executable the same way, with its own files:
+
+```
+build\tools\x360tool\release\x360tool.exe xex-extract extracted\mw3\game\default_mp.xex extracted\mw3\default_mp.bin --key keys\xex2_retail.key
+python -I tools\scripts\find_helpers.py extracted\mw3\default_mp.bin
+cd games\mw3
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\mw3\game\default_mp.xex switch_tables_mp.toml
+mkdir recomp_mp
+..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config_mp.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
+cd ..\..
 build.bat release mw3
 ```
 
-XenonRecomp writes into `out_directory_path` from `config.toml`, and that folder must exist and be
-empty before it runs.
+`build.bat release mw3` builds both executables. XenonRecomp writes into `out_directory_path` from
+the configuration, and that folder must exist and be empty before it runs.
 
 **Scripted route** to the first level (a new user folder; times from the first input poll, with a
 warm shader cache):

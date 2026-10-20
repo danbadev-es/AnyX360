@@ -8,6 +8,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **Call of Duty: Modern Warfare 3 multiplayer** (in testing): `default_mp.xex` is recompiled as a
+  second program, `ModernWarfare3MP.exe`, which the campaign's main menu starts and whose Main
+  Menu entry goes back. Its menus, split screen (players 2-4 join with controllers, as guests or
+  with their profiles), the split screen lobby and a Team Deathmatch on Seatown work. Xbox LIVE
+  asks to sign in to Xbox LIVE and System Link finds no games. In the campaign's program, Special
+  Ops in split screen: Survival on Resistance with two players.
+- **Several executables per game**: game.json's `"executables"` names the program recompiled from
+  each XEX of a game (`anyx360_add_game_executable` in `cmake/Game.cmake`); they build with the
+  game and the release packages all of them. `GameDescriptor::xex_name` is the XEX a program
+  loads (`ExLoadedCommandLine` and `XexGetModuleHandle` follow it).
+- **A title starts its other executables**: `XamLoaderLaunchTitle` starts the program recompiled
+  from the XEX it names, with the same game, user folder and key, and hands it the launch data
+  (`<user>\launch_data.bin`, in Xenia's layout); the launcher's log keeps receiving the output.
+  A title without one ends as before.
+- `XamShowGameVoiceChannelUI` (a system UI that isn't shown).
+- The recompiler: `vmaxsb`.
+
+### Changed
+
+- `XamLoaderGetLaunchData` copies what fits into the buffer and succeeds, and
+  `XamLoaderGetLaunchDataSize` refuses a null pointer, as in Xenia.
+
 ## [0.9.0] - 2026-10-20
 
 Call of Duty: Modern Warfare 3.

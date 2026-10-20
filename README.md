@@ -44,7 +44,7 @@ the sensor.
   everyone is an Xbox Avatar.
 - **Kinect Sports** (in testing): Rare's six sports, played with the webcam, with Xbox Avatars.
 - **Call of Duty: Modern Warfare 3** (in testing): the campaign at 60 FPS, with keyboard and mouse
-  or a controller.
+  or a controller, and multiplayer and Special Ops in split screen on one machine.
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
 carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for.
@@ -218,8 +218,9 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | -------------------------------- | ---------------------------------------------- |
 | Menus, settings, saves           | ✅ Working                                     |
 | Campaign                         | 🧪 The opening missions played; the rest not tried yet |
-| Special Ops, Survival            | 🧪 Not tried yet                               |
-| Multiplayer                      | ❌ Not available: a separate program, not recompiled |
+| Special Ops, Survival            | 🧪 Survival played alone and in split screen; the missions not tried yet |
+| Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; a split screen match on Seatown played |
+| Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link finds no games |
 
 ## Controls
 
@@ -278,7 +279,9 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 
 ### Call of Duty: Modern Warfare 3
 
-The keyboard and mouse stand in for a controller, as in Gears of War 3.
+The keyboard and mouse stand in for a controller, as in Gears of War 3. In split screen
+(multiplayer and Special Ops), players 2-4 use controllers: each presses A in their corner of the
+sign-in screen to join.
 
 | Action                   | Keyboard and mouse             | Controller         |
 | ------------------------ | ------------------------------ | ------------------ |
@@ -355,10 +358,13 @@ Kinect Sports:
 
 Call of Duty: Modern Warfare 3:
 
-- About one start in fifteen stays on a black screen after the first frame: start the game again.
-- Choosing Multiplayer closes the game (multiplayer is a separate program, not recompiled).
-- Only the campaign's opening has been played; in the intro level the snowy trees may look flat
-  white.
+- About one start in fifteen stays on a black screen after the first frame, and loading a
+  Survival map can stop the same way: start the game again.
+- Multiplayer is a second program: switching between it and the campaign closes the window and
+  opens another, and the launcher closes.
+- Split screen matches can run below 60 FPS.
+- Only the campaign's opening, a split screen match and Survival have been played; in the intro
+  level the snowy trees may look flat white.
 
 Found something else? Open an issue with the version (shown in the launcher) and the game's
 `logs\<game>\last_run.log` file.
@@ -432,8 +438,8 @@ Both folders are git-ignored.
 > The targets are the base executables, without title updates: Gears of War 3 (title
 > `4D5308AB`), Dance Central 3 (title `373307D9`), Kinect Adventures (title `4D5308ED`), Fruit
 > Ninja Kinect (title `58410B79`), Doritos Crash Course (title `58410A71`), Kinect Sports
-> (title `4D5308C9`) and Call of Duty: Modern Warfare 3 (title `415608CB`, its single-player
-> `default.xex`).
+> (title `4D5308C9`) and Call of Duty: Modern Warfare 3 (title `415608CB`, both its single-player
+> `default.xex` and its multiplayer `default_mp.xex`).
 
 ### 4. Recompile the Game
 

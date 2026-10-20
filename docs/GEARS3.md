@@ -220,6 +220,7 @@ All opt-in through environment variables read by the runtime:
 | Variable | Effect |
 |---|---|
 | `ANYX360_INPUT` | Scripted pad input: `"25:START,35:A,170:START/0.3,50:START@1"` (`seconds:button[/hold][@player]`, player 0-3, default 0; buttons START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT LUP LDOWN LLEFT LRIGHT). A player with scripted input counts as connected |
+| `ANYX360_INPUT_NEXT` | When the title starts another of its executables (`XamLoaderLaunchTitle`), the new process's `ANYX360_INPUT` (without it, the new process gets no scripted input) |
 | `ANYX360_INPUT_TRACE` | Logs every change of each player's virtual pad |
 | `ANYX360_FRAMETIMES` | Writes every vblank, VdSwap, GPU swap, present and display vblank to a CSV; summarise with `tools/scripts/frametimes.py <csv> [--from s] [--to s]` |
 | `ANYX360_OVERLAY` / `ANYX360_NO_OVERLAY` | Show the performance overlay from the start / no ImGui at all (A/B tests) |
