@@ -79,7 +79,7 @@ Rect FrontCoverRect(uint32_t width, uint32_t height) {
   return {0, (height - h) / 2, width, h};
 }
 
-bool LoadImage(const std::filesystem::path& path, Image& out, std::string& error, uint32_t max_width,
+bool DecodePicture(const std::filesystem::path& path, Image& out, std::string& error, uint32_t max_width,
                uint32_t max_height, const Rect* crop) {
   out = {};
   ComPtr<IWICImagingFactory> factory;
@@ -173,7 +173,95 @@ bool LoadFrontCover(const std::filesystem::path& path, uint32_t width, uint32_t 
   const WICBitmapTransformOptions transform = UprightTransform(frame.Get());
   if (transform & (WICBitmapTransformRotate90 | WICBitmapTransformRotate270)) std::swap(w, h);
   const Rect front = FrontCoverRect(w, h);
-  return LoadImage(path, out, error, width, height, &front);
+  return DecodePicture(path, out, error, width, height, &front);
+}
+
+bool SavePng(const Image& image, const std::filesystem::path& path, std::string& error) {
+  if (!image.width || !image.height) {
+    error = "no picture to write";
+    return false;
+  }
+  ComPtr<IWICImagingFactory> factory;
+  if (!Factory(factory, error)) return false;
+  ComPtr<IWICBitmap> bitmap;
+  HRESULT hr = factory->CreateBitmapFromMemory(image.width, image.height, GUID_WICPixelFormat32bppPBGRA, image.width * 4,
+                                              UINT(image.bgra.size()), const_cast<BYTE*>(image.bgra.data()), &bitmap);
+  ComPtr<IWICFormatConverter> converter;  // PNG keeps straight alpha
+  if (SUCCEEDED(hr)) hr = factory->CreateFormatConverter(&converter);
+  if (SUCCEEDED(hr))
+    hr = converter->Initialize(bitmap.Get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr, 0.0,
+                               WICBitmapPaletteTypeCustom);
+  ComPtr<IWICStream> stream;
+  if (SUCCEEDED(hr)) hr = factory->CreateStream(&stream);
+  if (SUCCEEDED(hr)) hr = stream->InitializeFromFilename(path.c_str(), GENERIC_WRITE);
+  ComPtr<IWICBitmapEncoder> encoder;
+  if (SUCCEEDED(hr)) hr = factory->CreateEncoder(GUID_ContainerFormatPng, nullptr, &encoder);
+  if (SUCCEEDED(hr)) hr = encoder->Initialize(stream.Get(), WICBitmapEncoderNoCache);
+  ComPtr<IWICBitmapFrameEncode> frame;
+  if (SUCCEEDED(hr)) hr = encoder->CreateNewFrame(&frame, nullptr);
+  if (SUCCEEDED(hr)) hr = frame->Initialize(nullptr);
+  if (SUCCEEDED(hr)) hr = frame->SetSize(image.width, image.height);
+  WICPixelFormatGUID format = GUID_WICPixelFormat32bppBGRA;
+  if (SUCCEEDED(hr)) hr = frame->SetPixelFormat(&format);
+  if (SUCCEEDED(hr)) hr = frame->WriteSource(converter.Get(), nullptr);
+  if (SUCCEEDED(hr)) hr = frame->Commit();
+  if (SUCCEEDED(hr)) hr = encoder->Commit();
+  if (FAILED(hr)) {
+    error = HrText("cannot write the PNG", hr);
+    return false;
+  }
+  return true;
+}
+
+Image Blurred(const Image& image, uint32_t width, uint32_t height, int passes) {
+  Image out;
+  if (!image.width || !image.height || !width || !height) return out;
+  // The centre at the output's aspect, averaged down (each output pixel the mean of its area).
+  const double aspect = double(width) / height;
+  double src_w = image.width, src_h = image.height;
+  if (src_w / src_h > aspect) src_w = src_h * aspect;
+  else src_h = src_w / aspect;
+  const double x0 = (image.width - src_w) / 2, y0 = (image.height - src_h) / 2;
+  std::vector<float> pixels(size_t(width) * height * 4);
+  for (uint32_t y = 0; y < height; ++y) {
+    const uint32_t ya = uint32_t(y0 + src_h * y / height), yb = std::max(ya + 1, uint32_t(y0 + src_h * (y + 1) / height));
+    for (uint32_t x = 0; x < width; ++x) {
+      const uint32_t xa = uint32_t(x0 + src_w * x / width), xb = std::max(xa + 1, uint32_t(x0 + src_w * (x + 1) / width));
+      float sum[4] = {};
+      uint32_t count = 0;
+      for (uint32_t sy = ya; sy < std::min(yb, image.height); ++sy) {
+        const uint8_t* row = image.bgra.data() + (size_t(sy) * image.width + xa) * 4;
+        for (uint32_t sx = xa; sx < std::min(xb, image.width); ++sx, row += 4, ++count)
+          for (int c = 0; c < 4; ++c) sum[c] += row[c];
+      }
+      for (int c = 0; c < 4; ++c) pixels[(size_t(y) * width + x) * 4 + c] = count ? sum[c] / count : 0;
+    }
+  }
+  // Box blurs (radius 1) one way then the other: a few passes come close to a Gaussian.
+  std::vector<float> tmp(pixels.size());
+  auto pass = [&](bool horizontal) {
+    for (uint32_t y = 0; y < height; ++y)
+      for (uint32_t x = 0; x < width; ++x)
+        for (int c = 0; c < 4; ++c) {
+          float sum = 0;
+          for (int d = -1; d <= 1; ++d) {
+            int sx = horizontal ? std::clamp(int(x) + d, 0, int(width) - 1) : int(x);
+            int sy = horizontal ? int(y) : std::clamp(int(y) + d, 0, int(height) - 1);
+            sum += pixels[(size_t(sy) * width + sx) * 4 + c];
+          }
+          tmp[(size_t(y) * width + x) * 4 + c] = sum / 3;
+        }
+    pixels.swap(tmp);
+  };
+  for (int i = 0; i < passes; ++i) {
+    pass(true);
+    pass(false);
+  }
+  out.width = width;
+  out.height = height;
+  out.bgra.resize(pixels.size());
+  for (size_t i = 0; i < pixels.size(); ++i) out.bgra[i] = uint8_t(std::clamp(pixels[i] + 0.5f, 0.0f, 255.0f));
+  return out;
 }
 
 bool SaveJpeg(const Image& image, const std::filesystem::path& path, float quality, std::string& error) {
