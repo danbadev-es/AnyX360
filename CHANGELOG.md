@@ -46,6 +46,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   its creator's number). Games that keep data per processor shared it between threads.
 - `GameDescriptor::main_thread_processor`: the hardware thread the title's main thread starts on.
   The console uses 0; the default stays 1, which the earlier games were tested with.
+- **The recompiler switches on the index register's low word** (in games recompiled from this
+  version on): an `rlwinm` whose mask wraps around fills the high word, and a switch on the whole
+  register jumped outside the host's jump table (Modern Warfare 3, five minutes into the
+  campaign).
 - `XamShowMessageBoxUIEx` read its result pointer from the wrong argument (it has one more than
   `XamShowMessageBoxUI`): it wrote the pressed button to an unrelated address and filled the
   result as if it were the overlapped structure.
