@@ -47,6 +47,8 @@ the sensor.
   or a controller, and multiplayer and Special Ops in split screen on one machine.
 - **Call of Duty: Black Ops II** (in testing): the campaign at 60 FPS, and multiplayer (with bots)
   and Zombies in split screen on one machine.
+- **Kinect Party** (in testing): Double Fine's Xbox Live Arcade party game, the webcam's picture
+  with you cut out of it in 36 channels of effects, with its Full Unlock.
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
 carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for.
@@ -62,7 +64,8 @@ carries: AnyX360 builds each avatar from it, with the clothes, hair and face the
 2. Extract it to a regular folder (not inside _Program Files_), on a drive with room for the games
    you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3, 8 GB for
    Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for Doritos Crash Course, 4 GB for
-   Kinect Sports, 8 GB for Call of Duty: Modern Warfare 3 and 8 GB for Call of Duty: Black Ops II.
+   Kinect Sports, 8 GB for Call of Duty: Modern Warfare 3, 8 GB for Call of Duty: Black Ops II and
+   1 GB for Kinect Party.
 3. Run **`AnyX360.exe`** and accept the terms of use.
 4. Choose **Add game** (the **+** tile), or drop your copy on the window, as you have it:
    - **A file**: an archive of any kind (.7z, .rar, .zip, split or not, .tar.gz...), a disc image
@@ -136,7 +139,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   first play.
 - **Saves and Profiles** - Stored in `%LOCALAPPDATA%\AnyX360\<game>`, kept across versions.
 
-### Kinect (Dance Central 3, Kinect Adventures, Fruit Ninja Kinect, Kinect Sports)
+### Kinect (Dance Central 3, Kinect Adventures, Fruit Ninja Kinect, Kinect Sports, Kinect Party)
 
 - **Webcam as the Kinect** - MediaPipe pose estimation turns the webcam's image into Kinect
   skeletons for up to two players. It also makes the Kinect's color and depth images, so the game's
@@ -228,6 +231,16 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; split screen matches on Seatown played (two and three players) |
 | Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link finds no games |
 
+| Kinect Party                     | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Start-up, channels on auto play  | ✅ Working (30 FPS)                            |
+| The camera picture, the cut-out  | ✅ One or two players cut out; effects follow the body |
+| Kung Fu, Monster Attack, Invaders | ✅ Played with the scripted player            |
+| Other channels                   | 🧪 Not tried yet                               |
+| Channel guide (hub)              | 🧪 START on a controller, then the hand        |
+| Full Unlock                      | ✅ Installed by the launcher; every channel opens |
+| Voice, photo sharing             | ❌ Not available (no microphones; sharing needs Xbox Live) |
+
 | Call of Duty: Black Ops II       | Status                                         |
 | -------------------------------- | ---------------------------------------------- |
 | Menus, settings, saves           | ✅ Working                                     |
@@ -281,6 +294,14 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Choose a menu item   | Slice its fruit                                                  |
 | Kinect Tuner         | Y on a controller                                                |
 | Pause                | Left arm out and down at 45° for a moment (the Kinect Guide gesture) |
+
+### Kinect Party
+
+| Action                   | Gesture                                                          |
+| ------------------------ | ---------------------------------------------------------------- |
+| Play                     | Move: each channel puts its effects on you                       |
+| Open the channel guide   | START on a controller                                            |
+| Choose a channel         | Raise a hand, hold it on an arrow to scroll, on a stagehand to tune in |
 
 ### Doritos Crash Course
 
@@ -366,6 +387,14 @@ Fruit Ninja Kinect:
 
 - The calibration doesn't move a camera: frame yourself with the webcam (head and hands in view).
 - Zen and Party modes haven't been tried yet.
+- Same webcam limits as Dance Central 3.
+
+Kinect Party:
+
+- It runs at 30 FPS.
+- The channel guide opens with a controller's START only: on the console voice opened it too, and
+  there are no Kinect microphones. Without a controller the channels change on their own.
+- At most two people are seen (a Kinect saw six). Only three channels have been tried.
 - Same webcam limits as Dance Central 3.
 
 Doritos Crash Course:
@@ -467,6 +496,8 @@ environment with pinned, hash-checked packages.
   [docs/MODERNWARFARE3.md](docs/MODERNWARFARE3.md#reproducing)).
 - Call of Duty: Black Ops II: the same, to `extracted/bo2/game/` (see
   [docs/BLACKOPS2.md](docs/BLACKOPS2.md#reproducing)).
+- Kinect Party: extract the Xbox Live Arcade package to `extracted/kp/game/` with
+  `x360tool stfs-extract` (see [docs/KINECTPARTY.md](docs/KINECTPARTY.md#reproducing)).
 - Put the XEX2 retail key in `keys/xex2_retail.key` (see [keys/README.md](keys/README.md)).
 
 Both folders are git-ignored.
@@ -585,6 +616,7 @@ games/gow3/       Gears of War 3: recompiler config, entry point, game-specific 
 games/dc3/        Dance Central 3: recompiler config, entry point, Kinect bindings, notes
 games/ka/         Kinect Adventures: recompiler config, entry point, Kinect bindings, notes
 games/fnk/        Fruit Ninja Kinect: recompiler config, entry point, Kinect bindings, notes
+games/kp/         Kinect Party: recompiler config, entry point, Kinect bindings, notes
 runtime/          Kernel and XAM reimplementation, input, settings, GPU and audio glue,
                   the virtual Kinect (runtime/src/nui) and its debug window (runtime/kinect_window)
 tools/x360tool/   Disc and XEX tooling
@@ -604,7 +636,7 @@ Raw/, extracted/ Your game files (git-ignored)
 - **AnyX360 is an unofficial, independent, non-commercial fan project.** It is not affiliated with,
   authorized, sponsored or endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games,
   Harmonix, Good Science Studio, Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay,
-  Activision, Infinity Ward, Sledgehammer Games, Treyarch or any other rights holder, and it is
+  Double Fine Productions, Activision, Infinity Ward, Sledgehammer Games, Treyarch or any other rights holder, and it is
   not an official product or port of any game.
 - This repository contains **no game code, assets or console keys**, and never will. The
   third-party XenonRecomp submodule (like Xenia) embeds the publicly known XEX2 retail key in its
@@ -614,7 +646,8 @@ Raw/, extracted/ Your game files (git-ignored)
   is derived from the game's code.
 - Release packages contain no game data and are covered by the [terms of use](tools/launcher/terms_en.txt)
   the launcher shows before first use.
-- Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Kinect Sports, Fruit Ninja,
+- Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Kinect Sports, Kinect Party,
+  Fruit Ninja,
   Halfbrick, Doritos, Rare, Call of Duty, Modern Warfare, Black Ops, Treyarch, Activision, Xbox
   and Xbox 360 are trademarks of their respective owners, used here only to identify the games
   AnyX360 is compatible with.
