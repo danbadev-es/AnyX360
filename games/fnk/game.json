@@ -1,0 +1,18 @@
+{
+  "id": "fnk",
+  "title": "Fruit Ninja Kinect",
+  "cover": "fruit-ninja-kinect",
+  "status": "testing",
+  "exe": "FruitNinjaKinect",
+  "user_dir": "FruitNinjaKinect",
+  "title_id": "58410B79",
+  "dev_game_dir": "extracted/fnk/game",
+  "launcher_name": "AnyX360 Fruit Ninja Kinect",
+  "size_gb": 1,
+  "archive_hint": "Fruit Ninja Kinect (Xbox Live Arcade)",
+  "input": "webcam",
+  "required_files": ["arcadeinfo.xml"],
+  "owners": "Halfbrick Studios, Microsoft Corporation",
+  "trademarks": ["Xbox", "Xbox 360", "Kinect", "Fruit Ninja"],
+  "components": ["MediaPipe (Apache 2.0)", "OpenCV (Apache 2.0)", "NumPy (BSD)", "Python (PSF)"]
+}

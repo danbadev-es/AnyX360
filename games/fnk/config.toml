@@ -1,0 +1,40 @@
+# Fruit Ninja Kinect recompiler configuration (XenonRecomp format). Paths are relative to this file.
+# This file contains no game code or data; it only describes where things are.
+#
+# file_path is the default.xex of the Xbox Live Arcade package written out with x360tool
+# stfs-extract (see docs/FRUITNINJAKINECT.md). It is encrypted with the retail key and LZX-compressed.
+
+[main]
+file_path = "../../extracted/fnk/game/default.xex"
+out_directory_path = "recomp4"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x823B8740
+savegprlr_14_address = 0x823B86F0
+restfpr_14_address = 0x823B973C
+savefpr_14_address = 0x823B96F0
+restvmx_14_address = 0x823B9A28
+savevmx_14_address = 0x823B9790
+restvmx_64_address = 0x823B9ABC
+savevmx_64_address = 0x823B9824
+
+# setjmp/longjmp: no candidates.
+# setjmp_address = 0x0
+# longjmp_address = 0x0
+
+# Functions the analyser misses (address + size), added as they are found.
+# functions = [
+#   { address = 0x0, size = 0x0 },
+# ]

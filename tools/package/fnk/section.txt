@@ -1,0 +1,32 @@
+FRUIT NINJA KINECT
+==========================================================
+Played with a webcam in place of the Kinect.
+Your copy: the Xbox Live Arcade package (in an archive or a folder). The downloadable content next
+to it (blades, backgrounds, shadows) is installed too; the title update is left out.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\FruitNinjaKinect
+
+THE WEBCAM
+Set it up as for Dance Central 3 (see its section): Windows must let desktop programs use the
+camera, the webcam goes under or over your screen pointing at where you play, and you stand
+2-3 m away. Your head and both hands must stay in view as you swing your arms.
+
+The title screen says "CALIBRATING" for a moment: on the console it would aim the Kinect. Here
+nothing moves; frame yourself with the webcam instead (F2 > Kinect shows what it sees).
+
+PLAYING
+- Your hands are blades: swipe through a fruit to slice it. Your shadow is behind the fruit.
+- Menus: slice an item's fruit to choose it (the watermelon on the title screen to begin).
+- Arcade: 60 seconds; slice the special bananas for Freeze, Frenzy and Double Score.
+- Classic: three missed fruit and the round ends; don't touch the bombs.
+- Zen: 90 seconds without bombs.
+- Party: two players at once.
+- Kinect Tuner: Y on a controller.
+- Pause: hold your left arm out and down at 45 degrees, away from your body, for a moment (the
+  Kinect Guide gesture).
+
+KNOWN ISSUES
+- Leaderboards ("Connect to Xbox Live") and avatar awards need Xbox Live, which is gone.
+- Zen and Party modes haven't been tried by a person yet: if something is wrong, tell us with
+  the logs.
+- The webcam limits are the same as in Dance Central 3: no depth camera, a little more delay
+  than a Kinect.

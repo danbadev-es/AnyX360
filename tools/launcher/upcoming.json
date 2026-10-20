@@ -1,8 +1,6 @@
 {
   "comment": "Games the launcher shows as \"Coming soon\" in Compatible, in this order. A game leaves this list when it gets its own games/<id>/game.json. cover is a covers/<slug>.jpg (empty: a placeholder tile); owners and trademarks join the terms of use, which the shipped box art makes necessary.",
   "games": [
-    {"title": "Fruit Ninja Kinect", "cover": "fruit-ninja-kinect", "title_id": "58410B79",
-     "owners": "Halfbrick Studios, Microsoft Corporation", "trademarks": ["Fruit Ninja"]},
     {"title": "Doritos Crash Course", "cover": "doritos-crash-course", "title_id": "58410A71",
      "owners": "Frito-Lay North America, Microsoft Corporation", "trademarks": ["Doritos"]},
     {"title": "Kinect Sports", "cover": "kinect-sports", "title_id": "4D5308C9",

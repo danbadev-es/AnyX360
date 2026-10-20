@@ -1,0 +1,1548 @@
+{
+ "range": [
+  "0x821B2700",
+  "0x821D3000"
+ ],
+ "entry_points": [
+  {
+   "address": "0x821B2788",
+   "size": "not a .pdata start",
+   "imports": [],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x823D888C",
+     "caller": "0x823D8840",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+80",
+      "r4": "copy of r29",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "r31 = r3"
+    }
+   ]
+  },
+  {
+   "address": "0x821B27A8",
+   "size": "not a .pdata start",
+   "imports": [],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x823B6F3C",
+     "caller": "0x823B6F20",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x823B7058",
+     "caller": "0x823B7038",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmplwi r3,0"
+    },
+    {
+     "site": "0x823B7088",
+     "caller": "0x823B7038",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x823BDBB8",
+     "caller": "0x823BDB60",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x823C101C",
+     "caller": "0x823C0FE8",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x823C6E8C",
+     "caller": "0x823C6E70",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmplwi r3,0"
+    },
+    {
+     "site": "0x823CE288",
+     "caller": "0x823CE228",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x823D0AC4",
+     "caller": "0x823D0A70",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x823D0B70",
+     "caller": "0x823D0A70",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x823D8ECC",
+     "caller": "0x823D8EB0",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x823D8F0C",
+     "caller": "0x823D8EF8",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x824542A0",
+     "caller": "0x82454228",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "r29 = r3"
+    },
+    {
+     "site": "0x82454340",
+     "caller": "0x82454308",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x82454380",
+     "caller": "0x82454308",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x824545D8",
+     "caller": "0x82454538",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x82454618",
+     "caller": "0x82454538",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x82454980",
+     "caller": "0x824547E8",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x82454984",
+     "caller": "0x824547E8",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x82454DC8",
+     "caller": "0x82454C18",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x82454DCC",
+     "caller": "0x82454C18",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x8245ABA0",
+     "caller": "0x8245AB80",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x8245AC1C",
+     "caller": "0x8245AB80",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x8245AF20",
+     "caller": "0x8245AF00",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x8245AF9C",
+     "caller": "0x8245AF00",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821B2808",
+   "size": "0x1BC",
+   "imports": [
+    "KeSetEvent",
+    "KeWaitForSingleObject"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x826CB5A0",
+     "caller": "0x826CB548",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "constant 33 (0x21)",
+      "r6": "constant 0 (0x0)",
+      "r7": "constant 0 (0x0)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x826CC2D8",
+     "caller": "0x826CC270",
+     "strings": [],
+     "args": {
+      "r3": "field 748(r31)",
+      "r4": "unchanged (caller's value)",
+      "r5": "constant 1 (0x1)",
+      "r6": "constant 0 (0x0)",
+      "r7": "constant 0 (0x0)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821B29C8",
+   "size": "0x128",
+   "imports": [
+    "KeSetEvent",
+    "KeWaitForSingleObject"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x826CD6B4",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "field 0(r20)",
+      "r4": "constant 0 (0x0)",
+      "r5": "constant 0 (0x0)",
+      "r6": "constant 0 (0x0)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821B2AF0",
+   "size": "0x100",
+   "imports": [
+    "KeWaitForSingleObject"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x82685394",
+     "caller": "0x82685370",
+     "strings": [],
+     "args": {
+      "r3": "copy of r30",
+      "r4": "stack buffer r1+80",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821B2D08",
+   "size": "0x130",
+   "imports": [
+    "KeWaitForSingleObject"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x826CD294",
+     "caller": "0x826CD068",
+     "strings": [
+      "list<T> too long"
+     ],
+     "args": {
+      "r3": "stack buffer r1+144",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD320",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+144",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD508",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+176",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "constant 4 (0x4)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD538",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+176",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD580",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+176",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD5B0",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+176",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD628",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+112",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD694",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+112",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD740",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+176",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD770",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+176",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD834",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+176",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD864",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+176",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD8B8",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+176",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "constant 1 (0x1)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    },
+    {
+     "site": "0x826CD8E8",
+     "caller": "0x826CD068",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+176",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0, cmplwi r3,0"
+    }
+   ]
+  },
+  {
+   "address": "0x821B2E38",
+   "size": "0x144",
+   "imports": [
+    "KeWaitForSingleObject"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x826CC060",
+     "caller": "0x826CBF50",
+     "strings": [],
+     "args": {
+      "r3": "field 748(r31)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821B30F8",
+   "size": "0x104",
+   "imports": [
+    "RtlEnterCriticalSection",
+    "RtlLeaveCriticalSection"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x8266CA68",
+     "caller": "0x8266C960",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+88",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821B3720",
+   "size": "0x14C",
+   "imports": [
+    "KeSetEvent",
+    "ObReferenceObjectByHandle",
+    "RtlEnterCriticalSection",
+    "RtlLeaveCriticalSection"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x8266D8C4",
+     "caller": "0x8266D848",
+     "strings": [],
+     "args": {
+      "r3": "field -18828(r11)",
+      "r4": "constant 2 (0x2)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821B3870",
+   "size": "0x27C",
+   "imports": [
+    "KeReleaseMutant",
+    "KeResetEvent",
+    "KeSetEvent",
+    "KeWaitForSingleObject",
+    "RtlEnterCriticalSection",
+    "RtlLeaveCriticalSection",
+    "XamIsUIActive",
+    "XamXStudioRequest"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x8266CBC0",
+     "caller": "0x8266CA80",
+     "strings": [],
+     "args": {
+      "r3": "constant 0 (0x0)",
+      "r4": "copy of r30",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmpwi r3,0"
+    }
+   ]
+  },
+  {
+   "address": "0x821B4648",
+   "size": "0xF4",
+   "imports": [],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x8266C35C",
+     "caller": "0x8266C2F0",
+     "strings": [],
+     "args": {
+      "r3": "stack buffer r1+96",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "static 0x82131F20"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821C04E8",
+   "size": "0x98",
+   "imports": [
+    "EtxProducerLog",
+    "EtxProducerUnregister",
+    "KeReleaseMutant",
+    "KeResetEvent",
+    "KeSetBasePriorityThread",
+    "KeSetEvent",
+    "KeWaitForSingleObject",
+    "NtClose",
+    "NtSetEvent",
+    "ObDereferenceObject",
+    "ObReferenceObjectByHandle",
+    "RtlEnterCriticalSection",
+    "RtlLeaveCriticalSection",
+    "XamGetActiveDashAppInfo",
+    "XamGetCurrentTitleId",
+    "XamXStudioRequest",
+    "XamXlfsUninitializeUploadQueue"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x8266CE34",
+     "caller": "0x8266CD60",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821C2918",
+   "size": "0x1A8",
+   "imports": [
+    "EtxProducerLog",
+    "EtxProducerRegister",
+    "EtxProducerUnregister",
+    "ExCreateThread",
+    "KeInitializeMutant",
+    "KeReleaseMutant",
+    "KeResumeThread",
+    "KeSetAffinityThread",
+    "KeSetBasePriorityThread",
+    "KeSetEvent",
+    "KeWaitForSingleObject",
+    "KfAcquireSpinLock",
+    "KfReleaseSpinLock",
+    "NtClose",
+    "NtCreateEvent",
+    "NtSetEvent",
+    "ObDereferenceObject",
+    "ObReferenceObjectByHandle",
+    "RtlEnterCriticalSection",
+    "RtlInitializeCriticalSection",
+    "RtlLeaveCriticalSection",
+    "RtlNtStatusToDosError",
+    "XGetVideoMode",
+    "XamContentClose",
+    "XamContentOpenFile",
+    "XamGetActiveDashAppInfo",
+    "XamGetCurrentTitleId",
+    "XamNuiCameraTiltSetCallback",
+    "XamNuiIdentityGetSessionId",
+    "XamUserNuiGetUserIndex",
+    "XamXStudioRequest",
+    "XamXlfsInitializeUploadQueue",
+    "XamXlfsUninitializeUploadQueue"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x8266D8B4",
+     "caller": "0x8266D848",
+     "strings": [],
+     "args": {
+      "r3": "constant 3081 (0xC09)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821C3120",
+   "size": "0x328",
+   "imports": [
+    "KeResetEvent",
+    "KeWaitForSingleObject",
+    "ObDereferenceObject",
+    "ObReferenceObjectByHandle",
+    "RtlEnterCriticalSection",
+    "RtlLeaveCriticalSection",
+    "RtlNtStatusToDosError"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x8266D298",
+     "caller": "0x8266D1A0",
+     "strings": [],
+     "args": {
+      "r3": "field -18812(r28)",
+      "r4": "constant 0 (0x0)",
+      "r5": "stack buffer r1+80",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x8266D440",
+     "caller": "0x8266D348",
+     "strings": [],
+     "args": {
+      "r3": "field -18816(r28)",
+      "r4": "constant 0 (0x0)",
+      "r5": "stack buffer r1+80",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821C3448",
+   "size": "0x14C",
+   "imports": [
+    "ObDereferenceObject",
+    "ObReferenceObjectByHandle",
+    "RtlEnterCriticalSection",
+    "RtlLeaveCriticalSection",
+    "RtlNtStatusToDosError"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x8266D2EC",
+     "caller": "0x8266D1A0",
+     "strings": [],
+     "args": {
+      "r3": "field -18812(r28)",
+      "r4": "field 80(r1)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x8266D494",
+     "caller": "0x8266D348",
+     "strings": [],
+     "args": {
+      "r3": "field -18816(r28)",
+      "r4": "field 80(r1)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821C3CC0",
+   "size": "0x21C",
+   "imports": [
+    "KeSetEvent",
+    "ObCreateObject",
+    "ObDereferenceObject",
+    "ObOpenObjectByPointer",
+    "ObReferenceObjectByHandle",
+    "RtlEnterCriticalSection",
+    "RtlLeaveCriticalSection",
+    "RtlNtStatusToDosError"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x8266D8F4",
+     "caller": "0x8266D848",
+     "strings": [],
+     "args": {
+      "r3": "constant 1 (0x1)",
+      "r4": "constant 2 (0x2)",
+      "r5": "constant 0 (0x0)",
+      "r6": "constant 1 (0x1)",
+      "r7": "field -18824(r11)",
+      "r8": "static 0x8286B680",
+      "r9": "unchanged (caller's value)",
+      "r10": "constant 0x82870000"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    },
+    {
+     "site": "0x8266D918",
+     "caller": "0x8266D848",
+     "strings": [],
+     "args": {
+      "r3": "constant 0 (0x0)",
+      "r4": "constant 1 (0x1)",
+      "r5": "constant 0 (0x0)",
+      "r6": "constant 1 (0x1)",
+      "r7": "field -18820(r11)",
+      "r8": "static 0x8286B684",
+      "r9": "unchanged (caller's value)",
+      "r10": "constant 0x82870000"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821D0C88",
+   "size": "0x90",
+   "imports": [
+    "XamNuiCameraElevationStopMovement"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x8268DD80",
+     "caller": "0x8268DD48",
+     "strings": [],
+     "args": {
+      "r3": "unchanged (caller's value)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "unchanged (caller's value)",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "unchanged (caller's value)",
+      "f2": "unchanged (caller's value)",
+      "f3": "unchanged (caller's value)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "unused"
+    }
+   ]
+  },
+  {
+   "address": "0x821D15D0",
+   "size": "0x1E4",
+   "imports": [
+    "ExGetXConfigSetting",
+    "KfAcquireSpinLock",
+    "KfReleaseSpinLock",
+    "XamNuiCameraElevationGetAngle",
+    "XamNuiCameraElevationSetAngle"
+   ],
+   "referenced_from_data": [],
+   "calls": [
+    {
+     "site": "0x8268DEF4",
+     "caller": "0x8268DDF8",
+     "strings": [],
+     "args": {
+      "r3": "field 24(r30)",
+      "r4": "unchanged (caller's value)",
+      "r5": "unchanged (caller's value)",
+      "r6": "unchanged (caller's value)",
+      "r7": "r28+32",
+      "r8": "unchanged (caller's value)",
+      "r9": "unchanged (caller's value)",
+      "r10": "unchanged (caller's value)"
+     },
+     "fargs": {
+      "f1": "loaded from 28(r30)",
+      "f2": "loaded from 32(r30)",
+      "f3": "loaded from 36(r30)",
+      "f4": "unchanged (caller's value)"
+     },
+     "result": "cmplwi r3,170"
+    }
+   ]
+  }
+ ],
+ "referenced_only_from_data": [
+  "0x821B2754",
+  "0x821B2778",
+  "0x821C2FC8",
+  "0x821C3AF0"
+ ]
+}
