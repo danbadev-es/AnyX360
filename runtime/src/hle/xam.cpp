@@ -349,14 +349,17 @@ uint32_t ReadProfileSettings(uint32_t title_id, uint32_t user_index, uint32_t xu
     if (type == 4 || type == 6) {
       std::vector<uint8_t>* blob = ProfileBlob(user_index, id);
       uint32_t length = blob ? std::min<uint32_t>(uint32_t(blob->size()), size) : 0;
+      bool no_value = !blob && (id & 0xFFFF) >= 0x3FFD;
       if (blob) {
         std::memcpy(Ptr(extra), blob->data(), length);
         Store<uint32_t>(s + 0x00, 2);  // source: title
-      } else if ((id & 0xFFFF) >= 0x3FFD) {
+      } else if (no_value) {
         Store<uint32_t>(s + 0x00, 0);  // title-specific blob never written: no value
       }
+      // A setting with no value has no data either: Black Ops II checks the signature of every blob
+      // it is given a pointer to, and an empty one underflowed its length.
       Store<uint32_t>(s + 0x20, length);
-      Store<uint32_t>(s + 0x24, extra);
+      Store<uint32_t>(s + 0x24, no_value ? 0 : extra);
       extra += size;
     }
   }
@@ -1195,6 +1198,9 @@ uint32_t XGetAVPack() { return 6; }  // HDMI
 uint32_t XGetGameRegion() { return 0xFFFF; }
 uint32_t XGetLanguage() { return 1; }  // English
 
+// No stereoscopic 3D modes (the flags a 3D television reports).
+uint32_t XGetVideoCapabilities() { return 0; }
+
 void XGetVideoMode(uint32_t mode) {
   std::memset(Ptr(mode), 0, 0x30);
   Store<uint32_t>(mode + 0x00, 1280);  // display width
@@ -1339,6 +1345,7 @@ X360_EXPORT(XNetLogonGetTitleID, XNetLogonGetTitleID)
 X360_EXPORT(XGetAVPack, XGetAVPack)
 X360_EXPORT(XGetGameRegion, XGetGameRegion)
 X360_EXPORT(XGetLanguage, XGetLanguage)
+X360_EXPORT(XGetVideoCapabilities, XGetVideoCapabilities)
 X360_EXPORT(XGetVideoMode, XGetVideoMode)
 X360_EXPORT(XMsgSystemProcessCall, XMsgSystemProcessCall)
 X360_EXPORT(XamGetCurrentTitleId, XamGetCurrentTitleId)

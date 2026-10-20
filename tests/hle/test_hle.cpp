@@ -19,6 +19,18 @@ PPC_EXTERN_FUNC(__imp__KeGetCurrentProcessType);
 PPC_EXTERN_FUNC(__imp__XeCryptAesKey);
 PPC_EXTERN_FUNC(__imp__XeCryptAesCbc);
 PPC_EXTERN_FUNC(__imp__XeCryptAesEcb);
+PPC_EXTERN_FUNC(__imp__XeCryptShaInit);
+PPC_EXTERN_FUNC(__imp__XeCryptShaUpdate);
+PPC_EXTERN_FUNC(__imp__XeCryptShaFinal);
+PPC_EXTERN_FUNC(__imp__XeCryptSha256Init);
+PPC_EXTERN_FUNC(__imp__XeCryptSha256Update);
+PPC_EXTERN_FUNC(__imp__XeCryptSha256Final);
+PPC_EXTERN_FUNC(__imp__XeCryptSha384Init);
+PPC_EXTERN_FUNC(__imp__XeCryptSha384Update);
+PPC_EXTERN_FUNC(__imp__XeCryptSha384Final);
+PPC_EXTERN_FUNC(__imp__XeCryptSha512Init);
+PPC_EXTERN_FUNC(__imp__XeCryptSha512Update);
+PPC_EXTERN_FUNC(__imp__XeCryptSha512Final);
 PPC_EXTERN_FUNC(__imp__sprintf);
 PPC_EXTERN_FUNC(__imp__vswprintf);
 PPC_EXTERN_FUNC(__imp__KeBlowFuses);  // not implemented: must resolve to the weak stub
@@ -134,6 +146,50 @@ int main() {
     ctx.r3.u64 = state, ctx.r4.u64 = data, ctx.r5.u64 = out, ctx.r6.u64 = 1;
     __imp__XeCryptAesEcb(ctx, base);
     CHECK(std::memcmp(mem.translate<uint8_t>(out), cipher, 16) == 0);
+  }
+
+  // Incremental SHA-1/SHA-2 (FIPS 180 examples), the message fed in two parts: the context is in guest
+  // memory between the calls. The 56-byte message needs a second block for its padding.
+  {
+    using ShaFunc = void (*)(PPCContext&, uint8_t*);
+    struct Case {
+      ShaFunc init, update, final;
+      const char* message;
+      const char* digest;
+    };
+    const char* two_blocks = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
+    const Case cases[] = {
+        {__imp__XeCryptShaInit, __imp__XeCryptShaUpdate, __imp__XeCryptShaFinal, "abc",
+         "a9993e364706816aba3e25717850c26c9cd0d89d"},
+        {__imp__XeCryptShaInit, __imp__XeCryptShaUpdate, __imp__XeCryptShaFinal, two_blocks,
+         "84983e441c3bd26ebaae4aa1f95129e5e54670f1"},
+        {__imp__XeCryptSha256Init, __imp__XeCryptSha256Update, __imp__XeCryptSha256Final, "abc",
+         "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"},
+        {__imp__XeCryptSha256Init, __imp__XeCryptSha256Update, __imp__XeCryptSha256Final, two_blocks,
+         "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"},
+        {__imp__XeCryptSha384Init, __imp__XeCryptSha384Update, __imp__XeCryptSha384Final, "abc",
+         "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7"},
+        {__imp__XeCryptSha512Init, __imp__XeCryptSha512Update, __imp__XeCryptSha512Final, "abc",
+         "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a"
+         "2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"},
+    };
+    const guest_addr context = kHeap + 0x1800, message = kHeap + 0x1900, out = kHeap + 0x1A00;
+    for (const Case& c : cases) {
+      const uint32_t length = uint32_t(std::strlen(c.message)), first = length / 2;
+      std::memcpy(mem.translate<char>(message), c.message, length);
+      ctx.r3.u64 = context;
+      c.init(ctx, base);
+      ctx.r3.u64 = context, ctx.r4.u64 = message, ctx.r5.u64 = first;
+      c.update(ctx, base);
+      ctx.r3.u64 = context, ctx.r4.u64 = message + first, ctx.r5.u64 = length - first;
+      c.update(ctx, base);
+      ctx.r3.u64 = context, ctx.r4.u64 = out, ctx.r5.u64 = 64;
+      c.final(ctx, base);
+      char hex[129] = {};
+      const uint32_t size = uint32_t(std::strlen(c.digest)) / 2;
+      for (uint32_t i = 0; i < size; ++i) std::snprintf(hex + i * 2, 3, "%02x", mem.translate<uint8_t>(out)[i]);
+      CHECK(std::strcmp(hex, c.digest) == 0);
+    }
   }
 
   // sprintf (variadic: arguments in r5..): in the narrow form %s is narrow and %S wide.
