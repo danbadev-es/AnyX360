@@ -204,6 +204,14 @@ struct DebugView {
 };
 DebugView GetDebugView(bool draw_images);
 
+// The Kinect Guide gesture as the screen shows it (its icon in the corner): how long the pose has been
+// held (0-1) and whether the guide is open. Cheap; any thread; nothing held for a game without Kinect.
+struct GuideState {
+  float progress = 0;
+  bool open = false;
+};
+GuideState GetGuideState();
+
 // One sensor frame's timings (the webcam's stages, ms) and its distance from the previous one.
 struct TimingSample {
   float time = 0;  // seconds since the sensor started

@@ -3,6 +3,7 @@
 // process's video memory use (DXGI), host and guest RAM, and the virtual Kinect (Kinect games).
 #include "stats_overlay.h"
 #include "frame_timing.h"
+#include "gpu_internal.h"
 #include "ui_theme.h"
 #include "x360/gpu.h"
 #include "x360/nui.h"
@@ -191,6 +192,43 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
 
 std::unique_ptr<xe::ui::ImGuiDrawer> g_imgui;
 std::unique_ptr<xe::ui::ImmediateDrawer> g_immediate;
+
+// The Kinect Guide icon in the bottom-left corner, as the console showed it (Kinect Adventures' first
+// start tells the player to look there): a ring that fills while the guide gesture's pose is held and
+// is full while the guide is open. Made the first time the pose is held, so games without Kinect never
+// draw it.
+class GuideIndicator : public xe::ui::ImGuiDialog {
+ public:
+  explicit GuideIndicator(xe::ui::ImGuiDrawer* drawer) : ImGuiDialog(drawer) {}
+
+ protected:
+  void OnDraw(ImGuiIO& io) override {
+    const nui::GuideState guide = nui::GetGuideState();
+    if (guide.progress <= 0 && !guide.open) return;
+    using namespace theme;
+    const float r = Px(26);
+    const ImVec2 c(Px(40) + r, io.DisplaySize.y - Px(40) - r);
+    ImDrawList* draw = ImGui::GetForegroundDrawList();
+    draw->AddCircleFilled(c, r + Px(7), color::Rgb(0x121417, 215), 48);
+    draw->AddCircle(c, r, color::Rgb(0x3A3F46), 48, Px(4));
+    constexpr float kPi = 3.14159265f;
+    const float start = -kPi / 2, sweep = 2 * kPi * (guide.open ? 1.0f : guide.progress);
+    draw->PathArcTo(c, r, start, start + sweep, 48);
+    draw->PathStroke(guide.open ? color::kGreenBright : color::kAmber, 0, Px(4));
+    // The gesture, seen from behind as the games draw it: the left arm out and down at 45 degrees.
+    const ImU32 ink = color::Rgb(0xF2F2F2);
+    const float t = Px(2.5f), k = r / 26.0f;
+    auto p = [&](float x, float y) { return ImVec2(c.x + x * k, c.y + y * k); };
+    draw->AddCircleFilled(p(0, -12), 4.5f * k, ink, 16);
+    draw->AddLine(p(0, -7), p(0, 6), ink, t);                                    // body
+    draw->AddLine(p(0, 6), p(-5, 17), ink, t), draw->AddLine(p(0, 6), p(5, 17), ink, t);  // legs
+    draw->AddLine(p(-4, -5), p(-14, 5), ink, t);                                 // left arm, 45 degrees
+    draw->AddLine(p(4, -5), p(5, 7), ink, t);                                    // right arm, down
+  }
+};
+GuideIndicator* g_guide_indicator = nullptr;  // lives until exit
+std::atomic<bool> g_guide_indicator_made{false};
+
 StatsOverlay* g_overlay = nullptr;  // lives until exit; registered with the drawer only while shown
 bool g_overlay_visible = false;
 
@@ -234,6 +272,12 @@ void NotifySwap(uint32_t frontbuffer_width, uint32_t frontbuffer_height) {
   }
   g_swaps.push_back(now);
   if (g_swaps.size() > 1000) g_swaps.pop_front();
+  // The Kinect Guide icon, the first time its pose is held (the drawer belongs to the UI thread).
+  if (g_imgui && !g_guide_indicator_made.load(std::memory_order_relaxed)) {
+    const nui::GuideState guide = nui::GetGuideState();
+    if ((guide.progress > 0 || guide.open) && !g_guide_indicator_made.exchange(true))
+      PostToUIThread([] { g_guide_indicator = new GuideIndicator(g_imgui.get()); });  // registers itself
+  }
 }
 
 }  // namespace x360::gpu

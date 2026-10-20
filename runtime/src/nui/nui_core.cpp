@@ -190,6 +190,24 @@ const Body* MainBody(const Snapshot& snapshot) {
   return snapshot.body_count ? &snapshot.bodies[0] : nullptr;
 }
 
+// When the player seems to be trying the guide gesture (the left arm raised out to the side for a
+// second) and it isn't recognised, the log says why, every 5 s at most: a tester's log then tells
+// which measure their pose misses.
+void ExplainGuidePose(const Body& body, double now) {
+  static double near_since = -1, logged = -1e9;
+  const GuideMeasure m = MeasureGuidePose(body);
+  if (!m.rejected || m.left_angle < 15 || m.left_angle > 80 || m.left_extension < 0.4f) {
+    near_since = -1;
+    return;
+  }
+  if (near_since < 0) near_since = now;
+  if (now - near_since < 1.0 || now - logged < 5.0) return;
+  logged = now;
+  KLOG_I("nui: not the Kinect guide gesture: %s (left arm %.0f deg out, wanted 28-65; %.0f%% extended, wanted 60; "
+         "forward %.2f, at most 1; right arm %.0f deg from down, at most 30, %.0f%% down, wanted 50)",
+         m.rejected, m.left_angle, m.left_extension * 100, m.left_forward, m.right_angle, m.right_drop * 100);
+}
+
 using Clock = std::chrono::steady_clock;
 
 Clock::duration Seconds(double seconds) {
@@ -303,8 +321,10 @@ void ClockThread() {
           if (g_slots[s] == snapshot.bodies[i].id) slots[i] = s;
       }
       if (g_tracking) skeleton_event = g_skeleton_event;
-      guide = g_guide.Update(g_tracking ? MainBody(snapshot) : nullptr, now);
+      const Body* main = g_tracking ? MainBody(snapshot) : nullptr;
+      guide = g_guide.Update(main, now);
       g_guide_progress = float(g_guide.Progress(now));
+      if (main) ExplainGuidePose(*main, now);
       const size_t previous = (g_timing_next + kTimingHistory - 1) % kTimingHistory;
       const float period_ms = g_timing_count ? (float(now) - g_timings[previous].time) * 1000.0f : 0.0f;
       g_timings[g_timing_next] = {float(now), stats.capture_ms, stats.detect_ms, stats.process_ms,
@@ -325,10 +345,11 @@ void ClockThread() {
 
 }  // namespace
 
-bool IsGuidePose(const Body& b) {
+GuideMeasure MeasureGuidePose(const Body& b) {
   struct V {
     float x, y, z;
     V operator-(const V& o) const { return {x - o.x, y - o.y, z - o.z}; }
+    V operator*(float s) const { return {x * s, y * s, z * s}; }
     float dot(const V& o) const { return x * o.x + y * o.y + z * o.z; }
     float length() const { return std::sqrt(dot(*this)); }
     V unit() const {
@@ -336,20 +357,40 @@ bool IsGuidePose(const Body& b) {
       return {x / l, y / l, z / l};
     }
   };
+  constexpr float kDegrees = 57.29578f;
   auto at = [&](Joint j) { return V{b.joints[j][0], b.joints[j][1], b.joints[j][2]}; };
-  // Measured against the torso, not the room: leaning sideways with the arms down isn't the gesture.
+  // The torso's frame, not the room's: leaning sideways with the arms down isn't the gesture.
   const V up = (at(kShoulderCenter) - at(kHipCenter)).unit();
-  const V left = (at(kShoulderLeft) - at(kShoulderRight)).unit();  // the player's left
-  const V arm = at(kHandLeft) - at(kShoulderLeft);
-  if (arm.length() < 0.40f) return false;  // bent, or the hand on the body
-  const V dir = arm.unit();
-  const float down = -dir.dot(up), out = dir.dot(left);
-  // Out to the side and down at 45 degrees from the body (30-60), in the body's plane.
-  if (down < 0.50f || down > 0.87f || out < 0.50f) return false;
-  // The right arm relaxed: the hand hanging at the side, below the chest.
-  const V right = at(kHandRight) - at(kShoulderRight);
-  return right.length() > 0.30f && -right.unit().dot(up) > 0.80f;
+  const V across = at(kShoulderLeft) - at(kShoulderRight);
+  const V left = (across - up * across.dot(up)).unit();  // the player's left, square to `up`
+  struct Arm {
+    float down, out, forward, length;  // the hand from its shoulder; length: shoulder-elbow-hand
+  };
+  auto arm = [&](Joint shoulder, Joint elbow, Joint hand) {
+    const V v = at(hand) - at(shoulder);
+    const float down = -v.dot(up), out = v.dot(left);
+    const float forward = (v - up * v.dot(up) - left * out).length();
+    return Arm{down, out, forward, std::max((at(elbow) - at(shoulder)).length() + (at(hand) - at(elbow)).length(), 1e-3f)};
+  };
+  const Arm l = arm(kShoulderLeft, kElbowLeft, kHandLeft), r = arm(kShoulderRight, kElbowRight, kHandRight);
+  GuideMeasure m;
+  const float l_plane = std::hypot(l.down, l.out);
+  m.left_angle = std::atan2(l.out, l.down) * kDegrees;
+  m.left_extension = l_plane / l.length;
+  m.left_forward = l.forward / std::max(l_plane, 1e-3f);
+  m.right_angle = std::atan2(std::abs(r.out), r.down) * kDegrees;
+  m.right_drop = r.down / r.length;
+  // The left arm out to the side and down, 45 degrees from the body give or take ~20, nearly straight,
+  // and across the body's plane rather than towards the screen (where menus are pointed at).
+  if (m.left_angle < 28 || m.left_angle > 65) m.rejected = "the left arm isn't at 45 degrees";
+  else if (m.left_extension < 0.6f) m.rejected = "the left arm is bent";
+  else if (m.left_forward > 1.0f) m.rejected = "the left arm reaches forward";
+  // The right arm relaxed: the hand hanging at the side, below the shoulder.
+  else if (m.right_angle > 30 || m.right_drop < 0.5f) m.rejected = "the right arm isn't down";
+  return m;
 }
+
+bool IsGuidePose(const Body& b) { return MeasureGuidePose(b).rejected == nullptr; }
 
 GuideGesture::Change GuideGesture::Update(const Body* body, double time) {
   if (!body || !IsGuidePose(*body)) {
@@ -533,6 +574,11 @@ std::vector<PreviewBody> GetBodies() {
     }
   }
   return bodies;
+}
+
+GuideState GetGuideState() {
+  std::lock_guard lock(g_mutex);
+  return {g_guide_progress, g_guide.open()};
 }
 
 DebugView GetDebugView(bool draw_images) {

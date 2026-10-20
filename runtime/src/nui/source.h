@@ -49,6 +49,19 @@ void ArmPose(Body& body, float side, float azimuth, float elevation);
 // The Kinect Guide gesture: the left arm held straight out and down at about 45 degrees, away from
 // the body, the right arm relaxed at the side. On the console the system recognises it (the title
 // only sees its UI open); here the sensor does (nui_core.cpp).
+//
+// The arms are measured in the body's frontal plane (its up and the player's left), as a person
+// judges "45 degrees": a webcam's depth is the least reliable coordinate, so how far forward a hand is
+// only rules out reaching towards the screen. Lengths are against the person's own arm, not metres.
+struct GuideMeasure {
+  float left_angle = 0;      // the left arm from straight down, out to the player's left (degrees)
+  float left_extension = 0;  // shoulder to hand across the frontal plane, over the arm's length
+  float left_forward = 0;    // the hand's reach towards the sensor, over its reach across the plane
+  float right_angle = 0;     // the right arm from straight down, either side (degrees)
+  float right_drop = 0;      // the right hand below its shoulder, over the arm's length
+  const char* rejected = nullptr;  // why it isn't the gesture; nullptr: it is
+};
+GuideMeasure MeasureGuidePose(const Body& body);
 bool IsGuidePose(const Body& body);
 
 // Holding the pose for `kHoldSeconds` opens the Kinect Guide; it closes when the pose ends (the

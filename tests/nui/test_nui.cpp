@@ -161,6 +161,41 @@ int main() {
     CHECK(opened == 2 && closed == 1);  // opened for each hold (1-5 s, 8 s on), still open at the end
   }
 
+  {  // The guide pose as a webcam sees it: wrong depths and any body size; not reaching towards the
+     // screen, not with both arms out, not while the right hand points at a menu.
+    auto pose = [](float left_azimuth, float left_elevation, float right_azimuth, float right_elevation) {
+      nui::Body b;
+      nui::StandingPose(b, 0, 2.5f, 0.8f);
+      nui::ArmPose(b, -1, left_azimuth, left_elevation);
+      nui::ArmPose(b, +1, right_azimuth, right_elevation);
+      return b;
+    };
+    auto move_hand = [](nui::Body b, float dz) {  // the left hand and wrist nearer the sensor (dz < 0)
+      b.joints[nui::kHandLeft][2] += dz;
+      b.joints[nui::kWristLeft][2] += dz;
+      return b;
+    };
+    auto scale = [](nui::Body b, float s) {  // a smaller person: every joint towards the hips
+      const float hip[3] = {b.joints[nui::kHipCenter][0], b.joints[nui::kHipCenter][1], b.joints[nui::kHipCenter][2]};
+      for (auto& joint : b.joints)
+        for (int i = 0; i < 3; ++i) joint[i] = hip[i] + (joint[i] - hip[i]) * s;
+      return b;
+    };
+    const nui::Body guide = pose(0, -45, 0, -88);
+    CHECK(nui::IsGuidePose(guide));
+    CHECK(nui::IsGuidePose(pose(0, -32, 0, -88)) && nui::IsGuidePose(pose(0, -60, 0, -88)));  // 30-60 degrees
+    CHECK(nui::IsGuidePose(move_hand(guide, -0.25f)) && nui::IsGuidePose(move_hand(guide, 0.2f)));  // depth errors
+    CHECK(nui::IsGuidePose(scale(guide, 0.6f)));  // a child (arms of ~35 cm)
+    // Down and out 35 degrees across the body, but as far again towards the screen.
+    const nui::GuideMeasure reaching = nui::MeasureGuidePose(pose(60, -35, 0, -88));
+    CHECK(reaching.rejected && std::string(reaching.rejected) == "the left arm reaches forward");
+    CHECK(!nui::IsGuidePose(pose(0, -45, 0, -45)));  // both arms out
+    CHECK(!nui::IsGuidePose(pose(0, -45, 90, -10)));  // the right hand pointing at the screen
+    CHECK(!nui::IsGuidePose(pose(0, -15, 0, -88)) && !nui::IsGuidePose(pose(0, -75, 0, -88)));  // too high, too low
+    const nui::GuideMeasure m = nui::MeasureGuidePose(guide);
+    CHECK(std::abs(m.left_angle - 45) < 3 && m.left_extension > 0.95f && m.right_angle < 5);
+  }
+
   {  // A live script file: what is appended while the game runs happens when it's read.
     const auto path = std::filesystem::temp_directory_path() / ("anyx360_nui_live_" + std::to_string(_getpid()) + ".txt");
     std::FILE* f = _wfopen(path.c_str(), L"wb");
