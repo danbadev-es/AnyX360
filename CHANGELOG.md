@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-10-21
+
+Every game's shader cache ships, so a first play doesn't stutter; the Kinect camera picture holds
+still, and a level laptop camera stays level.
+
 ### Fixed
 
 - **Stutter and black effects the first time through a game** (Modern Warfare 3: stutter in Black
@@ -594,7 +599,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.2...HEAD
+[0.13.2]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.11.0...v0.12.0

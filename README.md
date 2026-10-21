@@ -5,7 +5,7 @@
 **An unofficial, fan-made project that ports Xbox 360 games natively to PC through static recompilation.**
 
 [![Unofficial](https://img.shields.io/badge/unofficial-fan%20project-critical)](#legal-and-disclaimer)
-[![Version](https://img.shields.io/badge/version-0.13.1-2ea44f)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.13.2-2ea44f)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?logo=windows)](#system-requirements)
 [![Graphics](https://img.shields.io/badge/graphics-Direct3D%2012-5C2D91)](#how-it-works)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=cplusplus)](#building)
