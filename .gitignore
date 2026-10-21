@@ -11,6 +11,8 @@
 # Box art (the publishers'): shipped in the release only, see covers/README.md
 /covers/*
 !/covers/README.md
+# Shader caches collected while testing (tools/package/merge_shader_caches.py): shipped in the release only
+/shader_cache/
 
 # --- Console keys: NEVER commit ---
 /keys/*

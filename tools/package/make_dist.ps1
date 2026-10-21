@@ -136,8 +136,11 @@ foreach ($slug in $slugs) {
 }
 foreach ($game in $games) {
   foreach ($exe in $game.exes) { Copy-Item "$($game.release)\$exe.exe", "$($game.release)\$exe.pdb" "$dist\bin" }
-  # Shaders and pipelines collected while testing: the launcher seeds the player's cache with them.
-  $cache = "$env:LOCALAPPDATA\AnyX360\$($game.user_dir)\cache\shaders"
+  # Shaders and pipelines collected while testing: the launcher seeds the player's cache with them, so
+  # a first play doesn't compile them during the game. shader_cache\<id> holds the ones merged from
+  # every test run (tools\package\merge_shader_caches.py); else this machine's own cache of the game.
+  $cache = "$root\shader_cache\$($game.id)"
+  if (-not (Test-Path $cache)) { $cache = "$env:LOCALAPPDATA\AnyX360\$($game.user_dir)\cache\shaders" }
   if (Test-Path $cache) {
     New-Item -ItemType Directory "$dist\bin\shader_cache" -Force | Out-Null
     Copy-Item $cache "$dist\bin\shader_cache\$($game.id)" -Recurse

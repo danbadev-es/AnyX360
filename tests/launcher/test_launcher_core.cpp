@@ -5,6 +5,7 @@
 // update). Archives use 7-Zip when it is installed.
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <cstdio>
 #include <cwctype>
 #include <fstream>
@@ -22,6 +23,7 @@
 #include "core/catalog.h"
 #include "core/install.h"
 #include "core/jobs.h"
+#include "core/launch.h"
 #include "core/library.h"
 #include "core/probe.h"
 #include "core/sevenzip.h"
@@ -424,6 +426,46 @@ int main() {
     CHECK(Entry(game).cover.filename() == L"cover.png");
     RestoreCover(game);
     CHECK(CoverFile(game).empty());
+  }
+
+  {  // Shader caches: the player's keeps its entries and gets the shipped ones it lacks.
+    auto shader = [](uint64_t hash, uint32_t dwords) {
+      std::string entry(12 + dwords * 4, char(hash));
+      std::memcpy(entry.data(), &hash, 8);
+      std::memcpy(entry.data() + 8, &dwords, 4);
+      return entry;
+    };
+    auto pipeline = [](uint64_t hash) {
+      std::string record(72, char(hash));
+      std::memcpy(record.data(), &hash, 8);
+      return record;
+    };
+    auto write = [](const fs::path& path, const std::string& data) {
+      fs::create_directories(path.parent_path());
+      std::ofstream(path, std::ios::binary | std::ios::trunc).write(data.data(), std::streamsize(data.size()));
+    };
+    auto read = [](const fs::path& path) {
+      std::ifstream in(path, std::ios::binary);
+      return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    };
+    const std::string xsh("XESH\x19\x12\x20\x20", 8), xpso("XEPSD3DC\x20\x09\x26\x20", 12);
+    const fs::path shipped = sandbox / L"cache_shipped", player = sandbox / L"cache_player";
+    write(shipped / L"415608CB.xsh", xsh + shader(1, 1) + shader(2, 3));
+    write(player / L"415608CB.xsh", xsh + shader(1, 1) + shader(3, 2) + "cut-o");  // a cut-off tail
+    CHECK(MergeShaderCacheFile(shipped / L"415608CB.xsh", player / L"415608CB.xsh") == 1);
+    CHECK(read(player / L"415608CB.xsh") == xsh + shader(1, 1) + shader(3, 2) + shader(2, 3));
+    CHECK(MergeShaderCacheFile(shipped / L"415608CB.xsh", player / L"415608CB.xsh") == 0);  // nothing new
+    write(shipped / L"415608CB.rtv.d3d12.xpso", xpso + pipeline(7) + pipeline(8));
+    write(player / L"415608CB.rtv.d3d12.xpso", xpso + pipeline(8));
+    CHECK(MergeShaderCacheFile(shipped / L"415608CB.rtv.d3d12.xpso", player / L"415608CB.rtv.d3d12.xpso") == 1);
+    CHECK(read(player / L"415608CB.rtv.d3d12.xpso") == xpso + pipeline(8) + pipeline(7));
+    // Another format version stays as it is; a player without a cache gets the shipped one.
+    const std::string older = std::string("XESH\x01\x01\x01\x01", 8) + shader(4, 1);
+    write(player / L"4D5308AB.xsh", older);
+    CHECK(MergeShaderCacheFile(shipped / L"415608CB.xsh", player / L"4D5308AB.xsh") == 0);
+    CHECK(read(player / L"4D5308AB.xsh") == older);
+    CHECK(MergeShaderCacheFile(shipped / L"415608CB.xsh", player / L"new" / L"415608CB.xsh") == 2);
+    CHECK(read(player / L"new" / L"415608CB.xsh") == read(shipped / L"415608CB.xsh"));
   }
 
   {  // Removing it forgets it; the player's folder stays.

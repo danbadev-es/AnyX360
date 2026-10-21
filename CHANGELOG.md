@@ -10,6 +10,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ### Fixed
 
+- **Stutter and black effects the first time through a game** (Modern Warfare 3: stutter in Black
+  Tuesday, black pixels and a slow frame rate on the helicopter): the release shipped shader caches
+  for three games only, so the others compiled every shader and pipeline during play, and Xenia's
+  background compilation leaves an effect undrawn until its pipeline is ready. Every game's cache
+  now ships, merged from all the test runs (`tools/package/merge_shader_caches.py`, Modern Warfare 3:
+  3975 shaders and 5274 pipelines, loaded in a third of a second at start), and the launcher adds
+  to a player's own cache what it lacks instead of leaving an existing one as it was.
 - **The Kinect camera picture zoomed in and out and turned** (the debug window, and the picture
   games show): it was redrawn every frame for the player's distance and the webcam's measured
   tilt, which moved with every step and every wobble of the estimates. It is now set when the

@@ -4,11 +4,80 @@
 #define NOMINMAX
 #include <windows.h>
 
+#include <cstring>
+#include <fstream>
+#include <iterator>
+#include <string>
 #include <thread>
+#include <unordered_set>
+#include <vector>
 
 #include "games_catalog.h"
 
 namespace anyx360::launcher {
+
+namespace {
+
+// Xenia's cache files (src/xenia/gpu/shader_storage.h). .xsh: an 8-byte header ('XESH', version),
+// then each shader: a u64 hash, a u32 dword count (31 bits) and type, the microcode. .xpso: a 12-byte
+// header ('XEPS', API, version), then 72-byte D3D12 pipeline descriptions, each starting with its hash.
+constexpr uint32_t kShaderMagic = 0x48534558, kPipelineMagic = 0x53504558;
+constexpr size_t kPipelineRecord = 72;
+
+struct CacheFile {
+  std::string header;
+  std::vector<std::pair<uint64_t, std::string>> entries;  // whole entries only, by hash
+};
+
+bool ReadCacheFile(const fs::path& path, CacheFile& file) {
+  std::ifstream in(path, std::ios::binary);
+  if (!in) return false;
+  const std::string data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  auto u32 = [&](size_t at) { uint32_t v; std::memcpy(&v, data.data() + at, 4); return v; };
+  auto u64 = [&](size_t at) { uint64_t v; std::memcpy(&v, data.data() + at, 8); return v; };
+  const bool shaders = path.extension() == L".xsh";
+  const size_t header = shaders ? 8 : 12;
+  if (data.size() < header || u32(0) != (shaders ? kShaderMagic : kPipelineMagic)) return false;
+  file.header = data.substr(0, header);
+  for (size_t pos = header; pos < data.size();) {
+    const size_t size = shaders ? (pos + 12 <= data.size() ? 12 + size_t(u32(pos + 8) & 0x7FFFFFFF) * 4 : 0)
+                                : kPipelineRecord;
+    if (!size || pos + size > data.size()) break;  // a cut-off tail (the game closed mid-write)
+    file.entries.emplace_back(u64(pos), data.substr(pos, size));
+    pos += size;
+  }
+  return true;
+}
+
+}  // namespace
+
+size_t MergeShaderCacheFile(const fs::path& source, const fs::path& target) {
+  std::error_code ec;
+  CacheFile from, to;
+  if (!ReadCacheFile(source, from)) return 0;
+  if (!Exists(target)) {
+    fs::create_directories(target.parent_path(), ec);
+    return fs::copy_file(source, target, ec) ? from.entries.size() : 0;
+  }
+  if (!ReadCacheFile(target, to) || to.header != from.header) return 0;
+  std::unordered_set<uint64_t> known;
+  for (const auto& entry : to.entries) known.insert(entry.first);
+  std::string merged = to.header;
+  for (const auto& entry : to.entries) merged += entry.second;
+  size_t added = 0;
+  for (const auto& entry : from.entries)
+    if (known.insert(entry.first).second) merged += entry.second, ++added;
+  if (!added) return 0;
+  // Written aside and moved over, so a failure never leaves the player's cache half written.
+  const fs::path temporary = target.wstring() + L".merging";
+  {
+    std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
+    out.write(merged.data(), std::streamsize(merged.size()));
+    if (!out) return 0;
+  }
+  fs::rename(temporary, target, ec);
+  return ec ? 0 : added;
+}
 
 void SeedShaderCache(const CatalogGame& game) {
   fs::path source = Root() / L"bin" / L"shader_cache" / game.id;
@@ -20,9 +89,9 @@ void SeedShaderCache(const CatalogGame& game) {
        it.increment(ec)) {
     if (!it->is_regular_file(ec)) continue;
     fs::path destination = target / fs::relative(it->path(), source, ec);
-    if (Exists(destination)) continue;  // never replace the player's own (larger) cache
-    fs::create_directories(destination.parent_path(), ec);
-    fs::copy_file(it->path(), destination, ec);
+    // The player's own cache keeps what it has and gets what it lacks: a player who first played
+    // before a release shipped the game's cache (or with fewer of its shaders) gets them too.
+    MergeShaderCacheFile(it->path(), destination);
   }
 }
 
