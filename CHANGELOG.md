@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.13.3] - 2026-10-21
+
+The Kinect sees you where you are, with the webcam's own fixed picture; legs out of view stand
+still; the Kinect Guide gesture pauses the games again; battery play is logged and warned about.
+
 ### Changed
 
 - **The game sees you where you are**: the virtual Kinect now stands where the webcam is. The
@@ -633,7 +638,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.3...HEAD
+[0.13.3]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.12.0...v0.13.0
