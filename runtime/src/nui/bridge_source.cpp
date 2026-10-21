@@ -3,6 +3,7 @@
 // sensor tick.
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -206,6 +207,16 @@ class BridgeSource : public Source {
     status.tilt_pitch = h->tilt_pitch_deg;
     status.tilt_roll = h->tilt_roll_deg;
     status.tilt_source = h->tilt_source;
+    // In the log, so a player's log says what the bridge measured (the picture and the player are
+    // levelled by it).
+    if (h->tilt_source != logged_tilt_source_ || std::abs(h->tilt_pitch_deg - logged_tilt_pitch_) >= 1.0f ||
+        std::abs(h->tilt_roll_deg - logged_tilt_roll_) >= 1.0f) {
+      static const char* const kSources[] = {"measuring", "from the body", "from the floor", "set by hand"};
+      KLOG_I("nui: webcam tilt %.1f deg down, %.1f deg roll (%s), camera %.2f m above the floor", h->tilt_pitch_deg,
+             h->tilt_roll_deg, kSources[std::min<uint32_t>(h->tilt_source, 3)], h->floor_height_m);
+      logged_tilt_source_ = h->tilt_source;
+      logged_tilt_pitch_ = h->tilt_pitch_deg, logged_tilt_roll_ = h->tilt_roll_deg;
+    }
     status.floor_height = h->floor_height_m;
     status.capture_ms = h->capture_ms;
     status.detect_ms = h->detect_ms;
@@ -402,6 +413,9 @@ class BridgeSource : public Source {
   std::vector<std::shared_ptr<std::vector<uint16_t>>> depth_pool_;
   double latency_ms_ = 0;   // capture to the sensor reading the frame
   double transfer_ms_ = 0;  // the bridge publishing it to the sensor reading it
+  // The webcam tilt last written to the log (Stats logs each change of source or degree).
+  mutable uint32_t logged_tilt_source_ = ~0u;
+  mutable float logged_tilt_pitch_ = 0, logged_tilt_roll_ = 0;
 
   uint32_t starts_ = 0;    // since the last success or Restart (for the backoff)
   uint32_t restarts_ = 0;  // in all

@@ -233,7 +233,11 @@ RectF Fit(const RectF& r, float aspect) {
 }
 
 void Renderer::DrawCamera(Canvas& c, const RectF& panel, const nui::DebugView& v) {
-  const RectF area = Panel(c, panel, v.camera_images ? L"CAMERA" : L"CAMERA (drawn from the bodies: the source has no camera)");
+  // The webcam's picture as the game gets it: levelled by the measured tilt and moved to where the
+  // virtual Kinect stands. It is set when the play space is measured (at the start, "Recentre on me")
+  // and holds still in between, as a real camera's picture does.
+  const RectF area = Panel(c, panel, v.camera_images ? L"CAMERA, AS THE GAME SEES IT (levelled; set by Recentre on me)"
+                                                     : L"CAMERA (drawn from the bodies: the source has no camera)");
   const RectF img = Fit(area, 4.0f / 3.0f);
   c.FillRect(img, kImageBackground);
   if (ID2D1Bitmap* bitmap = ColorBitmap(c, v)) c.DrawBitmap(bitmap, img, v.camera_images ? 1.0f : 0.5f);
@@ -402,8 +406,10 @@ void Renderer::DrawSensor(Canvas& c, const RectF& panel, const nui::DebugView& v
                                            s.camera_fps, s.latency_ms)
                                     : std::wstring(L"none"));
   static const wchar_t* const kTiltSources[] = {L"measuring", L"from the body", L"from the floor", L"set by hand"};
-  line(L"Tilt", Printf(L"%.0f° down, %.0f° roll (%ls)", s.tilt_pitch, s.tilt_roll,
-                       kTiltSources[std::min<uint32_t>(s.tilt_source, 3)]));
+  // A measured tilt within 5 degrees of level counts as level; a wrong one is set by hand in F2.
+  line(L"Tilt", Printf(L"%.0f° down, %.0f° roll (%ls%ls)", s.tilt_pitch, s.tilt_roll,
+                       kTiltSources[std::min<uint32_t>(s.tilt_source, 3)],
+                       s.tilt_source == 1 || s.tilt_source == 2 ? L"; F2 > Kinect sets it by hand" : L""));
   line(L"Title's elevation", Printf(L"%+d°", v.elevation));
   line(L"Streams opened", v.streams & 3 ? Printf(L"%ls%ls%ls", v.streams & 1 ? L"color" : L"",
                                                  (v.streams & 3) == 3 ? L", " : L"", v.streams & 2 ? L"depth" : L"")

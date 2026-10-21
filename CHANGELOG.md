@@ -8,6 +8,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Kinect camera picture zoomed in and out and turned** (the debug window, and the picture
+  games show): it was redrawn every frame for the player's distance and the webcam's measured
+  tilt, which moved with every step and every wobble of the estimates. It is now set when the
+  play space is measured (at the start, and with **Recentre on me**) and holds still in between,
+  like a real camera's.
+- **A level laptop camera was measured as tilted** by a few degrees, which tilted the picture and
+  the player: a pitch within 5 degrees of level now counts as level (a lid turned by eye to face
+  the player), and a settled tilt holds until the readings stay 4 degrees off for 5 seconds (the
+  lid was moved). The debug window says what the picture is and how to set the tilt by hand, and
+  the game's log has a line for each change of the measured tilt.
+
 ## [0.13.1] - 2026-10-21
 
 A crash fix.

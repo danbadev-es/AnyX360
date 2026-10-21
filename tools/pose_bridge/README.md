@@ -78,11 +78,16 @@ set ANYX360_POSE_BRIDGE="...\venv\Scripts\python.exe" -I "...\tools\pose_bridge\
    plane also gives the camera's height. The roll is set by hand (0 unless changed): measured, it
    followed the player's lean and turned the picture of a level camera. Every joint is rotated into
    a level frame. A new estimate doesn't move the player, and F2 shows it or lets both be set by
-   hand.
+   hand. The camera is usually a laptop's, still on a desk with its lid turned to face the player:
+   a pitch within 5 degrees of level is taken as level (the estimates' noise), and once the
+   estimate has settled (3 s) it holds until the readings stay 4 degrees off for 5 s (the lid was
+   moved). The game's log has a line for each change ("webcam tilt ...").
 6. **Play space:** the scene moves so the first player stands centred, 2.3 m from the virtual
    sensor, with their feet on its floor (the measured one when known). It's measured from a second
    of frames with the whole body in view at 1.2-4.5 m, and again when the game asks or the tilt
-   changes.
+   changes. The color picture is drawn with the distance, tilt and offset of that measurement and
+   holds still in between, like a real camera's: it followed every frame's distance and tilt, and
+   zoomed in and out and turned as the player moved.
 7. **Tracking and clipping:** IDs stay stable from the hips' positions and where they were heading
    (`tracker.py`), so two players crossing keep theirs. A body's clipping flags come from the
    virtual view's edges and from the webcam's own: a player whose feet the webcam doesn't see is

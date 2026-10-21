@@ -14,9 +14,13 @@ which way is up in the webcam's (Kinect-axes) space and rotates every joint so u
 
 Only the pitch (a camera pointing down from a monitor or a laptop lid) is measured; the roll (a
 camera turned about its lens) is the one set by hand, 0 unless changed: measured, it followed the
-player's lean and a lopsided floor and turned the picture of a camera that was level. The estimate
-changes slowly (the camera doesn't move) and is at most 35 degrees from the camera's own up. A
-manual tilt (the settings panel) sets both.
+player's lean and a lopsided floor and turned the picture of a camera that was level.
+
+The camera is usually a laptop's, standing still on a desk with its lid turned to face the player:
+a measured pitch within 5 degrees of 0 is taken as a level camera (the estimates' noise is about
+that), and once an estimate has settled (3 s) it holds, unless the readings stay 4 degrees off for
+5 s (the lid was moved). It is at most 35 degrees from the camera's own up. A manual tilt (the
+settings panel) sets both.
 """
 
 import collections
@@ -70,7 +74,15 @@ class Leveler:
     FLOOR_SAMPLES = 900     # 30 s of ankle positions
     MIN_FLOOR_SAMPLES = 150
     FLOOR_SPREAD = 0.25     # metres: the ankles must cover at least this much in both directions
-    ADAPT = 0.05            # how far an estimate moves towards a new reading per frame
+    ADAPT = 0.02            # how far an estimate moves towards a new reading per frame (~1.7 s)
+    # The camera is usually a laptop's, still on a desk, its lid turned to face the player: a pitch
+    # this close to 0 (degrees) is a level camera, the rest the estimate's noise.
+    LEVEL_PITCH = 5.0
+    # A still camera: after SETTLE_FRAMES of adapting (3 s), the estimate holds. It follows again only
+    # when the readings stay MOVED degrees away for MOVED_FRAMES (5 s): the lid was moved.
+    SETTLE_FRAMES = 90
+    MOVED = 4.0
+    MOVED_FRAMES = 150
 
     def __init__(self):
         self.up = UP.copy()
@@ -81,6 +93,9 @@ class Leveler:
         self._previous_hip = None
         self._manual = None
         self._roll = 0.0  # the roll set by hand, kept while the pitch is measured
+        self._adapting = 0  # frames the estimate has adapted for since it started (or the camera moved)
+        self._settled = False  # the estimate holds still (see SETTLE_FRAMES)
+        self._away = 0  # consecutive frames the readings were MOVED degrees off a settled estimate
 
     def reset(self):
         roll = self._roll
@@ -161,15 +176,33 @@ class Leveler:
             reading, source = median / np.linalg.norm(median), SOURCE_BODY
         if reading is None:
             return
-        # Only the pitch is measured: the roll is the manual one.
-        reading = up_from_angles(angles_from_up(reading)[0], self._roll)
+        # Only the pitch is measured: the roll is the manual one. A camera within a few degrees of level
+        # is level: the estimate's noise (the ankles' depth, the player's posture) otherwise tilted the
+        # picture and the player of a camera standing level.
+        pitch = angles_from_up(reading)[0]
+        reading = up_from_angles(0.0 if abs(pitch) < self.LEVEL_PITCH else pitch, self._roll)
         if math.acos(max(-1.0, min(1.0, float(np.dot(reading, UP))))) > MAX_TILT:
             return
         if self.source == SOURCE_NONE:
             self.up = reading  # the first estimate at once
+            self._adapting, self._settled = 0, False
         else:
-            self.up = self.up + (reading - self.up) * self.ADAPT
-            self.up /= np.linalg.norm(self.up)
+            if source != self.source:
+                self._adapting, self._settled = 0, False  # the floor's estimate replacing the body's
+            off = math.degrees(math.acos(max(-1.0, min(1.0, float(np.dot(reading, self.up))))))
+            if self._settled:
+                # Hold still unless the readings stay far off (the camera was moved).
+                self._away = self._away + 1 if off > self.MOVED else 0
+                if self._away >= self.MOVED_FRAMES:
+                    self._settled, self._adapting, self._away = False, 0, 0
+            if not self._settled:
+                self._adapting += 1
+                self.up = self.up + (reading - self.up) * self.ADAPT
+                self.up /= np.linalg.norm(self.up)
+                # Settled once it has adapted for a while and caught up with the readings (or, with
+                # readings too noisy to catch up with, after four times as long).
+                if self._adapting >= self.SETTLE_FRAMES and (off < 1.0 or self._adapting >= 4 * self.SETTLE_FRAMES):
+                    self._settled = True
         self.source = source
         if height > 0.2:
             self.floor_height = height if self.floor_height == 0 else self.floor_height + (height - self.floor_height) * self.ADAPT

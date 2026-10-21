@@ -478,6 +478,42 @@ class Levelling(unittest.TestCase):
         self.assertLess(abs(pitch - 15), 2.5, (pitch, roll))
         self.assertAlmostEqual(roll, 0.0, places=5)
 
+    def test_a_nearly_level_camera_is_level(self):
+        # A camera a degree or two off level (or a level one, with the estimates' noise) is taken as
+        # level: neither the picture nor the player tilts.
+        width, height = 1280, 720
+        focal = camera_model.webcam_focal(width, 60.0)
+        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8})
+        for tilt in (2.0, 4.0):  # a laptop lid turned by eye to face the player
+            pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8})
+            seen = tilted_view(synthetic.standing(z=2.4), tilt, 0)
+            normalized, world, visibility = synthetic.landmarks(seen, width, height, focal)
+            for i in range(60):
+                pipeline.process([Pose(normalized, world, visibility)], (width, height), i / 30)
+            self.assertEqual(pipeline.level.source, level.SOURCE_BODY)
+            pitch, roll = pipeline.level.angles()
+            self.assertAlmostEqual(pitch, 0.0, places=5)
+            self.assertAlmostEqual(roll, 0.0, places=5)
+
+    def test_a_settled_tilt_holds_until_the_camera_moves(self):
+        # Readings that wander for a moment (a player bending, an estimate's noise) don't move a
+        # settled tilt; readings that stay off for longer (the lid was moved) do.
+        leveler = level.Leveler()
+
+        def readings(pitch, frames):
+            leveler._body.clear()
+            for _ in range(frames):
+                leveler._body.append(level.up_from_angles(pitch, 0.0))
+                leveler._estimate()
+
+        readings(15.0, 120)
+        self.assertLess(abs(leveler.angles()[0] - 15.0), 0.5)
+        readings(25.0, 60)  # 2 s off: held
+        self.assertLess(abs(leveler.angles()[0] - 15.0), 0.5)
+        readings(15.0, 30)
+        readings(25.0, 400)  # the lid moved: after 5 s it follows
+        self.assertLess(abs(leveler.angles()[0] - 25.0), 1.0, leveler.angles())
+
     def test_a_manual_tilt_replaces_the_estimate(self):
         pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8, "tilt_manual": True,
                              "tilt_pitch": 12.0, "tilt_roll": -3.0})
@@ -590,6 +626,31 @@ class Images(unittest.TestCase):
         self.assertGreater(len(xs), 0)
         self.assertLess(math.hypot(xs.mean() - expected[0], ys.mean() - expected[1]), 6.0)
         self.assertGreater(expected[0], 320)  # the right hand on the image's right (mirrored like a Kinect)
+
+    def test_the_picture_holds_still_while_the_player_moves(self):
+        """The picture is set when the play space is measured: walking towards and away from the
+        camera doesn't zoom it (it followed every frame's distance), and recentring sets it again."""
+        width, height = 1280, 720
+        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8})
+        focal = camera_model.webcam_focal(width, 60.0)
+        frame = np.zeros((height, width, 3), np.uint8)
+        frame[150:157, 250:257] = 255  # a mark on the wall, away from the image's centre
+
+        def mark_after(z, frames, start):
+            normalized, world, visibility = synthetic.landmarks(synthetic.standing(z=z), width, height, focal)
+            for i in range(frames):
+                _, info = pipeline.process([Pose(normalized, world, visibility)], (width, height), (start + i) / 30)
+            color, _ = pipeline.render(frame, info)
+            ys, xs = np.nonzero(color[..., 0] > 128)
+            self.assertGreater(len(xs), 0)
+            return np.array([xs.mean(), ys.mean()])
+
+        settled = mark_after(2.4, 40, 0)  # the play space measured with the player at 2.4 m
+        for z, start in ((1.7, 40), (3.1, 100), (2.0, 160)):
+            self.assertLess(np.linalg.norm(mark_after(z, 60, start) - settled), 0.5, z)
+        pipeline.calibrate()  # "Recentre on me" at 3.1 m: the picture follows the new play space
+        moved = mark_after(3.1, 40, 220)
+        self.assertGreater(np.linalg.norm(moved - settled), 2.0)
 
 
 if __name__ == "__main__":

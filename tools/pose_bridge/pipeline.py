@@ -100,6 +100,11 @@ class Pipeline:
         self._people = {}  # body ID -> _Person
         self._last = {}  # body ID -> (joints, quality, time) of their last published pose
         self._reference = None  # the main player's distance from the webcam (smoothed)
+        # What the color picture is drawn with: (distance, level rotation, play space offset), set
+        # when the play space is measured. Following every frame's distance and tilt instead made
+        # the picture zoom in and out and turn as the player moved and the estimates wobbled.
+        self._picture = None
+        self._was_measuring = True
         self.configure(settings)
 
     def configure(self, settings):
@@ -175,9 +180,17 @@ class Pipeline:
         found = [(f[0] @ rotation.T,) + f[1:] for f in found]
         main = found[order[0]] if found else None
         offset = self.play.update(main[0] if main else None, main[1] if main else None, self.level.floor_height)
-        if self._offset is not None and np.linalg.norm(offset - self._offset) > 0.05:
+        recentred = self._offset is not None and np.linalg.norm(offset - self._offset) > 0.05
+        if recentred:
             self._last = {}  # recentred: a held pose would be in the old place
         self._offset = offset.copy()
+        # The picture's frame: the first player seen, then each time the play space is measured (or
+        # recentred). Between those it holds still, like a real camera's picture.
+        measuring = self.play.measuring()
+        if main and self._reference is not None and (
+                self._picture is None or recentred or (self._was_measuring and not measuring)):
+            self._picture = (self._reference, rotation.copy(), offset.copy())
+        self._was_measuring = measuring
 
         bodies, joints_list, masks, distances = [], [], [], []
         for i in order:
@@ -220,8 +233,11 @@ class Pipeline:
         reference = self._reference or km.PlaySpace.DISTANCE
         color = None
         if frame_bgr is not None:
-            transform = depth_synth.image_homography((width, height), focal, reference, offset, rotation,
-                                                     camera_model.COLOR_FOCAL, camera_model.COLOR_SIZE)
+            # The picture with the frame it was last set with (see _picture), else this frame's.
+            picture_reference, picture_rotation, picture_offset = self._picture or (reference, rotation, offset)
+            transform = depth_synth.image_homography((width, height), focal, picture_reference, picture_offset,
+                                                     picture_rotation, camera_model.COLOR_FOCAL,
+                                                     camera_model.COLOR_SIZE)
             color = depth_synth.color_image(frame_bgr, transform)
         transforms = []
         distances = info.get("distances") or [None] * len(info["masks"])

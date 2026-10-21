@@ -208,6 +208,10 @@ class PlaySpace:
     def current(self):
         return self.offset if self.offset is not None else np.zeros(3)
 
+    def measuring(self):
+        """True while the offset is being measured (the first frames, or after request())."""
+        return self._pending
+
     def _plausible(self, joints, states):
         if not np.all(np.isfinite(joints)):
             return False
