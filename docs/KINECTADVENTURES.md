@@ -65,7 +65,9 @@ the names, signatures and evidence are in [nui_api.md](../games/ka/notes/nui_api
   against the player's own arm, so a webcam's depth errors and smaller players don't matter: the left
   arm 28-65 degrees from straight down, nearly straight, not reaching towards the screen; the right
   arm down. The Kinect Guide icon fills in the bottom-left corner while the pose is held, as on the
-  console.
+  console. Once open, the guide stays open at least 3 s: until 0.13.3 it closed as soon as the pose
+  was let go, often before the game had seen it, so the icon filled and nothing happened (here, the
+  first start's introduction stayed on its guide page).
 - **First start**: a new player's first start runs a short introduction (play space, then "Gesto de
   guía, ¡prueba!"), which waits for the Kinect Guide to open: hold the guide gesture until the icon
   fills. Before 0.12.1 the pose often wasn't recognised from a webcam there. If it still isn't, the

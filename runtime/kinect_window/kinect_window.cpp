@@ -233,11 +233,12 @@ RectF Fit(const RectF& r, float aspect) {
 }
 
 void Renderer::DrawCamera(Canvas& c, const RectF& panel, const nui::DebugView& v) {
-  // The webcam's picture as the game gets it: levelled by the measured tilt and moved to where the
-  // virtual Kinect stands. It is set when the play space is measured (at the start, "Recentre on me")
-  // and holds still in between, as a real camera's picture does.
-  const RectF area = Panel(c, panel, v.camera_images ? L"CAMERA, AS THE GAME SEES IT (levelled; set by Recentre on me)"
-                                                     : L"CAMERA (drawn from the bodies: the source has no camera)");
+  // The webcam's picture as the game gets it, levelled by the tilt: the webcam's whole image, fixed
+  // (the virtual Kinect stands where the webcam is), or moved with the player to a Kinect's spot,
+  // set when the play space is measured (at the start, "Recentre on me") and still in between.
+  const RectF area = Panel(c, panel, !v.camera_images ? L"CAMERA (drawn from the bodies: the source has no camera)"
+                                     : v.centre_player ? L"CAMERA, AS THE GAME SEES IT (moved with you; set by Recentre on me)"
+                                                       : L"CAMERA, AS THE GAME SEES IT (the webcam's own picture)");
   const RectF img = Fit(area, 4.0f / 3.0f);
   c.FillRect(img, kImageBackground);
   if (ID2D1Bitmap* bitmap = ColorBitmap(c, v)) c.DrawBitmap(bitmap, img, v.camera_images ? 1.0f : 0.5f);
@@ -330,9 +331,10 @@ void Renderer::DrawTop(Canvas& c, const RectF& panel, const nui::DebugView& v) {
 // From the side: the floor, the sensor at its height and tilt, the bodies' y and z.
 void Renderer::DrawSide(Canvas& c, const RectF& panel, const nui::DebugView& v) {
   RectF area = Panel(c, panel, L"FROM THE SIDE");
-  const float camera_h = v.status.floor_height > 0 ? v.status.floor_height : v.camera_height;
+  // The floor the skeletons stand on: where the player's feet are, or the play space's.
+  const float camera_h = v.camera_height;
   c.Text(Printf(L"camera %.2f m above the floor%s, %.0f° down, %.0f° roll", camera_h,
-                v.status.floor_height > 0 ? L" (measured)" : L"", v.status.tilt_pitch, v.status.tilt_roll),
+                v.camera_images && !v.centre_player ? L" (from your feet)" : L"", v.status.tilt_pitch, v.status.tilt_roll),
          {area.x, area.y - 2, area.w, 16}, Style(11, false, kTextSecondary));
   area = {area.x, area.y + 18, area.w, area.h - 18};
   const float range_z = 5.0f, top_y = 2.4f - camera_h, bottom_y = -camera_h - 0.15f;

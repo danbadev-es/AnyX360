@@ -8,6 +8,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Changed
+
+- **The game sees you where you are**: the virtual Kinect now stands where the webcam is. The
+  camera picture the game gets is the webcam's whole image, fixed: no zoom onto the player and no
+  shift when they move or recentre. The picture, the depth image and the skeleton line up as a real
+  Kinect's do, and the floor is where the player's feet are. Moving the player centred, 2.3 m
+  away (until now the only behaviour), is in F2 > Kinect > **Your position**, with **Recentre on
+  me**.
+- **The webcam's tilt is level by default** (set by hand at 0, for a laptop lid turned to face the
+  player); F2 can still measure the pitch. Players' logs showed measured pitches from -16 to +22
+  degrees with level laptop cameras and the legs out of view, which turned the player and the
+  picture. Settings files that measured it (the old default) take the new one.
+
+### Fixed
+
+- **The Kinect Guide gesture filled its icon and did nothing** (no pause in Kinect Sports, Fruit
+  Ninja Kinect or Kinect Joy Ride; Kinect Adventures' first-start introduction stuck on its guide
+  page): the guide closed as soon as the pose was let go, often before the game had looked, and
+  Kinect Sports only pauses on the console's Kinect pause notification (XN_SYS_NUIPAUSE), which
+  was never sent. The guide now stays open at least 3 seconds, and the gesture first sends the
+  pause notification, as the console does.
+- **Feet going wild when playing close to the webcam**: with the legs out of the picture the pose
+  model guesses them, and the game's feet followed the guesses. Legs the webcam doesn't see (or that
+  are outside its image) now stand still under the player, at their proportions, marked inferred.
+- **The webcam restarting after the game froze for a few seconds** (on battery): the pose bridge was
+  restarted when its heartbeat stopped for 2 s, and a laptop on battery stalled every process for
+  5-9 s. The limit is 5 s, timed from when the game runs again after standing still itself.
+
+### Added
+
+- **Battery warning**: the game's log says whether the computer is plugged in, on battery or with
+  the battery saver, at the start and on each change; F1 and F2 > Kinect warn while on battery.
+  Players' logs on battery showed 5-9 s stalls and the pose model at 125-183 ms a frame.
+
 ## [0.13.2] - 2026-10-21
 
 Every game's shader cache ships, so a first play doesn't stutter; the Kinect camera picture holds

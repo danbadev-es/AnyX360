@@ -108,7 +108,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 - **V-Sync** - Presents on the display's refresh: no tearing in fullscreen.
 - **Display-Locked Frame Pacing** - The game's vertical blank follows your monitor's refresh, so
   every frame stays on screen for the same time on 60 Hz and 120 Hz displays.
-- **Performance Overlay** - F1 shows FPS, frame-time and present graphs, VRAM and RAM use.
+- **Performance Overlay** - F1 shows FPS, frame-time and present graphs, VRAM and RAM use, and a
+  warning when a laptop runs on battery (Windows slows it down: frames and the webcam stall).
 - **Sharp at Any Scale** - Per-monitor DPI aware: the window and the panels are drawn at the
   screen's own resolution at 125 %, 150 % or 200 % scaling.
 
@@ -148,19 +149,21 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   silhouettes and photos work.
 - **Precise Joints** - Each joint is placed from the image (the pose model's most precise output),
   filtered per joint with a little prediction, and planted feet are held still. The skeleton
-  reaches the game as soon as the webcam's frame is processed.
-- **Tilted Webcams** - A webcam pitched down from a monitor or a laptop lid is measured from your
-  body and the floor, and corrected, so you don't look like you're leaning. A laptop lid turned to
-  face you (within 5 degrees of level) counts as level, and the measured tilt holds once it has
-  settled. A webcam turned about its lens (roll) is set by hand, and the pitch can be too.
-- **Play Space** - The player is placed where a Kinect expects them: centred, 2.3 m away, on the
-  floor. **Recentre on me** sets it again, and with it the camera picture the game gets, which
-  otherwise holds still.
+  reaches the game as soon as the webcam's frame is processed. Legs the webcam can't see (playing
+  close to a laptop) stand still under you instead of following the model's guesses.
+- **Where You Are** - The virtual Kinect stands where the webcam is: the camera picture the game
+  gets is the webcam's whole image, fixed (no zoom onto you), with your skeleton on it, and the
+  floor is where your feet are. **Moved to the Kinect's spot** in F2 places you centred, 2.3 m
+  away, for a webcam you can't stand in front of; **Recentre on me** then sets it again.
+- **Tilted Webcams** - The tilt is level by default, for a laptop lid turned to face you. A webcam
+  pitched down from a monitor can be set by hand, or measured from your body and the floor and
+  corrected, so you don't look like you're leaning.
 - **Kinect Tab** - F2 shows the image the game gets with your skeleton over it (each joint by how
   sure the tracking is), the frame rate, where the latency goes, and the measured tilt. It picks
   the webcam and changes mirroring, field of view, smoothing, players, the pose model and the tilt.
-- **Kinect Guide Gesture** - The left arm held out and down at 45 degrees pauses the game, as on
-  the console, with the Kinect Guide icon filling in the bottom-left corner while it is held.
+- **Kinect Guide Gesture** - The left arm held out and down at 45 degrees (the right arm down)
+  pauses the game, as on the console, with the Kinect Guide icon filling in the bottom-left corner
+  while it is held. The guide stays open at least 3 seconds.
 - **Kinect Debug Window** - F3 opens a window of its own, for a second monitor, with everything the
   virtual Kinect sees: the image with every skeleton, the depth image, the play space from above
   and from the side, each joint and the latency over the last 10 seconds.

@@ -39,7 +39,7 @@ import protocol  # noqa: E402
 import synthetic  # noqa: E402
 from pipeline import Pipeline  # noqa: E402
 
-VERSION = "1.1"
+VERSION = "1.2"
 MAX_FRAME_FAILURES = 60  # consecutive frames that fail before the bridge gives up (the game restarts it)
 
 
@@ -128,7 +128,8 @@ def standalone_settings(args):
     return {
         "seq": 0, "camera": args.camera, "mirror": args.mirror, "players": args.players, "model": args.model,
         "fov": args.fov, "smoothing": args.smoothing, "camera_height": args.camera_height, "calibrate": 0,
-        "quit": False, "tilt_manual": False, "tilt_pitch": 0.0, "tilt_roll": 0.0, "streams": 3,
+        "quit": False, "tilt_manual": True, "tilt_pitch": 0.0, "tilt_roll": 0.0, "streams": 3,
+        "centre_player": False,
     }
 
 
@@ -208,7 +209,7 @@ class Bridge:
             return False
         if control["seq"] != self.settings["seq"]:
             keys = ("camera", "mirror", "players", "model", "fov", "smoothing", "camera_height", "tilt_manual",
-                    "tilt_pitch", "tilt_roll")
+                    "tilt_pitch", "tilt_roll", "centre_player")
             changed = {k for k in keys if control[k] != self.settings[k]}
             self.settings = control
             pipeline.configure(control)
@@ -232,7 +233,9 @@ class Bridge:
         self.frame_number += 1
         if self.channel:
             h = self.channel.header
-            self.channel.publish(self.frame_number, capture_qpc, bodies, color, depth)
+            # The floor the skeletons stand on, for the game's floor plane.
+            floor = (0.0, 1.0, 0.0, pipeline.floor_height()) if pipeline is not None else (0.0, 1.0, 0.0, 0.0)
+            self.channel.publish(self.frame_number, capture_qpc, bodies, color, depth, floor)
             if pipeline is not None:  # the tilt being corrected, for the settings panel
                 h.tilt_pitch_deg, h.tilt_roll_deg = pipeline.level.angles()
                 h.tilt_source = pipeline.level.source

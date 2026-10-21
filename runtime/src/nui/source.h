@@ -69,6 +69,10 @@ bool IsGuidePose(const Body& body);
 class GuideGesture {
  public:
   static constexpr double kHoldSeconds = 1.5;
+  // Once open, the guide stays open at least this long, however soon the arm comes down: on the
+  // console it stays until the player leaves it, and titles need it open for a moment to pause
+  // (closed at once, as a player lowering the arm when the icon fills does, they never paused).
+  static constexpr double kMinOpenSeconds = 3.0;
   enum Change { kNone, kOpen, kClose };
   // The main player's body this frame (nullptr: nobody).
   Change Update(const Body* body, double time);
@@ -80,6 +84,7 @@ class GuideGesture {
 
  private:
   double held_since_ = -1;
+  double opened_at_ = -1;
   bool open_ = false;
 };
 

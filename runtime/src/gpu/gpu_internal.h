@@ -33,6 +33,11 @@ void DisplayLockState(double& display_hz, bool& locked);
 // apply). Exits on success; returns the error otherwise.
 std::string Restart();
 
+// The computer's power when it's on battery ("on battery, 54%, battery saver"); empty when plugged
+// in or without a battery (any thread). On battery Windows slows the CPU and GPU: frames and the
+// webcam's pose model stall.
+std::string BatteryState();
+
 // The settings panel (F2).
 void StartSettingsPanel();
 void ToggleSettingsPanel();

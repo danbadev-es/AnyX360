@@ -83,6 +83,8 @@ struct FakeBridge {
         b.joint_state[j] = 2;
       }
       b.position[0] = float(frame);
+      s.floor_plane[1] = 1;  // the floor 0.75 m below the camera
+      s.floor_plane[3] = 0.75f;
       s.flags = images ? bridge::kSlotHasImages : 0;
       if (images) {
         std::memset(s.color, int(frame & 0xFF), sizeof(s.color));
@@ -108,6 +110,7 @@ int main() {
     nui::BridgeOptions options;
     options.name = ChannelName(L"frames");
     options.launch = false;
+    options.stall_seconds = 2.0;
     auto source = nui::MakeBridgeSource(settings, options);
     FakeBridge producer;
     CHECK(producer.channel.Open(options.name));
@@ -120,6 +123,7 @@ int main() {
     CHECK(h->latest_slot == bridge::kSlotCount);  // nothing published
     CHECK(h->camera_index == 1 && h->mirror == 1 && h->players == 1 && h->model == 0);
     CHECK(h->fov_deg == 70.0f && h->smoothing == 0.25f && h->camera_height_m == 0.9f);
+    CHECK(h->tilt_mode == 1 && h->play_space == 0);  // the defaults: the tilt by hand, the player where they are
     CHECK(h->control_seq == 1);
     settings.players = 2;
     source->Configure(settings);
@@ -139,6 +143,7 @@ int main() {
     CHECK(s.bodies[0].id == 7);
     CHECK(s.bodies[0].joints[nui::kHandRight][0] == 1.0f && s.bodies[0].joints[nui::kHead][2] == 2.0f);
     CHECK(s.bodies[0].joint_state[nui::kHead] == nui::kJointTracked);
+    CHECK(s.floor_height == 0.75f);
     CHECK(s.color && s.color->size() == 640 * 480 * 4 && (*s.color)[1000] == 1);
     CHECK(s.depth && s.depth->size() == 320 * 240 && (*s.depth)[500] == 1);
     CHECK(Contains(source->Message(), "webcam 640x480"));
@@ -148,26 +153,42 @@ int main() {
     source->Poll(0.4, s);  // nothing new: the same frame again
     CHECK(s.body_count == 1 && s.bodies[0].position[0] == 2.0f);
 
-    // A stalled heartbeat (2 s) takes the players away; a new beat brings them back.
-    std::this_thread::sleep_for(std::chrono::milliseconds(2200));
-    source->Poll(2.6, s);
+    // A stalled heartbeat (2 s) takes the players away; a new beat brings them back. The game polls
+    // all along, as it does many times a second.
+    double t = 0.4;
+    auto wait = [&](int ms) {
+      for (int i = 0; i < ms / 100; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        source->Poll(t += 0.1, s);
+      }
+    };
+    wait(2200);
     CHECK(s.body_count == 0);
     CHECK(Contains(source->Message(), "stopped responding"));
     producer.Beat();
-    source->Poll(2.7, s);
+    source->Poll(t += 0.1, s);
     CHECK(s.body_count == 1);
+
+    // A game that stood still as long itself (a laptop on battery stalls every process) gives the
+    // bridge the time again from then.
+    std::this_thread::sleep_for(std::chrono::milliseconds(2200));
+    source->Poll(t += 2.2, s);
+    CHECK(s.body_count == 1 && !Contains(source->Message(), "stopped responding"));
+    wait(2200);
+    CHECK(Contains(source->Message(), "stopped responding"));
+    producer.Beat();
+    source->Poll(t += 0.1, s);
 
     // A bridge still starting (loading its model) gets the startup grace even after its first beat.
     producer.channel.header()->state = bridge::kStarting;
-    std::this_thread::sleep_for(std::chrono::milliseconds(2200));
-    source->Poll(5.0, s);
+    wait(2200);
     CHECK(!Contains(source->Message(), "stopped responding"));
     producer.channel.header()->state = bridge::kRunning;
     producer.Beat();
 
     // Windows' camera privacy setting.
     producer.channel.header()->state = bridge::kCameraDenied;
-    source->Poll(2.8, s);
+    source->Poll(t += 0.1, s);
     CHECK(s.body_count == 0 && Contains(source->Message(), "Privacy"));
   }
 

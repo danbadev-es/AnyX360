@@ -114,8 +114,10 @@ source:
 - scripted poses for tests.
 
 The pose bridge is Python (MediaPipe, OpenCV) packaged with PyInstaller. Keeping it out of the game
-process means its runtime, models and crashes stay separate: the game restarts it, and the job
-object ends it with the game.
+process means its runtime, models and crashes stay separate: the game restarts it when it exits
+or its heartbeat stops for 5 s, and the job object ends it with the game. A game that stood still
+itself (a laptop on battery stalls every process for seconds) times the heartbeat from when it runs
+again, and logs the stall.
 
 
 ## Why the Xbox 360 is harder

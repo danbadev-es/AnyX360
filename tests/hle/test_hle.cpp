@@ -336,6 +336,14 @@ int main() {
     CHECK(loaded.input.sensitivity == settings::InputSettings{}.sensitivity);  // was the old default
     CHECK(loaded.input.aim_sensitivity == 0.45f);                              // chosen: kept
     CHECK(loaded.version == settings::Settings{}.version);
+    // Version 2 measured the webcam's tilt by default: it's set by hand (0) now. Version 3 keeps the
+    // player's choice.
+    std::ofstream(folder / "settings.toml") << "version = 2\n[kinect]\ntilt_manual = false\ncentre_player = true\n";
+    settings::Load(folder / "settings.toml");
+    CHECK(settings::Get().kinect.tilt_manual && settings::Get().kinect.centre_player);
+    std::ofstream(folder / "settings.toml") << "version = 3\n[kinect]\ntilt_manual = false\n";
+    settings::Load(folder / "settings.toml");
+    CHECK(!settings::Get().kinect.tilt_manual && !settings::Get().kinect.centre_player);
     fs::remove_all(folder);
   }
 

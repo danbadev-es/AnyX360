@@ -25,6 +25,7 @@ constexpr uint32_t kExitIncompatible = 3;   // the bridge's exit code for a layo
 constexpr double kBackoff[] = {1, 2, 4, 8};  // seconds before the 2nd to 5th start
 constexpr uint32_t kMaxStarts = 5;
 constexpr double kHealthySeconds = 60;  // a run this long starts the count again
+constexpr double kStillSeconds = 1;     // polls this far apart: the game stood still
 
 int64_t Qpc() {
   LARGE_INTEGER t;
@@ -155,6 +156,7 @@ class BridgeSource : public Source {
     h->tilt_mode = settings.tilt_manual ? 1 : 0;
     h->tilt_pitch_manual_deg = settings.tilt_pitch;
     h->tilt_roll_manual_deg = settings.tilt_roll;
+    h->play_space = settings.centre_player ? 1 : 0;
     std::atomic_thread_fence(std::memory_order_seq_cst);
     h->control_seq = h->control_seq + 1;
   }
@@ -242,6 +244,13 @@ class BridgeSource : public Source {
       gave_up_ = true;
       return;
     }
+    // The game stood still too (it polls many times a second): the bridge most likely stood still
+    // with it, so its heartbeat is timed from now.
+    if (last_poll_ >= 0 && time - last_poll_ > kStillSeconds) {
+      resumed_qpc_ = Qpc();
+      KLOG_W("nui: the game stood still for %.1f s", time - last_poll_);
+    }
+    last_poll_ = time;
     stalled_ = Stale(time);
     if (!options_.launch || gave_up_) return;
     if (!process_.Started()) {
@@ -323,7 +332,7 @@ class BridgeSource : public Source {
     const int64_t beat = h->heartbeat_qpc;
     if (!beat) return options_.launch && process_.Started() && time - started_ > options_.startup_seconds;
     const double limit = h->state == kStarting ? options_.startup_seconds : options_.stall_seconds;
-    return double(Qpc() - beat) / frequency_ > limit;
+    return double(Qpc() - std::max(beat, resumed_qpc_)) / frequency_ > limit;
   }
 
   bool Live() const {
@@ -351,6 +360,8 @@ class BridgeSource : public Source {
       snapshot.depth = Pooled(depth_pool_, std::begin(s.depth), std::end(s.depth));
     }
     snapshot.capture_qpc = s.capture_qpc;
+    // The floor the bridge's skeletons stand on (1.2: where the player's feet are), when it sent one.
+    if (s.floor_plane[1] > 0.5f && s.floor_plane[3] > 0.2f) snapshot.floor_height = s.floor_plane[3];
     snapshot_ = std::move(snapshot);
     const int64_t now = Qpc();
     auto smooth = [](double& average, double value) { average = average ? average * 0.9 + value * 0.1 : value; };
@@ -421,6 +432,8 @@ class BridgeSource : public Source {
   uint32_t restarts_ = 0;  // in all
   bool launched_ = false;
   double started_ = 0, next_start_ = 0;
+  double last_poll_ = -1;    // the game's time at the last poll
+  int64_t resumed_qpc_ = 0;  // when the game ran again after standing still
   bool gave_up_ = false, incompatible_ = false, stalled_ = false;
   std::string problem_, message_ = "starting the pose bridge";
 };

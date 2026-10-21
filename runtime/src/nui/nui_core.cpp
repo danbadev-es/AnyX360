@@ -73,6 +73,9 @@ int32_t g_elevation = 0;
 uint32_t g_frame_number = 0;
 uint64_t g_frame_time_ms = 0;
 Snapshot g_snapshot;
+// How far below the sensor the floor is: where the source's bodies stand when it knows (the pose
+// bridge: where the player's feet are), else the settings' camera height (g_mutex).
+float FloorHeight() { return g_snapshot.floor_height > 0 ? g_snapshot.floor_height : g_camera_height; }
 uint32_t g_slots[kSkeletonCount] = {};  // body ID in each of the frame's six slots (0: free)
 uint32_t g_delivered = 0;               // frame number last returned by SkeletonGetNextFrame
 
@@ -127,10 +130,11 @@ void WriteSkeletonFrame(uint32_t frame) {
   std::memset(Ptr(frame), 0, kSkeletonFrameSize);
   Store<uint64_t>(frame + 0x00, g_frame_time_ms);
   Store<uint32_t>(frame + 0x08, g_frame_number);
-  // The floor is camera_height below the sensor; elevation tilts its normal (and gravity's).
+  // The floor is the source's (where the player's feet are) or camera_height below the sensor;
+  // elevation tilts its normal (and gravity's).
   const float tilt = float(g_elevation) * 3.14159265f / 180.0f;
   const float up[3] = {0, std::cos(tilt), std::sin(tilt)};
-  StoreVector(frame + 0x10, up, g_camera_height);
+  StoreVector(frame + 0x10, up, FloorHeight());
   StoreVector(frame + 0x20, up, 0);
   // The profile each body belongs to (+0x0C): XUSER_INDEX_NONE unless the system bound it, as the
   // XDK fills it. Fully tracked bodies are bound in order to the signed-in players (the first to
@@ -395,7 +399,7 @@ bool IsGuidePose(const Body& b) { return MeasureGuidePose(b).rejected == nullptr
 GuideGesture::Change GuideGesture::Update(const Body* body, double time) {
   if (!body || !IsGuidePose(*body)) {
     held_since_ = -1;
-    if (!open_) return kNone;
+    if (!open_ || time - opened_at_ < kMinOpenSeconds) return kNone;
     open_ = false;
     return kClose;
   }
@@ -403,6 +407,7 @@ GuideGesture::Change GuideGesture::Update(const Body* body, double time) {
   if (held_since_ < 0) held_since_ = time;
   if (time - held_since_ < kHoldSeconds) return kNone;
   open_ = true;
+  opened_at_ = time;
   return kOpen;
 }
 
@@ -593,7 +598,8 @@ DebugView GetDebugView(bool draw_images) {
     view.title_chooses = (g_tracking_flags & kTitleSetsTracked) != 0;
     view.chosen[0] = g_chosen[0], view.chosen[1] = g_chosen[1];
     view.elevation = g_elevation;
-    view.camera_height = g_camera_height;
+    view.camera_height = FloorHeight();
+    view.centre_player = g_applied.centre_player;
     view.guide_progress = g_guide_progress;
     view.guide_open = g_guide.open();
     snapshot = g_snapshot;

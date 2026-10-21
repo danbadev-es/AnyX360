@@ -72,7 +72,7 @@ def _mapping():
     bodies, info = pipeline.process([Pose(normalized, world, visibility)], (width, height), 0.0)
     assert len(bodies) == 1
     out = bodies[0]["joints"]
-    assert abs(out[km.HIP_CENTER][2] - km.PlaySpace.DISTANCE) < 0.02, out[km.HIP_CENTER]
+    assert np.allclose(out[km.HIP_CENTER][[0, 2]], (0.3, 1.9), atol=0.03), out[km.HIP_CENTER]  # where they are
     assert out[km.WRIST_RIGHT][0] > out[km.SHOULDER_RIGHT][0] > out[km.SHOULDER_LEFT][0]
     color, depth = pipeline.render(np.zeros((height, width, 3), np.uint8), info)
     assert color.shape == (480, 640, 4) and depth.shape == (240, 320)

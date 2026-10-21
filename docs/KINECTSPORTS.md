@@ -34,6 +34,13 @@ by its instructions with addresses and offsets masked; the bindings
 these addresses. The pure code around it (NUIHNDL's hand tracking and the game's gestures) stays
 recompiled.
 
+The **pause** comes from the console's Kinect pause notification (`XN_SYS_NUIPAUSE`, `0006001A`,
+sent when a player holds the Kinect Guide gesture): its handler (`82528ED0`) queues the game's
+pause event. The system UI notification (`9`) only sets a "system UI active" flag (`832659D4`).
+The pause menu has a Kinect Guide entry (`XamShowNuiGuideUI`). Until 0.13.3 the runtime sent only
+the system UI notification, and the gesture did nothing here. Every Kinect game listens for the
+pause notification; Dance Central 3 answers it by showing the Kinect Guide.
+
 ## Bring-up
 - **LZX decompression in the kernel** (`LDI*`): XMemDecompress and the avatar library call it. Its
   create function takes one argument more than the cabinet version (a size before the two

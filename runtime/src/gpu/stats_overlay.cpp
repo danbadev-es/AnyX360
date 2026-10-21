@@ -50,6 +50,7 @@ struct Sample {
   uint64_t guest_virtual = 0, guest_physical = 0;
   uint32_t presents_gpu = 0, presents_ui = 0;
   std::string kinect;  // empty for games without a Kinect
+  std::string battery;  // empty when plugged in
 };
 
 class StatsOverlay : public xe::ui::ImGuiDialog {
@@ -108,6 +109,11 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
       line("RAM", "%.0f MB (commit %.0f MB)", s_.working_set / mb, s_.commit / mb);
       line("Guest", "%.0f MB virtual + %.0f MB physical", s_.guest_virtual / mb, s_.guest_physical / mb);
       if (!s_.kinect.empty()) line("Kinect", "%s", s_.kinect.c_str());
+      if (!s_.battery.empty()) {
+        ImGui::TextDisabled("Power");
+        ImGui::SameLine(Px(64));
+        ImGui::TextColored(color::Vec(color::kAmber), "%s: plug in for steady frames", s_.battery.c_str());
+      }
       // Frame intervals: the title's submissions (VdSwap) and what reached the screen (presents of new
       // frames), 0-50 ms; a steady 60 FPS is a flat line at 16.7 ms.
       line("Presents", "%s thread", s_.presents_ui > s_.presents_gpu ? "UI" : "GPU");
@@ -157,6 +163,7 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
       s_.kinect = text;
     }
     s_.presents_ui = t.presents_ui_thread;
+    s_.battery = BatteryState();
     if (adapter_) {
       DXGI_QUERY_VIDEO_MEMORY_INFO local{}, shared{};
       adapter_->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &local);

@@ -75,6 +75,9 @@ struct Snapshot {
   std::shared_ptr<const std::vector<uint8_t>> color;
   std::shared_ptr<const std::vector<uint16_t>> depth;
   int64_t capture_qpc = 0;  // QueryPerformanceCounter when the camera captured it (0: now)
+  // How far below the sensor the bodies' floor is (m), when the source knows it (the pose bridge:
+  // where the player's feet are); 0: the settings' camera height.
+  float floor_height = 0;
 };
 
 // The format of an image stream, from the title's NUI tables. The later libraries (2012) also offer
@@ -203,7 +206,8 @@ struct DebugView {
   bool title_chooses = false;  // ... and chooses whom to track (SetTrackedSkeletons)
   uint32_t chosen[2] = {};
   int32_t elevation = 0;  // the title's camera angle, degrees
-  float camera_height = 0;
+  float camera_height = 0;   // the skeletons' floor below the sensor (the source's, else the setting)
+  bool centre_player = false;  // the player moved to a Kinect's spot (else the sensor is the webcam)
   uint32_t streams = 0;      // the images the title opened (1 color, 2 depth)
   float guide_progress = 0;  // holding the Kinect Guide's pose: 0-1
   bool guide_open = false;

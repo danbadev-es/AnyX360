@@ -71,6 +71,8 @@ def background_depth(camera_height):
     the wall at 4 m."""
     key = round(camera_height, 3)
     if key not in _background_cache:
+        if len(_background_cache) >= 16:  # the floor measured from the feet changes now and then
+            _background_cache.clear()
         width, height = camera_model.DEPTH_SIZE
         v = np.arange(height, dtype=np.float64) + 0.5
         slope = (v - height / 2) / camera_model.DEPTH_FOCAL  # floor rows: y / z = -slope

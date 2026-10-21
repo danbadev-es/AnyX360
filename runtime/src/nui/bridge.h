@@ -92,7 +92,9 @@ struct BridgeOptions {
   std::wstring name;    // the channel name (default: Local\AnyX360-Nui-<pid>-<n>)
   bool launch = true;   // false: a producer is already there (tests)
   std::filesystem::path log;      // the bridge's output (default: BridgeLogPath())
-  double stall_seconds = 2.0;    // a running bridge whose heartbeat stops this long is restarted
+  // A running bridge whose heartbeat stops this long is restarted. Timed from when the game polled
+  // again after standing still itself (a laptop on battery stalls every process for seconds).
+  double stall_seconds = 5.0;
   double startup_seconds = 45.0;  // time to load the model and open the camera
 };
 

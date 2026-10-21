@@ -54,6 +54,9 @@ void Migrate(Settings& s, const Settings& defaults) {
     if (s.input.sensitivity == 1.0f) s.input.sensitivity = defaults.input.sensitivity;
     if (s.input.aim_sensitivity == 0.6f) s.input.aim_sensitivity = defaults.input.aim_sensitivity;
   }
+  // The tilt was measured by default; with a laptop's camera (level, the legs out of view) the
+  // estimates were off by up to 20 degrees and turned the player and the picture.
+  if (s.version < 3 && !s.kinect.tilt_manual) s.kinect.tilt_manual = defaults.kinect.tilt_manual;
   s.version = defaults.version;
 }
 
@@ -119,6 +122,7 @@ void Parse(const toml::table& t, Settings& s) {
   Read(kinect["tilt_manual"], s.kinect.tilt_manual);
   Read(kinect["tilt_pitch"], s.kinect.tilt_pitch);
   Read(kinect["tilt_roll"], s.kinect.tilt_roll);
+  Read(kinect["centre_player"], s.kinect.centre_player);
   s.kinect.tilt_pitch = std::clamp(s.kinect.tilt_pitch, -35.0f, 35.0f);
   s.kinect.tilt_roll = std::clamp(s.kinect.tilt_roll, -35.0f, 35.0f);
   s.kinect.fov = std::clamp(s.kinect.fov, 30.0f, 120.0f);
@@ -201,9 +205,11 @@ std::string Serialize(const Settings& s) {
       << "camera_height = " << Float(s.kinect.camera_height) << "  # metres above the floor\n"
       << "model = " << Quote(s.kinect.model) << "  # lite, full, heavy\n"
       << "tilt_manual = " << (s.kinect.tilt_manual ? "true" : "false")
-      << "  # false: the bridge measures the webcam's pitch; true: tilt_pitch. The roll is always tilt_roll\n"
+      << "  # true: tilt_pitch (0 for a laptop's camera facing you); false: the bridge measures the pitch\n"
       << "tilt_pitch = " << Float(s.kinect.tilt_pitch) << "  # degrees, > 0 looking down\n"
-      << "tilt_roll = " << Float(s.kinect.tilt_roll) << "  # degrees, > 0 turned clockwise (seen from behind)\n";
+      << "tilt_roll = " << Float(s.kinect.tilt_roll) << "  # degrees, > 0 turned clockwise (seen from behind)\n"
+      << "centre_player = " << (s.kinect.centre_player ? "true" : "false")
+      << "  # false: the game sees you where you are; true: centred 2.3 m from the virtual Kinect\n";
   }
   if (!s.xenia.empty()) {
     o << "\n# Options of Xenia's GPU code, by name (advanced: for trying a fix on one GPU).\n[xenia]\n";

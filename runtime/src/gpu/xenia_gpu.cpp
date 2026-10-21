@@ -404,6 +404,15 @@ void PostToUIThread(std::function<void()> fn) { g_app->CallInUIThread(std::move(
 
 xe::ui::Window* GameWindow() { return g_window.get(); }
 
+std::string BatteryState() {
+  SYSTEM_POWER_STATUS power{};
+  if (!GetSystemPowerStatus(&power) || power.ACLineStatus != 0 || (power.BatteryFlag & 128)) return {};
+  std::string state = "on battery";
+  if (power.BatteryLifePercent <= 100) state += ", " + std::to_string(power.BatteryLifePercent) + "%";
+  if (power.SystemStatusFlag & 1) state += ", battery saver";
+  return state;
+}
+
 void ApplyWindowSize(uint32_t width, uint32_t height) {
   HWND hwnd = GameHwnd();
   if (!hwnd || !width || !height) return;
@@ -654,7 +663,13 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
   std::thread([] {
     SetThreadDescription(GetCurrentThread(), L"GPU stats");
     uint64_t last_swaps = 0;
+    int power = -1;  // 0 plugged in, 1 on battery, 2 with the battery saver
     for (;;) {
+      // The power, at the start and on each change: a player's log then says why frames stalled.
+      const std::string battery = BatteryState();
+      const int now_power = battery.empty() ? 0 : battery.ends_with("saver") ? 2 : 1;
+      if (now_power != power) KLOG_I("power: %s", battery.empty() ? "plugged in (or no battery)" : battery.c_str());
+      power = now_power;
       std::this_thread::sleep_for(std::chrono::seconds(5));
       uint64_t swaps = g_swap_count.load();
       uint32_t wptr = g_graphics->register_file()->values[0x01C5];

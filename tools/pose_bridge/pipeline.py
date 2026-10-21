@@ -1,13 +1,15 @@
 """One webcam frame's poses to the virtual Kinect's bodies and images."""
 
+import collections
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
 import camera_model
 import depth_synth
 import kinect_mapping as km
+import level
 from filters import OneEuro
 from level import Leveler
 from protocol import BODY_TRACKED
@@ -105,6 +107,7 @@ class Pipeline:
         # the picture zoom in and out and turn as the player moved and the estimates wobbled.
         self._picture = None
         self._was_measuring = True
+        self._floor_samples = collections.deque(maxlen=90)  # the feet's drop below the camera, 3 s
         self.configure(settings)
 
     def configure(self, settings):
@@ -116,6 +119,9 @@ class Pipeline:
             self.play.request()
         self.fov = settings["fov"]
         self.camera_height = settings["camera_height"]
+        # Where the game sees the player: where they really are (the default), or moved to a Kinect's
+        # spot, centred 2.3 m from it on its floor (the play space, "Recentre on me").
+        self.centre_player = settings.get("centre_player", False)
         self.play.camera_height = self.camera_height
         if settings.get("tilt_manual"):
             self.level.set_manual(settings.get("tilt_pitch", 0.0), settings.get("tilt_roll", 0.0))
@@ -125,6 +131,15 @@ class Pipeline:
         if getattr(self, "smoothing", None) != settings["smoothing"]:
             self.smoothing = settings["smoothing"]
             self._people = {}
+
+    def floor_height(self):
+        """How far below the virtual sensor the skeletons' floor is (m): the play space's floor when
+        the player is moved there, else where the main player's feet have been (in 2 cm steps)."""
+        if self.centre_player:
+            return self.camera_height
+        if not self._floor_samples:
+            return self.level.floor_height or self.camera_height
+        return round(float(np.percentile(np.array(self._floor_samples), 80)) * 50) / 50
 
     def calibrate(self):
         self.play.request()
@@ -141,6 +156,9 @@ class Pipeline:
         focal = camera_model.webcam_focal(width, self.fov)
         solved = []
         for pose in poses:
+            # Legs outside the picture are the model's guesses: they don't place the body, and they
+            # stand naturally under it (natural_legs below).
+            pose = replace(pose, visibility=km.legs_in_picture(pose.normalized, pose.visibility))
             translation = km.solve_translation(pose.world, pose.normalized, pose.visibility, width, height, focal)
             if translation is not None:
                 solved.append((pose, translation))
@@ -153,8 +171,11 @@ class Pipeline:
             joints, _ = km.kinect_joints(camera_model.opencv_to_kinect(camera), pose.visibility)
             if not np.all(np.isfinite(joints)):
                 continue
-            joints = person.filter_joints(joints, time)
             states = person.states(km.joint_visibility(pose.visibility))
+            # Legs out of view stand naturally under the hips (before the filters, so they ease in and
+            # out as the legs leave and enter the picture).
+            joints, _ = km.natural_legs(joints, states, self.level.up)
+            joints = person.filter_joints(joints, time)
             found.append((joints, states, pose.mask, distance, km.image_clipping(pose.normalized)))
             found_ids.append(body_id)
         ids = found_ids
@@ -179,15 +200,31 @@ class Pipeline:
         self._rotation = rotation
         found = [(f[0] @ rotation.T,) + f[1:] for f in found]
         main = found[order[0]] if found else None
-        offset = self.play.update(main[0] if main else None, main[1] if main else None, self.level.floor_height)
+        if self.centre_player:
+            offset = self.play.update(main[0] if main else None, main[1] if main else None, self.level.floor_height)
+        else:
+            # Where the player really is: the virtual Kinect stands where the webcam is, so the
+            # picture, the depth image and the skeleton line up as a real Kinect's do. The floor is
+            # where the feet are (seen, or standing naturally out of view): the lower ankle's drop,
+            # its 80th percentile over 3 s, so a raised foot or a jump doesn't lift it.
+            offset = np.zeros(3)
+            if main:
+                ankles = min(main[0][km.ANKLE_LEFT][1], main[0][km.ANKLE_RIGHT][1])
+                drop = -float(ankles) + level.ANKLE_HEIGHT
+                if 0.2 < drop < 3.0:
+                    self._floor_samples.append(drop)
         recentred = self._offset is not None and np.linalg.norm(offset - self._offset) > 0.05
         if recentred:
             self._last = {}  # recentred: a held pose would be in the old place
         self._offset = offset.copy()
-        # The picture's frame: the first player seen, then each time the play space is measured (or
-        # recentred). Between those it holds still, like a real camera's picture.
+        # The picture's frame. Where the player really is, it's the webcam's whole picture, levelled:
+        # with no offset it depends on no distance, and only changes with the tilt. Moved to a
+        # Kinect's spot, it's set with the first player seen, then each time the play space is
+        # measured (or recentred), and holds still in between, like a real camera's picture.
         measuring = self.play.measuring()
-        if main and self._reference is not None and (
+        if not self.centre_player:
+            self._picture = (self._reference or km.PlaySpace.DISTANCE, rotation.copy(), offset.copy())
+        elif main and self._reference is not None and (
                 self._picture is None or recentred or (self._was_measuring and not measuring)):
             self._picture = (self._reference, rotation.copy(), offset.copy())
         self._was_measuring = measuring
@@ -250,5 +287,5 @@ class Pipeline:
             mh, mw = mask.shape[:2]
             transforms.append(depth_synth.image_homography((mw, mh), focal * mw / width, distance or reference, offset,
                                                            rotation, camera_model.DEPTH_FOCAL, camera_model.DEPTH_SIZE))
-        depth = depth_synth.depth_image(info["joints"], self.camera_height, info["masks"], transforms)
+        depth = depth_synth.depth_image(info["joints"], self.floor_height(), info["masks"], transforms)
         return color, depth

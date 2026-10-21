@@ -114,6 +114,9 @@ class ProtocolLayout(unittest.TestCase):
             self.assertAlmostEqual(control["fov"], 75.0)
             self.assertAlmostEqual(control["camera_height"], 1.1, places=5)
             self.assertEqual(control["seq"], 4)
+            self.assertFalse(control["centre_player"])  # the game's default: where the player is
+            h.play_space = 1
+            self.assertTrue(game.control()["centre_player"])
             del h  # views must go before the mapping closes
         finally:
             game.close()
@@ -253,6 +256,65 @@ class Mapping(unittest.TestCase):
         self.assertEqual(states(seen)[km.KNEE_LEFT], km.JOINT_INFERRED)
         seen[km.KNEE_LEFT] = 0.7
         self.assertEqual(states(seen)[km.KNEE_LEFT], km.JOINT_TRACKED)
+
+
+class Legs(unittest.TestCase):
+    LEG_LANDMARKS = [km.L_KNEE, km.R_KNEE, km.L_ANKLE, km.R_ANKLE, km.L_HEEL, km.R_HEEL, km.L_FOOT, km.R_FOOT]
+
+    def test_unseen_legs_stand_under_the_hips(self):
+        joints = synthetic.standing(z=2.3)
+        states = np.full(km.JOINTS, km.JOINT_TRACKED, np.uint8)
+        states[[km.KNEE_LEFT, km.ANKLE_LEFT, km.FOOT_LEFT]] = km.JOINT_INFERRED
+        flailing = joints.copy()
+        flailing[[km.KNEE_LEFT, km.ANKLE_LEFT, km.FOOT_LEFT]] += (0.4, 0.3, -0.5)
+        out, placed = km.natural_legs(flailing, states, (0, 1, 0))
+        self.assertEqual(placed, 3)
+        hip, knee, ankle, foot = out[[km.HIP_LEFT, km.KNEE_LEFT, km.ANKLE_LEFT, km.FOOT_LEFT]]
+        np.testing.assert_allclose(knee[[0, 2]], hip[[0, 2]])
+        np.testing.assert_allclose(ankle[[0, 2]], hip[[0, 2]])
+        self.assertLess(abs(ankle[1] - joints[km.ANKLE_LEFT][1]), 0.1)  # about the player's own leg
+        self.assertLess(foot[2], ankle[2])  # the foot points at the camera
+        np.testing.assert_allclose(out[km.FOOT_RIGHT], joints[km.FOOT_RIGHT])  # the seen leg is kept
+        # Only below the first joint it doesn't see: a seen knee stays, the shin hangs from it.
+        states[km.KNEE_LEFT] = km.JOINT_TRACKED
+        out, placed = km.natural_legs(flailing, states, (0, 1, 0))
+        self.assertEqual(placed, 2)
+        np.testing.assert_allclose(out[km.KNEE_LEFT], flailing[km.KNEE_LEFT])
+        np.testing.assert_allclose(out[km.ANKLE_LEFT][[0, 2]], flailing[km.KNEE_LEFT][[0, 2]])
+
+    def test_legs_outside_the_picture_are_not_seen(self):
+        """However sure the model says it is about them (it guesses legs outside the image)."""
+        width, height = 1280, 720
+        focal = camera_model.webcam_focal(width, 60.0)
+        normalized, _, visibility = synthetic.landmarks(synthetic.standing(z=1.0), width, height, focal)
+        self.assertTrue((visibility[self.LEG_LANDMARKS] > 0.5).all())
+        seen = km.legs_in_picture(normalized, visibility)
+        self.assertTrue((seen[self.LEG_LANDMARKS] == 0).all())  # knees down below the image at 1 m
+        np.testing.assert_allclose(seen[:km.L_KNEE], visibility[:km.L_KNEE])  # the rest as it was
+        normalized, _, visibility = synthetic.landmarks(synthetic.standing(z=3.2), width, height, focal)
+        np.testing.assert_allclose(km.legs_in_picture(normalized, visibility), visibility)
+
+    def test_a_player_close_to_the_camera_keeps_still_legs(self):
+        """Close to a laptop's camera the legs are out of the picture and the model's guesses for
+        them flail about: the game sees still legs under the player, inferred, on a steady floor."""
+        width, height = 1280, 720
+        focal = camera_model.webcam_focal(width, 60.0)
+        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.5, "camera_height": 0.8, "centre_player": False,
+                             "tilt_manual": True})
+        rng = np.random.default_rng(7)
+        feet, floors = [], []
+        for i in range(60):
+            normalized, world, visibility = synthetic.landmarks(synthetic.standing(z=1.0), width, height, focal)
+            world[self.LEG_LANDMARKS] += rng.normal(0, 0.15, (len(self.LEG_LANDMARKS), 3))
+            normalized[self.LEG_LANDMARKS, 1] += np.abs(rng.normal(0, 0.1, len(self.LEG_LANDMARKS)))
+            bodies, _ = pipeline.process([Pose(normalized, world, visibility)], (width, height), i / 30)
+            feet.append(bodies[0]["joints"][km.FOOT_LEFT])
+            floors.append(pipeline.floor_height())
+        self.assertEqual(bodies[0]["joint_state"][km.ANKLE_LEFT], km.JOINT_INFERRED)
+        self.assertLess(np.ptp(np.array(feet[30:]), axis=0).max(), 0.01)
+        self.assertLess(abs(feet[-1][0] - bodies[0]["joints"][km.HIP_LEFT][0]), 0.02)
+        self.assertLess(abs(floors[-1] - 0.8), 0.15)  # about the synthetic room's floor
+        self.assertEqual(len(set(floors[30:])), 1)
 
 
 class Precision(unittest.TestCase):
@@ -606,9 +668,8 @@ class Images(unittest.TestCase):
 
     def test_the_image_follows_the_skeleton(self):
         """A mark on the player's right hand in the webcam image lands where the virtual color camera
-        sees that joint, after the play space moved them."""
+        sees that joint: where the player is, and after the play space moved them."""
         width, height = 1280, 720
-        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8})
         focal = camera_model.webcam_focal(width, 60.0)
         joints = synthetic.standing(x=-0.3, z=1.8)
         hand = joints[km.HAND_RIGHT]
@@ -617,21 +678,61 @@ class Images(unittest.TestCase):
         camera = camera_model.opencv_to_kinect(hand)
         mark = (int(width / 2 + focal * camera[0] / camera[2]), int(height / 2 + focal * camera[1] / camera[2]))
         frame[mark[1] - 3:mark[1] + 4, mark[0] - 3:mark[0] + 4] = 255
-        for _ in range(3):  # let the reference depth settle
-            bodies, info = pipeline.process([Pose(normalized, world, visibility)], (width, height), 0.0)
-        color, _ = pipeline.render(frame, info)
-        expected = camera_model.project(bodies[0]["joints"][km.HAND_RIGHT], camera_model.COLOR_FOCAL,
+        for centre in (False, True):
+            pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8, "centre_player": centre})
+            for _ in range(3):  # let the reference depth settle
+                bodies, info = pipeline.process([Pose(normalized, world, visibility)], (width, height), 0.0)
+            color, _ = pipeline.render(frame, info)
+            expected = camera_model.project(bodies[0]["joints"][km.HAND_RIGHT], camera_model.COLOR_FOCAL,
+                                            camera_model.COLOR_SIZE)
+            ys, xs = np.nonzero(color[..., 0] > 128)
+            self.assertGreater(len(xs), 0)
+            self.assertLess(math.hypot(xs.mean() - expected[0], ys.mean() - expected[1]), 6.0, centre)
+            # The right hand on the body's right in the image (mirrored like a Kinect).
+            hips = camera_model.project(bodies[0]["joints"][km.HIP_CENTER], camera_model.COLOR_FOCAL,
                                         camera_model.COLOR_SIZE)
-        ys, xs = np.nonzero(color[..., 0] > 128)
-        self.assertGreater(len(xs), 0)
-        self.assertLess(math.hypot(xs.mean() - expected[0], ys.mean() - expected[1]), 6.0)
-        self.assertGreater(expected[0], 320)  # the right hand on the image's right (mirrored like a Kinect)
+            self.assertGreater(expected[0], hips[0])
+
+    def test_where_the_player_is_the_picture_is_the_webcams_own(self):
+        """The default: the virtual Kinect stands where the webcam is. Its picture is the whole webcam
+        image scaled to the Kinect's lens about the centre (no zoom onto the player), the same wherever
+        the player walks, and the room's floor is where their feet are."""
+        width, height = 1280, 720
+        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8, "centre_player": False,
+                             "tilt_manual": True})
+        focal = camera_model.webcam_focal(width, 60.0)
+        frame = np.zeros((height, width, 3), np.uint8)
+        frame[150:157, 250:257] = 255  # a mark on the wall, away from the image's centre
+        marks = []
+        for i, (x, z) in enumerate(((0.0, 2.4), (-0.5, 1.6), (0.4, 3.2))):
+            normalized, world, visibility = synthetic.landmarks(synthetic.standing(x=x, z=z), width, height, focal)
+            for k in range(20):
+                bodies, info = pipeline.process([Pose(normalized, world, visibility)], (width, height),
+                                                (i * 20 + k) / 30)
+            np.testing.assert_allclose(info["offset"], 0)
+            color, depth = pipeline.render(frame, info)
+            ys, xs = np.nonzero(color[..., 0] > 128)
+            marks.append((xs.mean(), ys.mean()))
+        self.assertLess(np.ptp(np.array(marks), axis=0).max(), 0.5)
+        scale = camera_model.COLOR_FOCAL / focal
+        expected = (320 - (253.5 - width / 2) * scale, 240 + (153.5 - height / 2) * scale)  # mirrored
+        self.assertLess(math.hypot(marks[0][0] - expected[0], marks[0][1] - expected[1]), 1.5)
+        # The floor: 3 s with the feet in view (closer, the legs stood naturally out of view, a few
+        # centimetres longer than this player's).
+        for k in range(90):
+            _, info = pipeline.process([Pose(normalized, world, visibility)], (width, height), (60 + k) / 30)
+        _, depth = pipeline.render(frame, info)
+        self.assertLess(abs(pipeline.floor_height() - 0.83), 0.025)  # the ankles' drop and their height
+        # The synthetic room's floor at the same height: the bottom row's depth.
+        slope = (239.5 - 120) / camera_model.DEPTH_FOCAL
+        self.assertLess(abs((depth[239, 5] >> 3) - pipeline.floor_height() / slope * 1000), 15)
 
     def test_the_picture_holds_still_while_the_player_moves(self):
-        """The picture is set when the play space is measured: walking towards and away from the
-        camera doesn't zoom it (it followed every frame's distance), and recentring sets it again."""
+        """Moved to the Kinect's spot, the picture is set when the play space is measured: walking
+        towards and away from the camera doesn't zoom it (it followed every frame's distance), and
+        recentring sets it again."""
         width, height = 1280, 720
-        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8})
+        pipeline = Pipeline({"fov": 60.0, "smoothing": 0.0, "camera_height": 0.8, "centre_player": True})
         focal = camera_model.webcam_focal(width, 60.0)
         frame = np.zeros((height, width, 3), np.uint8)
         frame[150:157, 250:257] = 255  # a mark on the wall, away from the image's centre

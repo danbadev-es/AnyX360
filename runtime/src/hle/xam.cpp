@@ -41,6 +41,7 @@ constexpr uint32_t kNotifySystemUi = 0x00000009;
 constexpr uint32_t kNotifySigninChanged = 0x0000000A;
 constexpr uint32_t kNotifyStorageDevicesChanged = 0x0000000B;
 constexpr uint32_t kNotifyInputDevicesChanged = 0x00000012;
+constexpr uint32_t kNotifyNuiPause = 0x0006001A;  // XN_SYS_NUIPAUSE: a player made the Kinect pause gesture
 
 void Broadcast(uint32_t id, uint32_t param);
 thread_local bool g_in_signin_ui = false;  // XamShowSigninUI is broadcasting the UI notifications
@@ -1002,17 +1003,19 @@ uint32_t XamShowNuiDeviceSelectorUI(uint32_t tracking_id, uint32_t user_index, u
   (void)tracking_id;
   XamShowDirtyDiscErrorUI(user_index);
 }
+std::atomic<bool> g_kinect_guide_open{false};  // SetKinectGuideOpen
+uint32_t XamIsUIActive() { return g_kinect_guide_open ? 1 : 0; }
 // The Kinect Guide (a Kinect title shows it when a player holds the guide gesture, the left arm
 // down at 45 degrees): there is no overlay here, but the title still sees the system UI open and
-// close, and pauses as it would on the console.
+// close, and pauses as it would on the console. Asked while the gesture holds it open (Dance
+// Central 3 answers the pause notification with it), it already is.
 uint32_t XamShowNuiGuideUI(uint32_t tracking_id) {
-  KLOG_I("XamShowNuiGuideUI(%u)", tracking_id);
+  KLOG_I("XamShowNuiGuideUI(%u)%s", tracking_id, g_kinect_guide_open ? ": already open" : "");
+  if (g_kinect_guide_open) return X_ERROR_SUCCESS;
   Broadcast(kNotifySystemUi, 1);
   Broadcast(kNotifySystemUi, 0);
   return X_ERROR_SUCCESS;
 }
-std::atomic<bool> g_kinect_guide_open{false};  // SetKinectGuideOpen
-uint32_t XamIsUIActive() { return g_kinect_guide_open ? 1 : 0; }
 
 // ---- sessions, voice, messaging, misc --------------------------------------------------------
 
@@ -1430,6 +1433,10 @@ void SignInUser(uint32_t user_index) {
 void SetKinectGuideOpen(bool open) {
   if (g_kinect_guide_open.exchange(open) == open) return;
   KLOG_I("nui: the Kinect guide gesture: the system UI %s", open ? "opens" : "closes");
+  // As the console does, the title is first told a player made the pause gesture (the parameter is
+  // their user index: player 1's). Kinect Sports pauses on this alone; Dance Central 3 answers it by
+  // showing the Kinect Guide. The others pause on the system UI.
+  if (open) Broadcast(kNotifyNuiPause, 0);
   Broadcast(kNotifySystemUi, open ? 1 : 0);
 }
 

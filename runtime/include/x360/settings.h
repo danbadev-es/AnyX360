@@ -58,16 +58,20 @@ struct KinectSettings {
   std::string model = "full";  // pose model: lite, full, heavy
   // The webcam's tilt: the pitch measured by the pose bridge, or set here; the roll always set here
   // (degrees; pitch > 0 looking down, roll > 0 turned clockwise as seen from behind it).
-  bool tilt_manual = false;
+  bool tilt_manual = true;  // 3: by hand at 0 (a laptop's camera turned to face the player)
   float tilt_pitch = 0.0f;
   float tilt_roll = 0.0f;
+  // Where the game sees the player: where they are (false: the virtual sensor stands where the webcam
+  // is, so its picture is the webcam's own), or moved to a Kinect's spot, centred 2.3 m away (true).
+  bool centre_player = false;
   bool operator==(const KinectSettings&) const = default;
 };
 
 struct Settings {
   // The file's format. 2: the mouse's response curve and its new defaults (a version 1 file still
-  // at the old defaults takes the new ones).
-  int version = 2;
+  // at the old defaults takes the new ones). 3: the webcam's tilt set by hand at 0 by default (a
+  // version 2 file measuring it takes the new default).
+  int version = 3;
   gpu::DisplayConfig display;
   bool show_stats = false;
   // The Kinect debug window (F3): open, and where it was ("left,top,right,bottom,maximized" in

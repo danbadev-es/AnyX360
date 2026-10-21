@@ -66,6 +66,19 @@ def joint_visibility(visibility):
     return seen
 
 
+_LEGS = [L_KNEE, R_KNEE, L_ANKLE, R_ANKLE, L_HEEL, R_HEEL, L_FOOT, R_FOOT]
+
+
+def legs_in_picture(normalized, visibility):
+    """The visibility with the legs' landmarks outside the webcam's image at 0: out there the pose
+    model guesses them, however sure it says it is (a player close to a laptop's camera)."""
+    visibility = np.array(visibility, dtype=np.float64)
+    points = np.asarray(normalized, dtype=np.float64)[_LEGS, :2]
+    outside = (points < -_EDGE).any(axis=1) | (points > 1 + _EDGE).any(axis=1)
+    visibility[np.array(_LEGS)[outside]] = 0.0
+    return visibility
+
+
 def kinect_joints(points, visibility, threshold=0.5):
     """points: (33, 3) landmark positions in Kinect axes; visibility: (33,).
 
@@ -157,6 +170,39 @@ def place(world, normalized, visibility, translation, distance, width, height, f
     camera[:, :2] = weight * back + (1 - weight) * camera[:, :2]
     camera[:, 2] = z
     return camera
+
+
+def natural_legs(joints, states, up):
+    """The legs the webcam doesn't see, standing naturally under the hips.
+
+    A player close to a laptop's camera has their legs out of the picture, and the pose model's
+    guesses for them flail about (the game's floor, jumps and steps follow them). A knee, ankle or
+    foot that isn't tracked, and the joints below it, are put straight down along `up` from the
+    joint above, at lengths in proportion to the player's own torso, the feet pointing at the
+    camera. They stay inferred. Returns the joints (a copy) and how many were placed.
+    """
+    joints = np.array(joints, dtype=np.float64)
+    up = np.asarray(up, dtype=np.float64) / max(np.linalg.norm(up), 1e-9)
+    hips = (joints[HIP_LEFT] + joints[HIP_RIGHT]) / 2
+    torso = float(np.clip(np.linalg.norm(joints[SHOULDER_CENTER] - hips), 0.35, 0.65))
+    thigh = shin = 0.85 * torso  # an adult's proportions: 0.245 of their height each, the torso 0.288
+    towards = np.array([0.0, 0.0, -1.0])  # the camera, square to up
+    towards = towards - up * np.dot(up, towards)
+    towards /= max(np.linalg.norm(towards), 1e-9)
+    placed = 0
+    for hip, knee, ankle, foot in ((HIP_LEFT, KNEE_LEFT, ANKLE_LEFT, FOOT_LEFT),
+                                   (HIP_RIGHT, KNEE_RIGHT, ANKLE_RIGHT, FOOT_RIGHT)):
+        unseen = [j for j in (knee, ankle, foot) if states[j] != JOINT_TRACKED]
+        if not unseen:
+            continue
+        first = (knee, ankle, foot).index(unseen[0])
+        if first <= 0:
+            joints[knee] = joints[hip] - up * thigh
+        if first <= 1:
+            joints[ankle] = joints[knee] - up * shin
+        joints[foot] = joints[ankle] - up * 0.06 + towards * 0.10
+        placed += 3 - first
+    return joints, placed
 
 
 def leg_length(joints):

@@ -656,7 +656,9 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
       if (Segmented("##model", &model, {{"Fast", 0}, {"Accurate", 1}}))
         UpdateKinect([model](settings::KinectSettings& kk) { kk.model = model ? "full" : "lite"; });
       // The webcam's tilt: a camera pitched down or rolled makes a standing player look like they're
-      // leaning; the bridge measures it (from the player's body, then the floor) and corrects it.
+      // leaning. Set by hand, 0 for a laptop's camera turned to face you (the default); the bridge can
+      // measure the pitch (from the player's body, then the floor), but with the legs out of view its
+      // estimates were off by up to 20 degrees.
       int tilt_mode = k.tilt_manual ? 1 : 0;
       Row("Camera tilt");
       if (Segmented("##tilt", &tilt_mode, {{"Measured", 0}, {"Set by hand", 1}}))
@@ -683,6 +685,14 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
       ImGui::SetNextItemWidth(Px(300));
       if (ImGui::SliderFloat("##roll", &roll, -35.0f, 35.0f, "%.0f degrees"))
         UpdateKinect([roll](settings::KinectSettings& kk) { kk.tilt_roll = roll; });
+      // Where the game sees the player: where they are (the virtual Kinect stands where the webcam
+      // is: the picture, the depth and the skeleton line up), or moved to a Kinect's spot.
+      int centre = k.centre_player ? 1 : 0;
+      Row("Your position", "Where you are: the game's camera picture is your webcam's, fixed. Moved: the game\n"
+                           "sees you centred 2.3 m away (for a webcam you can't stand in front of), and the\n"
+                           "picture follows Recentre on me.");
+      if (Segmented("##playspace", &centre, {{"Where you are", 0}, {"Moved to the Kinect's spot", 1}}))
+        UpdateKinect([centre](settings::KinectSettings& kk) { kk.centre_player = centre == 1; });
       ImGui::EndTable();
     }
     if (status.floor_height > 0) {
@@ -693,12 +703,18 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
     if (ImGui::Button(kinect_window::IsOpen() ? "Close the debug window" : "Open the debug window (F3)"))
       PostToUIThread([] { SetKinectWindow(!kinect_window::IsOpen()); });
     ImGui::SetItemTooltip("Everything the virtual Kinect sees and does, in a window of its own: for a second monitor.");
-    ImGui::SameLine();
-    if (ImGui::Button("Recentre on me")) nui::Calibrate();
-    ImGui::SetItemTooltip("Stand where you'll play: the game then sees you centred, at the Kinect's distance.");
+    if (k.centre_player) {
+      ImGui::SameLine();
+      if (ImGui::Button("Recentre on me")) nui::Calibrate();
+      ImGui::SetItemTooltip("Stand where you'll play: the game then sees you centred, at the Kinect's distance.");
+    }
     ImGui::SameLine();
     if (ImGui::Button("Restart camera")) nui::RestartSource();
-    Note("Stand 2-3 m from the webcam, in good light, with all of you in view.");
+    Note("Stand 2-3 m from the webcam, in good light, with all of you in view. Closer, legs the webcam "
+         "can't see stand still under you.");
+    if (const std::string battery = BatteryState(); !battery.empty())
+      Note(("The computer is " + battery + ": Windows slows it down and the game and the webcam stall "
+            "for seconds. Plug it in to play, or pick the Fast pose model.").c_str());
     EndCard();
   }
 

@@ -86,8 +86,9 @@ The bridge works in four stages:
 2. Their poses are placed in front of the webcam (x and y from the image landmarks, depth from the
    metric pose) and turned into the Kinect's 20 joints and axes.
 3. Each joint is filtered (One-Euro per joint, with prediction; planted feet held).
-4. The webcam's tilt is measured and corrected, and the scene moved to where a Kinect expects a
-   player (the play space).
+4. The webcam's tilt is corrected (level, or set by hand, by default; measured on request). The
+   virtual sensor stands where the webcam is, or, if F2 says so, the scene is moved to where a
+   Kinect expects a player (the play space). Legs out of the picture stand still under the player.
 5. The color and depth images are synthesized from the webcam image and the segmentation masks.
 
 The details and a benchmark are in [tools/pose_bridge/README.md](../tools/pose_bridge/README.md).
@@ -101,7 +102,8 @@ The details and a benchmark are in [tools/pose_bridge/README.md](../tools/pose_b
   - the webcam's measured tilt and height.
 
   It also changes the source, the camera, mirroring, field of view, smoothing, players, the pose
-  model and the tilt (measured or by hand), and has "Recentre on me" and "Restart camera".
+  model, the tilt (by hand or measured) and where the game sees the player (where they are, or
+  moved to the Kinect's spot, with "Recentre on me"), and has "Restart camera".
 - **F1** adds a Kinect line.
 - **Debugging environment variables**:
 

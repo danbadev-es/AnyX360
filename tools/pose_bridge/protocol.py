@@ -12,7 +12,7 @@ from ctypes import wintypes
 import numpy as np
 
 MAGIC = 0x49554E41
-VERSION_MAJOR, VERSION_MINOR = 1, 1  # 1.1: tilt, timings and the streams in use
+VERSION_MAJOR, VERSION_MINOR = 1, 2  # 1.1: tilt, timings and the streams in use; 1.2: the play space
 SLOT_COUNT, MAX_BODIES, JOINTS = 3, 6, 20
 COLOR_WIDTH, COLOR_HEIGHT = 640, 480
 DEPTH_WIDTH, DEPTH_HEIGHT = 320, 240
@@ -72,7 +72,9 @@ class Header(ctypes.Structure):
         ("process_ms", ctypes.c_float),
         ("render_ms", ctypes.c_float),
         ("dropped_frames", ctypes.c_uint32),
-        ("reserved", ctypes.c_uint8 * (4096 - 284)),
+        # 1.2, consumer: where the game sees the player: 0 where they are, 1 moved to a Kinect's spot.
+        ("play_space", ctypes.c_uint32),
+        ("reserved", ctypes.c_uint8 * (4096 - 288)),
     ]
 
 
@@ -267,5 +269,5 @@ class Channel:
             "smoothing": min(max(h.smoothing, 0.0), 1.0), "camera_height": h.camera_height_m or 0.8,
             "calibrate": h.calibrate, "quit": bool(h.quit),
             "tilt_manual": h.tilt_mode == 1, "tilt_pitch": h.tilt_pitch_manual_deg, "tilt_roll": h.tilt_roll_manual_deg,
-            "streams": h.stream_mask or 3,
+            "streams": h.stream_mask or 3, "centre_player": h.play_space == 1,
         }

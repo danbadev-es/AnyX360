@@ -202,7 +202,9 @@ int main() {
       closed += change == nui::GuideGesture::kClose;
       if (t > 2.3 && t < 2.45) CHECK(opened == 0);  // not yet: held for less than 1.5 s
       if (t > 2.6 && t < 2.8) CHECK(opened == 1 && gesture.open());  // 1.5 s after the pose began
-      if (t > 5.2 && t < 5.4) CHECK(closed == 1 && !gesture.open());  // the arm came down at 5 s
+      // The arm came down at 5 s, but the guide stays open its 3 s minimum (opened at 2.5 s).
+      if (t > 5.2 && t < 5.4) CHECK(closed == 0 && gesture.open());
+      if (t > 5.6 && t < 5.8) CHECK(closed == 1 && !gesture.open());
     }
     CHECK(opened == 2 && closed == 1);  // opened for each hold (1-5 s, 8 s on), still open at the end
   }

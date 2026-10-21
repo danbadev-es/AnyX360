@@ -30,7 +30,7 @@ namespace x360::nui::bridge {
 
 constexpr uint32_t kMagic = 0x49554E41;  // "ANUI" in memory
 constexpr uint16_t kVersionMajor = 1;    // a different major version is incompatible
-constexpr uint16_t kVersionMinor = 1;  // 1.1: tilt, timings and the streams in use
+constexpr uint16_t kVersionMinor = 2;  // 1.1: tilt, timings and the streams in use; 1.2: the play space
 constexpr uint32_t kSlotCount = 3;
 constexpr uint32_t kMaxBodies = 6;
 constexpr uint32_t kJoints = 20;
@@ -99,7 +99,10 @@ struct alignas(8) Header {
   float process_ms;  // mapping, filtering
   float render_ms;   // the images
   uint32_t dropped_frames;
-  uint8_t reserved[4096 - 284];
+  // 1.2, consumer: where the game sees the player: 0 where they are (the virtual sensor stands
+  // where the webcam is), 1 moved to a Kinect's spot, centred 2.3 m away ("Recentre on me").
+  uint32_t play_space;
+  uint8_t reserved[4096 - 288];
 };
 
 enum TiltSource : uint32_t { kTiltNone = 0, kTiltBody = 1, kTiltFloor = 2, kTiltManual = 3 };
@@ -160,7 +163,8 @@ static_assert(offsetof(Header, tilt_mode) == 248);
 static_assert(offsetof(Header, stream_mask) == 260);
 static_assert(offsetof(Header, capture_ms) == 264);
 static_assert(offsetof(Header, dropped_frames) == 280);
-static_assert(offsetof(Header, reserved) == 284);
+static_assert(offsetof(Header, play_space) == 284);
+static_assert(offsetof(Header, reserved) == 288);
 static_assert(sizeof(Body) == 368);
 static_assert(offsetof(Body, position) == 8);
 static_assert(offsetof(Body, joints) == 24);
