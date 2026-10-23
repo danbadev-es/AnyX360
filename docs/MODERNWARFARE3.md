@@ -190,7 +190,8 @@ start). Alone: `78:LEFT,81:A,88:A,98:DOWN,100:DOWN,105:A,112:A,118:A,124:A,130:A
 - The DLC maps aren't offered: the free Terminal pack, installed as the launcher installs DLC
   (`<user>\content\00000002\<package>`), is enumerated and mounted (`dlc1:`, `dlc2:`), but the map
   list keeps the 16 base maps. The packs probably need the Title Update (`update:\patch_mp.ff`),
-  which isn't supported.
+  which isn't supported. Since 0.14.0 the launcher leaves the 26 packs out, as it does Black Ops
+  II's (`"downloadable_content": false`); packs installed before stay, unused.
 - Not tried: four players, a match played to its end, other modes, hosting a System Link game,
   the Special Ops missions.
 
