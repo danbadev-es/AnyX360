@@ -738,6 +738,19 @@ int main() {
       CHECK(Clean());
     }
 
+    {  // A disc's listing is long (thousands of files, megabytes of 7-Zip output): all of it is read.
+      const fs::path many = sandbox / L"many";
+      for (int i = 0; i < 3000; ++i)
+        WriteFile(many / (L"CookedXbox360_" + std::wstring(60, L'x') + L"_" + std::to_wstring(i) + L".xxx"), "x");
+      const fs::path big_listing = sandbox / L"many.7z";
+      CHECK(Run7z(L"a -mx0 " + Quote(big_listing) + L" " + Quote(many / L"*")) == 0);
+      ArchiveListing listing;
+      int code = 0;
+      CHECK(ListArchive(big_listing, std::nullopt, listing, code) == ArchiveError::kNone);
+      CHECK(listing.entries.size() == 3000 && listing.size == 3000);
+      RemoveAll(many);
+    }
+
     {  // .anyx backups: saved with the downloadable content, put back as they were.
       CHECK(Add(archive).message.id == kTextAdded);  // an extracted copy
       // What a backup leaves out: the console's system update, Windows' thumbnails, the saves.

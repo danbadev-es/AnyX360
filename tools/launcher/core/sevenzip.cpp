@@ -142,9 +142,10 @@ fs::path FirstVolume(const fs::path& archive) {
 
 ArchiveError ListArchive(const fs::path& archive, const std::optional<std::wstring>& password, ArchiveListing& listing,
                          int& code) {
+  // All of it: a disc's listing runs to megabytes (Keep would drop entries from its middle).
   std::string output;
   code = RunCaptured(Quote(SevenZip()) + L" l -slt -sccUTF-8" + PasswordSwitch(password) + L" " + Quote(archive),
-                     [&](const std::string& text) { Keep(output, text); }, nullptr);
+                     [&](const std::string& text) { output += text; }, nullptr);
   if (code != 0) return ErrorFrom(output, password.has_value(), archive);
   // "Key = Value" lines: the archive's after "--", then one block per entry after "----------",
   // separated by empty lines.

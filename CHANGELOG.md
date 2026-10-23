@@ -45,6 +45,9 @@ checks each copy is the version AnyX360 plays.
 - **Removing a folder never goes through a link** (a junction or a symbolic link inside it is
   deleted, not what it points to).
 - **A damaged downloadable content pack leaves no half-extracted folder behind.**
+- **Archives with thousands of files were listed with entries missing**: 7-Zip's listing output
+  past 256 KB lost its middle (Gears of War 3's and Dance Central 3's discs, over 2,000 files
+  each). It is now read whole.
 
 ## [0.13.3] - 2026-10-21
 
