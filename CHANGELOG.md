@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-23
+
+Backups of your prepared games in one file (.anyx), with their downloadable content; the launcher
+checks each copy is the version AnyX360 plays.
+
 ### Added
 
 - **`.anyx` backups** ([docs/ANYX.md](docs/ANYX.md)): the ⋯ menu's **Save as .anyx…** writes a
@@ -671,7 +676,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.3...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.3...v0.14.0
 [0.13.3]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.0...v0.13.1
