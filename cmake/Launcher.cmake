@@ -101,9 +101,17 @@ function(anyx360_add_launcher)
         string(APPEND content_needs_update "${package}")
       endforeach()
     endif()
+    # The executable AnyX360 was recompiled from ("xex": its execution info's version and media ID):
+    # a copy of another version (an update, or a re-release under the same title ID) has other code.
+    string(JSON xex_version ERROR_VARIABLE no_version GET "${json}" xex version)
+    string(JSON xex_media_id ERROR_VARIABLE no_media_id GET "${json}" xex media_id)
+    if(no_version OR no_media_id OR NOT xex_version MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$"
+       OR NOT xex_media_id MATCHES "^[0-9A-Fa-f]+$")
+      message(FATAL_ERROR "${json_path}: \"xex\": {\"version\": \"a.b.c.d\", \"media_id\": \"XXXXXXXX\"} is required")
+    endif()
     string(APPEND entries "    {L\"${id}\", L\"${title}\", L\"${exe}.exe\", L\"${user_dir}\", 0x${title_id}, ${size_gb}, ${webcam},\n"
                           "     L\"${required_files}\", L\"$<TARGET_FILE:${id}>\", L\"${cover}\", ${playable}, ${content},\n"
-                          "     L\"${content_needs_update}\"},\n")
+                          "     L\"${content_needs_update}\", L\"${xex_version}\", 0x${xex_media_id}},\n")
     list(APPEND titles "${title}")
     # Rights holders, trademarks and extra components of every game, each named once.
     string(REPLACE ", " ";" game_owners "${owners}")
@@ -177,6 +185,9 @@ struct CatalogGame {
   bool content = true;      // its downloadable content is installed (false: it needs the title update)
   // Its packs that need the title update when the others don't: package file names, '|'-separated.
   const wchar_t* content_needs_update = L\"\";
+  // The version of the executable it was recompiled from (\"a.b.c.d\"), and its media ID.
+  const wchar_t* xex_version = L\"\";
+  uint32_t xex_media_id = 0;
 };
 
 inline constexpr CatalogGame kCatalog[] = {
@@ -233,7 +244,9 @@ constexpr char kTermsEsUtf8[] = R\"terms(@ANYX360_TERMS_es@)terms\";
   # terms, starting a game (tools/launcher/core). Tested by test_launcher_core.
   set(core ${PROJECT_SOURCE_DIR}/tools/launcher/core)
   add_library(launcher_core STATIC
+    ${core}/anyx.cpp
     ${core}/catalog.cpp
+    ${core}/hash.cpp
     ${core}/install.cpp
     ${core}/jobs.cpp
     ${core}/launch.cpp
@@ -246,7 +259,10 @@ constexpr char kTermsEsUtf8[] = R\"terms(@ANYX360_TERMS_es@)terms\";
   target_compile_definitions(launcher_core PUBLIC UNICODE _UNICODE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
   target_compile_options(launcher_core PRIVATE /utf-8)
   target_include_directories(launcher_core PUBLIC ${PROJECT_SOURCE_DIR}/tools/launcher ${dir} ${dir}/$<CONFIG>)
-  target_link_libraries(launcher_core PUBLIC x360_formats ole32 shell32 shlwapi)
+  # The .anyx manifest is JSON (rapidjson, header-only); its written_by names the release.
+  target_include_directories(launcher_core SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/thirdparty/xenia/third_party/rapidjson/include)
+  target_include_directories(launcher_core PRIVATE ${ANYX360_GENERATED_DIR})
+  target_link_libraries(launcher_core PUBLIC x360_formats ole32 shell32 shlwapi bcrypt)
 
   add_executable(test_launcher_core ${PROJECT_SOURCE_DIR}/tests/launcher/test_launcher_core.cpp)
   target_compile_options(test_launcher_core PRIVATE /utf-8)

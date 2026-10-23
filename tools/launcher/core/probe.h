@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string_view>
 #include <vector>
 
 #include "content.h"
@@ -26,11 +27,25 @@ FileKind IdentifyFile(const fs::path& file);
 // The folder holding default.xex: `folder` itself or one up to 4 levels below it (archives and copies
 // often have the disc inside a folder or two).
 fs::path FindGameRoot(const fs::path& folder);
+// An executable's execution info (optional header 0x00040006): its title, disc and version.
+struct XexIdentity {
+  uint32_t media_id = 0;
+  uint32_t version = 0;  // major << 28 | minor << 24 | build << 8 | qfe
+  uint32_t base_version = 0;
+  uint32_t title_id = 0;
+};
+bool ReadXexIdentity(const fs::path& xex, XexIdentity& identity);
 // The title ID in default.xex's header.
 bool ReadTitleId(const fs::path& xex, uint32_t& title_id);
-// Which of this release's games the copy in `root` is, or an error.
+// A version as game.json writes it ("a.b.c.d") and back.
+bool ParseXexVersion(std::wstring_view text, uint32_t& version);
+std::wstring XexVersionText(uint32_t version);
+// Which of this release's games the copy in `root` is, or an error. It must be the version the game
+// was recompiled from: another version (an update, or a re-release under the same title ID) has
+// other code.
 const CatalogGame* IdentifyCopy(const fs::path& root, Message& error);
-// A copy must be complete: the game's required files are there.
+// A copy must be complete: the game's required files are there (its other executables, the same
+// version).
 bool CheckCopy(const fs::path& root, const CatalogGame& game, Message& error);
 
 struct FoundPackage {

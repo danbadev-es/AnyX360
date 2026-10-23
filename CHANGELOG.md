@@ -8,6 +8,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **`.anyx` backups** ([docs/ANYX.md](docs/ANYX.md)): the ⋯ menu's **Save as .anyx…** writes a
+  prepared game with its downloadable content into one file, and **Add game** (or dropping it on the
+  window) takes it back, on this PC or another of the player's own.
+  - **Inside:** a 7z, stored without compression (Kinect Adventures: 8.5% smaller with LZMA2, read
+    back in 7.5 s instead of 4.2), with a manifest of every file and its SHA-256, checked file by file
+    when it is added back.
+  - **Left out:** saves, title updates, keys, the console's system update and folder junk.
+  - **Wording:** it is a backup of the player's own copy: giving it to others stays outside the
+    terms of use.
+  - **Command line:** `AnyX360.exe --export <id> --to <file>`, and `--password-env` (a password
+    read from the environment, not from the command line).
+- **The game's version is checked.** Each game names the executable version it was recompiled from
+  (`game.json`'s `"xex"`), and the launcher refuses a copy of another version: an update, or a
+  re-release under the same title ID, such as the Kinect Sports Ultimate Collection's first disc
+  (Kinect Sports version 6), which used to be taken and then crashed. Multiplayer's executable must
+  be the same version too.
+
+### Changed
+
+- **Modern Warfare 3's downloadable content is left out**, as Black Ops II's: its 26 packs (2.6 GB)
+  need the title update, and the game never offered their maps. Packs installed by earlier versions
+  stay, unused. Deleting `%LOCALAPPDATA%\AnyX360\ModernWarfare3\content\00000002` frees the space.
+- **Unattended launcher runs** (`--quit-when-done`) no longer wait: without the terms accepted they
+  end with an error, and a game already in the library isn't replaced.
+
+### Fixed
+
+- **Removing a folder never goes through a link** (a junction or a symbolic link inside it is
+  deleted, not what it points to).
+- **A damaged downloadable content pack leaves no half-extracted folder behind.**
+
 ## [0.13.3] - 2026-10-21
 
 The Kinect sees you where you are, with the webcam's own fixed picture; legs out of view stand

@@ -32,13 +32,15 @@ FIRST TIME
      "games" folder (a few minutes); you can delete the original afterwards. A password-protected
      archive asks for its password.
    - "From a folder": the folder with the disc's files is used where it is (nothing is copied).
-   The launcher recognises which game it is. The game's downloadable content in the copy is
-   installed too. Add each game you have the same way.
+   - An AnyX360 backup (.anyx, see BACKUPS below): the game goes back as it was saved.
+   The launcher recognises which game it is, and that it is the version AnyX360 plays. The game's
+   downloadable content in the copy is installed too. Add each game you have the same way.
 4. Choose a game and press "Play" (or click its cover again).
 
 The launcher works with the mouse, the keyboard (arrows, Enter, Esc) or an Xbox controller (A
 select, B back, Y more, X compatible games, Start play). "..." (or a right click, or Y) changes a
-game's cover, opens its logs, prepares it again or removes it from the library. "Compatible
+game's cover, opens its logs, prepares it again, saves it as an .anyx backup or removes it from the
+library. "Compatible
 games", at the bottom, shows every game this version plays and the ones coming. The first time
 each screen of a game appears it may stutter a little while its graphics are prepared.
 
@@ -60,6 +62,14 @@ PROGRAM KEYS (every game)
 SAVED GAMES AND SETTINGS
 Each game keeps them in %LOCALAPPDATA%\AnyX360\<game> (paste %LOCALAPPDATA%\AnyX360 into File
 Explorer's address bar). They are kept when you move to a new version.
+
+
+BACKUPS (.anyx)
+"..." > "Save as .anyx..." writes a game you have added, with its downloadable content, into one
+file: a backup of your copy, which "Add game" takes back on this PC or another of yours, checked
+file by file and without converting anything (the quickest way to add a game). Your saved games
+aren't in it: copy %LOCALAPPDATA%\AnyX360\<game> as well if you move to another PC. An .anyx file is
+your own copy of the game: don't give it to anyone, each player adds their own copy (see TERMS.txt).
 
 
 IF SOMETHING GOES WRONG

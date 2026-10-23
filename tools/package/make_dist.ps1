@@ -93,6 +93,7 @@ $licenses = [ordered]@{
   'FXAA.txt'                 = "$third\xenia\third_party\fxaa\LICENSE"
   'DirectX-Headers.txt'      = "$third\xenia\third_party\DirectX-Headers\LICENSE"
   'toml++.txt'               = "$third\xenia\third_party\tomlplusplus\LICENSE"
+  'RapidJSON.txt'            = "$third\xenia\third_party\rapidjson\license.txt"
   'fmt.txt'                  = "$third\xenia\third_party\fmt\LICENSE"
   'xxHash.txt'               = "$third\xenia\third_party\xxhash\LICENSE"
   'Snappy.txt'               = "$third\xenia\third_party\snappy\COPYING"

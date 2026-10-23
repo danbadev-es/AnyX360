@@ -16,10 +16,11 @@ namespace anyx360::launcher {
 
 class Job;
 
-// Runs a console program without a window and passes its output (stdout and stderr) to `output`
-// as it arrives. With a `job`, the process is the job's extractor (cancelling ends it). Returns the
-// exit code, or -1 if the program could not start.
-int RunCaptured(std::wstring command, const std::function<void(const std::string&)>& output, Job* job);
+// Runs a console program without a window (in `folder`, if given) and passes its output (stdout and
+// stderr) to `output` as it arrives. With a `job`, the process is the job's extractor (cancelling
+// ends it). Returns the exit code, or -1 if the program could not start.
+int RunCaptured(std::wstring command, const std::function<void(const std::string&)>& output, Job* job,
+                const fs::path& folder = {});
 
 struct ArchiveEntry {
   std::string path;  // UTF-8, as 7-Zip names it ('\' between folders)
@@ -57,6 +58,13 @@ ArchiveError ListArchive(const fs::path& archive, const std::optional<std::wstri
 // progress scaled into [from, to] percent. On failure, `code` is 7-Zip's exit code.
 ArchiveError ExtractArchive(Job& job, const fs::path& archive, const std::optional<std::wstring>& password,
                             const fs::path& out, const std::vector<std::string>& only, int from, int to, int& code);
+
+// Writes the 7z `archive` (store only: game data is compressed already, and storing makes it as quick
+// to read back as a copy) from the files and empty folders `list` names (UTF-8, one a line, relative
+// to `folder`), reporting its percent to `report`. A file that can't be read fails it. On failure,
+// `code` is 7-Zip's exit code.
+bool CreateArchive(Job& job, const fs::path& archive, const fs::path& folder, const fs::path& list,
+                   const std::function<void(int)>& report, int& code);
 
 // "...\4D5308ED\00007000\..." in an archive's file name: the title ID and the path up to the
 // content type's folder.

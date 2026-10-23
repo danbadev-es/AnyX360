@@ -10,6 +10,7 @@
 #include <cwctype>
 #include <fstream>
 #include <future>
+#include <iterator>
 #include <map>
 #include <mutex>
 #include <set>
@@ -20,7 +21,9 @@
 #define NOMINMAX
 #include <windows.h>
 
+#include "core/anyx.h"
 #include "core/catalog.h"
+#include "core/hash.h"
 #include "core/install.h"
 #include "core/jobs.h"
 #include "core/launch.h"
@@ -58,26 +61,39 @@ void PutLe(std::string& b, size_t at, uint32_t v, int bytes) {
 }
 
 // A default.xex header: 'XEX2', one optional header (execution info, 0x00040006) whose record holds
-// the title ID at +0xC.
-std::string Xex(uint32_t title_id) {
+// the media ID at +0, the version at +4, the base version at +8 and the title ID at +0xC.
+std::string Xex(uint32_t title_id, uint32_t version = 0, uint32_t media_id = 0) {
   std::string x(0x200, '\0');
   PutBe(x, 0, 0x58455832);
   PutBe(x, 0x14, 1);
   PutBe(x, 0x18, 0x00040006);
   PutBe(x, 0x1C, 0x100);
+  PutBe(x, 0x100, media_id);
+  PutBe(x, 0x104, version);
+  PutBe(x, 0x108, version);
   PutBe(x, 0x10C, title_id);
   return x;
 }
 
-// A complete copy of `game`: path -> content ('/' between folders).
+// The version a game was recompiled from (game.json's "xex").
+uint32_t Version(const CatalogGame& game) {
+  uint32_t version = 0;
+  ParseXexVersion(game.xex_version, version);
+  return version;
+}
+
+// A complete copy of `game`: path -> content ('/' between folders). Its executables are the version
+// the game plays.
 std::map<std::string, std::string> Copy(const CatalogGame& game, size_t level_size = 4096) {
-  std::map<std::string, std::string> files{{"default.xex", Xex(game.title_id)},
+  std::map<std::string, std::string> files{{"default.xex", Xex(game.title_id, Version(game), game.xex_media_id)},
                                            {"media/level.bin", std::string(level_size, 'x')}};
   std::wstring required = game.required_files;
   for (size_t start = 0; start < required.size();) {
     size_t end = required.find(L'|', start);
     if (end == std::wstring::npos) end = required.size();
-    if (end > start) files[Narrow(required.substr(start, end - start))] = "data";
+    const std::string file = Narrow(required.substr(start, end - start));
+    if (end > start)
+      files[file] = file.size() > 4 && file.substr(file.size() - 4) == ".xex" ? Xex(game.title_id, Version(game)) : "data";
     start = end + 1;
   }
   return files;
@@ -410,13 +426,88 @@ int main() {
       std::wstring required = g.required_files;
       if (required.empty()) continue;
       fs::path incomplete = player / (L"Incomplete-" + std::wstring(g.id));
-      WriteFile(incomplete / L"default.xex", Xex(g.title_id));
+      WriteFile(incomplete / L"default.xex", Xex(g.title_id, Version(g)));
       Outcome missing = Add(incomplete);
       CHECK(missing.message.id == kTextErrorMissingFile);
       CHECK(missing.message.args[0] == required.substr(0, required.find(L'|')));
       break;
     }
     if (!seven_zip.empty()) CHECK(Add(player / L"random.bin").message.id == kTextErrorUnknownFormat);
+  }
+
+  {  // The version a game plays: another one (an update, a re-release under the same title ID) has
+     // other code, and is refused.
+    uint32_t version = 0;
+    CHECK(ParseXexVersion(L"0.0.0.14", version) && version == 14);
+    CHECK(ParseXexVersion(L"2.0.17349.0", version) && XexVersionText(version) == L"2.0.17349.0");
+    CHECK(!ParseXexVersion(L"1.2.3", version) && !ParseXexVersion(L"1.2.3.4x", version) &&
+          !ParseXexVersion(L"16.0.0.0", version));
+    WriteFile(player / L"Identity" / L"default.xex", Xex(0x4D5308C9, 0x10000002, 0x655F2429));
+    XexIdentity identity;
+    CHECK(ReadXexIdentity(player / L"Identity" / L"default.xex", identity));
+    CHECK(identity.title_id == 0x4D5308C9 && identity.version == 0x10000002 && identity.media_id == 0x655F2429);
+    auto other_version = Copy(game);
+    other_version["default.xex"] = Xex(game.title_id, Version(game) + 1);
+    WriteCopy(player / L"Other Version", other_version);
+    Outcome refused = Add(player / L"Other Version");
+    CHECK(refused.message.id == kTextErrorVersion);
+    CHECK(refused.message.args.size() == 3 && refused.message.args[1] == XexVersionText(Version(game) + 1) &&
+          refused.message.args[2] == game.xex_version);
+    CHECK(fs::equivalent(StoredLocation(game), copy));  // the copy in the library stays
+    // A second executable (multiplayer) of another version.
+    for (const CatalogGame& g : kCatalog) {
+      if (std::wstring(g.required_files).find(L".xex") == std::wstring::npos) continue;
+      auto mixed = Copy(g);
+      for (auto& [path, data] : mixed)
+        if (path != "default.xex" && path.size() > 4 && path.substr(path.size() - 4) == ".xex")
+          data = Xex(g.title_id, Version(g) + 1);
+      WriteCopy(player / L"Mixed", mixed);
+      CHECK(Add(player / L"Mixed").message.id == kTextErrorVersion && !IsInstalled(g));
+      break;
+    }
+  }
+
+  {  // SHA-256, and a folder with a link inside removed: the link goes, not what it points to.
+    CHECK(Sha256("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    WriteFile(player / L"Keep" / L"sentinel.txt", "keep");
+    CHECK(Sha256File(player / L"Keep" / L"sentinel.txt") == Sha256("keep"));
+    const fs::path links = sandbox / L"links";
+    fs::create_directories(links / L"inner");
+    CHECK(CreateJunction(links / L"inner" / L"to-keep", player / L"Keep"));
+    CHECK(Exists(links / L"inner" / L"to-keep" / L"sentinel.txt") && IsLink(links / L"inner" / L"to-keep"));
+    RemoveAll(links);
+    CHECK(!Exists(links) && Exists(player / L"Keep" / L"sentinel.txt"));
+  }
+
+  {  // The .anyx manifest.
+    AnyxManifest m;
+    m.written_by = "AnyX360 test";
+    m.id = "ks";
+    m.title = "Kinect Sports";
+    m.title_id = 0x4D5308C9, m.version = 2, m.media_id = 0x655F2429;
+    m.files = {{"game/default.xex", 512, Sha256("x")}, {"content/PACK/a.bin", 1, Sha256("a")}};
+    m.folders = {"game/empty"};
+    m.content = {"PACK"};
+    AnyxManifest read;
+    CHECK(ReadAnyxManifest(WriteAnyxManifest(m), read) == AnyxRead::kOk);
+    CHECK(read.id == "ks" && read.title_id == m.title_id && read.version == 2 && read.media_id == m.media_id);
+    CHECK(read.files.size() == 2 && read.files[1].path == "content/PACK/a.bin" && read.files[0].sha256 == Sha256("x"));
+    CHECK(read.folders == m.folders && read.content == m.content);
+    std::string bad;
+    CHECK(CheckAnyxPaths(read, bad));
+    for (const char* path : {"game/../x", "/game/x", "C:/x", "content/OTHER/x", "game\\x", "x"}) {
+      AnyxManifest wrong = read;
+      wrong.files.push_back({path, 1, Sha256("x")});
+      CHECK(!CheckAnyxPaths(wrong, bad) && bad == path);
+    }
+    AnyxManifest twice = read;
+    twice.files.push_back({"GAME/Default.xex", 1, Sha256("x")});
+    CHECK(!CheckAnyxPaths(twice, bad));
+    CHECK(ReadAnyxManifest(R"({"format": "anyx", "format_version": 2, "written_by": "AnyX360 9"})", read) == AnyxRead::kNewer &&
+          read.written_by == "AnyX360 9");
+    CHECK(ReadAnyxManifest(R"({"format": "anyx", "format_version": 1})", read) == AnyxRead::kDamaged);
+    CHECK(ReadAnyxManifest(R"({"name": "something else"})", read) == AnyxRead::kNotAnyx);
+    CHECK(ReadAnyxManifest("not json", read) == AnyxRead::kNotAnyx);
   }
 
   {  // The player's cover.
@@ -645,6 +736,166 @@ int main() {
       CHECK(Run7z(L"a " + Quote(notes) + L" " + Quote(player / L"notes.txt")) == 0);
       CHECK(Add(notes).message.id == kTextErrorUnknownFormat);
       CHECK(Clean());
+    }
+
+    {  // .anyx backups: saved with the downloadable content, put back as they were.
+      CHECK(Add(archive).message.id == kTextAdded);  // an extracted copy
+      // What a backup leaves out: the console's system update, Windows' thumbnails, the saves.
+      WriteFile(ExtractedDir(game) / L"$SystemUpdate" / L"su.bin", "update");
+      WriteFile(ExtractedDir(game) / L"media" / L"Thumbs.db", "thumbs");
+      fs::create_directories(ExtractedDir(game) / L"empty" / L"inner");
+      const fs::path content = sandbox / L"local" / L"AnyX360" / game.user_dir / L"content";
+      WriteFile(content / L"00000002" / L"DLCPACKAGE" / L"songs" / L"song.bin", "song");
+      WriteFile(content / L"00000001" / L"SAVE" / L"s.dat", "save");
+      const fs::path backup = sandbox / L"backups" / L"game.anyx";
+      fs::path partial = backup;
+      partial += L".partial";
+      Observer saving;
+      Outcome saved = Run(saving, [&](Job& job) { return ExportAnyx(job, game, backup); });
+      CHECK(saved.message.id == kTextSaved && saved.select == game.id);
+      CHECK(saving.Saw(Step::kSaving) && saving.Monotonic());
+      CHECK(Exists(backup) && !Exists(partial) && Clean());
+      ArchiveListing listing;
+      int code = 0;
+      CHECK(ListArchive(backup, std::nullopt, listing, code) == ArchiveError::kNone);
+      std::set<std::string> paths;
+      for (const ArchiveEntry& e : listing.entries) {
+        std::string path = e.path;
+        std::transform(path.begin(), path.end(), path.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+        paths.insert(path);
+      }
+      CHECK(paths.count("manifest.json") && paths.count("game\\default.xex") && paths.count("game\\avatarassetpack"));
+      CHECK(paths.count("content\\dlcpackage\\songs\\song.bin") && paths.count("game\\empty\\inner"));
+      CHECK(!paths.count("game\\$systemupdate\\su.bin") && !paths.count("game\\media\\thumbs.db"));
+      CHECK(std::none_of(paths.begin(), paths.end(), [](const std::string& p) { return p.find("s.dat") != std::string::npos; }));
+
+      // Removed with its content, then added back from the backup.
+      Remove(game);
+      RemoveAll(content / L"00000002");
+      fs::remove(avatar_pack);
+      Observer adding;
+      Outcome added = Add(backup, &adding);
+      CHECK(added.message.id == kTextAddedContent && added.message.args[1] == L"1");
+      CHECK(adding.Saw(Step::kVerifying) && adding.Monotonic());
+      CHECK(Installed(game) && Clean());
+      CHECK(Exists(ExtractedDir(game) / L"empty" / L"inner") && !Exists(ExtractedDir(game) / L"$SystemUpdate"));
+      CHECK(Exists(content / L"00000002" / L"DLCPACKAGE" / L"songs" / L"song.bin"));
+      CHECK(Exists(content / L"00000001" / L"SAVE" / L"s.dat") && Exists(avatar_pack));
+      // Recognised by its manifest, whatever its name.
+      const fs::path renamed = sandbox / L"backups" / L"backup.dat";
+      fs::copy_file(backup, renamed);
+      Observer keep;
+      keep.replace = false;
+      CHECK(Add(renamed, &keep).message.id == kTextCancelled && keep.asked == 1);
+
+      // Changed after it was saved: refused, and the copy in the library stays.
+      const fs::path unpacked = sandbox / L"unpacked";
+      CHECK(Run7z(L"x -o" + Quote(unpacked) + L" " + Quote(backup)) == 0);
+      std::string manifest;
+      {
+        std::ifstream in(unpacked / L"manifest.json", std::ios::binary);
+        manifest.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+      }
+      auto repack = [&](const std::string& text, const fs::path& name) {
+        WriteFile(unpacked / L"manifest.json", text);
+        fs::remove(name);
+        CHECK(Run7z(L"a " + Quote(name) + L" " + Quote(unpacked / L"*")) == 0);
+        return name;
+      };
+      auto replace = [](std::string text, const std::string& from, const std::string& to) {
+        const size_t at = text.find(from);
+        if (at != std::string::npos) text.replace(at, from.size(), to);
+        return text;
+      };
+      const std::string level = Copy(game)["media/level.bin"];
+      WriteFile(unpacked / L"game" / L"media" / L"level.bin", std::string(level.size(), 'y'));  // same size, other bytes
+      Outcome tampered = Add(repack(manifest, sandbox / L"tampered.anyx"));
+      CHECK(tampered.message.id == kTextErrorAnyxDamaged && tampered.message.args[0] == L"game/media/level.bin");
+      CHECK(Installed(game) && Clean());
+      WriteFile(unpacked / L"game" / L"media" / L"level.bin", level);
+      WriteFile(unpacked / L"game" / L"extra.bin", "extra");
+      Outcome extra = Add(repack(manifest, sandbox / L"extra.anyx"));
+      CHECK(extra.message.id == kTextErrorAnyxDamaged && extra.message.args[0] == L"game/extra.bin");
+      fs::remove(unpacked / L"game" / L"extra.bin");
+      Outcome newer = Add(repack(replace(manifest, "\"format_version\": 1", "\"format_version\": 2"), sandbox / L"newer.anyx"));
+      CHECK(newer.message.id == kTextErrorAnyxNewer);
+      Outcome version = Add(repack(replace(manifest, "\"version\": \"" + Narrow(game.xex_version) + "\"", "\"version\": \"9.9.9.9\""),
+                                   sandbox / L"version.anyx"));
+      CHECK(version.message.id == kTextErrorVersion && version.message.args[1] == L"9.9.9.9");
+      Outcome escape = Add(repack(replace(manifest, "\"game/media/level.bin\"", "\"game/../level.bin\""), sandbox / L"escape.anyx"));
+      CHECK(escape.message.id == kTextErrorAnyxDamaged);
+      CHECK(Installed(game) && Clean());
+      // A 7z whose manifest.json is something else's is an ordinary archive.
+      CHECK(Add(repack(R"({"name": "notes"})", sandbox / L"foreign.7z")).message.id == kTextAdded);
+      CHECK(Installed(game) && Clean());
+
+      // Refused: inside the games folder (removing the game would delete it), a game not added.
+      Observer refusing;
+      CHECK(Run(refusing, [&](Job& job) { return ExportAnyx(job, game, GamesDir() / L"inside.anyx"); }).message.id ==
+            kTextErrorSaveHere);
+      for (const CatalogGame& g : kCatalog) {
+        if (&g == &game || IsInstalled(g)) continue;
+        CHECK(Run(refusing, [&](Job& job) { return ExportAnyx(job, g, sandbox / L"backups" / L"none.anyx"); }).message.id ==
+              kTextErrorNotInLibrary);
+        break;
+      }
+      {  // Cancelled: nothing written, the copy stays.
+        struct Cancelling : Observer {
+          Job* job = nullptr;
+          void OnProgress(Step step, int percent) override {
+            Observer::OnProgress(step, percent);
+            if (step == Step::kSaving && job) job->Cancel();
+          }
+        } cancelling;
+        Job job(cancelling);
+        cancelling.job = &job;
+        const fs::path never = sandbox / L"backups" / L"never.anyx";
+        fs::path never_partial = never;
+        never_partial += L".partial";
+        CHECK(ExportAnyx(job, game, never).message.empty());
+        CHECK(!Exists(never) && !Exists(never_partial) && Clean() && Installed(game));
+      }
+
+      // A copy in the player's folder: saved from there, with no link left in it; added back
+      // extracted.
+      CHECK(Add(player / L"My Copy").message.id == kTextAddedFolder);
+      const fs::path in_place = sandbox / L"backups" / L"in-place.anyx";
+      Observer from_folder;
+      CHECK(Run(from_folder, [&](Job& job) { return ExportAnyx(job, game, in_place); }).message.id == kTextSaved);
+      bool links = false;
+      for (const auto& e : fs::recursive_directory_iterator(player / L"My Copy")) links |= IsLink(e.path());
+      CHECK(!links && Exists(copy / L"default.xex") && Clean());
+      Outcome back = Add(in_place);
+      CHECK(back.message.id == kTextAddedContent && !Exists(LocationFile(game)) && Installed(game) && Clean());
+
+      // A game whose packs this release leaves out (they need the title update): the game comes back
+      // without them.
+      for (const CatalogGame& g : kCatalog) {
+        if (g.content) continue;
+        const fs::path staged = sandbox / L"handmade";
+        AnyxManifest m;
+        m.written_by = "test";
+        m.id = Narrow(g.id);
+        m.title = Narrow(g.title);
+        m.title_id = g.title_id, m.version = Version(g), m.media_id = g.xex_media_id;
+        for (const auto& [path, data] : Copy(g)) {
+          WriteFile(staged / L"game" / Widen(path), data);
+          m.files.push_back({"game/" + path, data.size(), Sha256(data)});
+        }
+        WriteFile(staged / L"content" / L"DLCPACKAGE" / L"dlc1.id", "id");
+        m.files.push_back({"content/DLCPACKAGE/dlc1.id", 2, Sha256("id")});
+        m.content = {"DLCPACKAGE"};
+        WriteFile(staged / L"manifest.json", WriteAnyxManifest(m));
+        const fs::path handmade = sandbox / L"handmade.anyx";
+        CHECK(Run7z(L"a " + Quote(handmade) + L" " + Quote(staged / L"*")) == 0);
+        Outcome outcome = Add(handmade);
+        CHECK(outcome.message.id == kTextAdded && outcome.notes.size() == 1 && outcome.notes[0].id == kTextNoteContentSkipped);
+        CHECK(!Exists(sandbox / L"local" / L"AnyX360" / g.user_dir / L"content" / L"00000002" / L"DLCPACKAGE") && Clean());
+        Remove(g);
+        break;
+      }
+      Remove(game);
+      RemoveAll(content / L"00000002");
     }
 
     {  // Cancelled before 7-Zip starts: it is ended as it starts, and nothing is left behind.

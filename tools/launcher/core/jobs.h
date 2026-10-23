@@ -1,9 +1,9 @@
 // Adding and removing games: long jobs run on a worker thread, reporting to the UI through an
 // observer. A game is added from whatever the player has, recognised by content: an archive in any
 // format 7-Zip opens (extracted here, with what it holds recognised in turn: a disc image, a
-// package, another archive), a disc image, a Games on Demand or Xbox Live Arcade package (written
-// out into files), or the folder where the disc's files already are (remembered and used in
-// place). Which game it is comes from default.xex's title ID (or a package's), matched against the
+// package, another archive), an AnyX360 backup (.anyx, put back as it was saved), a disc image, a
+// Games on Demand or Xbox Live Arcade package (written out into files), or the folder where the
+// disc's files already are (remembered and used in place). Which game it is comes from default.xex's title ID (or a package's), matched against the
 // catalog, and the copy must be complete.
 #pragma once
 
@@ -36,6 +36,8 @@ enum class Step {
   kExtracting,  // with a percent
   kFinishing,   // moving the copy into place, reading its icon and content
   kRemoving,
+  kSaving,      // writing an .anyx backup, with a percent
+  kVerifying,   // checking an .anyx backup's files against its manifest, with a percent
 };
 
 // What a job reports. Called on the job's worker thread.

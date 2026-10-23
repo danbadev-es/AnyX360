@@ -77,6 +77,8 @@ class App : public JobObserver {
 
   // A file or folder dropped on the window or named on the command line.
   void AddSource(const fs::path& source);
+  // Saves the game's .anyx backup to `out` (named on the command line; empty: the player chooses).
+  void SaveAnyx(std::wstring_view id, const fs::path& out);
   void SetDropHover(bool hover);
   void SetPassword(std::wstring password) { command_line_password_ = std::move(password); }
   // Unattended: after the first job, its outcome is written to `result` and the launcher closes.
@@ -194,6 +196,7 @@ class App : public JobObserver {
   Step step_ = Step::kChecking;
   int percent_ = -1;
   const CatalogGame* job_game_ = nullptr;
+  bool saving_ = false;  // the job writes an .anyx backup
   bool close_after_job_ = false;
   const CatalogGame* running_game_ = nullptr;
   Message message_;

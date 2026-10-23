@@ -8,6 +8,10 @@
 *.xbe
 *.stfs
 *.god
+# .anyx backups of prepared games (docs/ANYX.md): the player's own copies
+/anyx/
+*.anyx
+*.anyx.partial
 # Box art (the publishers'): shipped in the release only, see covers/README.md
 /covers/*
 !/covers/README.md

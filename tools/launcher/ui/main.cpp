@@ -3,10 +3,14 @@
 // painting, mouse, keyboard, an Xbox controller (polled only while the launcher is in front: it
 // stays alive, hidden, while a game runs), files dropped on it, a dark title bar.
 //
-//   --archive <file> | --folder <dir>   add a game without asking (any format; unattended tests)
+//   --archive <file> | --folder <dir>   add a game without asking (any format, an .anyx backup too;
+//                                       unattended tests)
+//   --export <id> --to <file>           save the game's .anyx backup there without asking
 //   --password <text>                   for a protected archive
+//   --password-env <variable>           the same, read from an environment variable (it then isn't
+//                                       on a command line other programs can read)
 //   --quit-when-done --result <file>    after that job, write its outcome ("ok: ..." or "error: ...")
-//                                       and exit
+//                                       and exit (without the terms accepted: "error: ..." at once)
 //   --select <id>                       the game selected at start
 //   --screenshot <png> [--size WxH] [--dpi N] [--lang en|es] [--state S] [--root <dir>]
 //                                       draw the window offscreen into a PNG: S is library, empty,
@@ -23,6 +27,7 @@
 #include <xinput.h>
 
 #include <cmath>
+#include <fstream>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -439,8 +444,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
 
   int argc = 0;
   LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-  std::wstring select, source, password, screenshot, state = L"library", language;
-  fs::path result;
+  std::wstring select, source, password, screenshot, state = L"library", language, export_id;
+  fs::path result, export_to;
   bool quit_when_done = false;
   int shot_w = int(kWidth), shot_h = int(kHeight);
   float shot_dpi = 96;
@@ -452,6 +457,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     if (arg == L"--select") select = argv[++i];
     else if (arg == L"--archive" || arg == L"--folder") source = argv[++i];
     else if (arg == L"--password") password = argv[++i];
+    else if (arg == L"--password-env") {
+      wchar_t value_text[1024];
+      const DWORD length = GetEnvironmentVariableW(argv[++i], value_text, 1024);
+      if (length && length < 1024) password.assign(value_text, length);
+    }
+    else if (arg == L"--export") export_id = argv[++i];
+    else if (arg == L"--to") export_to = argv[++i];
     else if (arg == L"--result") result = argv[++i];
     else if (arg == L"--screenshot") screenshot = argv[++i];
     else if (arg == L"--state") state = argv[++i];
@@ -518,7 +530,16 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     SetTimer(hwnd, kPadTimer, 16, nullptr);
     g_pad_start = GetTickCount64();
     RegisterDragDrop(hwnd, &g_drop);
-    if (!source.empty() && TermsAccepted()) app.AddSource(source);
+    const bool unattended = quit_when_done && !result.empty() && (!source.empty() || !export_id.empty());
+    if (unattended && !TermsAccepted()) {
+      // Nobody to accept them: say so instead of waiting.
+      std::ofstream(result, std::ios::binary | std::ios::trunc) << "error: the terms of use aren't accepted\n";
+      DestroyWindow(hwnd);
+    } else if (!source.empty() && TermsAccepted()) {
+      app.AddSource(source);
+    } else if (!export_id.empty() && TermsAccepted()) {
+      app.SaveAnyx(export_id, export_to);
+    }
 
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0) > 0) {

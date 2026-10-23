@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "core/jobs.h"
@@ -20,12 +21,21 @@ namespace anyx360::launcher {
 // games\.work: archives extracted, packages and images written out, before the copy moves into place.
 fs::path WorkDir();
 
+// A link (a junction, a symbolic link): a folder that is somewhere else.
+bool IsLink(const fs::path& path);
+// Deletes a file or a folder with everything in it. A link inside is deleted, never what it points
+// to (an export's staging links to the player's own folders).
 void RemoveAll(const fs::path& path);
 // Removes a folder quickly: renamed out of the way first, so a half-deleted copy never looks ready.
 void RemoveFolder(const fs::path& path);
+// Moves a folder, across drives too (copied, then deleted).
+bool MoveFolder(const fs::path& from, const fs::path& to);
 
 // Free space on the release's drive for `needed` bytes.
 bool EnoughSpace(uint64_t needed, Message& error);
+// Free space for each (place, bytes), on whatever drive each place is: amounts on the same drive
+// are added.
+bool EnoughSpaceFor(const std::vector<std::pair<fs::path, uint64_t>>& needs, Message& error);
 
 // Moves a checked copy (the folder holding default.xex) to games\<id>\game, replacing an earlier
 // copy, extracted or used in place, but keeping the player's cover.
@@ -40,8 +50,12 @@ bool ExtractVolume(Job& job, x360tool::XdvdfsImage& image, const fs::path& out, 
 // names ("content_needs_update", by package file name). They are left out.
 bool NeedsTitleUpdate(const CatalogGame& game, const fs::path& package);
 
+// Where the runtime looks for the title's downloadable content, one folder per package:
+// %LOCALAPPDATA%\AnyX360\<user dir>\content\00000002 (the saves are next to it, in 00000001).
+fs::path DownloadableContentDir(const CatalogGame& game);
+
 // Extracts downloadable content packages where the runtime looks for them:
-// %LOCALAPPDATA%\AnyX360\<user dir>\content\00000002\<package name>\. Returns how many.
+// DownloadableContentDir(game)\<package name>\. Returns how many.
 int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::path>& packages);
 
 // The avatar asset pack that discs of avatar games carry (AvatarAssetPack in the game's folder),

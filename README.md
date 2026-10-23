@@ -75,10 +75,14 @@ carries: AnyX360 builds each avatar from it, with the clothes, hair and face the
      the launcher's `games` folder; you can delete the original afterwards. A password-protected
      archive asks for its password.
    - **A folder** with the disc's files: it is used where it is.
+   - **An AnyX360 backup** (.anyx), saved earlier with **Save as .anyx…**: the game goes back as it
+     was saved, with its downloadable content, checked file by file and without converting
+     anything.
 
-   The launcher recognises the game by its content and its title ID and checks the copy is
-   complete. The game's downloadable content in the copy is installed too (but Black Ops II's, which
-   needs the title update); title updates and other games' content are left out. Add each game you have the same way: it appears with its box art.
+   The launcher recognises the game by its content, its title ID and its version (the one AnyX360
+   was recompiled from: an update or a re-release under the same title ID is refused) and checks the
+   copy is complete. The game's downloadable content in the copy is installed too (but Black Ops II's and
+   Modern Warfare 3's, which need the title update); title updates and other games' content are left out. Add each game you have the same way: it appears with its box art.
 5. Choose a game and press **Play**. The launcher works with the mouse, the keyboard or an Xbox
    controller.
 
@@ -136,6 +140,11 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   keyboard and controller. It takes your copy in any format, recognises it by its content, starts
   the game without a console, keeps a log per game and points you to it if the game closes with an
   error.
+- **Backups (.anyx)** - The ⋯ menu's **Save as .anyx…** writes a prepared game, with its
+  downloadable content, into one file (a 7z with a manifest of every file and its SHA-256; no saves,
+  title updates or keys): **Add game** takes it back, on this PC or another of yours, checked file by
+  file and without converting anything. It is a backup of your own copy, not a way to give games to
+  others ([docs/ANYX.md](docs/ANYX.md)).
 - **Players and Language** - From the launcher: the four players' names, which every game shows,
   and the language the games use (Windows' by default; a game without it uses its own).
 - **Shader Cache** - Shaders and pipelines are cached between runs, so stutter fades after the
@@ -247,6 +256,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Campaign                         | 🧪 The opening missions played; the rest not tried yet |
 | Special Ops, Survival            | 🧪 Survival played alone and in split screen; the missions not tried yet |
 | Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; split screen matches on Seatown played (two and three players) |
+| Downloadable maps                | ❌ Not available: they need the Title Update, which isn't supported (the launcher leaves them out) |
 | Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link finds no games |
 
 | Kinect Party                     | Status                                         |
@@ -457,8 +467,8 @@ Call of Duty: Modern Warfare 3:
 - Multiplayer is a second program: switching between it and the campaign closes the window and
   opens another, and the launcher closes.
 - Split screen matches can run below 60 FPS.
-- The downloadable maps aren't offered (they seem to need the Title Update, which isn't
-  supported).
+- The downloadable maps aren't offered (they need the Title Update, which isn't supported), so
+  the launcher leaves the copy's map packs out.
 - Only the campaign's opening, split screen matches and Survival have been played; in the intro
   level the snowy trees may look flat white.
 
@@ -672,6 +682,7 @@ tools/scripts/    Analysis helpers (frame timing, switch helpers, NUI reconnaiss
 tests/            Synthetic tests (no game data, no camera)
 thirdparty/      XenonRecomp, XenosRecomp and Xenia forks, and other dependencies
 Raw/, extracted/ Your game files (git-ignored)
+anyx/            Your .anyx backups (git-ignored)
 ```
 
 ## Legal and Disclaimer
@@ -689,6 +700,9 @@ Raw/, extracted/ Your game files (git-ignored)
   is derived from the game's code.
 - Release packages contain no game data and are covered by the [terms of use](tools/launcher/terms_en.txt)
   the launcher shows before first use.
+- An `.anyx` file is your own copy of a game: keep it as a backup or take it to another PC of
+  yours. Giving it to someone else is distributing game files, which the terms of use don't allow:
+  each player adds their own copy.
 - Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Kinect Sports, Kinect Joy
   Ride, Kinect Party, Double Fine, BigPark, Fruit Ninja, Halfbrick, Doritos, Rare, Call of Duty,
   Modern Warfare, Black Ops, Treyarch, Activision, Xbox and Xbox 360 are trademarks of their
@@ -713,8 +727,8 @@ Raw/, extracted/ Your game files (git-ignored)
 - [Inter](https://rsms.me/inter/) by Rasmus Andersson (SIL Open Font License), the in-game panels'
   font.
 - [AMD FidelityFX](https://gpuopen.com/fidelityfx-superresolution/), [Dear ImGui](https://github.com/ocornut/imgui),
-  [FFmpeg](https://ffmpeg.org/), [7-Zip](https://www.7-zip.org/) and the other libraries listed in
-  the release's `licenses` folder.
+  [FFmpeg](https://ffmpeg.org/), [7-Zip](https://www.7-zip.org/), [RapidJSON](https://rapidjson.org/)
+  and the other libraries listed in the release's `licenses` folder.
 
 <div align="center">
 

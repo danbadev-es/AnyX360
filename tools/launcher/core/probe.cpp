@@ -67,8 +67,9 @@ fs::path FindGameRoot(const fs::path& folder) {
   return {};
 }
 
-// The execution info (optional header 0x00040006) holds the title ID at offset 0xC. All big-endian.
-bool ReadTitleId(const fs::path& xex, uint32_t& title_id) {
+// The execution info (optional header 0x00040006): the media ID at offset 0, the version at 4, the
+// base version at 8 and the title ID at 0xC. All big-endian.
+bool ReadXexIdentity(const fs::path& xex, XexIdentity& identity) {
   std::ifstream in(xex, std::ios::binary);
   std::vector<uint8_t> header(0x10000);
   in.read(reinterpret_cast<char*>(header.data()), std::streamsize(header.size()));
@@ -83,21 +84,58 @@ bool ReadTitleId(const fs::path& xex, uint32_t& title_id) {
     if (be32(0x18 + i * 8) != 0x00040006) continue;
     uint32_t info = be32(0x1C + i * 8);
     if (size_t(info) + 0x10 > size) return false;
-    title_id = be32(info + 0xC);
+    identity = {be32(info), be32(info + 4), be32(info + 8), be32(info + 0xC)};
     return true;
   }
   return false;
 }
 
+bool ReadTitleId(const fs::path& xex, uint32_t& title_id) {
+  XexIdentity identity;
+  if (!ReadXexIdentity(xex, identity)) return false;
+  title_id = identity.title_id;
+  return true;
+}
+
+bool ParseXexVersion(std::wstring_view text, uint32_t& version) {
+  unsigned major = 0, minor = 0, build = 0, qfe = 0;
+  wchar_t extra = 0;
+  if (swscanf_s(std::wstring(text).c_str(), L"%u.%u.%u.%u%c", &major, &minor, &build, &qfe, &extra, 1) != 4 ||
+      major > 0xF || minor > 0xF || build > 0xFFFF || qfe > 0xFF)
+    return false;
+  version = major << 28 | minor << 24 | build << 8 | qfe;
+  return true;
+}
+
+std::wstring XexVersionText(uint32_t version) {
+  return std::to_wstring(version >> 28) + L"." + std::to_wstring((version >> 24) & 0xF) + L"." +
+         std::to_wstring((version >> 8) & 0xFFFF) + L"." + std::to_wstring(version & 0xFF);
+}
+
+namespace {
+
+// An executable of `game` of the version it was recompiled from, else the error.
+bool SameVersion(const CatalogGame& game, const XexIdentity& identity, Message& error) {
+  uint32_t expected = 0;
+  if (!ParseXexVersion(game.xex_version, expected) || identity.version == expected) return true;
+  error = {kTextErrorVersion, {game.title, XexVersionText(identity.version), game.xex_version}, true};
+  return false;
+}
+
+}  // namespace
+
 const CatalogGame* IdentifyCopy(const fs::path& root, Message& error) {
-  uint32_t title_id = 0;
-  if (!ReadTitleId(root / L"default.xex", title_id)) {
+  XexIdentity identity;
+  if (!ReadXexIdentity(root / L"default.xex", identity)) {
     error = {kTextErrorNotGame, {}, true};
     return nullptr;
   }
-  const CatalogGame* game = FindAvailableGame(title_id);
-  if (!game) error = {kTextErrorUnsupported, {Hex32(title_id), JoinTitles(AvailableGames())}, true};
-  return game;
+  const CatalogGame* game = FindAvailableGame(identity.title_id);
+  if (!game) {
+    error = {kTextErrorUnsupported, {Hex32(identity.title_id), JoinTitles(AvailableGames())}, true};
+    return nullptr;
+  }
+  return SameVersion(*game, identity, error) ? game : nullptr;
 }
 
 bool CheckCopy(const fs::path& root, const CatalogGame& game, Message& error) {
@@ -107,8 +145,16 @@ bool CheckCopy(const fs::path& root, const CatalogGame& game, Message& error) {
     if (end == std::wstring::npos) end = files.size();
     std::wstring file = files.substr(start, end - start);
     start = end + 1;
-    if (!file.empty() && !Exists(root / file)) {
+    if (file.empty()) continue;
+    if (!Exists(root / file)) {
       error = {kTextErrorMissingFile, {file}, true};
+      return false;
+    }
+    // The game's other executables (multiplayer) come from the same disc.
+    XexIdentity identity;
+    if (file.size() > 4 && _wcsicmp(file.c_str() + file.size() - 4, L".xex") == 0 &&
+        (!ReadXexIdentity(root / file, identity) || !SameVersion(game, identity, error))) {
+      if (error.empty()) error = {kTextErrorMissingFile, {file}, true};
       return false;
     }
   }

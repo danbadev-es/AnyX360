@@ -7,6 +7,7 @@
   "executables": {"default.xex": "BlackOps2", "default_mp.xex": "BlackOps2MP"},
   "user_dir": "BlackOps2",
   "title_id": "415608C3",
+  "xex": {"version": "0.0.0.14", "media_id": "457AD131"},
   "dev_game_dir": "extracted/bo2/game",
   "launcher_name": "AnyX360 Call of Duty: Black Ops II",
   "size_gb": 8,

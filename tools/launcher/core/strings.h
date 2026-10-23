@@ -132,6 +132,22 @@ enum Text {
   kTextLanguageAuto,     // {0} Windows' language, as the console names it
   kTextLanguageNoAuto,   // Windows' language isn't one of the console's
   kTextSave,
+  kTextMenuSaveAnyx,
+  kTextSaveAnyxTitle,      // {0} game
+  kTextFilterAnyx,
+  kTextSaving,             // {0} game, {1} percent
+  kTextSavingTitle,        // {0} game
+  kTextVerifying,          // {0} game, {1} percent
+  kTextSaved,              // {0} game, {1} file, {2} size
+  kTextErrorVersion,       // {0} game, {1} the copy's version, {2} the one AnyX360 plays
+  kTextErrorAnyxNewer,     // {0} the AnyX360 that wrote it
+  kTextErrorAnyxDamaged,   // {0} file
+  kTextErrorSaveHere,
+  kTextErrorSaveFailed,    // {0} 7-Zip exit code
+  kTextErrorSaveLink,      // {0} folder
+  kTextErrorSpaceOn,       // {0} needed, {1} free, {2} drive
+  kTextErrorFat32,         // {0} drive
+  kTextErrorNotInLibrary,  // {0} game
   kTextCount
 };
 

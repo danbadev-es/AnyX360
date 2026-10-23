@@ -11,6 +11,7 @@
 #include <fstream>
 
 #include "anyx360_version.h"
+#include "core/anyx.h"
 #include "core/catalog.h"
 #include "core/launch.h"
 #include "core/paths.h"
@@ -173,9 +174,44 @@ fs::path ChooseFile(HWND owner, const std::wstring& title,
   return chosen;
 }
 
+// Where to save a file, `name` proposed; the dialog asks before replacing one.
+fs::path ChooseSaveFile(HWND owner, const std::wstring& title, const std::wstring& name,
+                        const std::vector<std::pair<std::wstring, std::wstring>>& filters, const wchar_t* extension) {
+  fs::path chosen;
+  IFileSaveDialog* dialog = nullptr;
+  if (FAILED(CoCreateInstance(CLSID_FileSaveDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog))))
+    return chosen;
+  std::vector<COMDLG_FILTERSPEC> types;
+  for (const auto& [label, spec] : filters) types.push_back({label.c_str(), spec.c_str()});
+  if (!types.empty()) dialog->SetFileTypes(UINT(types.size()), types.data());
+  dialog->SetTitle(title.c_str());
+  dialog->SetFileName(name.c_str());
+  dialog->SetDefaultExtension(extension);
+  dialog->SetOptions(FOS_OVERWRITEPROMPT | FOS_FORCEFILESYSTEM | FOS_STRICTFILETYPES | FOS_NOREADONLYRETURN |
+                     FOS_PATHMUSTEXIST);
+  IShellItem* item = nullptr;
+  if (SUCCEEDED(dialog->Show(owner)) && SUCCEEDED(dialog->GetResult(&item))) {
+    wchar_t* path = nullptr;
+    if (SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path))) chosen = path;
+    CoTaskMemFree(path);
+    item->Release();
+  }
+  dialog->Release();
+  return chosen;
+}
+
+// A game's title as a file name (the characters Windows doesn't allow in one replaced).
+std::wstring FileNameOf(std::wstring title) {
+  for (wchar_t& c : title)
+    if (c == L':' || c == L'<' || c == L'>' || c == L'"' || c == L'/' || c == L'\\' || c == L'|' || c == L'?' || c == L'*')
+      c = L'-';
+  return title;
+}
+
 // What the file dialog lists as games (packages have no extension: "All files" shows them).
 constexpr wchar_t kGameFiles[] =
-    L"*.7z;*.zip;*.zipx;*.rar;*.001;*.iso;*.xiso;*.tar;*.gz;*.tgz;*.bz2;*.tbz2;*.xz;*.txz;*.zst;*.cab;*.wim;*.xex";
+    L"*.anyx;*.7z;*.zip;*.zipx;*.rar;*.001;*.iso;*.xiso;*.tar;*.gz;*.tgz;*.bz2;*.tbz2;*.xz;*.txz;*.zst;*.cab;*.wim;"
+    L"*.xex";
 
 // A promise answered once: by the player, or with the default when the launcher closes first.
 template <typename T>
@@ -755,9 +791,12 @@ void App::DrawOverlay(Canvas& c, Overlay& overlay, bool top) {
   std::wstring text = overlay.text;
   if (overlay.kind == OverlayKind::kProgress) {
     const std::wstring title = job_game_ ? job_game_->title : L"";
+    const std::wstring percent = std::to_wstring(std::max(percent_, 0));
     text = step_ == Step::kRemoving                    ? Tr(kTextRemoving, {title})
            : step_ == Step::kFinishing                 ? Tr(kTextFinishing)
-           : step_ == Step::kExtracting && job_game_   ? Tr(kTextExtracting, {title, std::to_wstring(std::max(percent_, 0))})
+           : step_ == Step::kSaving                    ? Tr(kTextSaving, {title, percent})
+           : step_ == Step::kVerifying                 ? Tr(kTextVerifying, {title, percent})
+           : step_ == Step::kExtracting && job_game_   ? Tr(kTextExtracting, {title, percent})
                                                        : Tr(kTextChecking);
   }
   const float text_h = text.empty() ? 0 : c.MeasureText(text, Body(), column_w).height;
@@ -776,6 +815,7 @@ void App::DrawOverlay(Canvas& c, Overlay& overlay, bool top) {
   c.FillRect({x - 18, y + 8, 4, 32}, (overlay.error ? kRed : kGreen).Alpha(fade));
   c.Text(overlay.kind == OverlayKind::kProgress
              ? (step_ == Step::kRemoving ? Tr(kTextRemovingTitle, {job_game_ ? job_game_->title : L""})
+                : saving_ && job_game_ ? Tr(kTextSavingTitle, {job_game_->title})
                 : job_game_            ? Tr(kTextAddingTitle, {job_game_->title})
                                        : Tr(kTextCheckingTitle))
              : overlay.title,
@@ -1357,11 +1397,30 @@ void App::StartAdding(const fs::path& source) {
   StartJob([source](Job& job) { return AddGame(job, source); }, nullptr);
 }
 
+void App::SaveAnyx(std::wstring_view id, const fs::path& out) {
+  if (working_) return;
+  const CatalogGame* game = FindCatalogGame(id);
+  fs::path target = out;
+  if (game && target.empty()) {
+    target = ChooseSaveFile(host_.Window(), Tr(kTextSaveAnyxTitle, {game->title}), FileNameOf(game->title) + L".anyx",
+                            {{Tr(kTextFilterAnyx), L"*.anyx"}}, L"anyx");
+    if (target.empty()) return;
+  }
+  StartJob(
+      [game, target, id = std::wstring(id)](Job& job) -> Outcome {
+        if (!game) return {{kTextErrorNotInLibrary, {id}, true}};
+        return ExportAnyx(job, *game, target);
+      },
+      game);
+  saving_ = true;
+}
+
 void App::StartJob(std::function<Outcome(Job&)> work, const CatalogGame* game) {
   working_ = true;
   step_ = Step::kChecking;
   percent_ = -1;
   job_game_ = game;
+  saving_ = false;
   message_ = {};
   notes_.clear();
   Overlay progress;
@@ -1412,6 +1471,8 @@ void App::OpenMore(const RectF& anchor) {
                            !lib.cover.empty()});
   overlay.items.push_back({Tr(kTextMenuLogs), [this, info] { PopOverlay(); OpenLogs(info); }, Exists(LogDir(*info))});
   overlay.items.push_back({Tr(kTextMenuPrepareAgain), [this] { PopOverlay(); OpenAdd(); }});
+  overlay.items.push_back({Tr(kTextMenuSaveAnyx), [this, info] { PopOverlay(); SaveAnyx(info->id, {}); },
+                           lib.installed && !lib.location_gone});
   overlay.items.push_back({Tr(kTextMenuRemove), [this, info] {
                              PopOverlay();
                              Overlay confirm;
@@ -1505,6 +1566,7 @@ void App::OnGame(const CatalogGame& game) {
 }
 
 bool App::AskReplace(const CatalogGame& game) {
+  if (quit_result_) return false;  // unattended: nobody to ask, and nothing is replaced unasked
   auto answer = std::make_shared<Answer<bool>>();
   std::future<bool> answered = answer->promise.get_future();
   host_.Post([this, answer, &game] {

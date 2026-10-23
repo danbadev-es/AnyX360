@@ -6,6 +6,7 @@
   "exe": "KinectJoyRide",
   "user_dir": "KinectJoyRide",
   "title_id": "4D53093B",
+  "xex": {"version": "0.0.0.1", "media_id": "21ED97FD"},
   "dev_game_dir": "extracted/kjr/game",
   "launcher_name": "AnyX360 Kinect Joy Ride",
   "size_gb": 2,

@@ -1,54 +1,167 @@
-# The `.anyx` extension: evaluation
+# The `.anyx` format
 
-**Status:** evaluated and designed; not implemented (decision of 2026-10-20).
+**Status:** implemented in 0.14.0 (format version 1). Evaluated on 2026-10-20 and implemented on
+2026-10-23.
 
 ## The idea
-One file per prepared game, `<game>.anyx`, that the launcher writes from a copy it has already
-prepared and reads back on another PC without converting anything: the same thing every time,
-instead of copies in many formats and from many sources (disc folders, Games on Demand packages,
-Xbox Live Arcade packages, ISOs, archives of each, with or without downloadable content and title
-updates).
-
-## What it would be
-- **A 7z archive** (the launcher already ships 7-Zip and extracts 7z), store-only or LZMA2 with a
-  fast level: game data is mostly compressed already (Bink videos, XMA audio, packed resources), so
-  compressing gains little and costs time. The extension only marks what's inside.
-- **`manifest.json` at the root**, written last:
-  - the catalog id, the title, the title ID and the `default.xex` SHA-1 (which game, which version);
-  - every file with its size and SHA-1;
-  - the downloadable content packages included (already extracted, as the launcher installs them);
-  - the AnyX360 version that wrote it, and the format version.
-- **`game\`** (the prepared copy, as in `games\<id>\game`) and **`content\`** (the downloadable
-  content). No title updates (AnyX360 plays the base executable), no saves or settings (those stay
-  in `%LOCALAPPDATA%\AnyX360\<game>`), no keys, no covers.
-
-## In the launcher
-- **Export**: the ⋯ menu's "Save as .anyx…" writes it from a prepared game (progress, cancel, the
-  space check the adds already do).
-- **Import**: "Add game" recognises it by its manifest (not by its extension), checks the title ID
-  and the hashes, and moves `game\` and `content\` into place: no Games on Demand, ISO or STFS
-  conversion, so it is the fastest way in.
-- Both are a few hundred lines on what exists: 7-Zip runs, `IdentifyCopy`/`CheckCopy`,
-  `InstallDownloadableContent`, the jobs' progress.
-
-## Benefits and costs
-- One verified format: a copy that imports is complete and the same as the one exported.
-- The downloadable content travels with the game.
-- The size is about the copy's (4-8 GB for the current games), and exporting takes a few minutes.
-- One more format to keep stable (the manifest's version).
+A `.anyx` file is one file per prepared game. The launcher writes it from a copy it has already
+prepared and reads it back on this PC or another of the player's own, without converting anything.
+It is the same thing every time, instead of copies in many formats and from many sources: disc
+folders, Games on Demand packages, Xbox Live Arcade packages, ISOs and archives of each, with or
+without downloadable content and title updates. Adding a game from it is the quickest way in:
+nothing is converted, and every file is checked.
 
 ## The legal limit
-The terms of use require each player to own a legally obtained copy of every game they use with
-AnyX360, and AnyX360 doesn't provide or distribute games. A format whose stated purpose is passing
-games to other people would make AnyX360 a tool for distributing copies, which the terms forbid and
-which puts the project at risk. So `.anyx` can only be offered as a **backup, or a way to move your
-own prepared copy to another PC of yours**; giving a copy to someone else stays outside the terms
-(each person adds their own copy). Nothing in the file would identify or restrict who uses it, and
-it isn't encrypted: it is the player's own data.
+- **What the terms require.** The terms of use require each player to own a legally obtained copy
+  of every game they use with AnyX360, and AnyX360 doesn't provide or distribute games.
+- **What follows for `.anyx`.** A format whose purpose is passing games to other people would make
+  AnyX360 a tool for distributing copies, which the terms forbid and which puts the project at risk.
+  So `.anyx` is offered only as a **backup**, or as a way to move your own prepared copy to another
+  PC of yours.
+- **How it is worded.** The launcher's message after saving, the README and the release README say
+  so: giving a copy to someone else is outside the terms, because each person adds their own copy.
+- **What the file is.** Nothing in the file identifies or restricts who uses it, and it isn't
+  encrypted or signed: it is the player's own data.
+- **Terms unchanged.** The terms text didn't change for it: §2 (your own copy) and §6 (no
+  distributing game files) already cover it.
 
-Moving a prepared copy between your own PCs already works without `.anyx`: copy the
-`games\<id>\game` folder (or your original copy) and add it as a folder ("Add game" → a folder).
+## Layout
+A 7z archive with the files stored, not compressed (`-mx0`), one stream per file (`-ms=off`):
 
-## Decision
-Not implemented in this round. If it is, as a backup/transfer between the player's own PCs, worded
-that way in the launcher and the README, with the manifest above.
+```
+manifest.json           written by the launcher, described below
+game\...                the prepared copy, as in games\<id>\game (the folder holding default.xex)
+content\<package>\...   each downloadable content package, extracted as the launcher installs it
+                        (%LOCALAPPDATA%\AnyX360\<game>\content\00000002\<package>)
+```
+
+What is never in it:
+- **Saves.** They live in `content\00000001`, next to the packages, and are never taken.
+- **Title updates.** AnyX360 plays the base executable.
+- **The rest:** settings, keys, covers and icons.
+
+What is left out of the copy:
+- **`$SystemUpdate`** at its root: the console's system update that discs carry (11 MB on Kinect
+  Sports and Kinect Joy Ride).
+- **Folder junk:** `Thumbs.db`, `desktop.ini` and `.DS_Store` anywhere.
+- **Links:** links inside the copy aren't followed.
+
+What is kept:
+- **The Avatar data** (`AvatarAssetPack` in `game\`), which avatar games need.
+- **Empty folders.**
+
+**Why the files are stored, not compressed.** Game data is mostly compressed already (Bink videos,
+XMA audio, packed resources). Measured on Kinect Adventures (3.20 GB):
+
+| | Size | Reading it back (`7z t`) |
+|---|---|---|
+| Stored (`-mx0`) | 3.20 GB | 4.2 s |
+| LZMA2 level 1, multithreaded | 2.93 GB (−8.5%) | 7.5 s |
+
+The rule was to compress if it saved at least 10%; it doesn't, so a backup is about the copy's own
+size.
+
+## manifest.json
+UTF-8 JSON (it can be read with `7z e -so <file> manifest.json`):
+
+```json
+{
+  "format": "anyx",
+  "format_version": 1,
+  "written_by": "AnyX360 0.14.0+1a2b3c4",
+  "game": {"id": "ks", "title": "Kinect Sports", "title_id": "4D5308C9",
+           "version": "0.0.0.2", "media_id": "655F2429"},
+  "content": ["1B844357CD9D6F41D2A8A2DD7E17E133222E71B64D", "DE2CF375…"],
+  "folders": ["game/some/empty/folder"],
+  "files": [{"path": "game/default.xex", "size": 9437184, "sha256": "…"},
+            {"path": "content/1B84…4D/…", "size": 1234, "sha256": "…"}]
+}
+```
+
+- **`game`**: the catalog's ID and title, and `default.xex`'s execution info: the title ID, the
+  version and the media ID.
+- **`content`**: the downloadable content packages, by their folder names.
+- **`folders`**: the empty folders.
+- **`files`**: every file, with its size and its SHA-256 (lowercase hex), sorted by path, with `/`
+  between folders.
+- **Not stored:** timestamps, source paths, and anything about the player or the PC.
+
+## Writing (the ⋯ menu's "Save as .anyx…", or `AnyX360.exe --export <id> --to <file>`)
+1. **The copy.** It is the extracted one, or the player's folder for a copy used in place. It must be
+   this game, of the version AnyX360 plays, and complete (`IdentifyCopy`, `CheckCopy`).
+2. **The output.** It can't be inside the launcher's `games` folder (removing or preparing the game
+   again would delete it), nor inside the copy.
+3. **What goes in.** The copy, plus each package in `…\content\00000002` that has files and that the
+   game takes (`NeedsTitleUpdate`: Black Ops II's and Modern Warfare 3's are never taken).
+4. **The checks.** Room on the output's drive, and refusal on a FAT32 drive when the backup is over
+   4 GB.
+5. **Hashing.** Every file is hashed: 0-30 % of the progress.
+6. **Staging.** 7-Zip writes the archive in one pass from two places: a staging folder
+   (`games\.work\export`) holds `manifest.json`, an NTFS junction `game` → the copy, and
+   `content\<package>` junctions → each package.
+   - **The list.** A list (`files.lst`) names the manifest, then every file and empty folder by its
+     relative path. Each item is a file path, so 7-Zip opens the files through the junctions and
+     stores plain entries.
+   - **The command:**
+     ```
+     7z a -t7z -mx0 -ms=off -sse -bsp1 -bso0 -bse1 -sccUTF-8 -scsUTF-8 <file>.partial @files.lst
+     ```
+     It runs from the staging folder: 30-99 % of the progress. `-sse` makes a file that can't be
+     read fail the export instead of being left out.
+   - **When junctions can't be made.** On a drive without junctions (not NTFS) the staging goes to
+     the temporary folder. A copy on a network folder can't be the target of a junction: the
+     player copies it to the PC first.
+7. **Finishing.** The `.partial` file's listing is checked against the manifest, then the file is
+   renamed to its name.
+8. **Cleaning up.** On failure or cancel the `.partial` is deleted. The junctions are always removed,
+   and only the links themselves: removal in the launcher never goes through a link.
+
+## Reading ("Add game", drag and drop, `--archive <file>`)
+1. **Recognising it.** An archive is recognised by its listing, whatever its name: `manifest.json`
+   (under 16 MB) and `game\default.xex` at the root. The manifest is extracted alone first.
+   - Without `"format": "anyx"`, it is an ordinary archive and goes on as one.
+   - A `format_version` above 1 is refused: "saved by a newer AnyX360".
+2. **The checks, before anything big is extracted:**
+   - **The game:** the title ID must be one of this release's games, of the version it plays.
+   - **The paths:** every path must be relative, under `game/` or a listed package's folder, with no
+     `..` and no drive letter.
+   - **The listing:** the archive must hold exactly the manifest's files, of their sizes.
+3. **Asking and space.** Replacing a game already in the library is asked first. Room is checked on
+   the release's drive and on `%LOCALAPPDATA%`'s drive.
+4. **Extracting.** Everything is extracted into `games\.work` (to 70 %).
+5. **Checking every file.** Each file's SHA-256 is compared with the manifest's, to 99 %. A
+   difference names the file: "damaged or changed".
+6. **The copy.** The real `default.xex` must still be this game, and the copy complete. It then
+   moves to `games\<id>\game`, replacing an earlier copy, extracted or used in place. Then its icon,
+   and the Avatar data.
+7. **The packages.** Each package replaces its folder in
+   `%LOCALAPPDATA%\AnyX360\<game>\content\00000002`, unless this release leaves it out (a pack
+   that needs the title update): those are counted and noted.
+8. **The saves** in `00000001` are never touched.
+
+## Versions and compatibility
+- **The pinned version.** Every game's `game.json` names the version and media ID of the executable
+  AnyX360 was recompiled from: `"xex": {"version": "0.0.0.2", "media_id": "655F2429"}`.
+- **Why.** A copy of another version has other code, even under the same title ID: an update, or a
+  re-release. For example, the Kinect Sports Ultimate Collection's first disc is Kinect Sports
+  version 6, while AnyX360 plays version 2.
+- **Where it is checked.** The launcher refuses another version wherever it identifies a copy: a
+  folder, an archive's probe (before the big extraction), a disc image, an `.anyx`'s manifest and its
+  extracted `default.xex`. Other executables in the copy (multiplayer's `default_mp.xex`) must be the
+  same version too.
+- **The media ID is recorded, not enforced:** other pressings of the same version share the code.
+- **The manifest's format version.**
+  - Readers ignore keys they don't know, so a later 1.x writer can add some.
+  - A change older readers would get wrong raises `format_version`, and they refuse the file.
+
+## Limits
+- **Size:** a backup is about the size of the copy and its content (0.1-8 GB for the current
+  games), and needs that much room to write and to add back.
+- **FAT32 drives** can't hold the bigger backups (over 4 GB): use exFAT or NTFS.
+- **Network folders:** a copy used in place from a network folder can't be saved from there; copy
+  it to the PC first.
+- **Integrity, not authenticity:** the hashes detect damage, not deliberate changes (nothing is
+  signed).
+- **Saves aren't included:** copy `%LOCALAPPDATA%\AnyX360\<game>` yourself to move them.
+- **Avatar data:** Doritos Crash Course's avatars come from the Avatar data on Kinect Sports' disc,
+  which isn't in Doritos' backup: add Kinect Sports too.

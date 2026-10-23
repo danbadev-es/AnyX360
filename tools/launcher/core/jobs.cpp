@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "core/anyx.h"
 #include "core/catalog.h"
 #include "core/install.h"
 #include "core/library.h"
@@ -216,6 +217,13 @@ Outcome AddArchiveAt(Job& job, const fs::path& chosen, int depth, int from) {
   if (error != ArchiveError::kNone) return {{kTextErrorList, {std::to_wstring(code)}, true}};
   // Only the files' data is encrypted: the password is asked now, and checked by the first extraction.
   if (listing.encrypted && !job.Password() && !job.AskPassword(archive, false)) return {{kTextErrorPassword, {}, true}};
+  // An AnyX360 backup goes back as it was saved, with its downloadable content (a 7z that only has a
+  // manifest.json of its own goes on as any other archive).
+  if (LooksLikeAnyx(listing)) {
+    bool handled = false;
+    Outcome outcome = ImportAnyx(job, archive, listing, ExtractDir(depth, "anyx"), from, handled);
+    if (handled || job.Cancelled()) return outcome;
+  }
   const ArchiveInfo info = ClassifyArchive(listing);
   Message message;
   const int middle = from + (99 - from) * 6 / 10;

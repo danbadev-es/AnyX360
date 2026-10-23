@@ -72,7 +72,7 @@ const wchar_t* const kEnglish[] = {
     L"That password doesn't open the archive.",
     L"A part of {0} is missing: keep all its parts in the same folder and choose the first one.",
     L"AnyX360 doesn't recognise that file as a game: choose your game's archive (.7z, .rar, .zip...), disc image "
-    L"(.iso), Games on Demand or Xbox Live Arcade package, or the folder where it is.",
+    L"(.iso), Games on Demand or Xbox Live Arcade package, AnyX360 backup (.anyx), or the folder where it is.",
     L"That is downloadable content for {0}, not the game. Add the game first; its content can be added after.",
     L"That is a title update. AnyX360 plays the game's own version: add the game instead.",
     L"That is downloadable content for {0}, which this release doesn't play.",
@@ -89,10 +89,10 @@ const wchar_t* const kEnglish[] = {
     L"In your library",
     L"Coming soon",
     L"Add your first game",
-    L"Your copy as you have it: an archive (.7z, .rar, .zip…), a disc image (.iso), a Games on Demand or Xbox Live Arcade package, or the folder with its files. This release plays {0}.",
+    L"Your copy as you have it: an archive (.7z, .rar, .zip…), a disc image (.iso), a Games on Demand or Xbox Live Arcade package, an AnyX360 backup (.anyx), or the folder with its files. This release plays {0}.",
     L"add a game",
     L"From a file",
-    L"An archive (.7z, .rar, .zip…), a disc image (.iso) or a package",
+    L"An archive (.7z, .rar, .zip…), a disc image (.iso), a package or an .anyx backup",
     L"From a folder",
     L"The folder with your game's files: it is played from there",
     L"You can also drop your game on this window.",
@@ -135,6 +135,26 @@ const wchar_t* const kEnglish[] = {
     L"Automatic: {0}, as Windows",
     L"Automatic: English (Windows' language isn't one of the console's)",
     L"Save",
+    L"Save as .anyx…",
+    L"Save {0} as an .anyx backup",
+    L"AnyX360 backups (.anyx)",
+    L"Saving {0}… {1} %",
+    L"saving {0}",
+    L"Checking {0}'s files… {1} %",
+    L"{0} was saved to {1} ({2}): a backup of your copy with its downloadable content (your saves stay "
+    L"where they are). Add game takes it back, on this PC or another of yours. Don't give it to anyone: "
+    L"each player uses their own copy.",
+    L"That copy of {0} is version {1}; AnyX360 plays version {2}, the one it was recompiled from. Add a "
+    L"copy of that version.",
+    L"That .anyx file was saved by a newer AnyX360 ({0}). Update AnyX360 to add it.",
+    L"That .anyx file is damaged or was changed ({0}). Save it again from your copy.",
+    L"Choose a place outside AnyX360's games folder and outside the game's own folder.",
+    L"The .anyx file could not be written (7-Zip code {0}). Check the free space and the folder.",
+    L"AnyX360 can't save the copy in {0} from where it is (a network folder?). Copy that folder to this PC "
+    L"first, or prepare the game again.",
+    L"Not enough space on {2}: {0} needed, {1} free.",
+    L"{0} can't hold files over 4 GB (FAT32). Choose another drive, or one formatted as exFAT or NTFS.",
+    L"{0} isn't in the library: add it first.",
 };
 
 const wchar_t* const kSpanish[] = {
@@ -193,7 +213,8 @@ const wchar_t* const kSpanish[] = {
     L"Esa contraseña no abre el archivo.",
     L"Falta una parte de {0}: deja todas sus partes en la misma carpeta y elige la primera.",
     L"AnyX360 no reconoce ese archivo como un juego: elige el archivo comprimido de tu juego (.7z, .rar, .zip...), "
-    L"su imagen de disco (.iso), su paquete Games on Demand o de Xbox Live Arcade, o la carpeta donde está.",
+    L"su imagen de disco (.iso), su paquete Games on Demand o de Xbox Live Arcade, su copia de seguridad de AnyX360 "
+    L"(.anyx), o la carpeta donde está.",
     L"Eso es contenido descargable de {0}, no el juego. Añade antes el juego; su contenido se puede añadir después.",
     L"Eso es una actualización del título. AnyX360 juega a la versión del propio juego: añade el juego.",
     L"Eso es contenido descargable de {0}, que esta versión no juega.",
@@ -211,10 +232,10 @@ const wchar_t* const kSpanish[] = {
     L"En tu biblioteca",
     L"Próximamente",
     L"Añade tu primer juego",
-    L"Tu copia tal como la tienes: un archivo comprimido (.7z, .rar, .zip…), una imagen de disco (.iso), un paquete Games on Demand o de Xbox Live Arcade, o la carpeta con sus archivos. Esta versión juega a {0}.",
+    L"Tu copia tal como la tienes: un archivo comprimido (.7z, .rar, .zip…), una imagen de disco (.iso), un paquete Games on Demand o de Xbox Live Arcade, una copia de seguridad de AnyX360 (.anyx), o la carpeta con sus archivos. Esta versión juega a {0}.",
     L"añadir un juego",
     L"Desde un archivo",
-    L"Un archivo comprimido (.7z, .rar, .zip…), una imagen de disco (.iso) o un paquete",
+    L"Un archivo comprimido (.7z, .rar, .zip…), una imagen de disco (.iso), un paquete o una copia .anyx",
     L"Desde una carpeta",
     L"La carpeta con los archivos de tu juego: se juega desde ahí",
     L"También puedes soltar tu juego sobre esta ventana.",
@@ -257,6 +278,26 @@ const wchar_t* const kSpanish[] = {
     L"Automático: {0}, como Windows",
     L"Automático: inglés (el idioma de Windows no es uno de los de la consola)",
     L"Guardar",
+    L"Guardar como .anyx…",
+    L"Guardar {0} como copia de seguridad .anyx",
+    L"Copias de seguridad de AnyX360 (.anyx)",
+    L"Guardando {0}… {1} %",
+    L"guardando {0}",
+    L"Comprobando los archivos de {0}… {1} %",
+    L"{0} se ha guardado en {1} ({2}): una copia de seguridad de tu copia con su contenido descargable (tus "
+    L"partidas guardadas se quedan donde están). Añadir juego la recupera, en este PC o en otro tuyo. No se la "
+    L"des a nadie: cada jugador usa su propia copia.",
+    L"Esa copia de {0} es la versión {1}; AnyX360 juega a la versión {2}, la que se recompiló. Añade una "
+    L"copia de esa versión.",
+    L"Ese archivo .anyx lo guardó un AnyX360 más nuevo ({0}). Actualiza AnyX360 para añadirlo.",
+    L"Ese archivo .anyx está dañado o se ha modificado ({0}). Vuelve a guardarlo desde tu copia.",
+    L"Elige un lugar fuera de la carpeta games de AnyX360 y fuera de la carpeta del propio juego.",
+    L"No se pudo escribir el archivo .anyx (código de 7-Zip {0}). Comprueba el espacio libre y la carpeta.",
+    L"AnyX360 no puede guardar la copia de {0} desde donde está (¿una carpeta de red?). Copia antes esa "
+    L"carpeta a este PC, o vuelve a preparar el juego.",
+    L"No hay espacio suficiente en {2}: hacen falta {0} y hay {1}.",
+    L"{0} no admite archivos de más de 4 GB (FAT32). Elige otra unidad, o una con formato exFAT o NTFS.",
+    L"{0} no está en la biblioteca: añádelo antes.",
 };
 static_assert(std::size(kEnglish) == kTextCount && std::size(kSpanish) == kTextCount);
 

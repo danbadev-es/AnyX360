@@ -21,9 +21,28 @@ namespace anyx360::launcher {
 
 fs::path WorkDir() { return GamesDir() / L".work"; }
 
+bool IsLink(const fs::path& path) {
+  const DWORD attributes = GetFileAttributesW(path.c_str());
+  return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT);
+}
+
 void RemoveAll(const fs::path& path) {
+  const DWORD attributes = GetFileAttributesW(path.c_str());
+  if (attributes == INVALID_FILE_ATTRIBUTES) return;
+  if (attributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+    // Only the link itself goes.
+    if (attributes & FILE_ATTRIBUTE_DIRECTORY) RemoveDirectoryW(path.c_str());
+    else DeleteFileW(path.c_str());
+    return;
+  }
   std::error_code ec;
-  fs::remove_all(path, ec);
+  if (attributes & FILE_ATTRIBUTE_DIRECTORY) {
+    std::vector<fs::path> children;
+    for (auto it = fs::directory_iterator(path, ec); !ec && it != fs::directory_iterator(); it.increment(ec))
+      children.push_back(it->path());
+    for (const fs::path& child : children) RemoveAll(child);
+  }
+  fs::remove(path, ec);
 }
 
 void RemoveFolder(const fs::path& path) {
@@ -35,11 +54,50 @@ void RemoveFolder(const fs::path& path) {
   RemoveAll(ec ? path : old);
 }
 
+bool MoveFolder(const fs::path& from, const fs::path& to) {
+  std::error_code ec;
+  fs::create_directories(to.parent_path(), ec);
+  fs::rename(from, to, ec);
+  if (!ec) return true;
+  ec.clear();
+  fs::copy(from, to, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
+  if (ec) {
+    RemoveAll(to);
+    return false;
+  }
+  RemoveAll(from);
+  return true;
+}
+
 bool EnoughSpace(uint64_t needed, Message& error) {
   ULARGE_INTEGER free_bytes{};
   if (GetDiskFreeSpaceExW(Root().c_str(), &free_bytes, nullptr, nullptr) && free_bytes.QuadPart < needed) {
     error = {kTextErrorSpace, {Gigabytes(needed), Gigabytes(free_bytes.QuadPart)}, true};
     return false;
+  }
+  return true;
+}
+
+bool EnoughSpaceFor(const std::vector<std::pair<fs::path, uint64_t>>& needs, Message& error) {
+  // The drive (volume mount point) of each place, by the closest folder that exists.
+  std::vector<std::pair<std::wstring, uint64_t>> volumes;
+  for (const auto& [place, bytes] : needs) {
+    std::error_code ec;
+    fs::path existing = fs::absolute(place, ec);
+    while (!existing.empty() && !Exists(existing) && existing.has_parent_path() && existing.parent_path() != existing)
+      existing = existing.parent_path();
+    wchar_t volume[MAX_PATH] = {};
+    if (!GetVolumePathNameW(existing.c_str(), volume, MAX_PATH)) continue;
+    auto same = std::find_if(volumes.begin(), volumes.end(), [&](const auto& v) { return _wcsicmp(v.first.c_str(), volume) == 0; });
+    if (same == volumes.end()) volumes.push_back({volume, bytes});
+    else same->second += bytes;
+  }
+  for (const auto& [volume, bytes] : volumes) {
+    ULARGE_INTEGER free_bytes{};
+    if (GetDiskFreeSpaceExW(volume.c_str(), &free_bytes, nullptr, nullptr) && free_bytes.QuadPart < bytes) {
+      error = {kTextErrorSpaceOn, {Gigabytes(bytes), Gigabytes(free_bytes.QuadPart), volume}, true};
+      return false;
+    }
   }
   return true;
 }
@@ -99,18 +157,23 @@ bool NeedsTitleUpdate(const CatalogGame& game, const fs::path& package) {
   return false;
 }
 
+fs::path DownloadableContentDir(const CatalogGame& game) {
+  return LocalAppData() / L"AnyX360" / game.user_dir / L"content" / L"00000002";
+}
+
 int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::path>& packages) {
   int installed = 0;
   for (const fs::path& path : packages) {
+    const fs::path out = DownloadableContentDir(game) / path.filename();
     try {
       x360tool::StfsPackage package(path);
-      fs::path out = LocalAppData() / L"AnyX360" / game.user_dir / L"content" / L"00000002" / path.filename();
       RemoveAll(out);
       for (const x360tool::StfsEntry& e : package.entries())
         if (!e.is_dir) package.extract(e, out / x360tool::utf8_path(e.path));
       ++installed;
     } catch (const std::exception&) {
-      // A damaged pack is skipped: the game runs without it.
+      // A damaged pack is skipped: the game runs without it (and no half of it stays).
+      RemoveAll(out);
     }
   }
   return installed;

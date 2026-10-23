@@ -62,9 +62,32 @@ void Keep(std::string& kept, const std::string& text) {
   if (kept.size() > 256 * 1024) kept.erase(4096, kept.size() - 128 * 1024);
 }
 
+// 7-Zip's percent (-bsp1) in its output: progress lines ("  42% 120 - <file>") overwrite each other
+// with backspaces, and a line may arrive in pieces.
+class PercentReader {
+ public:
+  // The last percent in `text`, or -1.
+  int Read(const std::string& text) {
+    std::string chunk = tail_ + text;
+    int percent = -1;
+    for (size_t i = 0; i < chunk.size(); ++i) {
+      if (chunk[i] != '%') continue;
+      size_t begin = i;
+      while (begin > 0 && i - begin < 3 && std::isdigit(static_cast<unsigned char>(chunk[begin - 1]))) --begin;
+      if (begin < i) percent = std::stoi(chunk.substr(begin, i - begin));
+    }
+    tail_ = chunk.size() > 8 ? chunk.substr(chunk.size() - 8) : chunk;
+    return percent;
+  }
+
+ private:
+  std::string tail_;
+};
+
 }  // namespace
 
-int RunCaptured(std::wstring command, const std::function<void(const std::string&)>& output, Job* job) {
+int RunCaptured(std::wstring command, const std::function<void(const std::string&)>& output, Job* job,
+                const fs::path& folder) {
   SECURITY_ATTRIBUTES inherit{sizeof(inherit), nullptr, TRUE};
   HANDLE read = nullptr, write = nullptr;
   if (!CreatePipe(&read, &write, &inherit, 0)) return -1;
@@ -77,8 +100,8 @@ int RunCaptured(std::wstring command, const std::function<void(const std::string
   startup.hStdOutput = write;
   startup.hStdError = write;
   PROCESS_INFORMATION process{};
-  BOOL started = CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr,
-                                &startup, &process);
+  BOOL started = CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr,
+                                folder.empty() ? nullptr : folder.c_str(), &startup, &process);
   CloseHandle(write);
   CloseHandle(input);
   if (!started) {
@@ -185,22 +208,14 @@ ArchiveError ExtractArchive(Job& job, const fs::path& archive, const std::option
                          Quote(out) + L" " + Quote(archive);
   for (const std::string& path : only) command += L" " + Argument(Widen(path));
   int last = 0;
-  std::string tail, kept;
+  std::string kept;
+  PercentReader reader;
   code = RunCaptured(
       command,
       [&](const std::string& text) {
         Keep(kept, text);
-        // Progress lines ("  42% 120 - <file>") overwrite each other with backspaces.
-        std::string chunk = tail + text;
-        int percent = -1;
-        for (size_t i = 0; i < chunk.size(); ++i) {
-          if (chunk[i] != '%') continue;
-          size_t begin = i;
-          while (begin > 0 && i - begin < 3 && std::isdigit(static_cast<unsigned char>(chunk[begin - 1]))) --begin;
-          if (begin < i) percent = std::stoi(chunk.substr(begin, i - begin));
-        }
-        tail = chunk.size() > 8 ? chunk.substr(chunk.size() - 8) : chunk;
         // Only forward: the bar fills once even if 7-Zip's count restarts (multi-volume archives).
+        const int percent = reader.Read(text);
         if (percent > last) {
           last = percent;
           job.Progress(std::min(from + percent * (to - from) / 100, 99));
@@ -208,6 +223,24 @@ ArchiveError ExtractArchive(Job& job, const fs::path& archive, const std::option
       },
       &job);
   return code == 0 ? ArchiveError::kNone : ErrorFrom(kept, password.has_value(), archive);
+}
+
+bool CreateArchive(Job& job, const fs::path& archive, const fs::path& folder, const fs::path& list,
+                   const std::function<void(int)>& report, int& code) {
+  // -ms=off: one stream per file, so the manifest reads back alone at once; -sse: a file that can't
+  // be read stops it (else 7-Zip leaves it out with a warning).
+  const std::wstring command = Quote(SevenZip()) + L" a -t7z -mx0 -ms=off -sse -bsp1 -bso0 -bse1 -sccUTF-8 -scsUTF-8 " +
+                               Quote(archive) + L" " + Argument(L"@" + list.wstring());
+  int last = -1;
+  PercentReader reader;
+  code = RunCaptured(
+      command,
+      [&](const std::string& text) {
+        const int percent = reader.Read(text);
+        if (percent > last) report(last = percent);
+      },
+      &job, folder);
+  return code == 0;
 }
 
 bool ParseContentPath(const std::string& name, const char* type_folder, uint32_t& title_id, std::string& folder) {
