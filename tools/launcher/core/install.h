@@ -45,10 +45,34 @@ bool InstallCopy(const CatalogGame& game, const fs::path& found, Message& error)
 // (`error`) or was cancelled.
 bool ExtractVolume(Job& job, x360tool::XdvdfsImage& image, const fs::path& out, int from, int to, Message& error);
 
-// A downloadable content package of `game` that needs its title update, which AnyX360 doesn't play:
-// all of them for a game whose packs all do ("downloadable_content": false), else those game.json
-// names ("content_needs_update", by package file name). They are left out.
+// A downloadable content package of `game` that needs its title update, which AnyX360 doesn't play
+// for that game: all of them for a game whose packs all do ("downloadable_content": false), else
+// those game.json names ("content_needs_update", by package file name). They are left out. None
+// for a game played with its update (game.json "update").
 bool NeedsTitleUpdate(const CatalogGame& game, const fs::path& package);
+
+// Title updates (content type 0x000B0000). A game recompiled from its update (game.json "update")
+// is ready only with that update installed, in TitleUpdateDir(game): %LOCALAPPDATA%\AnyX360\<user
+// dir>\content\000B0000\<package> (where the runtime looks for it and mounts it as update:\).
+fs::path TitleUpdateDir(const CatalogGame& game);
+bool UsesTitleUpdate(const CatalogGame& game);
+// True for a game that doesn't use one.
+bool TitleUpdateInstalled(const CatalogGame& game);
+// The version an extracted update makes (its default.xexp's delta descriptor); 0 if it has none.
+uint32_t TitleUpdateVersion(const fs::path& folder);
+
+enum class UpdateResult {
+  kInstalled,
+  kOtherVersion,  // an update to another version than the one game.json names: left out
+  kDamaged,       // not a package, or no default.xexp in it
+};
+// Extracts the title update `package` of `game` (one that uses its update) into TitleUpdateDir(game)
+// if it is the version game.json names; `version` is the one it makes (0 if unknown).
+UpdateResult InstallTitleUpdate(const CatalogGame& game, const fs::path& package, uint32_t& version);
+// The title update packages of `game` found with a copy: the right one installed and noted, the
+// others noted (another version, or a game that plays without its update); then, if the game is
+// still without the update it needs, a note saying how to add it.
+void InstallTitleUpdates(const CatalogGame& game, const std::vector<fs::path>& packages, Outcome& outcome);
 
 // Where the runtime looks for the title's downloadable content, one folder per package:
 // %LOCALAPPDATA%\AnyX360\<user dir>\content\00000002 (the saves are next to it, in 00000001).
@@ -64,8 +88,9 @@ int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::pa
 void InstallAvatarPack(const fs::path& game_root);
 
 // The copy written out or extracted into `extracted` (under WorkDir) becomes games\<id>\game, if it
-// is `game` and complete; then its icon, and the title's downloadable content in `content_source`
-// (empty: none). The packages there that aren't used are noted.
+// is `game` and complete; then its icon, and the title's downloadable content and title update in
+// `content_source` (empty: none). The packages there that aren't used are noted, and so is an
+// update the game needs and didn't come with.
 Outcome InstallExtracted(Job& job, const CatalogGame& game, const fs::path& extracted, const fs::path& content_source);
 
 // The copies the game can't run from, written out. The player has already been asked about

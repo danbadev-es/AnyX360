@@ -109,9 +109,23 @@ function(anyx360_add_launcher)
        OR NOT xex_media_id MATCHES "^[0-9A-Fa-f]+$")
       message(FATAL_ERROR "${json_path}: \"xex\": {\"version\": \"a.b.c.d\", \"media_id\": \"XXXXXXXX\"} is required")
     endif()
+    # Optional: "update": {"version", "package"}, the title update the game is recompiled from ("xex"
+    # stays the disc's version, which the copy holds). The game is ready only with it installed.
+    set(update_version "")
+    set(update_package "")
+    string(JSON update_json ERROR_VARIABLE no_update GET "${json}" update)
+    if(NOT no_update)
+      string(JSON update_version ERROR_VARIABLE bad_version GET "${json}" update version)
+      string(JSON update_package ERROR_VARIABLE bad_package GET "${json}" update package)
+      if(bad_version OR bad_package OR NOT update_version MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$"
+         OR update_package STREQUAL "" OR update_package MATCHES "[\\\\/:*?\"<>|]")
+        message(FATAL_ERROR "${json_path}: \"update\": {\"version\": \"a.b.c.d\", \"package\": \"<package file name>\"}")
+      endif()
+    endif()
     string(APPEND entries "    {L\"${id}\", L\"${title}\", L\"${exe}.exe\", L\"${user_dir}\", 0x${title_id}, ${size_gb}, ${webcam},\n"
                           "     L\"${required_files}\", L\"$<TARGET_FILE:${id}>\", L\"${cover}\", ${playable}, ${content},\n"
-                          "     L\"${content_needs_update}\", L\"${xex_version}\", 0x${xex_media_id}},\n")
+                          "     L\"${content_needs_update}\", L\"${xex_version}\", 0x${xex_media_id}, L\"${update_version}\",\n"
+                          "     L\"${update_package}\"},\n")
     list(APPEND titles "${title}")
     # Rights holders, trademarks and extra components of every game, each named once.
     string(REPLACE ", " ";" game_owners "${owners}")
@@ -188,6 +202,10 @@ struct CatalogGame {
   // The version of the executable it was recompiled from (\"a.b.c.d\"), and its media ID.
   const wchar_t* xex_version = L\"\";
   uint32_t xex_media_id = 0;
+  // The title update it was recompiled from: the version the update makes of xex_version, and the
+  // folder it is installed in (content\\000B0000\\<package>). Empty: none, the disc's version is played.
+  const wchar_t* update_version = L\"\";
+  const wchar_t* update_package = L\"\";
 };
 
 inline constexpr CatalogGame kCatalog[] = {

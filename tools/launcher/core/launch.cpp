@@ -97,6 +97,7 @@ void SeedShaderCache(const CatalogGame& game) {
 
 Message StartGame(const LibraryGame& game, std::function<void(uint32_t)> exited) {
   if (game.exe.empty() || !Exists(game.exe)) return {kTextErrorNoExe, {game.info->exe}, true};
+  if (game.needs_update) return {kTextNeedsUpdate, {game.info->title, game.info->update_version}, true};
   SeedShaderCache(*game.info);
   std::error_code ec;
   fs::path logs = LogDir(*game.info);

@@ -187,6 +187,11 @@ bool IsDownloadableContent(const FoundPackage& package, uint32_t title_id) {
          package.header.title_id == title_id && package.header.volume_type == x360tool::kVolumeStfs;
 }
 
+bool IsTitleUpdate(const FoundPackage& package, uint32_t title_id) {
+  return package.header.content_type == x360tool::content_type::kInstaller && package.header.title_id == title_id &&
+         package.header.volume_type == x360tool::kVolumeStfs;
+}
+
 fs::path FindGamesOnDemand(const fs::path& folder, x360tool::ContentPackage* package) {
   for (const FoundPackage& found : FindPackages(folder)) {
     if (!IsGamesOnDemand(found)) continue;

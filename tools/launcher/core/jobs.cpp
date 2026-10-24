@@ -56,8 +56,9 @@ Outcome Unsupported(uint32_t title_id) {
   return {{kTextErrorUnsupported, {Hex32(title_id), JoinTitles(AvailableGames())}, true}};
 }
 
-// The copy in the player's folder, remembered: it is played where it is.
-Outcome UseInPlace(Job& job, fs::path root) {
+// The copy in the player's folder, remembered: it is played where it is. The title's update, if it
+// is in `folder` (the one the player chose) too, is installed.
+Outcome UseInPlace(Job& job, fs::path root, const fs::path& folder) {
   Message error;
   const CatalogGame* game = IdentifyCopy(root, error);
   if (!game) return {error};
@@ -65,10 +66,19 @@ Outcome UseInPlace(Job& job, fs::path root) {
   if (!CheckCopy(root, *game, error)) return {error};
   std::error_code ec;
   root = fs::absolute(root, ec);
+  // A title update next to the copy, for a game played with it.
+  auto updates = [&](Outcome outcome) {
+    std::vector<fs::path> found;
+    if (UsesTitleUpdate(*game))
+      for (const FoundPackage& package : FindPackages(folder))
+        if (IsTitleUpdate(package, game->title_id)) found.push_back(package.path);
+    InstallTitleUpdates(*game, found, outcome);
+    return outcome;
+  };
   auto relative = root.lexically_relative(fs::absolute(ExtractedDir(*game), ec));
   if (!relative.empty() && *relative.begin() != L"..") {  // the extracted copy itself
     fs::remove(LocationFile(*game), ec);
-    return {{kTextAdded, {game->title}, false}, game->id};
+    return updates({{kTextAdded, {game->title}, false}, game->id});
   }
   if (!job.ConfirmReplace(*game)) return {{kTextCancelled, {}, false}};
   job.Report(Step::kFinishing, 100);
@@ -77,7 +87,7 @@ Outcome UseInPlace(Job& job, fs::path root) {
   if (!WriteUtf8(LocationFile(*game), root.wstring())) return {{kTextErrorMove, {L"location.txt"}, true}};
   SaveIcon(*game, root);
   InstallAvatarPack(root);
-  return {{kTextAddedFolder, {game->title, ShortPath(root)}, false}, game->id};
+  return updates({{kTextAddedFolder, {game->title, ShortPath(root)}, false}, game->id});
 }
 
 // A package found or chosen on its own. `content_source`: where the title's downloadable content
@@ -103,7 +113,25 @@ Outcome AddPackage(Job& job, const FoundPackage& package, const fs::path& conten
     int installed = InstallDownloadableContent(*game, packages);
     return {{kTextAddedContentOnly, {game->title, std::to_wstring(installed)}, false}, game->id};
   }
-  if (package.header.content_type == x360tool::content_type::kInstaller) return {{kTextErrorUpdateOnly, {}, true}};
+  if (package.header.content_type == x360tool::content_type::kInstaller) {
+    // A title update on its own: for a game in the library that is played with it.
+    const CatalogGame* game = FindAvailableGame(title);
+    if (!game) return Unsupported(title);
+    if (!UsesTitleUpdate(*game)) return {{kTextErrorUpdateOnly, {}, true}};
+    if (!IsInstalled(*game)) return {{kTextErrorUpdateNoGame, {game->title}, true}};
+    job.Found(*game);
+    job.Report(Step::kFinishing, 100);
+    uint32_t version = 0;
+    switch (InstallTitleUpdate(*game, package.path, version)) {
+      case UpdateResult::kInstalled:
+        return {{kTextAddedUpdate, {game->title, game->update_version}, false}, game->id};
+      case UpdateResult::kOtherVersion:
+        return {{kTextErrorUpdateVersion, {game->title, XexVersionText(version), game->update_version}, true}};
+      case UpdateResult::kDamaged:
+        break;
+    }
+    return {{kTextErrorUpdateDamaged, {}, true}};
+  }
   return {{kTextErrorUnknownFormat, {}, true}};
 }
 
@@ -120,7 +148,7 @@ Outcome AddFolderSource(Job& job, const fs::path& folder, bool players, int dept
   // The disc's files.
   fs::path root = FindGameRoot(folder);
   if (!root.empty()) {
-    if (players) return UseInPlace(job, root);
+    if (players) return UseInPlace(job, root, folder);
     Message error;
     const CatalogGame* game = IdentifyCopy(root, error);
     if (!game) return {error};
@@ -145,11 +173,17 @@ Outcome AddFolderSource(Job& job, const fs::path& folder, bool players, int dept
     std::vector<fs::path> archives = FindFiles(folder, FileKind::kArchive, players ? 1 : 2);
     if (!archives.empty() && (!players || archives.size() == 1)) return AddArchiveAt(job, archives.front(), depth + 1, from);
   }
-  // Only content for a game, or updates.
+  // Only content for a game, or updates (the first one taken; else what the first said).
   for (const FoundPackage& package : packages)
     if (package.header.content_type == x360tool::content_type::kMarketplace) return AddPackage(job, package, folder, from);
-  for (const FoundPackage& package : packages)
-    if (package.header.content_type == x360tool::content_type::kInstaller) return AddPackage(job, package, folder, from);
+  std::optional<Outcome> refused;
+  for (const FoundPackage& package : packages) {
+    if (package.header.content_type != x360tool::content_type::kInstaller) continue;
+    Outcome outcome = AddPackage(job, package, folder, from);
+    if (!outcome.message.error) return outcome;
+    if (!refused) refused = std::move(outcome);
+  }
+  if (refused) return *refused;
   return {{players ? kTextErrorNoXexFolder : kTextErrorUnknownFormat, {}, true}};
 }
 
@@ -269,8 +303,9 @@ Outcome AddArchiveAt(Job& job, const fs::path& chosen, int depth, int from) {
     if (job.Cancelled()) return {};
     if (error != ArchiveError::kNone) return {ExtractError(job, error, code, archive)};
     Outcome outcome = AddFolderSource(job, partial, false, depth, middle);
-    // What wasn't extracted: the title updates and other titles' content in the archive.
-    int updates = 0, other = 0;
+    // What wasn't extracted: other titles' content in the archive (the title's own updates were, and
+    // the copy's notes say what became of them).
+    int other = 0;
     std::vector<std::string> counted;
     for (const ArchiveEntry& e : listing.entries) {
       if (e.folder) continue;
@@ -283,15 +318,11 @@ Outcome AddArchiveAt(Job& job, const fs::path& chosen, int depth, int from) {
         if (package.size() > 5 && package.compare(package.size() - 5, 5, ".data") == 0) package.resize(package.size() - 5);
         if (std::find(counted.begin(), counted.end(), folder + package) != counted.end()) break;
         counted.push_back(folder + package);
-        if (std::string(type) == "000b0000") ++updates;
-        else if (title != info.content_title) ++other;
+        if (title != info.content_title) ++other;
         break;
       }
     }
-    if (!outcome.message.error) {
-      if (updates) outcome.notes.push_back({kTextNoteUpdatesSkipped, {std::to_wstring(updates)}, false});
-      if (other) outcome.notes.push_back({kTextNoteOtherContent, {std::to_wstring(other)}, false});
-    }
+    if (!outcome.message.error && other) outcome.notes.push_back({kTextNoteOtherContent, {std::to_wstring(other)}, false});
     return outcome;
   }
 

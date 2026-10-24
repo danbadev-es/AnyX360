@@ -917,7 +917,15 @@ uint32_t XamGetExecutionId(uint32_t info_ptr) {
   uint32_t count = Load<uint32_t>(t.xex_header + 0x14);
   for (uint32_t i = 0; i < count; ++i) {
     if (Load<uint32_t>(t.xex_header + 0x18 + i * 8) == 0x00040006) {
-      Store<uint32_t>(info_ptr, t.xex_header + Load<uint32_t>(t.xex_header + 0x1C + i * 8));
+      const uint32_t info = t.xex_header + Load<uint32_t>(t.xex_header + 0x1C + i * 8);
+      Store<uint32_t>(info_ptr, info);
+      // Said once: the version the title is told it is (its update's, for an updated game).
+      static std::atomic<bool> told{false};
+      if (!told.exchange(true)) {
+        const uint32_t version = Load<uint32_t>(info + 4);
+        KLOG_I("XamGetExecutionId: title %08X version %u.%u.%u.%u", Load<uint32_t>(info + 12), version >> 28,
+               (version >> 24) & 0xF, (version >> 8) & 0xFFFF, version & 0xFF);
+      }
       return X_STATUS_SUCCESS;
     }
   }

@@ -157,6 +157,17 @@ std::optional<XexExecutionInfo> Xex::execution_info() const {
   return e;
 }
 
+std::optional<XexDeltaPatch> Xex::delta_patch() const {
+  // {be32 size, be32 target version, be32 source version, ...} (Xenia's xex2_opt_delta_patch_descriptor).
+  auto off = opt_offset(xex_key::kDeltaPatchDescriptor);
+  if (!off) return std::nullopt;
+  need(*off, 12);
+  XexDeltaPatch patch;
+  patch.target_version.raw = u32(*off + 4);
+  patch.source_version.raw = u32(*off + 8);
+  return patch;
+}
+
 std::vector<XexImportLibrary> Xex::import_libraries() const {
   std::vector<XexImportLibrary> libs;
   auto off = opt_offset(xex_key::kImportLibraries);

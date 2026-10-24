@@ -75,6 +75,24 @@ std::string Xex(uint32_t title_id, uint32_t version = 0, uint32_t media_id = 0) 
   return x;
 }
 
+// A title update's default.xexp header: 'XEX2', headers 0x400 bytes, the security info at 0x200 (no
+// pages), one optional header (the delta patch descriptor, 0x000005FF) whose record holds its size,
+// the version it makes and the version it updates.
+std::string Xexp(uint32_t from, uint32_t to) {
+  std::string x(0x400, '\0');
+  PutBe(x, 0, 0x58455832);
+  PutBe(x, 0x04, 0x50);  // a delta patch
+  PutBe(x, 0x08, 0x400);
+  PutBe(x, 0x10, 0x200);
+  PutBe(x, 0x14, 1);
+  PutBe(x, 0x18, 0x000005FF);
+  PutBe(x, 0x1C, 0x100);
+  PutBe(x, 0x100, 0x60);
+  PutBe(x, 0x104, to);
+  PutBe(x, 0x108, from);
+  return x;
+}
+
 // The version a game was recompiled from (game.json's "xex").
 uint32_t Version(const CatalogGame& game) {
   uint32_t version = 0;
@@ -352,7 +370,13 @@ int main() {
                        {"58410B79\\000B0000\\tu00000002", 5}, {"TU_1C422RP", 5}, {"58410B79", 0, true}};
     ArchiveInfo info = ClassifyArchive(listing);
     CHECK(info.content_title == 0x58410B79 && info.arcade && !info.has_game);
-    CHECK((info.content_folders == std::vector<std::string>{"58410B79\\000D0000", "58410B79\\00000002"}));
+    // The title's content, its updates (both forms), not other titles'.
+    CHECK((info.content_folders == std::vector<std::string>{"58410B79\\000D0000", "58410B79\\00000002",
+                                                            "58410B79\\000B0000", "TU_1C422RP"}));
+    listing.entries.push_back({"4D5308ED\\000B0000\\tu00000001", 5});
+    listing.entries.push_back({"Updates\\tu_16L627D_0000", 5});
+    info = ClassifyArchive(listing);
+    CHECK(info.content_folders.size() == 5 && info.content_folders[4] == "Updates\\tu_16L627D_0000");
   }
 
   {  // Split archives open from their first part.
@@ -503,11 +527,34 @@ int main() {
     AnyxManifest twice = read;
     twice.files.push_back({"GAME/Default.xex", 1, Sha256("x")});
     CHECK(!CheckAnyxPaths(twice, bad));
-    CHECK(ReadAnyxManifest(R"({"format": "anyx", "format_version": 2, "written_by": "AnyX360 9"})", read) == AnyxRead::kNewer &&
+    CHECK(ReadAnyxManifest(R"({"format": "anyx", "format_version": 3, "written_by": "AnyX360 9"})", read) == AnyxRead::kNewer &&
           read.written_by == "AnyX360 9");
     CHECK(ReadAnyxManifest(R"({"format": "anyx", "format_version": 1})", read) == AnyxRead::kDamaged);
     CHECK(ReadAnyxManifest(R"({"name": "something else"})", read) == AnyxRead::kNotAnyx);
     CHECK(ReadAnyxManifest("not json", read) == AnyxRead::kNotAnyx);
+
+    // Format version 2: the title update, under update/<package>/.
+    AnyxManifest updated = m;
+    updated.format_version = 2;
+    updated.update = AnyxUpdate{"TU_PACKAGE", 2, 0x00000102};
+    updated.files.push_back({"update/TU_PACKAGE/default.xexp", 3, Sha256("tu!")});
+    const std::string json = WriteAnyxManifest(updated);
+    CHECK(json.find("\"format_version\": 2") != std::string::npos && json.find("\"base_version\": \"0.0.0.2\"") != std::string::npos);
+    CHECK(ReadAnyxManifest(json, read) == AnyxRead::kOk);
+    CHECK(read.format_version == 2 && read.update && read.update->package == "TU_PACKAGE" &&
+          read.update->base_version == 2 && read.update->version == 0x102 && read.files.size() == 3);
+    CHECK(CheckAnyxPaths(read, bad));
+    for (const char* path : {"update/OTHER/default.xexp", "update/default.xexp", "update/TU_PACKAGE/../x"}) {
+      AnyxManifest wrong = read;
+      wrong.files.push_back({path, 1, Sha256("x")});
+      CHECK(!CheckAnyxPaths(wrong, bad) && bad == path);
+    }
+    AnyxManifest no_update = m;  // update/ files without an update in the manifest
+    no_update.files.push_back({"update/TU_PACKAGE/default.xexp", 3, Sha256("tu!")});
+    CHECK(!CheckAnyxPaths(no_update, bad));
+    std::string v1 = json;
+    v1.replace(v1.find("\"format_version\": 2"), 19, "\"format_version\": 1");
+    CHECK(ReadAnyxManifest(v1, read) == AnyxRead::kDamaged);  // an update needs version 2
   }
 
   {  // The player's cover.
@@ -613,6 +660,82 @@ int main() {
     CHECK(outcome.message.id == kTextErrorContentNoGame && outcome.message.args[0] == g.title);
     CHECK(!Exists(sandbox / L"local" / L"AnyX360" / g.user_dir / L"content" / L"00000002" / L"DLCPACKAGE"));
     break;
+  }
+
+  // A game played with its title update (game.json "update", Kinect Adventures): the update is a
+  // package of type 0x000B0000, as <TitleID>\000B0000\tu... or the console cache's TU_... file. The
+  // game is ready only with it, of the version it names.
+  const CatalogGame* updated = nullptr;
+  for (const CatalogGame& g : kCatalog)
+    if (UsesTitleUpdate(g) && !updated) updated = &g;
+  uint32_t update_version = 0;
+  if (!updated) {
+    std::printf("SKIP title updates: no game of this build is played with one\n");
+  } else {
+    const CatalogGame& g = *updated;
+    CHECK(ParseXexVersion(g.update_version, update_version) && update_version != Version(g));
+    const std::wstring title = Hex32(g.title_id);
+    const auto tu = [&](uint32_t makes) {
+      return MakeStfs(x360tool::content_type::kInstaller, g.title_id,
+                      {{"default.xexp", Xexp(Version(g), makes)}, {"GfxUI.int", "strings"}});
+    };
+    const fs::path updates = player / L"Updates";
+    WriteFile(updates / L"TU_16L627D_000000C000000.0000000000083", tu(update_version));
+    WriteFile(updates / L"TU_OTHERVERSION", tu(update_version + 1));
+    const fs::path installed = TitleUpdateDir(g);
+    CHECK(installed.parent_path().filename() == L"000B0000" && installed.filename() == g.update_package);
+
+    // The copy without its update: added, not ready, and Play says how to add it.
+    const fs::path bare = player / L"Without update";
+    WriteCopy(bare / L"Disc", Copy(g));
+    Outcome added = Add(bare);
+    CHECK(added.message.id == kTextAddedFolder);
+    CHECK(!added.notes.empty() && added.notes.back().id == kTextNeedsUpdate && added.notes.back().args[1] == g.update_version);
+    CHECK(Entry(g).installed && Entry(g).needs_update && !TitleUpdateInstalled(g));
+    const Message refused = StartGame(Entry(g), nullptr);
+    CHECK(refused.id == kTextNeedsUpdate && refused.error);
+
+    // The update alone, as the cache's TU_ file: installed, the game is ready.
+    Outcome alone = Add(updates / L"TU_16L627D_000000C000000.0000000000083");
+    CHECK(alone.message.id == kTextAddedUpdate && !alone.message.error && alone.select == g.id);
+    CHECK(TitleUpdateInstalled(g) && !Entry(g).needs_update);
+    CHECK(TitleUpdateVersion(installed) == update_version && Exists(installed / L"GfxUI.int"));
+    // Another version: refused, and the one installed stays.
+    Outcome other = Add(updates / L"TU_OTHERVERSION");
+    CHECK(other.message.id == kTextErrorUpdateVersion && other.message.args[1] == XexVersionText(update_version + 1) &&
+          other.message.args[2] == g.update_version);
+    CHECK(TitleUpdateVersion(installed) == update_version && !Exists(fs::path(installed.wstring() + L".new")));
+    // Not a package that can be read.
+    WriteFile(updates / L"Damaged" / L"TU_DAMAGED", MakeStfs(x360tool::content_type::kInstaller, g.title_id, {{"x.bin", "x"}}));
+    CHECK(Add(updates / L"Damaged" / L"TU_DAMAGED").message.id == kTextErrorUpdateDamaged && TitleUpdateInstalled(g));
+
+    // The game removed: its update alone is refused until the game is back.
+    Remove(g);
+    RemoveAll(installed);
+    CHECK(Add(updates / L"TU_16L627D_000000C000000.0000000000083").message.id == kTextErrorUpdateNoGame);
+    CHECK(!TitleUpdateInstalled(g));
+
+    // A folder with the copy and both forms of update, one of another version: the right one is
+    // installed, the other noted.
+    const fs::path both = player / L"With update";
+    WriteCopy(both / L"Disc", Copy(g));
+    WriteFile(both / title / L"000B0000" / L"tu00000001_00000000", tu(update_version));
+    WriteFile(both / L"TU_OTHERVERSION", tu(update_version + 1));
+    Outcome with = Add(both);
+    CHECK(with.message.id == kTextAddedFolder);
+    bool noted_added = false, noted_other = false, noted_missing = false;
+    for (const Message& note : with.notes) {
+      noted_added |= note.id == kTextNoteUpdateAdded;
+      noted_other |= note.id == kTextNoteUpdateOther && note.args[0] == XexVersionText(update_version + 1);
+      noted_missing |= note.id == kTextNeedsUpdate;
+    }
+    CHECK(noted_added && noted_other && !noted_missing);
+    CHECK(TitleUpdateInstalled(g) && !Entry(g).needs_update);
+    Remove(g);
+    RemoveAll(installed);
+
+    // Its downloadable content needs no leaving out: the game is played with its update.
+    CHECK(!NeedsTitleUpdate(g, L"ANYPACKAGE"));
   }
 
   // A game with one pack that needs its title update (Kinect Joy Ride's Chevrolet Car Pack, named by
@@ -830,7 +953,7 @@ int main() {
       Outcome extra = Add(repack(manifest, sandbox / L"extra.anyx"));
       CHECK(extra.message.id == kTextErrorAnyxDamaged && extra.message.args[0] == L"game/extra.bin");
       fs::remove(unpacked / L"game" / L"extra.bin");
-      Outcome newer = Add(repack(replace(manifest, "\"format_version\": 1", "\"format_version\": 2"), sandbox / L"newer.anyx"));
+      Outcome newer = Add(repack(replace(manifest, "\"format_version\": 1", "\"format_version\": 3"), sandbox / L"newer.anyx"));
       CHECK(newer.message.id == kTextErrorAnyxNewer);
       Outcome version = Add(repack(replace(manifest, "\"version\": \"" + Narrow(game.xex_version) + "\"", "\"version\": \"9.9.9.9\""),
                                    sandbox / L"version.anyx"));
@@ -909,6 +1032,88 @@ int main() {
       }
       Remove(game);
       RemoveAll(content / L"00000002");
+    }
+
+    if (updated) {  // Title updates in archives, and in .anyx backups (format version 2).
+      const CatalogGame& g = *updated;
+      const std::wstring title = Hex32(g.title_id);
+      const fs::path installed = TitleUpdateDir(g), content = DownloadableContentDir(g);
+      const auto has_note = [](const Outcome& outcome, Text id) {
+        return std::any_of(outcome.notes.begin(), outcome.notes.end(), [&](const Message& m) { return m.id == id; });
+      };
+      // The game's package, its pack and the cache's TU_ file at the root (Kinect Adventures' Games on
+      // Demand archive has this layout).
+      const fs::path staged = sandbox / L"tu-archive";
+      WriteFile(staged / title / L"000D0000" / L"GAMEPACKAGE", MakeStfs(x360tool::content_type::kArcadeTitle, g.title_id, Copy(g)));
+      WriteFile(staged / title / L"00000002" / L"DLCPACKAGE",
+                MakeStfs(x360tool::content_type::kMarketplace, g.title_id, {{"songs/song.bin", "song"}}));
+      WriteFile(staged / L"TU_16L627D_000000C000000.0000000000083",
+                MakeStfs(x360tool::content_type::kInstaller, g.title_id,
+                         {{"default.xexp", Xexp(Version(g), update_version)}, {"GfxUI.int", "strings"}}));
+      const fs::path with_update = sandbox / L"with-update.7z";
+      CHECK(Run7z(L"a " + Quote(with_update) + L" " + Quote(staged / L"*")) == 0);
+      Outcome outcome = Add(with_update);
+      CHECK(outcome.message.id == kTextAddedContent && outcome.message.args[1] == L"1");
+      CHECK(has_note(outcome, kTextNoteUpdateAdded) && !has_note(outcome, kTextNeedsUpdate));
+      CHECK(Installed(g) && TitleUpdateInstalled(g) && Exists(installed / L"GfxUI.int") && Clean());
+
+      // Saved with its update (format version 2), removed, and added back with it.
+      const fs::path backup = sandbox / L"backups" / L"updated.anyx";
+      Observer saving;
+      CHECK(Run(saving, [&](Job& job) { return ExportAnyx(job, g, backup); }).message.id == kTextSaved);
+      ArchiveListing listing;
+      int code = 0;
+      CHECK(ListArchive(backup, std::nullopt, listing, code) == ArchiveError::kNone);
+      const std::string expected = "update\\" + Narrow(g.update_package) + "\\default.xexp";
+      CHECK(std::any_of(listing.entries.begin(), listing.entries.end(), [&](const ArchiveEntry& e) { return e.path == expected; }));
+      const fs::path unpacked = sandbox / L"updated-manifest";
+      CHECK(Run7z(L"x -o" + Quote(unpacked) + L" " + Quote(backup) + L" manifest.json") == 0);
+      std::ifstream in(unpacked / L"manifest.json", std::ios::binary);
+      const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+      AnyxManifest read;
+      CHECK(ReadAnyxManifest(text, read) == AnyxRead::kOk);
+      CHECK(read.format_version == 2 && read.update && read.update->package == Narrow(g.update_package) &&
+            read.update->base_version == Version(g) && read.update->version == update_version);
+      Remove(g);
+      RemoveAll(installed);
+      RemoveAll(content);
+      Outcome back = Add(backup);
+      CHECK(back.message.id == kTextAddedContent && has_note(back, kTextNoteUpdateAdded) && !has_note(back, kTextNeedsUpdate));
+      CHECK(Installed(g) && TitleUpdateInstalled(g) && TitleUpdateVersion(installed) == update_version && Clean());
+      CHECK(Exists(content / L"DLCPACKAGE" / L"songs" / L"song.bin"));
+      Remove(g);
+      RemoveAll(installed);
+      RemoveAll(content);
+
+      // A version 1 backup (saved before the game was played with its update): the copy and its
+      // content come back, and the missing update is said.
+      const fs::path old = sandbox / L"old-anyx";
+      AnyxManifest m;
+      m.written_by = "AnyX360 0.15.0";
+      m.id = Narrow(g.id);
+      m.title = Narrow(g.title);
+      m.title_id = g.title_id, m.version = Version(g), m.media_id = g.xex_media_id;
+      for (const auto& [path, data] : Copy(g)) {
+        WriteFile(old / L"game" / Widen(path), data);
+        m.files.push_back({"game/" + path, data.size(), Sha256(data)});
+      }
+      WriteFile(old / L"content" / L"DLCPACKAGE" / L"song.bin", "song");
+      m.files.push_back({"content/DLCPACKAGE/song.bin", 4, Sha256("song")});
+      m.content = {"DLCPACKAGE"};
+      const std::string v1 = WriteAnyxManifest(m);
+      CHECK(v1.find("\"format_version\": 1") != std::string::npos && v1.find("\"update\"") == std::string::npos);
+      WriteFile(old / L"manifest.json", v1);
+      const fs::path old_backup = sandbox / L"old.anyx";
+      CHECK(Run7z(L"a " + Quote(old_backup) + L" " + Quote(old / L"*")) == 0);
+      Outcome restored = Add(old_backup);
+      CHECK(restored.message.id == kTextAddedContent && !restored.notes.empty() && restored.notes.back().id == kTextNeedsUpdate);
+      CHECK(Installed(g) && !TitleUpdateInstalled(g) && Entry(g).needs_update && Clean());
+      // Its update added after: ready.
+      CHECK(Add(player / L"Updates" / L"TU_16L627D_000000C000000.0000000000083").message.id == kTextAddedUpdate);
+      CHECK(!Entry(g).needs_update);
+      Remove(g);
+      RemoveAll(installed);
+      RemoveAll(content);
     }
 
     {  // Cancelled before 7-Zip starts: it is ended as it starts, and nothing is left behind.

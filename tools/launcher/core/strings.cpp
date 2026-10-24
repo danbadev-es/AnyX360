@@ -74,7 +74,8 @@ const wchar_t* const kEnglish[] = {
     L"AnyX360 doesn't recognise that file as a game: choose your game's archive (.7z, .rar, .zip...), disc image "
     L"(.iso), Games on Demand or Xbox Live Arcade package, AnyX360 backup (.anyx), or the folder where it is.",
     L"That is downloadable content for {0}, not the game. Add the game first; its content can be added after.",
-    L"That is a title update. AnyX360 plays the game's own version: add the game instead.",
+    L"That is a title update of a game AnyX360 plays in its own version, without the update: add the game "
+    L"instead.",
     L"That is downloadable content for {0}, which this release doesn't play.",
     L"{1} downloadable content packs were added to {0}.",
     L"{0} title updates in the copy were left out (AnyX360 plays the game's own version).",
@@ -155,6 +156,16 @@ const wchar_t* const kEnglish[] = {
     L"Not enough space on {2}: {0} needed, {1} free.",
     L"{0} can't hold files over 4 GB (FAT32). Choose another drive, or one formatted as exFAT or NTFS.",
     L"{0} isn't in the library: add it first.",
+    L"{0} is played with its title update ({1}), which hasn't been added. Add it with Add game: the archive "
+    L"the game came in, or the update's TU_ file or package.",
+    L"{0}'s title update ({1}) was added: the game is ready.",
+    L"Its title update ({0}) was added too.",
+    L"A title update for version {0} was left out: AnyX360 plays version {1}.",
+    L"That title update makes {0} version {1}; AnyX360 plays version {2}, the one it was recompiled from. "
+    L"Add the update of that version.",
+    L"A title update couldn't be read: its package is damaged.",
+    L"That is {0}'s title update. Add the game first; its update can be added after.",
+    L"Needs its title update",
 };
 
 const wchar_t* const kSpanish[] = {
@@ -216,7 +227,8 @@ const wchar_t* const kSpanish[] = {
     L"su imagen de disco (.iso), su paquete Games on Demand o de Xbox Live Arcade, su copia de seguridad de AnyX360 "
     L"(.anyx), o la carpeta donde está.",
     L"Eso es contenido descargable de {0}, no el juego. Añade antes el juego; su contenido se puede añadir después.",
-    L"Eso es una actualización del título. AnyX360 juega a la versión del propio juego: añade el juego.",
+    L"Eso es una actualización del título de un juego al que AnyX360 juega en su propia versión, sin la "
+    L"actualización: añade el juego.",
     L"Eso es contenido descargable de {0}, que esta versión no juega.",
     L"Se han añadido {1} paquetes de contenido descargable a {0}.",
     L"Se han dejado fuera {0} actualizaciones del título que había en la copia (AnyX360 juega a la versión del "
@@ -298,6 +310,16 @@ const wchar_t* const kSpanish[] = {
     L"No hay espacio suficiente en {2}: hacen falta {0} y hay {1}.",
     L"{0} no admite archivos de más de 4 GB (FAT32). Elige otra unidad, o una con formato exFAT o NTFS.",
     L"{0} no está en la biblioteca: añádelo antes.",
+    L"{0} se juega con su actualización del título ({1}), que no se ha añadido. Añádela con Añadir juego: el "
+    L"archivo comprimido del que vino el juego, o el archivo TU_ o el paquete de la actualización.",
+    L"Se ha añadido la actualización del título de {0} ({1}): el juego está listo.",
+    L"También se ha añadido su actualización del título ({0}).",
+    L"Se ha dejado fuera una actualización del título para la versión {0}: AnyX360 juega a la versión {1}.",
+    L"Esa actualización del título deja {0} en la versión {1}; AnyX360 juega a la versión {2}, la que se "
+    L"recompiló. Añade la actualización de esa versión.",
+    L"No se ha podido leer una actualización del título: su paquete está dañado.",
+    L"Esa es la actualización del título de {0}. Añade antes el juego; su actualización se puede añadir después.",
+    L"Necesita su actualización del título",
 };
 static_assert(std::size(kEnglish) == kTextCount && std::size(kSpanish) == kTextCount);
 

@@ -322,7 +322,8 @@ void App::Load(std::wstring select) {
 
   compatible_.clear();
   for (const LibraryGame& game : games_)
-    compatible_.push_back({game.info->title, game.info, BoxArt(game.info->cover), game.installed, game.info->playable});
+    compatible_.push_back(
+        {game.info->title, game.info, BoxArt(game.info->cover), game.installed, game.info->playable, game.needs_update});
   for (const UpcomingGame& game : kUpcoming) compatible_.push_back({game.title, nullptr, BoxArt(game.cover)});
   host_.Invalidate();
 }
@@ -581,8 +582,8 @@ void App::DrawRow(Canvas& c) {
         TextStyle title = Style(17, DWRITE_FONT_WEIGHT_SEMI_LIGHT, kText, Align::kCenter, true);
         c.Text(lib.info->title, {r.x + 12, r.y + r.h * 0.22f + size + 18, r.w - 24, 52}, title);
       }
-      if (lib.location_gone) {
-        c.FillRect(r, Color::Hex(0x000000, 0.55f));
+      if (lib.location_gone || lib.needs_update) {
+        if (lib.location_gone) c.FillRect(r, Color::Hex(0x000000, 0.55f));
         c.FillCircle(r.right() - 22, r.y + 22, 12, kRed);
         c.Text(L"!", {r.right() - 34, r.y + 9, 24, 26}, Style(16, DWRITE_FONT_WEIGHT_BOLD, kText, Align::kCenter));
       }
@@ -617,6 +618,10 @@ void App::DrawDetails(Canvas& c) {
     if (lib.location_gone) {
       TextStyle gone = Style(15, DWRITE_FONT_WEIGHT_NORMAL, kRedText, Align::kStart, true);
       c.Text(Tr(kTextErrorLocationGone, {lib.info->title, ShortPath(lib.dir)}), {kMargin, y + 50, w, 42}, gone);
+    } else if (lib.needs_update) {
+      // Played with its title update, which hasn't been added: Play says how to add it.
+      TextStyle missing = Style(15, DWRITE_FONT_WEIGHT_NORMAL, kRedText, Align::kStart, true);
+      c.Text(Tr(kTextNeedsUpdate, {lib.info->title, lib.info->update_version}), {kMargin, y + 50, w, 42}, missing);
     } else {
       c.Text(Tr(lib.info->webcam ? kTextWebcam : kTextKeyboardPad), {kMargin, y + 50, w, 22},
              Style(15, DWRITE_FONT_WEIGHT_NORMAL, kTextSecondary));
@@ -746,10 +751,10 @@ void App::DrawDrawer(Canvas& c) {
     if (hover_ == id) c.FillRect(r, Color::Hex(0xFFFFFF, 0.07f));
     if (focus_ == id && focus_visible_) DrawFocus(c, r);
     c.Text(item.title, {r.x, r.bottom() + 6, r.w, 18}, Style(13, DWRITE_FONT_WEIGHT_SEMI_BOLD, item.game ? kText : kTextSecondary));
-    const Text status = !item.game ? kTextStatusComing : item.installed ? kTextStatusInLibrary
-                        : item.playable ? kTextStatusPlayable : kTextStatusTesting;
+    const Text status = !item.game ? kTextStatusComing : item.needs_update ? kTextStatusNeedsUpdate
+                        : item.installed ? kTextStatusInLibrary : item.playable ? kTextStatusPlayable : kTextStatusTesting;
     c.Text(Tr(status), {r.x, r.bottom() + 24, r.w, 16},
-           Style(12, DWRITE_FONT_WEIGHT_NORMAL, item.installed ? kGreenText : kTextTertiary));
+           Style(12, DWRITE_FONT_WEIGHT_NORMAL, item.needs_update ? kRedText : item.installed ? kGreenText : kTextTertiary));
   }
   c.PopClip();
 }

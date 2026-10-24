@@ -148,6 +148,14 @@ enum Text {
   kTextErrorSpaceOn,       // {0} needed, {1} free, {2} drive
   kTextErrorFat32,         // {0} drive
   kTextErrorNotInLibrary,  // {0} game
+  kTextNeedsUpdate,        // {0} game, {1} the update's version
+  kTextAddedUpdate,        // {0} game, {1} the update's version
+  kTextNoteUpdateAdded,    // {0} the update's version
+  kTextNoteUpdateOther,    // {0} the version the update makes, {1} the one AnyX360 plays
+  kTextErrorUpdateVersion,  // {0} game, {1} the version the update makes, {2} the one AnyX360 plays
+  kTextErrorUpdateDamaged,
+  kTextErrorUpdateNoGame,  // {0} game
+  kTextStatusNeedsUpdate,
   kTextCount
 };
 

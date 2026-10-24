@@ -251,13 +251,17 @@ bool LoadTitle(const TitleInfo& info) {
 
   std::unique_ptr<x360tool::Xex> xex;
   std::vector<uint8_t> image;
+  // The game folder's executable, or the one its title update makes (PrepareTitleUpdate).
+  const std::filesystem::path& path = info.image_path.empty() ? info.xex_path : info.image_path;
   try {
-    xex = std::make_unique<x360tool::Xex>(x360tool::read_file(info.xex_path));
+    xex = std::make_unique<x360tool::Xex>(x360tool::read_file(path));
     std::string used;
     image = xex->extract_image(LoadKey(info.key_path), &used);
-    KLOG_I("loaded %s (%zu bytes, key: %s)", info.xex_path.string().c_str(), image.size(), used.c_str());
+    const auto execution = xex->execution_info();
+    KLOG_I("loaded %s (%zu bytes, key: %s, version %s)", path.string().c_str(), image.size(), used.c_str(),
+           execution ? execution->version.str().c_str() : "?");
   } catch (const std::exception& e) {
-    KLOG_E("cannot load %s: %s", info.xex_path.string().c_str(), e.what());
+    KLOG_E("cannot load %s: %s", path.string().c_str(), e.what());
     return false;
   }
 

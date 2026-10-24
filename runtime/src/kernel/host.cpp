@@ -50,6 +50,42 @@ bool CheckTitleId(const fs::path& xex_path, const GameDescriptor& game) {
   return false;
 }
 
+// "a.b.c.d" as an execution info version; 0 if it isn't one.
+uint32_t ParseVersion(const char* text) {
+  unsigned major = 0, minor = 0, build = 0, qfe = 0;
+  if (std::sscanf(text, "%u.%u.%u.%u", &major, &minor, &build, &qfe) != 4) return 0;
+  return major << 28 | (minor & 0xF) << 24 | (build & 0xFFFF) << 8 | (qfe & 0xFF);
+}
+
+// A game recompiled from its title update: the update installed for the player (the launcher puts
+// it in <user>\content\000B0000\<package>), the game folder's XEX patched with it (cached), and the
+// folder to mount as update:\. False, with the reason printed, when it can't start.
+bool ApplyTitleUpdate(const GameDescriptor& game, kernel::TitleInfo& info) {
+  const fs::path folder = info.user_root / "content" / "000B0000" / game.update_package;
+  fs::path patch = folder / fs::path(game.xex_name).filename();
+  patch += "p";  // default.xex -> default.xexp, as Xenia finds it
+  if (!fs::exists(patch)) {
+    std::fprintf(stderr,
+                 "%s is played with its title update (version %s), which isn't installed: %s was not found.\n"
+                 "Add the update in the AnyX360 launcher (Add game: the archive the game came in, or the update's "
+                 "TU_ file or package), or put the update's files in %s.\n",
+                 game.title_name, game.update_version, patch.string().c_str(), folder.string().c_str());
+    return false;
+  }
+  const kernel::PreparedUpdate prepared =
+      kernel::PrepareTitleUpdate(info.xex_path, patch, ParseVersion(game.update_version), info.user_root / "cache" / "patched");
+  if (prepared.xex.empty()) {
+    std::fprintf(stderr, "%s: the title update in %s can't be applied to %s: %s.\n", game.title_name,
+                 folder.string().c_str(), info.xex_path.string().c_str(), prepared.error.c_str());
+    return false;
+  }
+  std::printf("  update: %s (version %s, %s)\n", folder.string().c_str(), game.update_version,
+              prepared.cached ? "cached" : "patched now");
+  info.image_path = prepared.xex;
+  info.update_root = folder;
+  return true;
+}
+
 }  // namespace
 
 int RunHost(int argc, char** argv, const GameDescriptor& game) {
@@ -131,6 +167,7 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
     return 1;
   }
   if (!CheckTitleId(info.xex_path, game)) return 1;
+  if (*game.update_package && !ApplyTitleUpdate(game, info)) return 1;
 
   info.restarted = restarted_from != 0;
   if (restarted_from) {

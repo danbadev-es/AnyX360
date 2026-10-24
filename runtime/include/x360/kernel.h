@@ -350,6 +350,12 @@ bool DeliverUserApcs();
 
 struct TitleInfo {
   std::filesystem::path xex_path;     // default.xex (GameDescriptor::xex_name)
+  // The executable loaded: xex_path, or for a game recompiled from its title update the base
+  // patched with the update (PrepareTitleUpdate), cached in <user>\cache\patched. Empty: xex_path.
+  std::filesystem::path image_path;
+  // The title update's folder (<user>\content\000B0000\<package>), mounted read-only as update:\.
+  // Empty: none.
+  std::filesystem::path update_root;
   std::filesystem::path game_root;    // folder mounted as game:\ and d:\ (contains default.xex)
   std::filesystem::path user_root;    // writable folder for hdd, cache and saves
   std::filesystem::path key_path;     // keys/xex2_retail.key
@@ -403,6 +409,19 @@ uint32_t GuestAddressOf(PPCFunc* host);
 
 // Entry point used by game executables: loads the title and runs its main thread.
 int Run(const TitleInfo& info);
+
+// A title update applied at start (title_update.cpp): `base` (the game folder's XEX) patched with
+// `patch` (the update's .xexp), cached in `cache_dir` as <name>-<hash of base>-<hash of patch>.xex,
+// so later starts load the cached file without patching again (older ones of that name are
+// removed). The patch must update `base`'s version to `version` (major << 28 | minor << 24 |
+// build << 8 | qfe; 0: any).
+struct PreparedUpdate {
+  std::filesystem::path xex;  // the updated executable, on success
+  bool cached = false;        // found in the cache
+  std::string error;          // else why not
+};
+PreparedUpdate PrepareTitleUpdate(const std::filesystem::path& base, const std::filesystem::path& patch,
+                                  uint32_t version, const std::filesystem::path& cache_dir);
 
 // Subsystems started by the loader.
 void InstallCrashHandler();

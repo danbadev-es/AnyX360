@@ -62,6 +62,9 @@ std::vector<FoundPackage> FindPackages(const fs::path& folder);
 bool IsGamesOnDemand(const FoundPackage& package);
 bool IsArcadeGame(const FoundPackage& package);
 bool IsDownloadableContent(const FoundPackage& package, uint32_t title_id);
+// A title update of `title_id` (content type 0x000B0000), in either form: <TitleID>\000B0000\tu...
+// or the console cache's TU_... file.
+bool IsTitleUpdate(const FoundPackage& package, uint32_t title_id);
 
 // The first Games on Demand package in `folder`, or empty.
 fs::path FindGamesOnDemand(const fs::path& folder, x360tool::ContentPackage* package = nullptr);

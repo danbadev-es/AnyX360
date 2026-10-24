@@ -1,7 +1,7 @@
 # The `.anyx` format
 
 **Status:** implemented in 0.14.0 (format version 1). Evaluated on 2026-10-20 and implemented on
-2026-10-23.
+2026-10-23. Format version 2 (0.16.0) adds the title update a game is played with.
 
 ## The idea
 A `.anyx` file is one file per prepared game. The launcher writes it from a copy it has already
@@ -33,11 +33,13 @@ manifest.json           written by the launcher, described below
 game\...                the prepared copy, as in games\<id>\game (the folder holding default.xex)
 content\<package>\...   each downloadable content package, extracted as the launcher installs it
                         (%LOCALAPPDATA%\AnyX360\<game>\content\00000002\<package>)
+update\<package>\...    format version 2: the title update the game is played with, extracted as
+                        the launcher installs it (...\content\000B0000\<package>)
 ```
 
 What is never in it:
 - **Saves.** They live in `content\00000001`, next to the packages, and are never taken.
-- **Title updates.** AnyX360 plays the base executable.
+- **Title updates of games played without one**, and other versions of a game's update.
 - **The rest:** settings, keys, covers and icons.
 
 What is left out of the copy:
@@ -81,6 +83,10 @@ UTF-8 JSON (it can be read with `7z e -so <file> manifest.json`):
 - **`game`**: the catalog's ID and title, and `default.xex`'s execution info: the title ID, the
   version and the media ID.
 - **`content`**: the downloadable content packages, by their folder names.
+- **`update`** (format version 2, only when the backup has one): the title update's `package` (its
+  folder name), the `base_version` it updates (`default.xex`'s) and the `version` it makes:
+  `"update": {"package": "TU_16L627D_000000C000000.0000000000083", "base_version": "0.0.0.3",
+  "version": "0.0.1.3"}`. Its files are under `update/<package>/`.
 - **`folders`**: the empty folders.
 - **`files`**: every file, with its size and its SHA-256 (lowercase hex), sorted by path, with `/`
   between folders.
@@ -92,13 +98,16 @@ UTF-8 JSON (it can be read with `7z e -so <file> manifest.json`):
 2. **The output.** It can't be inside the launcher's `games` folder (removing or preparing the game
    again would delete it), nor inside the copy.
 3. **What goes in.** The copy, plus each package in `…\content\00000002` that has files and that the
-   game takes (`NeedsTitleUpdate`: Black Ops II's and Modern Warfare 3's are never taken).
+   game takes (`NeedsTitleUpdate`: Black Ops II's and Modern Warfare 3's are never taken), plus, for
+   a game played with its title update, the update installed in `…\content\000B0000\<package>`.
+   - **The format version written:** 2 when the backup has an update, else 1, so earlier releases
+     still read backups of games without one.
 4. **The checks.** Room on the output's drive, and refusal on a FAT32 drive when the backup is over
    4 GB.
 5. **Hashing.** Every file is hashed: 0-30 % of the progress.
 6. **Staging.** 7-Zip writes the archive in one pass from two places: a staging folder
-   (`games\.work\export`) holds `manifest.json`, an NTFS junction `game` → the copy, and
-   `content\<package>` junctions → each package.
+   (`games\.work\export`) holds `manifest.json`, an NTFS junction `game` → the copy,
+   `content\<package>` junctions → each package, and an `update\<package>` junction → the update.
    - **The list.** A list (`files.lst`) names the manifest, then every file and empty folder by its
      relative path. Each item is a file path, so 7-Zip opens the files through the junctions and
      stores plain entries.
@@ -120,11 +129,12 @@ UTF-8 JSON (it can be read with `7z e -so <file> manifest.json`):
 1. **Recognising it.** An archive is recognised by its listing, whatever its name: `manifest.json`
    (under 16 MB) and `game\default.xex` at the root. The manifest is extracted alone first.
    - Without `"format": "anyx"`, it is an ordinary archive and goes on as one.
-   - A `format_version` above 1 is refused: "saved by a newer AnyX360".
+   - A `format_version` above 2 is refused: "saved by a newer AnyX360". Releases before 0.16.0
+     refuse version 2 files the same way.
 2. **The checks, before anything big is extracted:**
    - **The game:** the title ID must be one of this release's games, of the version it plays.
-   - **The paths:** every path must be relative, under `game/` or a listed package's folder, with no
-     `..` and no drive letter.
+   - **The paths:** every path must be relative, under `game/`, a listed package's folder or the
+     update's (`update/<package>/`), with no `..` and no drive letter.
    - **The listing:** the archive must hold exactly the manifest's files, of their sizes.
 3. **Asking and space.** Replacing a game already in the library is asked first. Room is checked on
    the release's drive and on `%LOCALAPPDATA%`'s drive.
@@ -137,7 +147,13 @@ UTF-8 JSON (it can be read with `7z e -so <file> manifest.json`):
 7. **The packages.** Each package replaces its folder in
    `%LOCALAPPDATA%\AnyX360\<game>\content\00000002`, unless this release leaves it out (a pack
    that needs the title update): those are counted and noted.
-8. **The saves** in `00000001` are never touched.
+8. **The title update** (version 2) replaces `%LOCALAPPDATA%\AnyX360\<game>\content\000B0000\<package>`
+   (the package name the game's `game.json` gives) if it is the version the game is played with.
+   Another version is noted and left out, and so is an update of a game played without one.
+9. **Without its update.** A backup of a game played with its title update that doesn't have it (a
+   version 1 file, saved before the game was played with it) brings back the copy and its content,
+   then says the update is missing and how to add it: the game isn't ready until it is added.
+10. **The saves** in `00000001` are never touched.
 
 ## Versions and compatibility
 - **The pinned version.** Every game's `game.json` names the version and media ID of the executable
@@ -145,14 +161,19 @@ UTF-8 JSON (it can be read with `7z e -so <file> manifest.json`):
 - **Why.** A copy of another version has other code, even under the same title ID: an update, or a
   re-release. For example, the Kinect Sports Ultimate Collection's first disc is Kinect Sports
   version 6, while AnyX360 plays version 2.
+- **Title updates.** A game recompiled from its title update keeps `"xex"` as the disc's version
+  (what the copy holds) and names the update: `"update": {"version": "0.0.1.3", "package":
+  "<package>"}`. The update's version is checked when it is installed, from its `default.xexp`'s
+  delta patch descriptor, and in a backup's manifest.
 - **Where it is checked.** The launcher refuses another version wherever it identifies a copy: a
   folder, an archive's probe (before the big extraction), a disc image, an `.anyx`'s manifest and its
   extracted `default.xex`. Other executables in the copy (multiplayer's `default_mp.xex`) must be the
   same version too.
 - **The media ID is recorded, not enforced:** other pressings of the same version share the code.
 - **The manifest's format version.**
-  - Readers ignore keys they don't know, so a later 1.x writer can add some.
-  - A change older readers would get wrong raises `format_version`, and they refuse the file.
+  - Readers ignore keys they don't know, so a later writer can add some.
+  - A change older readers would get wrong raises `format_version`, and they refuse the file. Version
+    2 added `update/` files, which a version 1 reader would take for damage.
 
 ## Limits
 - **Size:** a backup is about the size of the copy and its content (0.1-8 GB for the current

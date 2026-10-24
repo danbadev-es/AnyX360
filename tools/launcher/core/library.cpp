@@ -4,6 +4,7 @@
 #include <cwctype>
 
 #include "core/catalog.h"
+#include "core/install.h"
 #include "util.h"
 #include "xdbf.h"
 #include "xex.h"
@@ -26,6 +27,7 @@ std::vector<LibraryGame> ReadLibrary() {
       game.location_gone = !Exists(game.dir / L"default.xex");
     }
     if (game.installed) {
+      game.needs_update = !TitleUpdateInstalled(info);
       if (Exists(IconFile(info))) game.icon = IconFile(info);
       game.cover = CoverFile(info);
       game.needs_icon = game.icon.empty() && !game.location_gone;

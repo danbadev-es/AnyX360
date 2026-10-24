@@ -87,6 +87,12 @@ struct XexExecutionInfo {
   uint32_t savegame_id = 0;
 };
 
+// A title update's delta patch descriptor (optional header 0x000005FF of a default.xexp): the
+// version of the executable it updates and the version it makes.
+struct XexDeltaPatch {
+  XexVersion source_version, target_version;
+};
+
 struct XexBlock {
   uint32_t data_size = 0;
   uint32_t zero_size = 0;
@@ -135,6 +141,8 @@ class Xex {
   std::optional<uint32_t> entry_point() const { return opt_value(xex_key::kEntryPoint); }
   XexFileFormat file_format() const;
   std::optional<XexExecutionInfo> execution_info() const;
+  // A patch's descriptor (a title update's default.xexp); nullopt for an executable.
+  std::optional<XexDeltaPatch> delta_patch() const;
   std::vector<XexImportLibrary> import_libraries() const;
   std::vector<XexStaticLibrary> static_libraries() const;
   std::optional<std::string> original_pe_name() const;

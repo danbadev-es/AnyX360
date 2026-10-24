@@ -291,10 +291,21 @@ ArchiveInfo ClassifyArchive(const ArchiveListing& listing) {
     if (info.content_title) break;
   }
   if (info.content_title) {
+    for (const char* type : {"00000002", "000b0000"}) {
+      for (const ArchiveEntry& e : listing.entries) {
+        uint32_t title = 0;
+        std::string folder;
+        if (ParseContentPath(e.path, type, title, folder) && title == info.content_title) add_folder(folder);
+      }
+    }
+    // Title updates as the console's cache keeps them: TU_<...> files, of whichever title (their
+    // header says; the copy's own is installed, others are noted).
     for (const ArchiveEntry& e : listing.entries) {
-      uint32_t title = 0;
-      std::string folder;
-      if (ParseContentPath(e.path, "00000002", title, folder) && title == info.content_title) add_folder(folder);
+      if (e.folder) continue;
+      const size_t slash = e.path.find_last_of("\\/");
+      const std::string name = slash == std::string::npos ? e.path : e.path.substr(slash + 1);
+      if (name.size() > 3 && (name[0] == 'T' || name[0] == 't') && (name[1] == 'U' || name[1] == 'u') && name[2] == '_')
+        add_folder(e.path);
     }
   }
   return info;

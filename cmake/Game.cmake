@@ -16,8 +16,8 @@
 # follows. Targets without generated sources are skipped.
 #
 # Generates game_info.h per target (namespace game_info: kTitle, kUserDir, kDevGameDir, kTitleId,
-# kXexName, kExecutables) for the host sources, and registers the game with the launcher
-# (cmake/Launcher.cmake).
+# kXexName, kExecutables, kUpdateVersion, kUpdatePackage) for the host sources, and registers the
+# game with the launcher (cmake/Launcher.cmake).
 function(anyx360_add_game id)
   cmake_parse_arguments(GAME "" "" "SOURCES" ${ARGN})
   _anyx360_read_game_json(json)
@@ -58,6 +58,13 @@ function(_anyx360_add_game_target target id xex exe config_path)
   string(JSON user_dir GET "${json}" user_dir)
   string(JSON title_id GET "${json}" title_id)
   string(JSON dev_game_dir GET "${json}" dev_game_dir)
+  # Optional: "update": {"version", "package"}, the title update the game is recompiled from.
+  string(JSON update_version ERROR_VARIABLE no_update GET "${json}" update version)
+  string(JSON update_package ERROR_VARIABLE no_update_package GET "${json}" update package)
+  if(no_update OR no_update_package)
+    set(update_version "")
+    set(update_package "")
+  endif()
 
   string(TOUPPER ${target} TARGET_UPPER)
   if(DEFINED ${TARGET_UPPER}_PPC_DIR)
@@ -127,6 +134,9 @@ inline constexpr uint32_t kTitleId = 0x${title_id};
 inline constexpr char kXexName[] = \"${xex}\";
 // Every executable of the title: {XEX, host executable without .exe}, next to each other.
 inline constexpr const char* kExecutables[][2] = {${executables}};
+// The title update it is recompiled from (GameDescriptor::update_package): empty for none.
+inline constexpr char kUpdateVersion[] = \"${update_version}\";
+inline constexpr char kUpdatePackage[] = \"${update_package}\";
 }  // namespace game_info
 ")
 

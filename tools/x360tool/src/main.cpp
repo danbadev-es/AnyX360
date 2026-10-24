@@ -7,6 +7,10 @@
 //   xex-extract <file.xex> <out.bin> [--key <file>]
 //                                             Decrypt + decompress the PE image and write
 //                                             <out.bin>.imports.txt and <out.bin>.sections.txt
+//   xex-patch   <file.xex> <file.xexp> <out.xex>
+//                                             Apply a title update's patch (default.xexp) to its
+//                                             executable: the updated XEX, unencrypted and
+//                                             uncompressed (what XenonRecomp reads)
 //   xex-icon    <file.xex> <out.png> [--key <file>]
 //                                             Write the title image (the dashboard icon)
 //   content-info <package>                    A content package's header and contents
@@ -54,6 +58,7 @@
 #include "x360/endian.h"
 #include "xdvdfs.h"
 #include "xex.h"
+#include "xex_patch.h"
 
 using namespace x360tool;
 
@@ -67,6 +72,7 @@ int usage() {
       "  x360tool iso-extract <image.iso> <out_dir> [path ...]\n"
       "  x360tool xex-info    <default.xex>\n"
       "  x360tool xex-extract <default.xex> <out.bin> [--key <xex2_retail.key>]\n"
+      "  x360tool xex-patch   <default.xex> <default.xexp> <out.xex>\n"
       "  x360tool xex-icon    <default.xex> <out.png> [--key <xex2_retail.key>]\n"
       "  x360tool content-info <package>\n"
       "  x360tool god-extract <header> <out_dir> [path ...]\n"
@@ -229,6 +235,11 @@ int cmd_xex_info(const fs::path& path) {
     std::printf("disc:             %u of %u\n", e->disc_number, e->disc_count);
     std::printf("savegame id:      %08X\n", e->savegame_id);
   }
+  if (auto patch = xex.delta_patch()) {
+    std::printf("\n== Delta patch (title update) ==\n");
+    std::printf("updates version:  %s\n", patch->source_version.str().c_str());
+    std::printf("to version:       %s\n", patch->target_version.str().c_str());
+  }
 
   if (auto v = xex.opt_value(xex_key::kDefaultStackSize)) std::printf("default stack:    0x%X\n", *v);
   if (auto v = xex.opt_value(xex_key::kDefaultHeapSize)) std::printf("default heap:     0x%X\n", *v);
@@ -339,6 +350,26 @@ int cmd_xex_extract(const fs::path& path, const fs::path& out, const std::option
   fs::path imports = out;
   imports += ".imports.txt";
   write_imports(xex, img, imports);
+  return 0;
+}
+
+// A title update applied: the base executable and its default.xexp make the updated executable
+// (unencrypted, uncompressed), which the recompiler reads.
+int cmd_xex_patch(const fs::path& base_path, const fs::path& patch_path, const fs::path& out) {
+  const std::vector<uint8_t> base = read_file(base_path), patch = read_file(patch_path);
+  const auto descriptor = Xex(patch).delta_patch();
+  if (!descriptor) throw Error(patch_path.string() + " is not a title update's patch");
+  const auto from = Xex(base).execution_info();
+  std::printf("patch:            %s -> %s\n", descriptor->source_version.str().c_str(),
+              descriptor->target_version.str().c_str());
+  if (from) std::printf("executable:       %s\n", from->version.str().c_str());
+  std::vector<uint8_t> patched;
+  std::string error;
+  if (!apply_xex_patch(base, patch, patched, error)) throw Error("cannot apply the patch: " + error);
+  write_file(out, patched);
+  const auto to = Xex(patched).execution_info();
+  std::printf("wrote %s (%s, version %s)\n", out.string().c_str(), fmt_size(patched.size()).c_str(),
+              to ? to->version.str().c_str() : "?");
   return 0;
 }
 
@@ -537,6 +568,7 @@ int main(int argc, char** argv) {
       }
       return cmd_xex_extract(argv[2], argv[3], key);
     }
+    if (cmd == "xex-patch" && argc >= 5) return cmd_xex_patch(argv[2], argv[3], argv[4]);
     if (cmd == "xex-icon" && argc >= 4) {
       std::optional<fs::path> key;
       for (int i = 4; i + 1 < argc; ++i) {

@@ -111,6 +111,7 @@ class App : public JobObserver {
     fs::path cover;
     bool installed = false;
     bool playable = false;
+    bool needs_update = false;  // in the library without the title update it is played with
   };
 
   // Drawing (and laying out the targets).

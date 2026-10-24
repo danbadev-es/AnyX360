@@ -74,8 +74,9 @@ bool ParseContentPath(const std::string& name, const char* type_folder, uint32_t
 struct ArchiveInfo {
   bool has_game = false;  // contains default.xex
   // Console HDD content (<TitleID>\00007000\<package> for Games on Demand, <TitleID>\000D0000\
-  // for Xbox Live Arcade): its title, and the folders to extract (the package and the title's
-  // downloadable content, not other titles' demos or updates).
+  // for Xbox Live Arcade): its title, and the folders (and files) to extract: the package, the
+  // title's downloadable content and title updates (<TitleID>\000B0000\, and the cache's TU_ files),
+  // not other titles' demos or content.
   uint32_t content_title = 0;
   bool arcade = false;
   std::vector<std::string> content_folders;

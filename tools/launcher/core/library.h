@@ -16,6 +16,8 @@ struct LibraryGame {
   bool installed = false;
   fs::path dir;                // the folder holding default.xex
   bool location_gone = false;  // added from a folder that is no longer there
+  // Played with its title update (game.json "update"), which isn't installed: it doesn't start.
+  bool needs_update = false;
   fs::path icon;               // games\<id>\icon.png, once read from default.xex
   fs::path cover;              // the player's cover, if they chose one
   // Added before icons were read: SaveIcon(*info, dir) reads it (slow, off the UI thread).

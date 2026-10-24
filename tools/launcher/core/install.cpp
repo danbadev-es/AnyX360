@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cwctype>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -16,6 +17,7 @@
 #include "stfs.h"
 #include "svod.h"
 #include "xdvdfs.h"
+#include "xex.h"
 
 namespace anyx360::launcher {
 
@@ -142,6 +144,7 @@ bool ExtractVolume(Job& job, x360tool::XdvdfsImage& image, const fs::path& out, 
 }
 
 bool NeedsTitleUpdate(const CatalogGame& game, const fs::path& package) {
+  if (UsesTitleUpdate(game)) return false;  // played with it: its packs are too
   if (!game.content) return true;
   const std::wstring name = package.filename().wstring();
   const std::wstring_view list = game.content_needs_update ? game.content_needs_update : L"";
@@ -179,6 +182,93 @@ int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::pa
   return installed;
 }
 
+fs::path TitleUpdateDir(const CatalogGame& game) {
+  return LocalAppData() / L"AnyX360" / game.user_dir / L"content" / L"000B0000" / game.update_package;
+}
+
+bool UsesTitleUpdate(const CatalogGame& game) { return game.update_package && *game.update_package; }
+
+bool TitleUpdateInstalled(const CatalogGame& game) {
+  return !UsesTitleUpdate(game) || Exists(TitleUpdateDir(game) / L"default.xexp");
+}
+
+uint32_t TitleUpdateVersion(const fs::path& folder) {
+  // The headers are enough: the descriptor is one of them (the patch's data can be large).
+  std::ifstream in(folder / L"default.xexp", std::ios::binary);
+  std::vector<uint8_t> header(0x18);
+  if (!in.read(reinterpret_cast<char*>(header.data()), std::streamsize(header.size()))) return 0;
+  const uint32_t size = uint32_t(header[8]) << 24 | uint32_t(header[9]) << 16 | uint32_t(header[10]) << 8 | header[11];
+  if (size < 0x18 || size > (16u << 20)) return 0;
+  header.resize(size);
+  if (!in.read(reinterpret_cast<char*>(header.data()) + 0x18, std::streamsize(size - 0x18))) return 0;
+  try {
+    const auto patch = x360tool::Xex(std::move(header)).delta_patch();
+    return patch ? patch->target_version.raw : 0;
+  } catch (const std::exception&) {
+    return 0;
+  }
+}
+
+UpdateResult InstallTitleUpdate(const CatalogGame& game, const fs::path& package, uint32_t& version) {
+  version = 0;
+  const fs::path destination = TitleUpdateDir(game);
+  // Extracted beside it first: an update already installed stays until this one is checked.
+  fs::path staged = destination;
+  staged += L".new";
+  RemoveAll(staged);
+  try {
+    x360tool::StfsPackage stfs(package);
+    for (const x360tool::StfsEntry& e : stfs.entries())
+      if (!e.is_dir) stfs.extract(e, staged / x360tool::utf8_path(e.path));
+  } catch (const std::exception&) {
+    RemoveAll(staged);
+    return UpdateResult::kDamaged;
+  }
+  version = TitleUpdateVersion(staged);
+  uint32_t expected = 0;
+  ParseXexVersion(game.update_version, expected);
+  if (!version || version != expected) {
+    RemoveAll(staged);
+    return version ? UpdateResult::kOtherVersion : UpdateResult::kDamaged;
+  }
+  RemoveAll(destination);
+  std::error_code ec;
+  fs::rename(staged, destination, ec);
+  if (ec) {
+    RemoveAll(staged);
+    return UpdateResult::kDamaged;
+  }
+  return UpdateResult::kInstalled;
+}
+
+void InstallTitleUpdates(const CatalogGame& game, const std::vector<fs::path>& packages, Outcome& outcome) {
+  if (!UsesTitleUpdate(game)) {
+    if (!packages.empty()) outcome.notes.push_back({kTextNoteUpdatesSkipped, {std::to_wstring(packages.size())}, false});
+    return;
+  }
+  bool installed = false, damaged = false;
+  std::vector<uint32_t> others;
+  for (const fs::path& package : packages) {
+    uint32_t version = 0;
+    switch (InstallTitleUpdate(game, package, version)) {
+      case UpdateResult::kInstalled:  // the same update in two forms (TU_ and 000B0000) is installed twice
+        installed = true;
+        break;
+      case UpdateResult::kOtherVersion:
+        if (std::find(others.begin(), others.end(), version) == others.end()) others.push_back(version);
+        break;
+      case UpdateResult::kDamaged:
+        damaged = true;
+        break;
+    }
+  }
+  if (installed) outcome.notes.push_back({kTextNoteUpdateAdded, {game.update_version}, false});
+  for (uint32_t version : others)
+    outcome.notes.push_back({kTextNoteUpdateOther, {XexVersionText(version), game.update_version}, false});
+  if (damaged && !installed) outcome.notes.push_back({kTextErrorUpdateDamaged, {}, false});
+  if (!TitleUpdateInstalled(game)) outcome.notes.push_back({kTextNeedsUpdate, {game.title, game.update_version}, false});
+}
+
 void InstallAvatarPack(const fs::path& game_root) {
   const fs::path package = game_root / x360tool::kAvatarPackPackage;
   if (!Exists(package)) return;
@@ -198,24 +288,25 @@ Outcome InstallExtracted(Job& job, const CatalogGame& game, const fs::path& extr
   SaveIcon(game, ExtractedDir(game));
   InstallAvatarPack(ExtractedDir(game));
   Outcome outcome{{kTextAdded, {game.title}, false}, game.id};
-  if (content_source.empty()) return outcome;
-  std::vector<fs::path> content;
-  int updates = 0, other = 0, needs_update = 0;
-  for (const FoundPackage& package : FindPackages(content_source)) {
-    if (IsDownloadableContent(package, game.title_id)) {
-      // Packs that need the title update (which isn't played) are left out.
-      if (NeedsTitleUpdate(game, package.path)) ++needs_update;
-      else content.push_back(package.path);
-    } else if (package.header.content_type == x360tool::content_type::kInstaller) {
-      ++updates;
-    } else if (package.header.title_id != game.title_id) {
-      ++other;
+  std::vector<fs::path> content, updates;
+  int other = 0, needs_update = 0;
+  if (!content_source.empty()) {
+    for (const FoundPackage& package : FindPackages(content_source)) {
+      if (IsDownloadableContent(package, game.title_id)) {
+        // Packs that need the title update (which isn't played) are left out.
+        if (NeedsTitleUpdate(game, package.path)) ++needs_update;
+        else content.push_back(package.path);
+      } else if (IsTitleUpdate(package, game.title_id)) {
+        updates.push_back(package.path);
+      } else if (package.header.title_id != game.title_id) {
+        ++other;
+      }
     }
   }
   if (int installed = InstallDownloadableContent(game, content))
     outcome.message = {kTextAddedContent, {game.title, std::to_wstring(installed)}, false};
   if (needs_update) outcome.notes.push_back({kTextNoteContentSkipped, {std::to_wstring(needs_update)}, false});
-  if (updates) outcome.notes.push_back({kTextNoteUpdatesSkipped, {std::to_wstring(updates)}, false});
+  InstallTitleUpdates(game, updates, outcome);
   if (other) outcome.notes.push_back({kTextNoteOtherContent, {std::to_wstring(other)}, false});
   return outcome;
 }

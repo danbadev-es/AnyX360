@@ -26,8 +26,31 @@ target_include_directories(x360_formats PUBLIC src PRIVATE ${ANYX360_THIRDPARTY}
 target_link_libraries(x360_formats PUBLIC x360_runtime mspack_lzxd bcrypt)
 target_compile_definitions(x360_formats PRIVATE _CRT_SECURE_NO_WARNINGS)
 
+# Title updates (src/xex_patch.h): XenonRecomp's XEX patcher, shared by x360tool and the runtime.
+# XenonUtils' headers stay private to it (XenonUtils has an xex.h of its own).
+set(XENON_RECOMP_DIR ${ANYX360_THIRDPARTY}/XenonRecomp)
+add_library(x360_xex_patch STATIC
+  src/xex_patch.cpp
+  ${XENON_RECOMP_DIR}/XenonUtils/xex_patcher.cpp
+  ${XENON_RECOMP_DIR}/XenonUtils/memory_mapped_file.cpp
+  ${XENON_RECOMP_DIR}/thirdparty/tiny-AES-c/aes.c
+)
+target_include_directories(x360_xex_patch
+  PUBLIC src
+  PRIVATE
+    ${XENON_RECOMP_DIR}/XenonUtils
+    ${XENON_RECOMP_DIR}/thirdparty/tiny-AES-c
+    ${XENON_RECOMP_DIR}/thirdparty/TinySHA1
+    ${XENON_RECOMP_DIR}/thirdparty/simde)
+target_link_libraries(x360_xex_patch PUBLIC mspack_lzxd)
+target_compile_definitions(x360_xex_patch PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set_source_files_properties(${XENON_RECOMP_DIR}/XenonUtils/xex_patcher.cpp ${XENON_RECOMP_DIR}/XenonUtils/memory_mapped_file.cpp
+    ${XENON_RECOMP_DIR}/thirdparty/tiny-AES-c/aes.c PROPERTIES COMPILE_OPTIONS -w)
+endif()
+
 add_executable(x360tool src/main.cpp)
-target_link_libraries(x360tool PRIVATE x360_formats ui_wic)
+target_link_libraries(x360tool PRIVATE x360_formats x360_xex_patch ui_wic)
 target_compile_definitions(x360tool PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 find_package(Python3 COMPONENTS Interpreter)

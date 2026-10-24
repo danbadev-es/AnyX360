@@ -745,6 +745,12 @@ void InitIo(const TitleInfo& info) {
   AddLink("cache:", "\\Device\\Harddisk0\\Cache0");
   KLOG_I("game:\\ -> %s", info.game_root.string().c_str());
   KLOG_I("hdd:\\  -> %s", (info.user_root / "hdd").string().c_str());
+  // The title update's files (as Xenia's UPDATE:), read-only.
+  if (!info.update_root.empty()) {
+    AddDevice("\\Device\\Update", info.update_root, true);
+    AddLink("update:", "\\Device\\Update");
+    KLOG_I("update:\\ -> %s", info.update_root.string().c_str());
+  }
 }
 
 // Used by XAM content functions to mount save folders.

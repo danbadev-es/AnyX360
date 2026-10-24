@@ -142,6 +142,8 @@ class Staging {
     return Link(L"game", copy);
   }
   bool Link(const fs::path& relative, const fs::path& target) {
+    std::error_code ec;
+    fs::create_directories((dir_ / relative).parent_path(), ec);
     if (!CreateJunction(dir_ / relative, target)) return false;
     links_.push_back(dir_ / relative);
     return true;
@@ -181,6 +183,14 @@ std::string WriteAnyxManifest(const AnyxManifest& m) {
   w.StartArray();
   for (const std::string& package : m.content) w.String(package.c_str());
   w.EndArray();
+  if (m.update) {
+    w.Key("update");
+    w.StartObject();
+    w.Key("package"), w.String(m.update->package.c_str());
+    w.Key("base_version"), w.String(Narrow(XexVersionText(m.update->base_version)).c_str());
+    w.Key("version"), w.String(Narrow(XexVersionText(m.update->version)).c_str());
+    w.EndObject();
+  }
   w.Key("folders");
   w.StartArray();
   for (const std::string& folder : m.folders) w.String(folder.c_str());
@@ -238,6 +248,17 @@ AnyxRead ReadAnyxManifest(const std::string& json, AnyxManifest& m) {
     return true;
   };
   if (!strings("content", m.content) || !strings("folders", m.folders)) return AnyxRead::kDamaged;
+  // Format version 2: the title update.
+  auto update = doc.FindMember("update");
+  if (update != doc.MemberEnd()) {
+    AnyxUpdate u;
+    std::string base_version, update_version;
+    if (m.format_version < 2 || !update->value.IsObject() || !text(update->value, "package", u.package) ||
+        !text(update->value, "base_version", base_version) || !text(update->value, "version", update_version) ||
+        !ParseXexVersion(Widen(base_version), u.base_version) || !ParseXexVersion(Widen(update_version), u.version))
+      return AnyxRead::kDamaged;
+    m.update = std::move(u);
+  }
   auto files = doc.FindMember("files");
   if (files == doc.MemberEnd() || !files->value.IsArray()) return AnyxRead::kDamaged;
   for (const rapidjson::Value& item : files->value.GetArray()) {
@@ -263,10 +284,18 @@ bool CheckAnyxPaths(const AnyxManifest& m, std::string& bad) {
       return false;
     }
   }
-  // Under game/, or under a listed package's folder.
+  if (m.update && (!PlainPath(m.update->package) || m.update->package.find('/') != std::string::npos)) {
+    bad = "update/" + m.update->package;
+    return false;
+  }
+  // Under game/, under a listed package's folder, or under the update's.
   auto placed = [&](const std::string& path) {
     if (!PlainPath(path)) return false;
     if (path.rfind("game/", 0) == 0) return true;
+    if (m.update && path.rfind("update/", 0) == 0) {
+      const size_t slash = path.find('/', 7);
+      return slash != std::string::npos && Lower(path.substr(7, slash - 7)) == Lower(m.update->package);
+    }
     if (path.rfind("content/", 0) != 0) return false;
     const size_t slash = path.find('/', 8);
     return slash != std::string::npos && packages.count(Lower(path.substr(8, slash - 8)));
@@ -415,6 +444,22 @@ Outcome Export(Job& job, const CatalogGame& game, const fs::path& out) {
     walked.folders.insert(walked.folders.end(), one.folders.begin(), one.folders.end());
     walked.bytes += one.bytes;
   }
+  // The title update the game is played with, if it is installed (format version 2).
+  const fs::path update = TitleUpdateDir(game);
+  if (UsesTitleUpdate(game) && TitleUpdateInstalled(game) && !IsLink(update)) {
+    Walked one;
+    const std::string name = Narrow(game.update_package);
+    if (!Walk(update, "update/" + name, false, one, error)) return {error};
+    AnyxUpdate saved;
+    saved.package = name;
+    saved.base_version = identity.version;
+    saved.version = TitleUpdateVersion(update);
+    manifest.update = saved;
+    manifest.format_version = 2;
+    walked.files.insert(walked.files.end(), one.files.begin(), one.files.end());
+    walked.folders.insert(walked.folders.end(), one.folders.begin(), one.folders.end());
+    walked.bytes += one.bytes;
+  }
 
   // Room for it, on a drive that holds files that big.
   fs::create_directories(target.parent_path(), ec);
@@ -459,6 +504,8 @@ Outcome Export(Job& job, const CatalogGame& game, const fs::path& out) {
   for (const std::string& package : manifest.content)
     if (!staging.Link(fs::path(L"content") / Widen(package), content / Widen(package)))
       return {{kTextErrorSaveLink, {ShortPath(content)}, true}};
+  if (manifest.update && !staging.Link(fs::path(L"update") / Widen(manifest.update->package), update))
+    return {{kTextErrorSaveLink, {ShortPath(update)}, true}};
   std::string list = "manifest.json\n";
   auto add = [&](std::string path) {
     std::replace(path.begin(), path.end(), '/', '\\');
@@ -599,6 +646,23 @@ Outcome ImportAnyx(Job& job, const fs::path& archive, const ArchiveListing& list
                             : Message{kTextAdded, {game->title}, false},
                   game->id};
   if (skipped) outcome.notes.push_back({kTextNoteContentSkipped, {std::to_wstring(skipped)}, false});
+  // The title update (format version 2): back in place if it is the one the game is played with.
+  if (manifest.update) {
+    uint32_t expected = 0;
+    ParseXexVersion(game->update_version, expected);
+    if (!UsesTitleUpdate(*game)) {
+      outcome.notes.push_back({kTextNoteUpdatesSkipped, {L"1"}, false});
+    } else if (manifest.update->version != expected) {
+      outcome.notes.push_back({kTextNoteUpdateOther, {XexVersionText(manifest.update->version), game->update_version}, false});
+    } else {
+      const fs::path destination = TitleUpdateDir(*game);
+      RemoveAll(destination);
+      if (MoveFolder(files / L"update" / Widen(manifest.update->package), destination))
+        outcome.notes.push_back({kTextNoteUpdateAdded, {game->update_version}, false});
+    }
+  }
+  // An older backup (or one saved without it) of a game now played with its update.
+  if (!TitleUpdateInstalled(*game)) outcome.notes.push_back({kTextNeedsUpdate, {game->title, game->update_version}, false});
   return outcome;
 }
 

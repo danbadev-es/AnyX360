@@ -6,7 +6,8 @@
 //
 // Defaults: a "game" folder next to (or above) the executable, else the game's development folder in
 // the repository (GameDescriptor::dev_game_dir); the key in keys\xex2_retail.key; and
-// %LOCALAPPDATA%\AnyX360\<user_dir> for saves, cache and settings. Display flags override the values
+// %LOCALAPPDATA%\AnyX360\<user_dir> for saves, cache, settings and the title update
+// (content\000B0000\<package>, GameDescriptor::update_package). Display flags override the values
 // in <user>\settings.toml for one session. The settings panel's "Restart now" relaunches with
 // --restarted-from: the new process waits for the old one to exit before touching the settings, cache
 // and saves. A title that starts another of its executables (XamLoaderLaunchTitle) starts that one
@@ -39,6 +40,13 @@ struct GameDescriptor {
   // Title ID of the XEX this executable was recompiled from; another XEX is refused before
   // anything starts (the recompiled code only matches its own executable). 0 skips the check.
   uint32_t title_id = 0;
+  // The title update this executable was recompiled from (game.json "update"): the package's
+  // folder under <user>\content\000B0000 (where the launcher installs it) and the version it makes
+  // ("a.b.c.d"). At start the game folder's XEX is patched with the update's <name>.xexp
+  // (default.xexp for default.xex), cached in <user>\cache\patched, and the folder is mounted as
+  // update:\. Without the update the game doesn't start. Empty: the XEX is played as it is.
+  const char* update_package = "";
+  const char* update_version = "";
   // The title presents every N vblanks at its normal frame rate (see gpu::SetVblanksPerFrame).
   uint32_t vblanks_per_frame = 2;
   // The only frame rate the title runs at (0: 30 or 60, the player's choice).

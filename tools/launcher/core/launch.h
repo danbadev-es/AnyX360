@@ -19,7 +19,8 @@ void SeedShaderCache(const CatalogGame& game);
 size_t MergeShaderCacheFile(const fs::path& source, const fs::path& target);
 
 // Starts the game; `exited` is called on another thread with its exit code when it closes.
-// Returns an error message, or none on success.
+// Returns an error message, or none on success (a game without the title update it needs doesn't
+// start).
 Message StartGame(const LibraryGame& game, std::function<void(uint32_t)> exited);
 
 }  // namespace anyx360::launcher
