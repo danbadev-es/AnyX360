@@ -14,7 +14,7 @@ dump is in [games/ka/notes/xex-info.txt](../games/ka/notes/xex-info.txt).
 | Functions in `.pdata` | 47,877 |
 | XDK | 2.0.11775 (launch era); links NUI 2.0.11775 and the XDK's audio, network and party libraries |
 | Imports | `xboxkrnl.exe`: 184 functions; `xam.xex`: 167 functions ([list](../games/ka/notes/imports.txt)) |
-| Target version | Base executable and the "Exclusive Pre-order Pack" DLC; no Title Update |
+| Target version | 0.0.1.3: the base executable patched with "Kinect Adventures Title Update #1" (since 0.16.0), with the "Exclusive Pre-order Pack" DLC |
 
 ## Games on Demand
 The copy is not a disc folder. `4D5308ED\00007000\<hash>` is an STFS "LIVE" header (content type
@@ -28,11 +28,37 @@ of 0x800 bytes with a hash block every 0x198, in files of 0xA290000 bytes. `x360
 
 The launcher does the same on "Add game": it recognises a Games on Demand archive or folder by its
 `<TitleID>\00007000\` header, converts it to a folder, and puts the DLC (content type 2) in the
-game's content folder (`%LOCALAPPDATA%\AnyX360\KinectAdventures\content\00000002\`). A Title
-Update and other games' demos found next to it are skipped.
+game's content folder (`%LOCALAPPDATA%\AnyX360\KinectAdventures\content\00000002\`). Other games'
+demos found next to it are skipped. The title update is installed too (next section).
+
+## Title Update #1 (since 0.16.0)
+The archive holds the game's title update as the console's cache keeps it, a root file
+`TU_16L627D_000000C000000.0000000000083`: an STFS "LIVE" package of content type 0x000B0000,
+"Kinect Adventures Title Update #1", 1.6 MB. It holds `default.xexp` (a delta patch from 0.0.0.3 to
+0.0.1.3) and 13 `GfxUI.*` localisation files.
+
+- **Recompiled from the update.** `config.toml` names the base (`file_path`), the patch
+  (`patch_file_path`) and the patched executable XenonRecomp writes (`patched_file_path`);
+  `x360tool xex-patch` makes the same file for XenonAnalyse. The patched image keeps the base's
+  layout (base `0x82000000`, 29.9 MiB) but the code moved: the entry point is `0x831B2850`
+  (was `0x831B1D80`), and 19.9 million bytes differ.
+- **Guest addresses moved.** The NUI library moved by `+0x990` (NUI entry points, `82D25C88` ->
+  `82D26618` and so on), the XG texture functions by `+0x950` and the game's identity callback and
+  queue by `+0x778`. Every address in `src/nui_bindings.cpp` was matched by instruction shape
+  (immediates and branch targets masked) against the base: each `.pdata` function matched exactly
+  one function of the patched image, and every one (leaves too) was checked over 16 instructions at
+  its new address. The register helpers moved too (find_helpers.py); the CRT's setjmp/longjmp
+  (`83194F60`/`83195230`) are now configured (the base build had gone without them). XenonAnalyse
+  finds the same 243 jump tables, 20 unresolved, as on the base.
+- **At start.** The game finds the update in
+  `%LOCALAPPDATA%\AnyX360\KinectAdventures\content\000B0000\TU_16L627D_000000C000000.0000000000083\`,
+  patches the game folder's `Default.xex` with its `default.xexp` (cached in `cache\patched\`), loads
+  the patched executable and mounts the folder as `update:\`. Without it, it ends at once saying
+  where the update goes. The launcher installs it from the archive (or the `TU_` file alone) and
+  shows "Needs its title update" until it is there.
 
 ## Sections
-The section list is in [games/ka/notes/sections.txt](../games/ka/notes/sections.txt). Code lives
+The section list (of the base executable) is in [games/ka/notes/sections.txt](../games/ka/notes/sections.txt). Code lives
 in `.text` (`0x82330000`–`0x835B0018`), `PSFD00`, `_TEXT` and `.embsec_`.
 
 ## Recompiler configuration
@@ -85,14 +111,20 @@ From the Games on Demand package (`<package>` is the folder that holds `4D5308ED
 build.bat
 build\tools\x360tool\release\x360tool.exe god-extract "<package>\4D5308ED\00007000\<hash>" extracted\ka\game
 build\tools\x360tool\release\x360tool.exe stfs-extract "<package>\4D5308ED\00000002\<hash>" extracted\ka\dlc
+build\tools\x360tool\release\x360tool.exe stfs-extract "<package>\TU_16L627D_000000C000000.0000000000083" extracted\ka\update
+build\tools\x360tool\release\x360tool.exe xex-patch extracted\ka\game\Default.xex extracted\ka\update\default.xexp extracted\ka\update\Default_0.0.1.3.xex
 cd games\ka
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\ka\game\Default.xex switch_tables.toml
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\ka\update\Default_0.0.1.3.xex switch_tables.toml
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 cd ..\..
 build.bat
 ```
 
-XenonRecomp writes into `out_directory_path` from `config.toml` (`games\ka\recomp`), and that
+To run a developer build, put the update's files in
+`%LOCALAPPDATA%\AnyX360\KinectAdventures\content\000B0000\TU_16L627D_000000C000000.0000000000083\`
+(or `<user>\content\000B0000\...` with `--user`).
+
+XenonRecomp writes into `out_directory_path` from `config.toml` (`games\ka\recomp3`), and that
 folder must be empty before it runs: files left from an earlier run break the link. To play the
 DLC in a developer build, copy `extracted\ka\dlc` to
 `%LOCALAPPDATA%\AnyX360\KinectAdventures\content\00000002\<package file name>\`.
@@ -111,6 +143,16 @@ DLC in a developer build, copy `extracted\ka\dlc` to
   fails to initialise, as Xenia's default does, and its calls say there's nothing; the game plays
   with its stand-ins.
 - **Pacing**: two vblanks per frame (`GameDescriptor::vblanks_per_frame`): 60 FPS.
+
+## Status with Title Update #1 (2026-10-24)
+Played again on the build recompiled from 0.0.1.3, with the scripted player:
+- **First start**: the introduction, the guide gesture page passed, the title screen.
+- **River Rush**: chosen from Free Play, the tutorial skipped, jumped in, steered; the Kinect Guide
+  pause and "Leave activity" back to the activity select.
+- **The update's files**: the game lists `update:\` and reads its Spanish UI strings from it
+  (`GfxUI.esn`).
+- **Through the launcher**: prepared from the Games on Demand archive (copy, DLC and update),
+  saved as an `.anyx` (format version 2, 3.0 GB) and added back with the update.
 
 ## Status (2026-10-20)
 - **Boot, menus, DLC**: the game boots to its title screen and the menus work with the scripted

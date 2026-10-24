@@ -8,6 +8,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+Title updates: a game can be played with its update, and Kinect Adventures is the first.
+
+### Added
+
+- **Title updates** ([docs/ANYX.md](docs/ANYX.md), README "Title updates"). A game's `game.json`
+  can name the update it is recompiled from (`"update": {"version", "package"}`; `"xex"` stays the
+  disc's version).
+  - **The launcher** recognises updates (content type 0x000B0000) in both forms, `<TitleID>\000B0000\`
+    packages and the console cache's `TU_…` files, in archives and folders, and installs the one of
+    the version the game names in `%LOCALAPPDATA%\AnyX360\<game>\content\000B0000\<package>`;
+    another version is noted and left out. A game without its update shows "Needs its title
+    update" and Play says how to add it; the update can be added alone once the game is in the
+    library.
+  - **The runtime** patches the game folder's executable with the update's `.xexp` at start, with
+    XenonRecomp's patcher (a small library shared with `x360tool`), caches the result in
+    `<user>\cache\patched\` (keyed by the hashes of both), loads it and mounts the update as
+    `update:\`. A game started without its update ends with a message saying where it goes.
+  - **`.anyx` format version 2**: a backup holds the update (`update\<package>\`, and an `"update"`
+    key in the manifest) and puts it back; a version 1 backup of a game now played with its update
+    brings back the copy and its content and says the update is missing. Backups without an update
+    are still written as version 1.
+  - **`x360tool xex-patch`** applies an update to its executable; `xex-info` shows a patch's versions.
+- **Kinect Adventures with Title Update #1** (0.0.1.3): recompiled from the updated executable, its
+  Kinect bindings matched to the moved code, and the CRT's setjmp/longjmp configured. The update is
+  required.
+
+### Fixed
+
+- **XenonRecomp's patcher** (fork branch `anyx360-tu`): with an LZX-compressed base executable it
+  decompressed the image at the wrong offset when the base's headers were larger than the update's.
+- **Root `TU_…` files in archives** were neither extracted nor counted.
+
 ## [0.15.0] - 2026-10-24
 
 Resident Evil 6, in testing: the campaign with one player.

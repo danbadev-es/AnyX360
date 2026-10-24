@@ -37,7 +37,8 @@ the sensor.
 - **Dance Central 3** (in testing): the Kinect dance game, played with a webcam. A pose estimator
   turns the webcam's image into the Kinect's skeletons, color image and depth image.
 - **Kinect Adventures** (in testing): the game that came with the Kinect, played with the same
-  webcam, from a Games on Demand copy with its downloadable content.
+  webcam, from a Games on Demand copy with its downloadable content and its title update (version
+  0.0.1.3).
 - **Fruit Ninja Kinect** (in testing): the Xbox Live Arcade game, slicing fruit with your hands in
   front of the webcam, with its downloadable content.
 - **Doritos Crash Course** (in testing): the Xbox Live Arcade obstacle race with a controller, where
@@ -85,7 +86,17 @@ carries: AnyX360 builds each avatar from it, with the clothes, hair and face the
    The launcher recognises the game by its content, its title ID and its version (the one AnyX360
    was recompiled from: an update or a re-release under the same title ID is refused) and checks the
    copy is complete. The game's downloadable content in the copy is installed too (but Black Ops II's,
-   Modern Warfare 3's and two of Resident Evil 6's, which need the title update); title updates and other games' content are left out. Add each game you have the same way: it appears with its box art.
+   Modern Warfare 3's and two of Resident Evil 6's, which need the title update); other games'
+   content is left out. Add each game you have the same way: it appears with its box art.
+
+   **Title updates.** A game AnyX360 plays with its title update (Kinect Adventures, so far) is
+   recompiled from the updated executable: the launcher installs the update from the copy (the
+   `TU_…` file, or a `<TitleID>\000B0000\` package) and the game is ready only with it. Its version
+   must be the one AnyX360 plays; another is left out. A copy added without it shows "Needs its
+   title update": add the update the same way (the same archive, or the `TU_…` file alone). The
+   game patches its disc's executable with the update when it starts (cached after the first time)
+   and reads the update's files. The other games' updates are left out for now: they play their
+   disc's version.
 5. Choose a game and press **Play**. The launcher works with the mouse, the keyboard or an Xbox
    controller.
 
@@ -144,8 +155,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   the game without a console, keeps a log per game and points you to it if the game closes with an
   error.
 - **Backups (.anyx)** - The ⋯ menu's **Save as .anyx…** writes a prepared game, with its
-  downloadable content, into one file (a 7z with a manifest of every file and its SHA-256; no saves,
-  title updates or keys): **Add game** takes it back, on this PC or another of yours, checked file by
+  downloadable content and the title update it is played with, into one file (a 7z with a manifest
+  of every file and its SHA-256; no saves or keys): **Add game** takes it back, on this PC or another of yours, checked file by
   file and without converting anything. It is a backup of your own copy, not a way to give games to
   others ([docs/ANYX.md](docs/ANYX.md)).
 - **Players and Language** - From the launcher: the four players' names, which every game shows,
@@ -216,6 +227,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Reflex Ridge, Space Pop          | 🧪 They load; starting them needs a person     |
 | 20,000 Leaks                     | 🧪 Not tried yet                               |
 | Downloadable content             | ✅ Installed by the launcher                   |
+| Title Update #1 (0.0.1.3)        | ✅ Required: the game is recompiled from it    |
 | Avatars, voice, online           | ❌ Not available (the game uses its stand-ins) |
 
 | Fruit Ninja Kinect               | Status                                         |
@@ -578,7 +590,8 @@ environment with pinned, hash-checked packages.
 - Dance Central 3: copy its `default.xex` to `extracted/dc3/` and make `extracted/dc3/game` a
   directory junction to your disc folder (see [docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing)).
 - Kinect Adventures: extract the Games on Demand package's disc files to `extracted/ka/game/` with
-  `x360tool god-extract` (see [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing)).
+  `x360tool god-extract`, and the title update's `default.xexp` to `extracted/ka/update/` with
+  `x360tool stfs-extract` (see [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing)).
 - Fruit Ninja Kinect: extract the Xbox Live Arcade package to `extracted/fnk/game/` with
   `x360tool stfs-extract` (see [docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md#reproducing)).
 - Doritos Crash Course: the same, to `extracted/dcc/game/` (see
@@ -600,8 +613,9 @@ environment with pinned, hash-checked packages.
 Both folders are git-ignored.
 
 > [!IMPORTANT]
-> The targets are the base executables, without title updates: Gears of War 3 (title
-> `4D5308AB`), Dance Central 3 (title `373307D9`), Kinect Adventures (title `4D5308ED`), Fruit
+> The targets are the base executables, without title updates, except Kinect Adventures (title
+> `4D5308ED`, 0.0.0.3 patched with its title update to 0.0.1.3): Gears of War 3 (title
+> `4D5308AB`), Dance Central 3 (title `373307D9`), Fruit
 > Ninja Kinect (title `58410B79`), Doritos Crash Course (title `58410A71`), Kinect Sports
 > (title `4D5308C9`), Call of Duty: Modern Warfare 3 (title `415608CB`), Call of Duty: Black
 > Ops II (title `415608C3`), Kinect Joy Ride (title `4D53093B`) and Resident Evil 6 (title
