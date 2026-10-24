@@ -240,6 +240,9 @@ All opt-in through environment variables read by the runtime:
 | Variable | Effect |
 |---|---|
 | `ANYX360_INPUT` | Scripted pad input: `"25:START,35:A,170:START/0.3,50:START@1,200:RT/0.2~3x40"` (`seconds:button[/hold][~period x count][@player]`, player 0-3, default 0; `~3x40` presses again every 3 s, 40 times in all; buttons START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT LS RS, left stick LUP LDOWN LLEFT LRIGHT, right stick RUP RDOWN RLEFT RRIGHT). A player with scripted input counts as connected |
+| `ANYX360_INPUT` stick deflection | A stick direction takes a deflection in percent: `LLEFT%36/2` holds the left stick 36 % to the left for 2 s (a walk at an angle with `LUP`) |
+| `ANYX360_INPUT_LIVE` | A file a test driver appends `[seconds:]button[...]` lines to while the game runs: each is pressed that many seconds after it is read (players with scripted input); a driver that watches the window answers timed prompts with it (`tools/scripts/re6_prompts.py`) |
+| `ANYX360_INPUT_CLOCK` | `frames:<fps>`: scripted times count the title's frames (VdSwaps / fps) instead of seconds, so a route keeps its place when loading or the host is slow |
 | `ANYX360_INPUT_NEXT` | When the title starts another of its executables (`XamLoaderLaunchTitle`), the new process's `ANYX360_INPUT` (without it, the new process gets no scripted input) |
 | `ANYX360_INPUT_TRACE` | Logs every change of each player's virtual pad |
 | `ANYX360_FRAMETIMES` | Writes every vblank, VdSwap, GPU swap, present and display vblank to a CSV; summarise with `tools/scripts/frametimes.py <csv> [--from s] [--to s]` |

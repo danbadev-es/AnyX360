@@ -3,7 +3,9 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -17,6 +19,10 @@
 #define NOMINMAX
 #include <windows.h>
 #include <xinput.h>
+
+namespace x360::gpu {
+extern std::atomic<uint64_t> g_swap_count;  // VdSwaps (hle/xboxkrnl_video.cpp)
+}
 
 namespace x360::input {
 
@@ -58,11 +64,11 @@ int ResolveLocked(uint32_t user, uint32_t connected) {
 }
 
 // ---- scripted input ---------------------------------------------------------------------------
-// ANYX360_INPUT="<seconds>:<button>[/<hold>][~<period>x<count>][@<user>],..." presses each button for
-// 120 ms (or <hold> seconds) at the given time after the first input poll, on player <user> (default
-// 0); with ~<period>x<count>, again every <period> seconds, <count> times in all. Buttons: START BACK A
-// B X Y UP DOWN LEFT RIGHT LB RB LT RT LS RS, left stick LUP LDOWN LLEFT LRIGHT, right stick RUP RDOWN
-// RLEFT RRIGHT.
+// ANYX360_INPUT="<seconds>:<button>[%<deflection>][/<hold>][~<period>x<count>][@<user>],..." presses
+// each button for 120 ms (or <hold> seconds) at the given time after the first input poll, on player
+// <user> (default 0); with ~<period>x<count>, again every <period> seconds, <count> times in all.
+// Buttons: START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT LS RS, left stick LUP LDOWN LLEFT LRIGHT,
+// right stick RUP RDOWN RLEFT RRIGHT; a stick direction takes a deflection in percent (LLEFT%40).
 
 struct Press {
   double at = 0;
@@ -71,7 +77,47 @@ struct Press {
   double period = 0;
   uint32_t count = 1;
   uint32_t user = 0;
+  double deflection = 1.0;  // sticks
 };
+
+// Seconds since the first input poll. ANYX360_INPUT_CLOCK=frames:<fps> counts the title's frames
+// instead (VdSwaps / fps), so scripts keep their place when the host is slow.
+double ScriptClock() {
+  static const double fps = [] {
+    const char* env = std::getenv("ANYX360_INPUT_CLOCK");
+    return env && std::strncmp(env, "frames:", 7) == 0 ? std::max(1.0, std::atof(env + 7)) : 0.0;
+  }();
+  if (fps > 0) {
+    static const uint64_t first = gpu::g_swap_count.load();
+    return double(gpu::g_swap_count.load() - first) / fps;
+  }
+  static const auto start = std::chrono::steady_clock::now();
+  return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+}
+
+// "<button>[%<deflection>][/<hold>][~<period>x<count>][@<user>]"
+Press ParsePress(std::string button) {
+  Press press;
+  if (size_t at = button.find('@'); at != std::string::npos) {
+    press.user = uint32_t(std::atoi(button.c_str() + at + 1)) & 3;
+    button.resize(at);
+  }
+  if (size_t tilde = button.find('~'); tilde != std::string::npos) {
+    press.period = std::atof(button.c_str() + tilde + 1);
+    if (const char* x = std::strchr(button.c_str() + tilde, 'x')) press.count = uint32_t(std::max(1, std::atoi(x + 1)));
+    button.resize(tilde);
+  }
+  if (size_t slash = button.find('/'); slash != std::string::npos) {
+    press.hold = std::atof(button.c_str() + slash + 1);
+    button.resize(slash);
+  }
+  if (size_t percent = button.find('%'); percent != std::string::npos) {
+    press.deflection = std::clamp(std::atof(button.c_str() + percent + 1) / 100.0, 0.0, 1.0);
+    button.resize(percent);
+  }
+  press.button = button;
+  return press;
+}
 
 const std::vector<Press>& Script() {
   static const std::vector<Press> script = [] {
@@ -85,27 +131,54 @@ const std::vector<Press>& Script() {
       pos = end + 1;
       size_t colon = item.find(':');
       if (colon == std::string::npos) continue;
-      Press press;
+      Press press = ParsePress(item.substr(colon + 1));
       press.at = std::atof(item.c_str());
-      press.button = item.substr(colon + 1);
-      if (size_t at = press.button.find('@'); at != std::string::npos) {
-        press.user = uint32_t(std::atoi(press.button.c_str() + at + 1)) & 3;
-        press.button.resize(at);
-      }
-      if (size_t tilde = press.button.find('~'); tilde != std::string::npos) {
-        press.period = std::atof(press.button.c_str() + tilde + 1);
-        if (const char* x = std::strchr(press.button.c_str() + tilde, 'x')) press.count = uint32_t(std::max(1, std::atoi(x + 1)));
-        press.button.resize(tilde);
-      }
-      if (size_t slash = press.button.find('/'); slash != std::string::npos) {
-        press.hold = std::atof(press.button.c_str() + slash + 1);
-        press.button.resize(slash);
-      }
       out.push_back(press);
     }
     return out;
   }();
   return script;
+}
+
+// ANYX360_INPUT_LIVE=<file>: a test driver appends lines "[<seconds>:]<button>[/<hold>][@<user>]" to
+// the file and each is pressed <seconds> (default 0) after it is read, on the script's clock (players
+// with scripted input only), so a driver that watches the screen can answer timed prompts.
+std::vector<Press> LivePresses(double now) {
+  static const char* path = std::getenv("ANYX360_INPUT_LIVE");
+  if (!path) return {};
+  static std::mutex mutex;
+  static std::vector<Press> pending;
+  static long long offset = 0;
+  static double next_read = 0;
+  std::lock_guard lock(mutex);
+  if (now >= next_read) {
+    next_read = now + 0.008;
+    if (FILE* f = std::fopen(path, "rb")) {
+      _fseeki64(f, offset, SEEK_SET);
+      char buffer[4096];
+      size_t n = std::fread(buffer, 1, sizeof(buffer), f);
+      std::fclose(f);
+      std::string text(buffer, n);
+      size_t done = text.rfind('\n');
+      if (done != std::string::npos) {
+        offset += static_cast<long long>(done + 1);
+        for (size_t pos = 0; pos <= done;) {
+          size_t end = text.find('\n', pos);
+          std::string line = text.substr(pos, end - pos);
+          pos = end + 1;
+          while (!line.empty() && static_cast<unsigned char>(line.back()) <= 0x20) line.pop_back();
+          if (line.empty()) continue;
+          size_t colon = line.find(':');
+          Press press = ParsePress(colon == std::string::npos ? line : line.substr(colon + 1));
+          press.at = now + (colon == std::string::npos ? 0.0 : std::atof(line.c_str()));
+          KLOG_I("input: live %s at %.2f", line.c_str(), now);
+          pending.push_back(press);
+        }
+      }
+    }
+  }
+  std::erase_if(pending, [now](const Press& p) { return now >= p.at + p.hold + 1.0; });
+  return pending;
 }
 
 bool ScriptUsesUser(uint32_t user) {
@@ -115,8 +188,7 @@ bool ScriptUsesUser(uint32_t user) {
 }
 
 void ApplyScript(uint32_t user, Pad& pad) {
-  static const auto start = std::chrono::steady_clock::now();
-  double now = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  double now = ScriptClock();
   static const std::pair<const char*, uint16_t> names[] = {
       {"START", XINPUT_GAMEPAD_START},      {"BACK", XINPUT_GAMEPAD_BACK},
       {"A", XINPUT_GAMEPAD_A},              {"B", XINPUT_GAMEPAD_B},
@@ -126,21 +198,25 @@ void ApplyScript(uint32_t user, Pad& pad) {
       {"LB", XINPUT_GAMEPAD_LEFT_SHOULDER}, {"RB", XINPUT_GAMEPAD_RIGHT_SHOULDER},
       {"LS", XINPUT_GAMEPAD_LEFT_THUMB},    {"RS", XINPUT_GAMEPAD_RIGHT_THUMB}};
   uint16_t buttons = 0;
-  for (const Press& p : Script()) {
+  std::vector<Press> live = LivePresses(now);
+  const std::vector<Press>* lists[] = {&Script(), &live};
+  for (const auto* list : lists)
+  for (const Press& p : *list) {
     if (p.user != user || now < p.at) continue;
     // The press this time falls in (a repeated one), and whether it is still held.
     const double repeat = p.period > 0 ? std::min(std::floor((now - p.at) / p.period), double(p.count - 1)) : 0;
     if (now >= p.at + repeat * p.period + p.hold) continue;
     if (p.button == "LT") pad.left_trigger = 255;
     if (p.button == "RT") pad.right_trigger = 255;
-    if (p.button == "LUP") pad.ly = 32767;
-    if (p.button == "LDOWN") pad.ly = -32768;
-    if (p.button == "LLEFT") pad.lx = -32768;
-    if (p.button == "LRIGHT") pad.lx = 32767;
-    if (p.button == "RUP") pad.ry = 32767;
-    if (p.button == "RDOWN") pad.ry = -32768;
-    if (p.button == "RLEFT") pad.rx = -32768;
-    if (p.button == "RRIGHT") pad.rx = 32767;
+    const auto axis = [&p](int sign) { return int16_t(std::lround(sign * 32767.0 * p.deflection)); };
+    if (p.button == "LUP") pad.ly = axis(1);
+    if (p.button == "LDOWN") pad.ly = axis(-1);
+    if (p.button == "LLEFT") pad.lx = axis(-1);
+    if (p.button == "LRIGHT") pad.lx = axis(1);
+    if (p.button == "RUP") pad.ry = axis(1);
+    if (p.button == "RDOWN") pad.ry = axis(-1);
+    if (p.button == "RLEFT") pad.rx = axis(-1);
+    if (p.button == "RRIGHT") pad.rx = axis(1);
     for (auto& [name, bit] : names)
       if (p.button == name) buttons |= bit;
   }
