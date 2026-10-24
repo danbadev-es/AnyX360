@@ -1,12 +1,14 @@
 // Performance overlay drawn with Xenia's ImGui drawer over the presented frame (top-left corner,
 // F1 toggles it; ui_theme's look): guest frame rate and frame time (from VdSwap), frame interval graphs, the
-// process's video memory use (DXGI), host and guest RAM, and the virtual Kinect (Kinect games).
+// process's video memory use (DXGI), host and guest RAM, Windows' memory, Xenia's caches, and the
+// virtual Kinect (Kinect games).
 #include "stats_overlay.h"
 #include "frame_timing.h"
 #include "gpu_internal.h"
 #include "perf_stats.h"
 #include "ui_theme.h"
 #include "x360/gpu.h"
+#include "x360/kernel.h"
 #include "x360/nui.h"
 #include "x360/settings.h"
 
@@ -21,7 +23,6 @@
 #include "third_party/imgui/imgui.h"
 #include "xenia/gpu/graphics_system.h"
 #include "xenia/memory.h"
-#include "xenia/ui/d3d12/d3d12_provider.h"
 #include "xenia/ui/imgui_dialog.h"
 #include "xenia/ui/imgui_drawer.h"
 #include "xenia/ui/window.h"
@@ -29,9 +30,6 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
-#include <dxgi1_4.h>
-#include <psapi.h>
-#include <wrl/client.h>
 
 namespace x360::gpu {
 
@@ -95,8 +93,8 @@ struct Sample {
   double fps = 0;
   double frame_ms = 0;
   double worst_ms = 0;
-  uint64_t vram_used = 0, vram_budget = 0, shared_used = 0;
-  uint64_t working_set = 0, commit = 0;
+  perf::VideoMemorySample video;
+  kernel::HostMemory host;
   uint64_t guest_virtual = 0, guest_physical = 0;
   uint32_t presents_gpu = 0, presents_ui = 0;
   std::string kinect;  // empty for games without a Kinect
@@ -108,12 +106,7 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
  public:
   StatsOverlay(xe::ui::ImGuiDrawer* drawer, xe::ui::Window* window, xe::gpu::GraphicsSystem* graphics,
                xe::Memory* memory)
-      : ImGuiDialog(drawer), window_(window), graphics_(graphics), memory_(memory) {
-    auto* provider = static_cast<xe::ui::d3d12::D3D12Provider*>(graphics->provider());
-    Microsoft::WRL::ComPtr<IDXGIFactory4> factory;
-    if (provider && SUCCEEDED(provider->GetDXGIFactory()->QueryInterface(IID_PPV_ARGS(&factory))))
-      factory->EnumAdapterByLuid(provider->GetDevice()->GetAdapterLuid(), IID_PPV_ARGS(&adapter_));
-  }
+      : ImGuiDialog(drawer), window_(window), graphics_(graphics), memory_(memory), video_memory_(graphics) {}
 
  protected:
   void OnDraw(ImGuiIO& io) override {
@@ -132,7 +125,7 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
                              ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                              ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs;
     if (ImGui::Begin("##anyx360_stats", nullptr, flags)) {
-      const double mb = 1024.0 * 1024.0;
+      const double mb = 1024.0 * 1024.0, gb = mb * 1024.0;
       ImGui::PushFont(Title());
       ImGui::TextColored(color::Vec(s_.fps >= 55 ? color::kGreenBright : s_.fps >= 28 ? color::kAmber : color::kRed),
                          "%.0f FPS", s_.fps);
@@ -155,9 +148,20 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
            g_frontbuffer_height.load() * scale, scale, window_->GetActualPhysicalWidth(),
            window_->GetActualPhysicalHeight(), upscale, display.fxaa ? " +FXAA" : "",
            window_->IsFullscreen() ? ", fullscreen" : "");
-      if (adapter_)
-        line("VRAM", "%.0f / %.0f MB (shared %.0f MB)", s_.vram_used / mb, s_.vram_budget / mb, s_.shared_used / mb);
-      line("RAM", "%.0f MB (commit %.0f MB)", s_.working_set / mb, s_.commit / mb);
+      if (s_.video.dxgi)
+        line("VRAM", "%.0f / %.0f MB (shared %.0f MB)", s_.video.local_used / mb, s_.video.local_budget / mb,
+             s_.video.shared_used / mb);
+      line("RAM", "%.0f MB (commit %.0f MB)", s_.host.working_set / mb, s_.host.commit / mb);
+      // Windows' memory: amber when it runs short (allocations fail near the commit limit; with
+      // little RAM free it pages and frames slow down), as another program can use it up.
+      ImGui::TextDisabled("Windows");
+      ImGui::SameLine(Px(64));
+      ImGui::TextColored(color::Vec(s_.host.Low() ? color::kAmber : color::kText),
+                         "%.1f / %.1f GB committed, %.1f GB RAM free%s", s_.host.system_commit / gb,
+                         s_.host.commit_limit / gb, s_.host.ram_available / gb,
+                         s_.host.Low() ? ": close other programs" : "");
+      line("Caches", "textures %.0f MB, render targets %.0f MB, %llu pipelines", s_.video.textures / mb,
+           s_.video.render_target_bytes / mb, (unsigned long long)s_.video.pipelines);
       line("Guest", "%.0f MB virtual + %.0f MB physical", s_.guest_virtual / mb, s_.guest_physical / mb);
       if (!s_.cpu.empty()) line("CPU", "%s", s_.cpu.c_str());
       if (!s_.gpu.empty()) line("GPU", "%s", s_.gpu.c_str());
@@ -222,21 +226,8 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
       s_.gpu = g_perf_gpu;
     }
     s_.battery = BatteryState();
-    if (adapter_) {
-      DXGI_QUERY_VIDEO_MEMORY_INFO local{}, shared{};
-      adapter_->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &local);
-      adapter_->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &shared);
-      s_.vram_used = local.CurrentUsage;
-      s_.vram_budget = local.Budget;
-      s_.shared_used = shared.CurrentUsage;
-    }
-    PROCESS_MEMORY_COUNTERS_EX counters{};
-    counters.cb = sizeof(counters);
-    if (GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&counters),
-                             sizeof(counters))) {
-      s_.working_set = counters.WorkingSetSize;
-      s_.commit = counters.PrivateUsage;
-    }
+    s_.video = video_memory_.Sample();
+    s_.host = kernel::QueryHostMemory();
     const xe::BaseHeap* virtual_heaps[] = {memory_->LookupHeap(0x00010000), memory_->LookupHeap(0x40000000)};
     const xe::BaseHeap* physical_heaps[] = {memory_->GetPhysicalHeap()};
     uint32_t unreserved = 0, reserved = 0, used = 0, reserved_bytes = 0;
@@ -250,7 +241,7 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
   xe::ui::Window* window_;
   xe::gpu::GraphicsSystem* graphics_;
   xe::Memory* memory_;
-  Microsoft::WRL::ComPtr<IDXGIAdapter3> adapter_;
+  perf::VideoMemorySampler video_memory_;
   Sample s_;
   clock::time_point last_sample_{};
 };

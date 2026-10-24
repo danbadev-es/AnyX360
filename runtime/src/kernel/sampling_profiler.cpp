@@ -1,10 +1,11 @@
-// ANYX360_PROFILE="<thread>[|<thread>...]:<start s>:<seconds>": a sampling profiler for named threads of
+// ANYX360_PROFILE="<thread>[|<thread>...]:<start s or draws<N>>:<seconds>": a sampling profiler for named threads of
 // the process (guest threads by the names the title gives them, "GPU Commands", "Backend"...), for
 // finding what limits the frame rate without an external profiler. Every 0.5 ms it suspends each
 // thread in turn, reads its instruction pointer and unwinds up to 24 frames, then logs, per thread,
 // the functions where the samples landed (self) and the functions on the stacks (inclusive), named
 // through the executable's .pdb (recompiled guest functions are sub_XXXXXXXX).
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -176,7 +177,11 @@ void Report(Target& target, double seconds) {
            sorted[i].second.c_str());
 }
 
+std::atomic<uint32_t> g_draws_per_frame{0};
+
 }  // namespace
+
+void NoteDrawsPerFrame(uint32_t draws) { g_draws_per_frame.store(draws, std::memory_order_relaxed); }
 
 void StartSamplingProfiler() {
   const char* spec = std::getenv("ANYX360_PROFILE");
@@ -189,18 +194,27 @@ void StartSamplingProfiler() {
     KLOG_W("ANYX360_PROFILE: expected \"<thread>[|<thread>]:<start s>:<seconds>\"");
     return;
   }
-  const double start = std::atof(text.c_str() + middle + 1), seconds = std::atof(text.c_str() + last + 1);
+  // The start: seconds after the process starts, or "draws<N>": once a 5 s window averages at least
+  // N draws a frame (the heavy part of a level, whenever loading gets there).
+  const char* start_text = text.c_str() + middle + 1;
+  const bool by_draws = std::strncmp(start_text, "draws", 5) == 0;
+  const double start = std::atof(start_text + (by_draws ? 5 : 0)), seconds = std::atof(text.c_str() + last + 1);
   std::vector<std::string> names;
   for (size_t pos = 0; pos < middle;) {
     size_t end = std::min(text.find('|', pos), middle);
     names.push_back(text.substr(pos, end - pos));
     pos = end + 1;
   }
-  std::thread([names, start, seconds] {
+  std::thread([names, start, seconds, by_draws] {
     SetThreadDescription(GetCurrentThread(), L"Profiler");
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
     HandleOwnFaultsOnThisThread();
-    std::this_thread::sleep_for(std::chrono::duration<double>(start));
+    if (by_draws) {
+      while (g_draws_per_frame.load(std::memory_order_relaxed) < start)
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    } else {
+      std::this_thread::sleep_for(std::chrono::duration<double>(start));
+    }
     // The crash handler has initialised the symbol handler (InstallCrashHandler).
     std::vector<Target> targets;
     for (const std::string& name : names) {

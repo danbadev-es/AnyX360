@@ -1,9 +1,15 @@
 // Crash reporting: a vectored exception handler that explains faults in guest terms (which
-// recompiled function, which guest address, the guest thread's registers).
+// recompiled function, which guest address, the guest thread's registers), the memory at the time,
+// and a message for the player when nothing else would tell them (out of memory, or a process
+// another one of the game started).
+#include <atomic>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
+#include <cwchar>
 #include <exception>
+#include <new>
+#include <string>
 
 #include "x360/kernel.h"
 
@@ -33,6 +39,90 @@ void Symbolize(uint64_t address, char* out, size_t size) {
 }
 
 thread_local bool t_faults_handled = false;
+
+// An allocation failed (operator new's handler ran): Windows is probably out of memory.
+std::atomic<bool> g_allocation_failed{false};
+
+// The memory when the process dies: Windows running out of it (another program can use it up)
+// makes allocations, Direct3D's pipelines and file reads fail. Returns whether its commit charge
+// was at the limit (the player is then told Windows ran out of memory).
+bool PrintMemory() {
+  const HostMemory memory = QueryHostMemory();
+  std::string text, largest;
+  try {
+    text = FormatHostMemory(memory);
+    if (memory.Low()) largest = LargestProcesses(4);
+  } catch (...) {
+  }
+  std::fprintf(stderr, "  memory: %s\n", text.c_str());
+  if (memory.Low()) std::fprintf(stderr, "  Windows is short of memory; the most: %s\n", largest.c_str());
+  return memory.NearCommitLimit();
+}
+
+// Tells the player why the game closed, when nothing else would: Windows out of memory (with the
+// programs using the most, as it's often another one), or any fatal error in a process another one
+// of the game started (BO2's and MW3's multiplayer): the launcher only waits for the first. Shown
+// from a thread of its own (the failing one may be the window's, whose messages must not run
+// again) until the player closes it. Not in scripted runs (test hooks) or with ANYX360_NO_ERROR_BOX.
+void TellPlayer(bool out_of_memory) {
+  if (std::getenv("ANYX360_INPUT") || std::getenv("ANYX360_NUI_SCRIPT") || std::getenv("ANYX360_NO_ERROR_BOX"))
+    return;
+  const bool restarted = std::wcsstr(GetCommandLineW(), L"--restarted-from") != nullptr;
+  if (!out_of_memory && !restarted) return;
+  struct Box {
+    std::wstring caption, text;
+  };
+  Box box;
+  try {
+    const bool spanish = PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_SPANISH;
+    auto wide = [](const std::string& utf8) {
+      std::wstring out(utf8.size(), L'\0');
+      out.resize(MultiByteToWideChar(CP_UTF8, 0, utf8.data(), int(utf8.size()), out.data(), int(out.size())));
+      return out;
+    };
+    const std::string& title = TitlePaths().title_name;
+    const std::wstring name = title.empty() ? (spanish ? L"El juego" : L"The game") : wide(title);
+    box.caption = title.empty() ? L"AnyX360" : L"AnyX360 - " + name;
+    if (out_of_memory) {
+      const HostMemory m = QueryHostMemory();
+      constexpr double kGb = 1024.0 * 1024.0 * 1024.0;
+      wchar_t numbers[160];
+      std::swprintf(numbers, 160,
+                    spanish ? L"Memoria de Windows en uso: %.1f de %.1f GB (este juego: %.1f GB)."
+                            : L"Windows' memory in use: %.1f of %.1f GB (this game: %.1f GB).",
+                    m.system_commit / kGb, m.commit_limit / kGb, m.commit / kGb);
+      box.text = name + (spanish ? L" se cerr\u00F3: Windows se qued\u00F3 sin memoria.\n\n"
+                                 : L" closed: Windows ran out of memory.\n\n");
+      box.text += numbers;
+      const std::string largest = LargestProcesses(4);
+      if (!largest.empty())
+        box.text += (spanish ? L"\nLos programas que m\u00E1s usan: " : L"\nThe programs using the most: ") +
+                    wide(largest) + L".";
+      box.text += spanish ? L"\n\nCierra los programas que no necesites (o agranda el archivo de paginaci\u00F3n de "
+                            L"Windows) y vuelve a jugar."
+                          : L"\n\nClose the programs you don't need (or make Windows' page file larger) and play "
+                            L"again.";
+    } else {
+      box.text = name + (spanish ? L" se cerr\u00F3 con un error. En el lanzador, pulsa Registros y env\u00EDa "
+                                   L"el archivo last_run.log a quien te pas\u00F3 el juego."
+                                 : L" closed with an error. In the launcher, press Logs and send the last_run.log "
+                                   L"file to whoever gave you the game.");
+    }
+  } catch (...) {
+    return;  // no memory left even for the message
+  }
+  HANDLE thread = ::CreateThread(
+      nullptr, 0,
+      [](void* param) -> DWORD {
+        const Box& b = *static_cast<const Box*>(param);
+        MessageBoxW(nullptr, b.text.c_str(), b.caption.c_str(), MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
+        return 0;
+      },
+      &box, 0, nullptr);
+  if (!thread) return;
+  WaitForSingleObject(thread, INFINITE);
+  ::CloseHandle(thread);
+}
 
 LONG CALLBACK Handler(EXCEPTION_POINTERS* info) {
   DWORD code = info->ExceptionRecord->ExceptionCode;
@@ -85,7 +175,9 @@ LONG CALLBACK Handler(EXCEPTION_POINTERS* info) {
     Symbolize(frame.AddrPC.Offset, where, sizeof(where));
     std::fprintf(stderr, "  #%02d %s\n", i, where);
   }
+  const bool low = PrintMemory();
   std::fflush(stderr);
+  TellPlayer(low || g_allocation_failed);
   std::_Exit(4);
 }
 
@@ -164,7 +256,8 @@ void PrintHostThreadStack(const wchar_t* name) {
 
 namespace {
 
-void PrintHostStack(const char* why) {
+// Returns whether Windows' commit charge was at its limit.
+bool PrintHostStack(const char* why) {
   std::lock_guard lock(g_crash_mutex);
   std::fprintf(stderr, "\n=== FATAL: %s (thread %X) ===\n", why, CurrentThread() ? CurrentThread()->thread_id : 0);
   void* frames[32];
@@ -174,7 +267,9 @@ void PrintHostStack(const char* why) {
     Symbolize(uint64_t(frames[i]), where, sizeof(where));
     std::fprintf(stderr, "  #%02u %s\n", i, where);
   }
+  const bool low = PrintMemory();
   std::fflush(stderr);
+  return low;
 }
 
 void InvalidParameter(const wchar_t* expression, const wchar_t* function, const wchar_t* file, unsigned line,
@@ -182,7 +277,7 @@ void InvalidParameter(const wchar_t* expression, const wchar_t* function, const 
   char msg[512];
   std::snprintf(msg, sizeof(msg), "CRT invalid parameter: %ls in %ls (%ls:%u)", expression ? expression : L"?",
                 function ? function : L"?", file ? file : L"?", line);
-  PrintHostStack(msg);
+  TellPlayer(PrintHostStack(msg));
   std::_Exit(5);
 }
 
@@ -242,17 +337,47 @@ void InstallCrashHandler() {
   _set_invalid_parameter_handler(InvalidParameter);
   std::set_terminate([] {
     const char* what = "std::terminate";
+    bool out_of_memory = false;
     try {
       if (auto e = std::current_exception()) std::rethrow_exception(e);
+    } catch (const std::bad_alloc&) {
+      what = "out of memory (bad allocation)";
+      out_of_memory = true;
     } catch (const std::exception& e) {
       what = e.what();
     } catch (...) {
     }
-    PrintHostStack(what);
+    if (g_allocation_failed && !out_of_memory) what = "std::terminate after an allocation failed (out of memory)";
+    const bool low = PrintHostStack(what);
+    TellPlayer(out_of_memory || low || g_allocation_failed);
     std::_Exit(6);
   });
+  // A failed operator new: logged without allocating, then std::bad_alloc as usual. If the process
+  // dies of it (std::terminate) or still exits, the player is told Windows ran out of memory.
+  std::set_new_handler([] {
+    if (!g_allocation_failed.exchange(true)) {
+      const HostMemory m = QueryHostMemory();
+      constexpr double kGb = 1024.0 * 1024.0 * 1024.0;
+      std::fprintf(stderr,
+                   "[E] memory: an allocation failed; this process %.2f GB, Windows %.1f of %.1f GB committed\n",
+                   m.commit / kGb, m.system_commit / kGb, m.commit_limit / kGb);
+      std::fflush(stderr);
+    }
+    throw std::bad_alloc();
+  });
+  std::atexit([] {
+    if (!g_allocation_failed) return;
+    std::lock_guard lock(g_crash_mutex);
+    std::fprintf(stderr, "\n=== exiting after an allocation failed ===\n");
+    PrintMemory();
+    std::fflush(stderr);
+    TellPlayer(true);
+  });
+  // abort(), and std::terminate on the other threads (the CRT keeps a terminate handler per thread).
   std::signal(SIGABRT, [](int) {
-    PrintHostStack("abort()");
+    const bool low = PrintHostStack(g_allocation_failed ? "abort() after an allocation failed (out of memory)"
+                                                        : "abort() or std::terminate");
+    TellPlayer(low || g_allocation_failed);
     std::_Exit(7);
   });
   // Last in the chain: Xenia's handler resolves MMIO accesses and memory watches first.

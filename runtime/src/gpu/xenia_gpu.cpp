@@ -9,6 +9,7 @@
 #include <string_view>
 #include <vector>
 #include <deque>
+#include <new>
 
 #include "x360/gpu.h"
 #include "frame_timing.h"
@@ -668,8 +669,10 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
     // Where the frames' time goes: each thread's CPU time and the GPU's counters, every 5 s.
     perf::ThreadCpuSampler cpu_sampler;
     perf::GpuCounterSampler gpu_sampler;
+    perf::VideoMemorySampler video_memory(g_graphics.get());
     cpu_sampler.Sample();
     gpu_sampler.Sample(g_swap_count.load());
+    auto low_memory_logged = std::chrono::steady_clock::time_point{};
     for (;;) {
       // The power, at the start and on each change: a player's log then says why frames stalled.
       const std::string battery = BatteryState();
@@ -701,7 +704,18 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
       last_wakes = wakes;
       if (perf::CpuSample cpu = cpu_sampler.Sample(); cpu.seconds > 0)
         KLOG_I("cpu: %s", perf::FormatCpu(cpu, 10).c_str());
-      if (perf::GpuSample gpu = gpu_sampler.Sample(swaps); gpu.frames > 0) KLOG_I("gpu: %s", perf::FormatGpu(gpu).c_str());
+      if (perf::GpuSample gpu = gpu_sampler.Sample(swaps); gpu.frames > 0) {
+        KLOG_I("gpu: %s", perf::FormatGpu(gpu).c_str());
+        NoteDrawsPerFrame(uint32_t(gpu.draws));
+      }
+      // The memory: a player's log then says whether Windows ran short of it, and what used it up.
+      const HostMemory host = QueryHostMemory();
+      KLOG_I("mem: %s", perf::FormatMemory(host, video_memory.Sample()).c_str());
+      if (host.Low() && std::chrono::steady_clock::now() - low_memory_logged > std::chrono::minutes(1)) {
+        low_memory_logged = std::chrono::steady_clock::now();
+        KLOG_W("memory: Windows is short of memory (%s); the most: %s", FormatHostMemory(host).c_str(),
+               LargestProcesses(4).c_str());
+      }
       // ANYX360_FRAMETIMES=<file.csv>: every frame timing event (see tools/scripts/frametimes.py).
       static const char* frametimes = std::getenv("ANYX360_FRAMETIMES");
       if (frametimes) timing::AppendCsv(frametimes);
@@ -720,6 +734,18 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
       static const char* dump_at = std::getenv("ANYX360_DUMP_AT");  // seconds, comma separated
       static int tick = 0;
       ++tick;
+      // ANYX360_TEST_FATAL=<seconds>: an allocation fails then and the process ends on it (a test of the
+      // out-of-memory report and the player's message; ANYX360_INPUT turns the message off).
+      static const char* test_fatal = std::getenv("ANYX360_TEST_FATAL");
+      if (test_fatal && std::atoi(test_fatal) / 5 == tick) {
+        static void* volatile sink = nullptr;
+        volatile size_t huge = size_t(1) << 46;
+        try {
+          sink = ::operator new(huge);
+        } catch (const std::bad_alloc&) {
+          std::terminate();
+        }
+      }
       if (dump_at) {
         for (const char* p = dump_at; *p;) {
           int seconds = std::atoi(p);

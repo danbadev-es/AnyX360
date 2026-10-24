@@ -430,6 +430,30 @@ std::string GuestBacktrace(int max_frames = 12);
 // Prints the host call stack of the process's thread with this name (a debugging aid: the GPU
 // command processor's, "GPU Commands", when frames stop). Any thread but that one.
 void PrintHostThreadStack(const wchar_t* name);
+
+// The GPU's draws per frame in the last 5 s (the log line's), for ANYX360_PROFILE's "draws<N>" start.
+void NoteDrawsPerFrame(uint32_t draws);
+
+// The host's memory (host_memory.cpp; any thread, cheap): this process's private commit and
+// working set, Windows' commit charge and its limit (RAM + page file: allocations fail past it),
+// and the RAM available.
+struct HostMemory {
+  uint64_t commit = 0, working_set = 0;
+  uint64_t system_commit = 0, commit_limit = 0;
+  uint64_t ram_available = 0, ram_total = 0;
+  // Windows is short of memory: its commit charge within 10% of the limit (allocations will fail:
+  // Direct3D's pipelines, file reads, the game's own) or under 5% of the RAM free (paging: frames
+  // and the title's threads slow down).
+  bool Low() const;
+  // The commit charge within 10% of the limit: allocations are failing or about to.
+  bool NearCommitLimit() const;
+};
+HostMemory QueryHostMemory();
+// "this process 2.9 GB; Windows 57.1 of 58.2 GB committed, 0.3 of 15.6 GB RAM free" (GB).
+std::string FormatHostMemory(const HostMemory& memory);
+// The processes with the most private commit, largest first ("clangd.exe 46.8 GB, chrome.exe
+// 1.1 GB"), to name what used up Windows' memory. Any thread; takes a few milliseconds.
+std::string LargestProcesses(size_t count);
 void InitTime();
 void InitIo(const TitleInfo& info);
 void InitXam();

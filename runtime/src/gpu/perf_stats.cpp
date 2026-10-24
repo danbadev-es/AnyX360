@@ -3,11 +3,15 @@
 #include <algorithm>
 #include <cstdio>
 
+#include "x360/kernel.h"
 #include "xenia/gpu/anyx360_counters.h"
+#include "xenia/gpu/graphics_system.h"
+#include "xenia/ui/d3d12/d3d12_provider.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <dxgi1_4.h>
 #include <tlhelp32.h>
 
 namespace x360::gpu::perf {
@@ -154,6 +158,60 @@ std::string FormatGpu(const GpuSample& s) {
                 "%.0f draws, %.1f resolves, %.1f transfers, %.1f submissions",
                 gpu, s.cp_work * 100, s.cp_wait * 100, s.cp_wait_mem * 100, s.draws, s.copies, s.transfers,
                 s.submissions);
+  return text;
+}
+
+VideoMemorySampler::VideoMemorySampler(xe::gpu::GraphicsSystem* graphics) {
+  auto* provider = graphics ? static_cast<xe::ui::d3d12::D3D12Provider*>(graphics->provider()) : nullptr;
+  IDXGIFactory4* factory = nullptr;
+  if (provider && SUCCEEDED(provider->GetDXGIFactory()->QueryInterface(IID_PPV_ARGS(&factory)))) {
+    factory->EnumAdapterByLuid(provider->GetDevice()->GetAdapterLuid(), IID_PPV_ARGS(&adapter_));
+    factory->Release();
+  }
+}
+
+VideoMemorySampler::~VideoMemorySampler() {
+  if (adapter_) adapter_->Release();
+}
+
+VideoMemorySample VideoMemorySampler::Sample() const {
+  VideoMemorySample s;
+  DXGI_QUERY_VIDEO_MEMORY_INFO local{}, shared{};
+  if (adapter_ && SUCCEEDED(adapter_->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &local)) &&
+      SUCCEEDED(adapter_->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &shared))) {
+    s.dxgi = true;
+    s.local_used = local.CurrentUsage;
+    s.local_budget = local.Budget;
+    s.shared_used = shared.CurrentUsage;
+    s.shared_budget = shared.Budget;
+  }
+  const xe::gpu::AnyX360Counters& c = xe::gpu::GetAnyX360Counters();
+  s.textures = c.texture_bytes.load(std::memory_order_relaxed);
+  s.render_targets = c.render_targets.load(std::memory_order_relaxed);
+  s.render_target_bytes = c.render_target_bytes.load(std::memory_order_relaxed);
+  s.pipelines = c.pipelines.load(std::memory_order_relaxed);
+  s.pipeline_failures = c.pipeline_failures.load(std::memory_order_relaxed);
+  return s;
+}
+
+std::string FormatMemory(const kernel::HostMemory& host, const VideoMemorySample& video) {
+  constexpr double kMb = 1024.0 * 1024.0, kGb = kMb * 1024.0;
+  char text[384];
+  int n = std::snprintf(text, sizeof(text),
+                        "commit %.2f GB, working set %.2f GB; Windows %.1f of %.1f GB committed, %.1f of %.1f GB "
+                        "RAM free",
+                        host.commit / kGb, host.working_set / kGb, host.system_commit / kGb, host.commit_limit / kGb,
+                        host.ram_available / kGb, host.ram_total / kGb);
+  if (video.dxgi && n > 0 && size_t(n) < sizeof(text))
+    n += std::snprintf(text + n, sizeof(text) - n, "; VRAM %.2f of %.2f GB, shared %.2f GB", video.local_used / kGb,
+                       video.local_budget / kGb, video.shared_used / kGb);
+  char failed[32] = "";
+  if (video.pipeline_failures)
+    std::snprintf(failed, sizeof(failed), " (%llu failed)", (unsigned long long)video.pipeline_failures);
+  if (n > 0 && size_t(n) < sizeof(text))
+    std::snprintf(text + n, sizeof(text) - n, "; textures %.0f MB, %llu render targets %.0f MB, %llu pipelines%s",
+                  video.textures / kMb, (unsigned long long)video.render_targets, video.render_target_bytes / kMb,
+                  (unsigned long long)video.pipelines, failed);
   return text;
 }
 
