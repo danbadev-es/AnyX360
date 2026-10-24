@@ -8,6 +8,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **Resident Evil 6** (in testing; [docs/RESIDENTEVIL6.md](docs/RESIDENTEVIL6.md)): the Games on
+  Demand copy (title `43430819`, version 0.0.0.3), the campaign with one player at 30 FPS, as on
+  the console, with keyboard and mouse or a controller. The start, the saves and Leon's prologue
+  up to the street after the alley have been played; the rest is still being tried.
+  - **Downloadable content:** the voice packs and the Mercenaries stage packs are installed; Siege
+    Game Mode and the 3-Mode Pack need the title update and are left out.
+  - **Runtime:** content aggregate enumerators (`XContentCreateAggregateEnumerator`, found by
+    ordinal, with its XAM task), without which the game reported its saves as damaged; the
+    console region of the player's country for this game (told "every region", it showed its
+    Japanese title); host functions given to a title can take a zero word's function-table slot
+    when it has no free padding.
+- **Scripted input for tests:** stick deflections (`LLEFT%36`), a live file a test driver appends
+  presses to while the game runs (`ANYX360_INPUT_LIVE`) and a clock that counts the title's frames
+  (`ANYX360_INPUT_CLOCK=frames:30`); `tools/scripts/re6_prompts.py` answers Resident Evil 6's
+  timed prompts with them.
+
 ## [0.14.1] - 2026-10-24
 
 Faster split screen in Black Ops II, and the log and F1 say where each frame's time goes.

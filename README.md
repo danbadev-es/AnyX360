@@ -20,7 +20,7 @@
 > **AnyX360 is an unofficial fan project.** It is not affiliated with, authorized, sponsored or
 > endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games, Harmonix, Good Science Studio,
 > Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay, Activision, Infinity Ward, Sledgehammer
-> Games, Treyarch or any other rights holder.
+> Games, Treyarch, Capcom or any other rights holder.
 > It contains **no game code, assets or files**: you must own a legally acquired copy of the game,
 > and you provide its files yourself.
 
@@ -51,6 +51,8 @@ the sensor.
   and Zombies in split screen on one machine.
 - **Kinect Party** (in testing): Double Fine's Xbox Live Arcade party game, the webcam's picture
   with you cut out of it in 36 channels of effects, with its Full Unlock.
+- **Resident Evil 6** (in testing): Capcom's campaign with one player, at 30 FPS as on the
+  console, with keyboard and mouse or a controller; the prologue is being played through.
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
 carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for.
@@ -66,8 +68,9 @@ carries: AnyX360 builds each avatar from it, with the clothes, hair and face the
 2. Extract it to a regular folder (not inside _Program Files_), on a drive with room for the games
    you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3, 8 GB for
    Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for Doritos Crash Course, 4 GB for
-   Kinect Sports, 8 GB for Call of Duty: Modern Warfare 3, 8 GB for Call of Duty: Black Ops II and
-   2 GB for Kinect Joy Ride and 1 GB for Kinect Party.
+   Kinect Sports, 8 GB for Call of Duty: Modern Warfare 3, 8 GB for Call of Duty: Black Ops II,
+   2 GB for Kinect Joy Ride, 1 GB for Kinect Party and 8 GB for Resident Evil 6 (3 GB more for its
+   downloadable content).
 3. Run **`AnyX360.exe`** and accept the terms of use.
 4. Choose **Add game** (the **+** tile), or drop your copy on the window, as you have it:
    - **A file**: an archive of any kind (.7z, .rar, .zip, split or not, .tar.gz...), a disc image
@@ -81,8 +84,8 @@ carries: AnyX360 builds each avatar from it, with the clothes, hair and face the
 
    The launcher recognises the game by its content, its title ID and its version (the one AnyX360
    was recompiled from: an update or a re-release under the same title ID is refused) and checks the
-   copy is complete. The game's downloadable content in the copy is installed too (but Black Ops II's and
-   Modern Warfare 3's, which need the title update); title updates and other games' content are left out. Add each game you have the same way: it appears with its box art.
+   copy is complete. The game's downloadable content in the copy is installed too (but Black Ops II's,
+   Modern Warfare 3's and two of Resident Evil 6's, which need the title update); title updates and other games' content are left out. Add each game you have the same way: it appears with its box art.
 5. Choose a game and press **Play**. The launcher works with the mouse, the keyboard or an Xbox
    controller.
 
@@ -278,6 +281,14 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Downloadable maps                | ❌ Not available: they need the Title Update, which isn't supported (the launcher leaves them out) |
 | Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link needs a network |
 
+| Resident Evil 6                  | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Start-up, title, saves           | ✅ Working (30 FPS, as on the console)         |
+| Leon's prologue                  | 🧪 Played to the street horde after the alley with the scripted player; its end not yet |
+| Main menu, campaigns, Mercenaries | 🧪 Not reached yet (the main menu opens after the prologue) |
+| Downloadable content             | ✅ Installed: the voice packs and Mercenaries stages; Siege and the 3-Mode Pack need the Title Update (left out) |
+| Split screen, online             | ❌ Not available (one player; Xbox LIVE is gone) |
+
 ## Controls
 
 ### Gears of War 3
@@ -365,6 +376,26 @@ The same keys as Modern Warfare 3; in split screen (multiplayer and Zombies), pl
 controllers and press A in the lobby to join. Grenades are tactical (Q, LB) and lethal (R, RB);
 E (X) also buys, opens doors and revives in Zombies, and the arrows or 1-4 (D-pad) call in
 scorestreaks.
+
+### Resident Evil 6
+
+The same keyboard and mouse as Gears of War 3: right mouse button readies the weapon and the left
+fires (or strikes, without the weapon ready).
+
+| Action                    | Keyboard and mouse             | Controller         |
+| ------------------------- | ------------------------------ | ------------------ |
+| Move / Camera             | W A S D / Mouse                | Left / right stick |
+| Ready weapon / Fire       | Right / left mouse button      | LT / RT            |
+| Run, action, doors        | Space (also Left Shift, Enter) | A                  |
+| Partner action            | V (also Backspace)             | B                  |
+| Pick up, reload           | E                              | X                  |
+| Item menu (herbs)         | F                              | Y                  |
+| Show the way              | Q                              | LB                 |
+| Health tablet             | R                              | RB                 |
+| Weapons and items         | Arrows, 1-4, mouse wheel       | D-pad              |
+| Pause / Options           | Esc / Tab                      | Start / Back       |
+
+Dial prompts want their button while the turning needle is inside the coloured arc.
 
 ### Kinect Sports
 
@@ -483,6 +514,15 @@ Call of Duty: Black Ops II:
   four at about 40-50 on the test machine. Other programs using the processor lower it further.
 - Only the first mission, Local matches, TranZit and Grief have been played.
 
+Resident Evil 6:
+
+- In testing: the start, the saves and Leon's prologue up to the street after the alley have been
+  played with the test player; the end of the prologue, the main menu and everything after it
+  haven't been seen yet.
+- Siege Game Mode and the 3-Mode Pack need the Title Update, which isn't supported: the launcher
+  leaves them out.
+- It runs at 30 FPS, as on the console, with short stutters the first time an area appears.
+
 Found something else? Open an issue with the version (shown in the launcher) and the game's
 `logs\<game>\last_run.log` file.
 
@@ -553,6 +593,8 @@ environment with pinned, hash-checked packages.
   [docs/KINECTJOYRIDE.md](docs/KINECTJOYRIDE.md#reproducing)).
 - Kinect Party: extract the Xbox Live Arcade package to `extracted/kp/game/` with
   `x360tool stfs-extract` (see [docs/KINECTPARTY.md](docs/KINECTPARTY.md#reproducing)).
+- Resident Evil 6: extract the Games on Demand package's disc files to `extracted/re6/game/` with
+  `x360tool god-extract` (see [docs/RESIDENTEVIL6.md](docs/RESIDENTEVIL6.md#reproducing)).
 - Put the XEX2 retail key in `keys/xex2_retail.key` (see [keys/README.md](keys/README.md)).
 
 Both folders are git-ignored.
@@ -562,7 +604,8 @@ Both folders are git-ignored.
 > `4D5308AB`), Dance Central 3 (title `373307D9`), Kinect Adventures (title `4D5308ED`), Fruit
 > Ninja Kinect (title `58410B79`), Doritos Crash Course (title `58410A71`), Kinect Sports
 > (title `4D5308C9`), Call of Duty: Modern Warfare 3 (title `415608CB`), Call of Duty: Black
-> Ops II (title `415608C3`) and Kinect Joy Ride (title `4D53093B`); for the two Call of Duty games, both the single-player `default.xex`
+> Ops II (title `415608C3`), Kinect Joy Ride (title `4D53093B`) and Resident Evil 6 (title
+> `43430819`, version 0.0.0.3); for the two Call of Duty games, both the single-player `default.xex`
 > and the multiplayer `default_mp.xex`.
 
 ### 4. Recompile the Game
@@ -574,8 +617,9 @@ names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing-fro
 [docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md#reproducing),
 [docs/DORITOSCRASHCOURSE.md](docs/DORITOSCRASHCOURSE.md#reproducing),
 [docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing),
-[docs/MODERNWARFARE3.md](docs/MODERNWARFARE3.md#reproducing) and
-[docs/BLACKOPS2.md](docs/BLACKOPS2.md#reproducing). For Gears of War 3:
+[docs/MODERNWARFARE3.md](docs/MODERNWARFARE3.md#reproducing),
+[docs/BLACKOPS2.md](docs/BLACKOPS2.md#reproducing) and
+[docs/RESIDENTEVIL6.md](docs/RESIDENTEVIL6.md#reproducing). For Gears of War 3:
 
 ```bat
 build.bat
@@ -692,7 +736,7 @@ anyx/            Your .anyx backups (git-ignored)
 - **AnyX360 is an unofficial, independent, non-commercial fan project.** It is not affiliated with,
   authorized, sponsored or endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games,
   Harmonix, Good Science Studio, Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay,
-  Double Fine Productions, Activision, Infinity Ward, Sledgehammer Games, Treyarch or any other rights holder, and it is
+  Double Fine Productions, Activision, Infinity Ward, Sledgehammer Games, Treyarch, Capcom or any other rights holder, and it is
   not an official product or port of any game.
 - This repository contains **no game code, assets or console keys**, and never will. The
   third-party XenonRecomp submodule (like Xenia) embeds the publicly known XEX2 retail key in its
@@ -707,7 +751,7 @@ anyx/            Your .anyx backups (git-ignored)
   each player adds their own copy.
 - Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Kinect Sports, Kinect Joy
   Ride, Kinect Party, Double Fine, BigPark, Fruit Ninja, Halfbrick, Doritos, Rare, Call of Duty,
-  Modern Warfare, Black Ops, Treyarch, Activision, Xbox and Xbox 360 are trademarks of their
+  Modern Warfare, Black Ops, Treyarch, Activision, Resident Evil, Capcom, Xbox and Xbox 360 are trademarks of their
   respective owners, used here only to identify the games
   AnyX360 is compatible with.
 - The box art in the release belongs to its publishers and is shown only to identify the games;

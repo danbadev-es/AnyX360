@@ -1,0 +1,35 @@
+RESIDENT EVIL 6 (in testing)
+==========================================================
+Your copy: the Games on Demand package (in an archive or a folder) or a folder with the disc's
+files. Its downloadable content is installed too (the voice packs and the Mercenaries stages);
+Siege Game Mode and the 3-Mode Pack need the game's title update and are left out. One player:
+split screen and online play aren't available.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\ResidentEvil6
+
+The first time, the game starts Leon and Helena's prologue straight from the title screen; the
+main menu (the campaigns, Mercenaries) opens once the prologue is finished.
+
+CONTROLS
+Player 1: keyboard and mouse, standing in for a controller. To play with a controller, open
+F2 > Players and set Player 1 to "Controller".
+
+  Move / Camera                         W A S D / Mouse
+  Ready weapon / Fire (LT / RT)         Right click / Left click (without the weapon ready: melee)
+  Run, action, doors, vault (A)         Space  (also Left Shift or Enter)
+  Partner action (B)                    V  (also Backspace)
+  Pick up, reload (X)                   E
+  Item menu, herbs (Y)                  F
+  Show the way (LB)                     Q
+  Health tablet (RB)                    R
+  L3 / R3                               C / Middle click
+  Weapons and items (D-pad)             Arrows, 1-4, mouse wheel
+  Pause / Options (Start / Back)        Esc / Tab
+
+Timed prompts (a needle turning round a button) want the button while the needle is inside the
+coloured arc; the stick prompt wants the movement keys pressed in turn (W, D, S, A).
+
+KNOWN ISSUES
+- In testing: the start, the saves and the prologue up to the street after the alley have been
+  played with a test player; the end of the prologue and what comes after it haven't been seen
+  yet. If something goes wrong, tell us with the logs.
+- It runs at 30 FPS, as on the console, with short stutters the first time an area appears.
