@@ -1,12 +1,18 @@
 # Kinect Adventures recompiler configuration (XenonRecomp format). Paths are relative to this file.
 # This file contains no game code or data; it only describes where things are.
 #
-# file_path is the Default.xex of the disc files extracted from the Games on Demand package
-# (x360tool god-extract, see docs/KINECTADVENTURES.md). It is encrypted with the retail key.
+# The game is recompiled from its title update's executable (version 0.0.1.3, "Kinect Adventures
+# Title Update #1"): XenonRecomp applies patch_file_path to file_path and writes patched_file_path,
+# which XenonAnalyse reads (x360tool xex-patch makes the same file). file_path is the Default.xex of
+# the disc files extracted from the Games on Demand package (version 0.0.0.3, encrypted with the
+# retail key); patch_file_path is default.xexp from the update's package
+# (TU_16L627D_000000C000000.0000000000083, x360tool stfs-extract), see docs/KINECTADVENTURES.md.
 
 [main]
 file_path = "../../extracted/ka/game/Default.xex"
-out_directory_path = "recomp2"
+patch_file_path = "../../extracted/ka/update/default.xexp"
+patched_file_path = "../../extracted/ka/update/Default_0.0.1.3.xex"
+out_directory_path = "recomp3"
 switch_table_file_path = "switch_tables.toml"
 
 # Optimisations stay off until the game runs (XenonRecomp recommendation).
@@ -19,20 +25,23 @@ cr_as_local = false
 non_argument_as_local = false
 non_volatile_as_local = false
 
-# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
 # image: each pattern occurs exactly once).
-restgprlr_14_address = 0x83191CA0
-savegprlr_14_address = 0x83191C50
-restfpr_14_address = 0x831923FC
-savefpr_14_address = 0x831923B0
-restvmx_14_address = 0x83192808
-savevmx_14_address = 0x83192570
-restvmx_64_address = 0x8319289C
-savevmx_64_address = 0x83192604
+restgprlr_14_address = 0x83192720
+savegprlr_14_address = 0x831926D0
+restfpr_14_address = 0x83192E7C
+savefpr_14_address = 0x83192E30
+restvmx_14_address = 0x83193288
+savevmx_14_address = 0x83192FF0
+restvmx_64_address = 0x8319331C
+savevmx_64_address = 0x83193084
 
-# setjmp/longjmp: no candidates.
-# setjmp_address = 0x0
-# longjmp_address = 0x0
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: setjmp saves f14-f31 and
+# r13-r31 at r3 and returns 0, longjmp restores them through r7 and returns r4, or 1, as Fruit Ninja
+# Kinect's). The other longjmp candidates are ordinary functions. The base executable has the same
+# pair (831944E0/831947B0) and was recompiled without them.
+setjmp_address = 0x83194F60
+longjmp_address = 0x83195230
 
 # Functions the analyser misses (address + size), added as they are found.
 # functions = [

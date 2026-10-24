@@ -5,7 +5,7 @@
 // games/ka/notes/nui_entry_points.md); names and signatures come from the arguments, how the results
 // are used, what each function reaches and the callers' code (games/ka/notes/nui_api.md). The
 // skeleton and image frame layouts are the same as in Dance Central 3's later library; the image
-// formats are chosen in ImageStreamOpen's code (82D2AAB0) rather than read from a table.
+// formats are chosen in ImageStreamOpen's code (82D2B440) rather than read from a table.
 #include <mutex>
 #include <vector>
 
@@ -14,8 +14,8 @@
 #include "x360/kernel.h"
 #include "x360/nui.h"
 
-PPC_EXTERN_FUNC(sub_82D713A0);  // XGSetTextureHeaderEx (the title's XG library)
-PPC_EXTERN_FUNC(sub_82D71690);  // XGOffsetResourceAddress
+PPC_EXTERN_FUNC(sub_82D71CF0);  // XGSetTextureHeaderEx (the title's XG library)
+PPC_EXTERN_FUNC(sub_82D71FE0);  // XGOffsetResourceAddress
 
 namespace ka {
 
@@ -29,7 +29,7 @@ uint32_t Load32(uint32_t address) { return load_be<uint32_t>(x360::hle::to_host(
 void Store32(uint32_t address, uint32_t value) { store_be<uint32_t>(x360::hle::to_host(address), value); }
 
 // ---- image stream formats ---------------------------------------------------------------------
-// From 82D2AAB0: each NUI_IMAGE_TYPE accepts one resolution and gets a D3DFORMAT and frame size.
+// From 82D2B440: each NUI_IMAGE_TYPE accepts one resolution and gets a D3DFORMAT and frame size.
 // The game opens types 0 (depth and player index, 320x240), 1 (color, 640x480, 32 bits) and 7
 // (80x60, the depth format: a small player map).
 bool StreamFormat(uint32_t type, uint32_t resolution, nui::StreamFormat& format) {
@@ -56,7 +56,7 @@ bool StreamFormat(uint32_t type, uint32_t resolution, nui::StreamFormat& format)
   return false;
 }
 
-// The texture header of an image frame, made as the library makes its own (82D2B1B0):
+// The texture header of an image frame, made as the library makes its own (82D2BB40):
 // XGSetTextureHeaderEx(width, height, 1 level, usage 4, format, exp bias 0, flags 1, base offset 0,
 // mip offset "contiguous", pitch 0 (default), header, NULL, NULL), then
 // XGOffsetResourceAddress(header, pixels). Arguments 9-13 go on the stack at r1+0x54, 8 bytes apart.
@@ -75,19 +75,19 @@ void TextureHeader(PPCContext& ctx, uint32_t header, const nui::StreamFormat& fo
   ctx.r8.u64 = 0;
   ctx.r9.u64 = 1;
   ctx.r10.u64 = 0;
-  ctx.lr = 0x82D2B27C;
-  sub_82D713A0(ctx, base);
+  ctx.lr = 0x82D2BC0C;
+  sub_82D71CF0(ctx, base);
   ctx.r3.u64 = header;
   ctx.r4.u64 = pixels;
-  ctx.lr = 0x82D2B288;
-  sub_82D71690(ctx, base);
+  ctx.lr = 0x82D2BC18;
+  sub_82D71FE0(ctx, base);
   ctx = saved;
 }
 
 // ---- color camera settings: kept as the game sets them ---------------------------------------
-// 82D28A08(camera, setting, value) sets settings 0 and 2; 82D27F70/82D27F80(camera, setting,
-// value*) read them (and setting 5) back. 82D28A28(camera, float[4]) sets a region that
-// 82D27688(camera, float[4]*) reads. The camera is always 0.
+// 82D29398(camera, setting, value) sets settings 0 and 2; 82D28900/82D28910(camera, setting,
+// value*) read them (and setting 5) back. 82D293B8(camera, float[4]) sets a region that
+// 82D28018(camera, float[4]*) reads. The camera is always 0.
 uint32_t g_camera_settings[16] = {};
 uint32_t g_camera_region[4] = {};
 
@@ -114,14 +114,14 @@ uint32_t CameraGetRegion(uint32_t camera, uint32_t region) {
   return nui::kOk;
 }
 
-// 82D2B678(angle*, status*): the motor's elevation, from XamNuiCameraElevationGetAngle.
+// 82D2C008(angle*, status*): the motor's elevation, from XamNuiCameraElevationGetAngle.
 uint32_t CameraElevationGetAngle(uint32_t angle_ptr, uint32_t status_ptr) {
   if (status_ptr) Store32(status_ptr, 0);
   return nui::CameraElevationGetAngle(angle_ptr);
 }
 
 // ---- identity: nobody is enrolled -------------------------------------------------------------
-// 82D2D948(enrollment index, info*): {+0 value, +4 enrolled}.
+// 82D2E2D8(enrollment index, info*): {+0 value, +4 enrolled}.
 uint32_t IdentityGetEnrollment(uint32_t index, uint32_t info) {
   (void)index;
   if (info) {
@@ -131,10 +131,10 @@ uint32_t IdentityGetEnrollment(uint32_t index, uint32_t info) {
   return nui::kOk;
 }
 
-// 82D2D840(tracking ID, flags, callback, context): identify the player with that skeleton. The
-// library looks at a few frames on its own thread and reports through the callback (82B67E38),
+// 82D2E1D0(tracking ID, flags, callback, context): identify the player with that skeleton. The
+// library looks at a few frames on its own thread and reports through the callback (82B685B0),
 // which queues the 20-byte message {message ID, tracking ID, result, enrollment index, flags} for
-// the game (82B69868). Refused, the request was made again and again and the game said
+// the game (82B69FE0). Refused, the request was made again and again and the game said
 // "IDENTIFYING" for good; accepted, the answer comes with the next skeleton frame: done (1), S_OK,
 // enrollment index -2 (nobody enrolled is this player), no flags.
 struct IdentityRequest {
@@ -151,7 +151,7 @@ uint32_t IdentityIdentify(uint32_t tracking_id, uint32_t flags, uint32_t callbac
   return nui::kOk;
 }
 
-// 82D26768, on the game's Kinect thread: the identity answers first, then the frame.
+// 82D270F8, on the game's Kinect thread: the identity answers first, then the frame.
 uint32_t SkeletonGetNextFrame(uint32_t timeout_ms, uint32_t frame) {
   std::vector<IdentityRequest> requests;
   {
@@ -184,35 +184,35 @@ void InstallNui() {
 }  // namespace ka
 
 // Initialization: NuiInitialize(0x849: depth and player index, color, skeleton; hardware thread 5).
-X360_GUEST_FUNCTION(82D25C88, x360::nui::Initialize)
-X360_GUEST_FUNCTION(82D23E30, x360::nui::Shutdown)
+X360_GUEST_FUNCTION(82D26618, x360::nui::Initialize)
+X360_GUEST_FUNCTION(82D247C0, x360::nui::Shutdown)
 
 // Skeleton tracking.
-X360_GUEST_FUNCTION(82D26620, x360::nui::SkeletonTrackingEnable)
-X360_GUEST_FUNCTION(82D25DE0, x360::nui::SkeletonTrackingDisable)
-X360_GUEST_FUNCTION(82D26768, ka::SkeletonGetNextFrame)
-X360_GUEST_FUNCTION(82D25EF8, x360::nui::SkeletonSetTrackedSkeletons)
-X360_GUEST_FUNCTION(82D26190, x360::nui::TransformSmooth)
-X360_GUEST_TRACE(82D28E28, "NUI depth to color pixel coordinates (pure)")
+X360_GUEST_FUNCTION(82D26FB0, x360::nui::SkeletonTrackingEnable)
+X360_GUEST_FUNCTION(82D26770, x360::nui::SkeletonTrackingDisable)
+X360_GUEST_FUNCTION(82D270F8, ka::SkeletonGetNextFrame)
+X360_GUEST_FUNCTION(82D26888, x360::nui::SkeletonSetTrackedSkeletons)
+X360_GUEST_FUNCTION(82D26B20, x360::nui::TransformSmooth)
+X360_GUEST_TRACE(82D297B8, "NUI depth to color pixel coordinates (pure)")
 
 // Image streams and camera.
-X360_GUEST_FUNCTION(82D2AAB0, x360::nui::ImageStreamOpen)
-X360_GUEST_FUNCTION(82D28FB8, x360::nui::ImageStreamGetNextFrame)
-X360_GUEST_FUNCTION(82D292C8, x360::nui::ImageStreamReleaseFrame)
-X360_GUEST_FUNCTION(82D2B678, ka::CameraElevationGetAngle)
-X360_GUEST_STUB(82D2BF98, "NUI elevation adjustment", 0)
-X360_GUEST_FUNCTION(82D28A08, ka::CameraSet)
-X360_GUEST_FUNCTION(82D27F70, ka::CameraGet)
-X360_GUEST_FUNCTION(82D27F80, ka::CameraGet)
-X360_GUEST_STUB(82D28A18, "NUI camera property 82D28A18", 0)
-X360_GUEST_FUNCTION(82D28A28, ka::CameraSetRegion)
-X360_GUEST_FUNCTION(82D27688, ka::CameraGetRegion)
-X360_GUEST_STUB(82D27608, "NUI 82D27608", x360::nui::kFail)
+X360_GUEST_FUNCTION(82D2B440, x360::nui::ImageStreamOpen)
+X360_GUEST_FUNCTION(82D29948, x360::nui::ImageStreamGetNextFrame)
+X360_GUEST_FUNCTION(82D29C58, x360::nui::ImageStreamReleaseFrame)
+X360_GUEST_FUNCTION(82D2C008, ka::CameraElevationGetAngle)
+X360_GUEST_STUB(82D2C928, "NUI elevation adjustment", 0)
+X360_GUEST_FUNCTION(82D29398, ka::CameraSet)
+X360_GUEST_FUNCTION(82D28900, ka::CameraGet)
+X360_GUEST_FUNCTION(82D28910, ka::CameraGet)
+X360_GUEST_STUB(82D293A8, "NUI camera property 82D293A8", 0)
+X360_GUEST_FUNCTION(82D293B8, ka::CameraSetRegion)
+X360_GUEST_FUNCTION(82D28018, ka::CameraGetRegion)
+X360_GUEST_STUB(82D27F98, "NUI 82D27F98", x360::nui::kFail)
 
 // Identity (face recognition): nobody enrolled, nothing recognised.
-X360_GUEST_FUNCTION(82D2D948, ka::IdentityGetEnrollment)
-X360_GUEST_STUB(82D2D6C0, "NUI identity request (with callback)", x360::nui::kFail)
-X360_GUEST_FUNCTION(82D2D840, ka::IdentityIdentify)
-X360_GUEST_STUB(82D2D6B8, "NUI identity 82D2D6B8", x360::nui::kFail)
-X360_GUEST_STUB(82D2DB58, "NUI identity 82D2DB58", 0)
-X360_GUEST_STUB(82D2DB60, "NUI troubleshooter UI", 0)
+X360_GUEST_FUNCTION(82D2E2D8, ka::IdentityGetEnrollment)
+X360_GUEST_STUB(82D2E050, "NUI identity request (with callback)", x360::nui::kFail)
+X360_GUEST_FUNCTION(82D2E1D0, ka::IdentityIdentify)
+X360_GUEST_STUB(82D2E048, "NUI identity 82D2E048", x360::nui::kFail)
+X360_GUEST_STUB(82D2E4E8, "NUI identity 82D2E4E8", 0)
+X360_GUEST_STUB(82D2E4F0, "NUI troubleshooter UI", 0)

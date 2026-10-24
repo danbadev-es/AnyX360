@@ -15,6 +15,9 @@ int main(int argc, char** argv) {
   game.user_dir = game_info::kUserDir;
   game.dev_game_dir = game_info::kDevGameDir;
   game.title_id = game_info::kTitleId;
+  // Recompiled from Title Update #1 (0.0.1.3): the disc's 0.0.0.3 is patched with it at start.
+  game.update_package = game_info::kUpdatePackage;
+  game.update_version = game_info::kUpdateVersion;
   game.vblanks_per_frame = 2;
   game.defaults = [](x360::settings::Settings& s) {
     s.kinect.enabled = true;

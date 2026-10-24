@@ -7,6 +7,7 @@
   "user_dir": "KinectAdventures",
   "title_id": "4D5308ED",
   "xex": {"version": "0.0.0.3", "media_id": "6D571F26"},
+  "update": {"version": "0.0.1.3", "package": "TU_16L627D_000000C000000.0000000000083"},
   "dev_game_dir": "extracted/ka/game",
   "launcher_name": "AnyX360 Kinect Adventures",
   "size_gb": 8,
