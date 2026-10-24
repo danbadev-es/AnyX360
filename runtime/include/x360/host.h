@@ -60,6 +60,10 @@ struct GameDescriptor {
   // brought up and tested with 1, so that stays the default; Modern Warfare 3 needs 0 (it places its
   // first worker thread on 1 and keeps per-processor data).
   uint8_t main_thread_processor = 1;
+  // XGetGameRegion answers the console region of the player's country (as Xenia does) instead of
+  // 0xFFFF (every region). Resident Evil 6 takes 0xFFFF for a Japanese console and shows its
+  // Japanese title, Biohazard 6. The other games were brought up and tested with 0xFFFF.
+  bool game_region_from_country = false;
   // Game-specific default settings, applied before settings.toml is read.
   std::function<void(settings::Settings&)> defaults;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).

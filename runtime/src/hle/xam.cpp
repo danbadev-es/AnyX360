@@ -82,6 +82,9 @@ struct Enumerator : Object {
   std::vector<std::vector<uint8_t>> items;
   size_t next = 0;
   uint32_t items_per_enumerate = 1;
+  // A content aggregate enumerator: the XDK reads its kernel structure (XamGetPrivateEnumStructure-
+  // FromHandle), made in guest memory on the first request.
+  bool aggregate = false;
 };
 
 uint32_t XamEnumerate(uint32_t handle, uint32_t flags, uint32_t buffer, uint32_t buffer_size,
@@ -118,10 +121,30 @@ uint32_t XamCreateEnumeratorHandle(uint32_t user, uint32_t app, uint32_t message
   return CreateEnumerator(handle_ptr, item_count, {});
 }
 
+// The kernel structure of an enumerator: X_KENUMERATOR (app ID, open and close messages, user,
+// items per call, flags; 0x18 bytes), then for a content aggregate enumerator its own part (the
+// object signature "XEN\0" and the handle), as Xenia lays it out. Only aggregate enumerators have one
+// (Resident Evil 6's XContentCreateAggregateEnumerator gives up without it); other titles have
+// always been told there is none.
 uint32_t XamGetPrivateEnumStructureFromHandle(uint32_t handle, uint32_t out_ptr) {
-  (void)handle;
-  if (out_ptr) Store<uint32_t>(out_ptr, 0);
-  return X_STATUS_UNSUCCESSFUL;
+  auto e = LookupHandleAs<Enumerator>(handle);
+  if (!e || !e->aggregate) {
+    if (out_ptr) Store<uint32_t>(out_ptr, 0);
+    return X_STATUS_UNSUCCESSFUL;
+  }
+  if (!e->guest) {
+    e->guest = SystemAlloc(0x20);
+    Store<uint32_t>(e->guest + 0x00, 0xFE);        // app ID: the system
+    Store<uint32_t>(e->guest + 0x04, 0x0002000E);  // open message
+    Store<uint32_t>(e->guest + 0x08, 0x00020010);  // close message
+    Store<uint32_t>(e->guest + 0x0C, 0xFF);        // any user
+    Store<uint32_t>(e->guest + 0x10, e->items_per_enumerate);
+    Store<uint32_t>(e->guest + 0x14, 0);
+    Store<uint32_t>(e->guest + 0x18, 0x58454E00);  // "XEN\0"
+    Store<uint32_t>(e->guest + 0x1C, handle);
+  }
+  if (out_ptr) Store<uint32_t>(out_ptr, e->guest);
+  return X_STATUS_SUCCESS;
 }
 
 // ---- users ------------------------------------------------------------------------------------
@@ -496,17 +519,15 @@ uint32_t XamContentFlush(uint32_t root_name_ptr, uint32_t overlapped) {
 }
 uint32_t XamContentOpenFile() { return X_ERROR_FILE_NOT_FOUND; }
 
-uint32_t XamContentCreateEnumerator(uint32_t user_index, uint32_t device_id, uint32_t content_type,
-                                    uint32_t content_flags, uint32_t items_per, uint32_t buffer_size_ptr,
-                                    uint32_t handle_ptr) {
-  (void)content_flags;
-  LogOtherUser("XamContentCreateEnumerator", user_index, 0);
-  if (buffer_size_ptr) Store<uint32_t>(buffer_size_ptr, kContentDataSize * std::max<uint32_t>(items_per, 1));
+// XCONTENT_DATA for each package of a type in the player's folder (or the shared one, for
+// downloadable content), each `item_size` bytes long.
+std::vector<std::vector<uint8_t>> ListContent(uint32_t user_index, uint32_t device_id, uint32_t content_type,
+                                              uint32_t item_size = kContentDataSize) {
   std::vector<std::vector<uint8_t>> items;
   if (device_id == 0 || device_id == kHddDeviceId) {
     std::error_code ec;
     for (const auto& entry : fs::directory_iterator(ContentFolder(user_index, content_type), ec)) {
-      std::vector<uint8_t> item(kContentDataSize, 0);
+      std::vector<uint8_t> item(item_size, 0);
       x360::store_be<uint32_t>(item.data() + 0, kHddDeviceId);
       x360::store_be<uint32_t>(item.data() + 4, content_type);
       // The file name field holds 42 characters with no terminator: a package's name (as
@@ -518,7 +539,42 @@ uint32_t XamContentCreateEnumerator(uint32_t user_index, uint32_t device_id, uin
       items.push_back(std::move(item));
     }
   }
-  return CreateEnumerator(handle_ptr, items_per, std::move(items));
+  return items;
+}
+
+uint32_t XamContentCreateEnumerator(uint32_t user_index, uint32_t device_id, uint32_t content_type,
+                                    uint32_t content_flags, uint32_t items_per, uint32_t buffer_size_ptr,
+                                    uint32_t handle_ptr) {
+  (void)content_flags;
+  LogOtherUser("XamContentCreateEnumerator", user_index, 0);
+  if (buffer_size_ptr) Store<uint32_t>(buffer_size_ptr, kContentDataSize * std::max<uint32_t>(items_per, 1));
+  return CreateEnumerator(handle_ptr, items_per, ListContent(user_index, device_id, content_type));
+}
+
+// XContentCreateAggregateEnumerator: the title's content of a type on every device and for every
+// player, one XCONTENT_DATA_AGGREGATE (XCONTENT_DATA, then the owner's XUID at 0x138 and the title ID
+// at 0x140; 0x148 bytes) per package. Titles look it up by ordinal (Resident Evil 6, for its saves
+// and downloadable content: without it the game reports its content as damaged). Only this title's
+// content is kept here: the given player's (player 1's for none), downloadable content with no owner.
+constexpr uint32_t kContentAggregateDataSize = 0x148;
+uint32_t XamContentAggregateCreateEnumerator(uint64_t xuid, uint32_t device_id, uint32_t content_type,
+                                             uint32_t title_id, uint32_t handle_ptr) {
+  if (!handle_ptr) return X_ERROR_INVALID_PARAMETER;
+  uint32_t user_index = xuid >= kXuid && xuid < kXuid + 4 ? uint32_t(xuid - kXuid) : 0;
+  uint64_t owner = content_type == kContentMarketplace ? 0 : kXuid + user_index;
+  std::vector<std::vector<uint8_t>> items;
+  if (title_id == 0 || title_id == Title().title_id) {
+    items = ListContent(user_index, device_id, content_type, kContentAggregateDataSize);
+    for (auto& item : items) {
+      x360::store_be<uint64_t>(item.data() + 0x138, owner);
+      x360::store_be<uint32_t>(item.data() + 0x140, Title().title_id);
+    }
+  }
+  KLOG_I("XamContentAggregateCreateEnumerator(%016llX, device %08X, type %08X, title %08X): %zu packages",
+         (unsigned long long)xuid, device_id, content_type, title_id, items.size());
+  uint32_t result = CreateEnumerator(handle_ptr, 1, std::move(items));
+  if (auto e = LookupHandleAs<Enumerator>(Load<uint32_t>(handle_ptr))) e->aggregate = true;
+  return result;
 }
 
 uint32_t XamContentGetCreator(uint32_t user_index, uint32_t content_data, uint32_t is_creator_ptr, uint32_t xuid_ptr,
@@ -1274,6 +1330,27 @@ uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_
       switch (message) {
         case 0x00021012:  // XEnableGuestSignin {enabled} (Kinect Adventures, every frame)
           return kHrSuccess;
+        case 0x0002000E: {  // XEnumerateCrossTitle: the next item of a content aggregate enumerator
+          // {user, flags, private structure*, buffer* (XCONTENT_DATA_INTERNAL), buffer size, items
+          // requested, items returned*}: one item per call, as Xenia does.
+          uint32_t structure = Load<uint32_t>(buffer + 0x08), out = Load<uint32_t>(buffer + 0x0C);
+          uint32_t out_size = Load<uint32_t>(buffer + 0x10), returned = Load<uint32_t>(buffer + 0x18);
+          // The structure is the enumerator's own part, past X_KENUMERATOR: {"XEN\0", handle}.
+          if (!structure || !out) return 0x80070057;  // E_INVALIDARG
+          auto e = LookupHandleAs<Enumerator>(Load<uint32_t>(structure + 4));
+          if (!e) return 0x80070057;
+          std::memset(Ptr(out), 0, out_size);
+          uint32_t count = 0;
+          if (e->next < e->items.size()) {
+            const auto& item = e->items[e->next++];
+            std::memcpy(Ptr(out), item.data(), std::min<size_t>(item.size(), out_size));
+            count = 1;
+          }
+          if (returned) Store<uint32_t>(returned, count);
+          return count ? kHrSuccess : 0x80070012;  // HRESULT_FROM_WIN32(ERROR_NO_MORE_FILES)
+        }
+        case 0x00020010:  // the aggregate enumerator closes
+          return kHrSuccess;
         case 0x00020021:  // XContentQueryVolumeDeviceType {root name[64], title process, type*, overlapped}
           // The title's volume: the hard drive for an arcade title (a download), else the disc.
           if (uint32_t type = Load<uint32_t>(buffer + 0x44)) Store<uint32_t>(type, TitlePaths().arcade ? 1 : 4);
@@ -1315,7 +1392,12 @@ uint32_t XMsgSystemProcessCall(uint32_t app, uint32_t message, uint32_t buffer, 
   if (hr != kHrSuccess) KLOG_I("XMsgSystemProcessCall(app %X, message %08X) -> %08X", app, message, hr);
   return hr;
 }
-uint32_t XMsgCompleteIORequest() { return X_ERROR_SUCCESS; }
+// XMsgCompleteIORequest(overlapped, result, extended error, length): an XAM task (XamTaskSchedule)
+// finishing a title's asynchronous request, as Resident Evil 6's content aggregate enumeration does.
+uint32_t XMsgCompleteIORequest(uint32_t overlapped, uint32_t result, uint32_t extended, uint32_t length) {
+  if (overlapped) Complete(overlapped, result, length, extended);
+  return X_ERROR_SUCCESS;
+}
 uint32_t XMsgCancelIORequest(uint32_t overlapped, uint32_t wait) {
   (void)wait;
   if (overlapped) Complete(overlapped, X_ERROR_CANCELLED);
@@ -1325,7 +1407,26 @@ uint32_t XMsgCancelIORequest(uint32_t overlapped, uint32_t wait) {
 uint32_t XNetLogonGetTitleID() { return Title().title_id; }
 
 uint32_t XGetAVPack() { return 6; }  // HDMI
-uint32_t XGetGameRegion() { return 0xFFFF; }
+// 0xFFFF (every region), or the console region of the player's country for titles that need one
+// (GameDescriptor::game_region_from_country): Xenia's table, indexed by Xbox country ID.
+uint32_t XGetGameRegion() {
+  static constexpr uint16_t kRegionOfCountry[] = {
+      0xFFFF, 0x03FF, 0x02FE, 0x02FE, 0x03FF, 0x02FE, 0x0201, 0x03FF, 0x02FE, 0x02FE, 0x03FF, 0x03FF,
+      0x03FF, 0x03FF, 0x02FE, 0x03FF, 0x00FF, 0xFFFF, 0x02FE, 0x03FF, 0x0102, 0x03FF, 0x03FF, 0x02FE,
+      0x02FE, 0x02FE, 0x03FF, 0x03FF, 0x03FF, 0x02FE, 0x03FF, 0x02FE, 0x02FE, 0x02FE, 0x02FE, 0x02FE,
+      0x02FE, 0x02FE, 0x03FF, 0x03FF, 0x03FF, 0x02FE, 0x02FE, 0x03FF, 0x02FE, 0x02FE, 0x03FF, 0x03FF,
+      0x03FF, 0x02FE, 0x02FE, 0x03FF, 0x03FF, 0x0101, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF,
+      0x02FE, 0x02FE, 0x02FE, 0x02FE, 0x03FF, 0x03FF, 0x02FE, 0x02FE, 0x03FF, 0x0102, 0x03FF, 0x00FF,
+      0x03FF, 0x03FF, 0x02FE, 0x02FE, 0x0201, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x02FE, 0x03FF,
+      0x02FE, 0x03FF, 0x03FF, 0x02FE, 0x02FE, 0x03FF, 0x02FE, 0x03FF, 0x02FE, 0x02FE, 0xFFFF, 0x03FF,
+      0x03FF, 0x03FF, 0x03FF, 0x02FE, 0x03FF, 0x03FF, 0x02FE, 0x00FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF,
+      0x03FF, 0x03FF, 0x03FF};
+  if (!TitlePaths().game_region_from_country) return 0xFFFF;
+  uint32_t country = TitlePaths().country;
+  uint32_t region = country < std::size(kRegionOfCountry) ? kRegionOfCountry[country] : 0xFFFF;
+  // A country the table has no region for: North America's, so no title takes it for Japan.
+  return region == 0xFFFF ? 0x00FF : region;
+}
 // The player profile's language (Windows' by default): a game without it chooses its own.
 uint32_t XGetLanguage() { return TitlePaths().language; }
 
@@ -1476,6 +1577,7 @@ X360_EXPORT(XamContentCreateEx, XamContentCreateEx)
 X360_EXPORT(XamContentClose, XamContentClose)
 X360_EXPORT(XamContentDelete, XamContentDelete)
 X360_EXPORT(XamContentCreateEnumerator, XamContentCreateEnumerator)
+X360_EXPORT(XamContentAggregateCreateEnumerator, XamContentAggregateCreateEnumerator)
 X360_EXPORT(XamContentGetCreator, XamContentGetCreator)
 X360_EXPORT(XamContentGetDeviceData, XamContentGetDeviceData)
 X360_EXPORT(XamContentGetDeviceName, XamContentGetDeviceName)

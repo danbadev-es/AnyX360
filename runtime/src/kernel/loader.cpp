@@ -203,6 +203,20 @@ uint32_t GuestAddressOf(PPCFunc* host) {
     given[host] = next;
     return next;
   }
+  // No free padding word: the analyser made a function of every one (Resident Evil 6's padding
+  // words between functions are all function starts). A zero word is no instruction a title can
+  // call, so its table slot can be taken all the same.
+  static uint32_t next_taken = uint32_t(PPC_CODE_BASE + PPC_CODE_SIZE);
+  while (next_taken > PPC_CODE_BASE) {
+    next_taken -= 4;
+    if (Load<uint32_t>(next_taken) != 0) continue;
+    bool used = false;
+    for (const auto& [function, address] : given) used = used || address == next_taken;
+    if (used) continue;
+    PPC_LOOKUP_FUNC(g_base, next_taken) = host;
+    given[host] = next_taken;
+    return next_taken;
+  }
   return 0;
 }
 

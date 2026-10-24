@@ -394,6 +394,15 @@ PPC_FUNC(__imp___vsnprintf) {
   ctx.r3.s64 = StoreFormatted(ctx.r3.u32, int64_t(ctx.r4.u32), s);
 }
 
+// vsprintf(buffer, format, va_list): no buffer size (Resident Evil 6).
+PPC_FUNC(__imp__vsprintf) {
+  (void)base;
+  ArgSource args;
+  args.va_list_ptr = ctx.r5.u32;
+  std::string s = GuestFormat(ctx.r4.u32, args);
+  ctx.r3.s64 = StoreFormatted(ctx.r3.u32, -1, s);
+}
+
 // vswprintf(buffer, format, va_list): the kernel's has no buffer size (the old MSVC form). Returns the
 // number of characters written, without the terminator.
 PPC_FUNC(__imp__vswprintf) {

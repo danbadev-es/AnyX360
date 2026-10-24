@@ -112,6 +112,7 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   info.avatar_system = game.avatar_system;
   info.avatar_skeleton = game.avatar_skeleton;
   info.main_thread_processor = game.main_thread_processor;
+  info.game_region_from_country = game.game_region_from_country;
   info.on_function_table = game.on_function_table;
   for (const TitleExecutable& executable : game.executables) {
     std::string xex = executable.xex;
