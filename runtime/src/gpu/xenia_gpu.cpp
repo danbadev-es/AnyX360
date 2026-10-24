@@ -14,6 +14,7 @@
 #include "frame_timing.h"
 #include "gpu_internal.h"
 #include "host_vblank.h"
+#include "perf_stats.h"
 #include "stats_overlay.h"
 #include "ui_theme.h"
 #include "x360/input.h"
@@ -664,6 +665,11 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
     SetThreadDescription(GetCurrentThread(), L"GPU stats");
     uint64_t last_swaps = 0;
     int power = -1;  // 0 plugged in, 1 on battery, 2 with the battery saver
+    // Where the frames' time goes: each thread's CPU time and the GPU's counters, every 5 s.
+    perf::ThreadCpuSampler cpu_sampler;
+    perf::GpuCounterSampler gpu_sampler;
+    cpu_sampler.Sample();
+    gpu_sampler.Sample(g_swap_count.load());
     for (;;) {
       // The power, at the start and on each change: a player's log then says why frames stalled.
       const std::string battery = BatteryState();
@@ -693,6 +699,9 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
              (wakes - last_wakes) / 5.0, (unsigned long long)missed,
              g_display_locked ? "locked to the display" : "free-running", g_present_phase_error.load());
       last_wakes = wakes;
+      if (perf::CpuSample cpu = cpu_sampler.Sample(); cpu.seconds > 0)
+        KLOG_I("cpu: %s", perf::FormatCpu(cpu, 10).c_str());
+      if (perf::GpuSample gpu = gpu_sampler.Sample(swaps); gpu.frames > 0) KLOG_I("gpu: %s", perf::FormatGpu(gpu).c_str());
       // ANYX360_FRAMETIMES=<file.csv>: every frame timing event (see tools/scripts/frametimes.py).
       static const char* frametimes = std::getenv("ANYX360_FRAMETIMES");
       if (frametimes) timing::AppendCsv(frametimes);
@@ -763,6 +772,7 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
       }
     }
   }).detach();
+  StartSamplingProfiler();
   // ANYX360_CAPTURE_MS: capture frames at this interval instead of every 5 s (with ANYX360_CAPTURE_DIR).
   if (const char* ms = std::getenv("ANYX360_CAPTURE_MS"); ms && std::getenv("ANYX360_CAPTURE_DIR")) {
     int interval = std::max(50, std::atoi(ms));

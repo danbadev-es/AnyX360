@@ -4,6 +4,7 @@
 #include "stats_overlay.h"
 #include "frame_timing.h"
 #include "gpu_internal.h"
+#include "perf_stats.h"
 #include "ui_theme.h"
 #include "x360/gpu.h"
 #include "x360/nui.h"
@@ -15,6 +16,7 @@
 #include <deque>
 #include <mutex>
 #include <string>
+#include <thread>
 
 #include "third_party/imgui/imgui.h"
 #include "xenia/gpu/graphics_system.h"
@@ -40,6 +42,54 @@ using clock = std::chrono::steady_clock;
 std::mutex g_swap_mutex;
 std::deque<clock::time_point> g_swaps;  // the last second of VdSwap times
 std::atomic<uint32_t> g_frontbuffer_width{0}, g_frontbuffer_height{0};
+std::atomic<uint64_t> g_swap_count{0};
+std::atomic<bool> g_overlay_shown{false};
+
+// The busiest threads and the GPU's work per frame, sampled each second by a thread of their own
+// while the overlay is shown (listing the threads takes a millisecond or two: not on the UI thread,
+// which presents while the overlay is shown).
+std::mutex g_perf_mutex;
+std::string g_perf_cpu, g_perf_gpu;
+
+void PerfSamplerThread() {
+  SetThreadDescription(GetCurrentThread(), L"Overlay stats");
+  perf::ThreadCpuSampler cpu_sampler;
+  perf::GpuCounterSampler gpu_sampler;
+  bool primed = false;
+  for (;;) {
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    if (!g_overlay_shown.load(std::memory_order_relaxed)) {
+      primed = false;
+      continue;
+    }
+    const perf::CpuSample cpu = cpu_sampler.Sample();
+    const perf::GpuSample gpu = gpu_sampler.Sample(g_swap_count.load(std::memory_order_relaxed));
+    if (!primed) {  // the first sample after showing it covers the time hidden
+      primed = true;
+      continue;
+    }
+    std::string cpu_text, gpu_text;
+    char text[192];
+    if (cpu.seconds > 0) {
+      std::snprintf(text, sizeof(text), "%.1f cores: ", cpu.process);
+      cpu_text = text;
+      for (size_t i = 0; i < std::min<size_t>(4, cpu.threads.size()); ++i) {
+        std::snprintf(text, sizeof(text), "%s%s %.0f%%", i ? ", " : "", cpu.threads[i].name.c_str(),
+                      cpu.threads[i].busy * 100);
+        cpu_text += text;
+      }
+    }
+    if (gpu.frames > 0) {
+      std::snprintf(text, sizeof(text),
+                    "%.1f ms/frame (%.0f%% busy), commands %.0f%%; %.0f draws, %.0f resolves, %.0f transfers",
+                    gpu.gpu_ms, gpu.gpu_busy * 100, gpu.cp_work * 100, gpu.draws, gpu.copies, gpu.transfers);
+      gpu_text = text;
+    }
+    std::lock_guard lock(g_perf_mutex);
+    g_perf_cpu = std::move(cpu_text);
+    g_perf_gpu = std::move(gpu_text);
+  }
+}
 
 struct Sample {
   double fps = 0;
@@ -51,6 +101,7 @@ struct Sample {
   uint32_t presents_gpu = 0, presents_ui = 0;
   std::string kinect;  // empty for games without a Kinect
   std::string battery;  // empty when plugged in
+  std::string cpu, gpu;  // the busiest threads; the GPU's time and work per frame
 };
 
 class StatsOverlay : public xe::ui::ImGuiDialog {
@@ -108,6 +159,8 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
         line("VRAM", "%.0f / %.0f MB (shared %.0f MB)", s_.vram_used / mb, s_.vram_budget / mb, s_.shared_used / mb);
       line("RAM", "%.0f MB (commit %.0f MB)", s_.working_set / mb, s_.commit / mb);
       line("Guest", "%.0f MB virtual + %.0f MB physical", s_.guest_virtual / mb, s_.guest_physical / mb);
+      if (!s_.cpu.empty()) line("CPU", "%s", s_.cpu.c_str());
+      if (!s_.gpu.empty()) line("GPU", "%s", s_.gpu.c_str());
       if (!s_.kinect.empty()) line("Kinect", "%s", s_.kinect.c_str());
       if (!s_.battery.empty()) {
         ImGui::TextDisabled("Power");
@@ -163,6 +216,11 @@ class StatsOverlay : public xe::ui::ImGuiDialog {
       s_.kinect = text;
     }
     s_.presents_ui = t.presents_ui_thread;
+    {
+      std::lock_guard lock(g_perf_mutex);
+      s_.cpu = g_perf_cpu;
+      s_.gpu = g_perf_gpu;
+    }
     s_.battery = BatteryState();
     if (adapter_) {
       DXGI_QUERY_VIDEO_MEMORY_INFO local{}, shared{};
@@ -255,6 +313,9 @@ void StartStatsOverlay(xe::ui::Window* window, xe::gpu::GraphicsSystem* graphics
 void SetStatsOverlayVisible(bool visible) {
   if (!g_overlay || visible == g_overlay_visible) return;
   g_overlay_visible = visible;
+  g_overlay_shown = visible;
+  static std::once_flag sampler_started;
+  if (visible) std::call_once(sampler_started, [] { std::thread(PerfSamplerThread).detach(); });
   if (visible)
     g_imgui->AddDialog(g_overlay);
   else
@@ -279,6 +340,7 @@ void NotifySwap(uint32_t frontbuffer_width, uint32_t frontbuffer_height) {
   }
   g_swaps.push_back(now);
   if (g_swaps.size() > 1000) g_swaps.pop_front();
+  g_swap_count.fetch_add(1, std::memory_order_relaxed);
   // The Kinect Guide icon, the first time its pose is held (the drawer belongs to the UI thread).
   if (g_imgui && !g_guide_indicator_made.load(std::memory_order_relaxed)) {
     const nui::GuideState guide = nui::GetGuideState();

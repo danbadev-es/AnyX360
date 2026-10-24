@@ -312,6 +312,11 @@ void SetupWriteWatch();  // after InitMemory
 void ArmWriteWatch();    // on each guest thread
 // Logs every guest thread: name, current export, registers and guest backtrace.
 void DumpThreads();
+// ANYX360_PROFILE="<thread>[|<thread>...]:<start s>:<seconds>": samples those threads (by name) and
+// logs their hottest functions (sampling_profiler.cpp).
+void StartSamplingProfiler();
+// The crash handler leaves this thread's faults to its own __try/__except (crash.cpp).
+void HandleOwnFaultsOnThisThread();
 std::shared_ptr<Thread> CurrentThreadShared();
 std::shared_ptr<Thread> ThreadById(uint32_t id);
 

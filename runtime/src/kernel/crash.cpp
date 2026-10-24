@@ -32,8 +32,12 @@ void Symbolize(uint64_t address, char* out, size_t size) {
   }
 }
 
+thread_local bool t_faults_handled = false;
+
 LONG CALLBACK Handler(EXCEPTION_POINTERS* info) {
   DWORD code = info->ExceptionRecord->ExceptionCode;
+  // A thread that handles its own faults (the sampling profiler's stack walks).
+  if (t_faults_handled) return EXCEPTION_CONTINUE_SEARCH;
   // Only report fatal faults; let C++ exceptions and debugger events through.
   if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_ILLEGAL_INSTRUCTION &&
       code != EXCEPTION_INT_DIVIDE_BY_ZERO && code != EXCEPTION_STACK_OVERFLOW && code != EXCEPTION_BREAKPOINT &&
@@ -229,6 +233,8 @@ void ArmWriteWatch() {
   ::CloseHandle(helper);
   ::CloseHandle(self);
 }
+
+void HandleOwnFaultsOnThisThread() { t_faults_handled = true; }
 
 void InstallCrashHandler() {
   SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
