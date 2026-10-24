@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-24
+
+Faster split screen in Black Ops II, and the log and F1 say where each frame's time goes.
+
 ### Changed
 
 - **Faster split screen in Black Ops II**: Xenia's GPU command thread, which limited the frame, no longer sleeps a millisecond at a time while the GPU waits for
@@ -696,7 +700,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.3...v0.14.0
 [0.13.3]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.1...v0.13.2
