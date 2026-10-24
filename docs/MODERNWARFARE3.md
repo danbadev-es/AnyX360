@@ -96,6 +96,10 @@ Update (`000B0000`). None of them is used yet.
     suspect. Since multiplayer, a more likely one: the same symptoms came from a lost GPU device
     in Survival (see [Multiplayer](#known-issues)), fixed in the fork; if it happens again,
     Xenia's log (stdout, the launcher's `last_run.log`) says whether the device was lost.
+    On 2026-10-24, with the machine busy (another game being built and tested), it hung in 6 of 10
+    starts of 0.14.0 and 14 of 16 of 0.14.1's build, with no device lost: it depends on timing, and
+    load makes it far more likely. Turning off the D3D12 replay thread (`[xenia]
+    d3d12_replay_thread = false`) didn't avoid it (3 of 3 hung).
   - In the intro level the snowy trees look flat white against a black sky (possibly a
     rendering difference; not compared with a console).
   - Not tried: Special Ops missions, the DLC, later missions, saving mid-mission. Survival and

@@ -38,8 +38,8 @@ In menus: Space or Enter accepts, V or Backspace goes back. The game's text is i
 your copy carries (the launcher's Players and language chooses among them).
 
 KNOWN ISSUES
-- About one start in fifteen stays on a black screen after the first frame: close the game and
-  start it again.
+- About one start in fifteen stays on a black screen after the first frame, more while the computer
+  is busy with other programs: close the game and start it again.
 - Split screen runs below 60 FPS in matches on slower machines.
 - In testing: the menus, the campaign's opening, split screen matches on Seatown (two and
   three players) and Survival on Resistance have been played; four players haven't been
