@@ -246,6 +246,98 @@ counters (`cpu:` and `gpu:` lines), `ANYX360_PROFILE` samples named threads and 
 hottest functions, and scripted input repeats presses (`~period x count`) for long fights (see
 [GEARS3.md](GEARS3.md#debugging-switches)).
 
+### Out of memory and the late slowdown (0.15.0, 2026-10-24)
+A player's two-player Zombies session on the test laptop (16 GB of RAM) held 50-58 FPS, then fell
+to 26-33 FPS for half a minute and closed: Direct3D 12 failed to create a pipeline with
+`E_OUTOFMEMORY`, the game's reads of `base.ipak` failed with error 1450 (no system resources), and
+the window's thread died of a failed allocation (`bad allocation`). The log had no memory figures.
+
+**What used the memory was another program.** Windows logs which processes hold the most memory
+when it runs out (System log, Resource-Exhaustion-Detector, event 2004). At the moment of the crash:
+`clangd.exe` 50.3 GB, `BlackOps2MP.exe` (the game's process) 3.0 GB, `claude.exe` 0.85 GB; the day
+before, during a test run, clangd 42.2 GB against Black Ops II's 1.7 GB. clangd is the C++ language
+server of the editor open on this repository: it was building its background index of the
+recompiled games' generated sources (thousands of files of megabytes each; its index folder held
+7,317 files, 6.4 GB, 5,871 of them `ppc_recomp` ones). A `.clangd` file at the repository's root
+now leaves `games/*/recomp*/` out of that index.
+
+**The game itself doesn't grow.** Measured with the new memory figures (below), two-player TranZit
+from `BlackOps2MP.exe`, player 1 pressing A every 20 s so that a new match starts from the lobby
+after each game over:
+
+| | 0.15.0, 30 min (one match, then the lobby) | Now, 20 min (9 matches) |
+|---|---|---|
+| Process commit | 2.50-2.56 GB | 2.62-2.72 GB, flat from the second match on |
+| Texture cache | - | 384 MB (Xenia's soft limit, `texture_cache_memory_limit_soft`) |
+| Render targets | - | 19, 207 MB, created in the first match |
+| Pipelines | - | 2,590 at start (the shader cache), 2,762 after 20 min |
+| Video memory (DXGI) | 0.94-0.99 GB | 1.0 of 7.0 GB |
+
+With 0.14.1's two Xenia options off (12 minutes each, `d3d12_replay_thread = false`, then
+`wait_reg_mem_yield_us = 0`) the peak was the same, 2.69 and 2.67 GB: neither holds memory (the
+deferred command list's storage is a fixed 8 MB reservation per list).
+
+The 2,590 pipelines the shader cache describes are created at start (campaign and multiplayer
+share the cache): the process's commit goes from 1.25 to 1.70 GB while they are, about 220 KB of
+the driver's memory each. That is the largest item Xenia adds; it doesn't grow with play (172 new
+ones in 20 minutes). Nothing to cap: about 2.7 GB is what this game needs.
+
+**The slowdown came from the same program.** In the player's log the frame rate fell in one 5 s
+window (51.8 to 30.2 FPS) while the game's work did not grow (draws per frame went from 4,400-5,500
+to 4,200-4,800), and threads whose work is fixed took twice the CPU time: the overlay's sampler
+4% to 8%, the XMA decoder 12-17% to 23-26%. The "JQ Worker" threads and "Server" went from about
+70% to 80-89%. Everything ran slower, not more: clangd was indexing on most of the cores and
+Windows was paging (with 50 GB committed on a 16 GB machine). The same happened here while
+clangd indexed again (9 cores and 12-14 GB, under 1 GB of RAM free): the same fight ran at 17-37
+FPS, and the game's working set was trimmed to 100 MB in the lobby.
+
+**Now** the log has a `mem:` line every 5 s (this process's commit and working set, Windows' commit
+charge and limit, the RAM free, the video memory, the texture cache, render targets and pipelines),
+and a warning, at most once a minute, when Windows is short of memory (commit within 10% of its
+limit, or under 5% of the RAM free) that names the processes using the most. F1 shows the same
+figures, Windows' in amber when short. If the game dies of it, the log says so with the memory and
+those processes, and the player gets a message box (English or Spanish) with the figures and the
+programs to close, instead of the window just disappearing. Any fatal error in the multiplayer
+program (started by the campaign's) shows a box too: the launcher only waits for the first program,
+so it never saw those.
+
+**What limits real play.** A second session played by hand (three rounds and more) didn't crash
+but ran at 19-33 FPS for most of the match, with 3,600 draws a frame on average and up to about
+10,000; the scripted fight makes 2,300-3,900. Every log shows the same limit, the "GPU Commands"
+thread (Xenia's command processor) working 97-99% of the time while the GPU is busy 14-25% of it.
+Its cost per draw, from the 5 s lines (its working share divided by draws per second):
+
+| | Draws a frame | Command processor per draw | Frame rate |
+|---|---|---|---|
+| Player, first session, before the slowdown | 3,700 | 4.7 us | 54 |
+| Player, second session | 5,000 | 6.5 us | 30 |
+| Scripted fight here, clangd indexing | 3,400-3,600 | 6.9-8.6 us | 32-44 |
+
+So even on a quiet machine a frame of 5,000 draws needs about 23 ms of that thread (43 FPS at
+best), and one of 10,000 about 45 ms (22 FPS); a busy or paging machine adds a third to a half. In
+the profile of the heavy fight (`ANYX360_PROFILE` from `draws2500`, below), 73% of the thread is
+in `IssueDraw`: uploading guest memory the draws read (16%, 10% of it copying pages), textures
+(15%), bindings (12.5%), render targets (9%), Xenia's global lock (8%, shared with the game's
+threads' write-watch faults), and waiting for the D3D12 Replay thread's tail at the end of each
+submission (7%). None of it is a single hot spot: making it faster is work on Xenia's command
+processor (fewer page uploads, cheaper bindings, a submission that doesn't wait for its replay).
+
+**The job-queue threads** ("JQ Worker 1-3", "Server") at 70-89% are mostly the game's own work.
+Profiled in the heavy fight: 10-20% of their time is real sleeping (`KeDelayExecutionThread`,
+which sleeps with `Sleep`/`SleepEx`: no busy wait) or waiting on events, about 20% is the job
+queue itself (lock-free pushes and pops, compare-and-swap retries when four threads take jobs at
+once), about 8% is Xenia's write-watch faults (the game writing memory the GPU reads), and 3-8%
+was the game's `memcpy`, which copies each 252-byte job. That copy now runs as the host's
+(`games/bo2/src/main_mp.cpp`): 0.7-1.8% instead of 2.6-6.5% of each thread
+(`ANYX360_GUEST_MEMCPY=1` brings the title's back, for comparisons). It frees CPU time but doesn't
+raise the frame rate, which the command processor holds. In the player's first log these threads
+went from about 70% to 85% when the frame rate halved because the machine slowed down (above),
+not because the game did more.
+
+`ANYX360_PROFILE` can now start when the game gets heavy instead of at a fixed time: a start of
+`draws2500` waits for a 5 s window with at least 2,500 draws a frame (loading times vary a lot on a
+busy machine).
+
 ### Routes
 Times from the first input poll, with an existing user folder; give the second program its
 script with `ANYX360_INPUT_NEXT`.

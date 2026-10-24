@@ -252,7 +252,8 @@ All opt-in through environment variables read by the runtime:
 | `ANYX360_VBLANK_SPIN_US` | How long the vblank thread spins before each tick (default 300) |
 | `ANYX360_NO_DISPLAY_LOCK` | Free-running vblank instead of locking it to the display |
 | `ANYX360_DISPATCH_SAFETY_MS` | Interval of the dispatcher's missed-wakeup re-check for infinite waits (default 250, 0 disables) |
-| `ANYX360_PROFILE` | A sampling profiler for named threads: `"GPU Commands\|guest 11\|Backend:140:60"` (`threads:start s:seconds`; guest threads by the names titles give them). Logs each thread's hottest functions (self, inclusive, and the caller of the top ones), named through the `.pdb` (recompiled code as `sub_XXXXXXXX`) |
+| `ANYX360_PROFILE` | A sampling profiler for named threads: `"GPU Commands\|guest 11\|Backend:140:60"` (`threads:start s:seconds`; guest threads by the names titles give them; a start of `draws2500` waits for a 5 s window with at least 2,500 draws a frame). Logs each thread's hottest functions (self, inclusive, and the caller of the top ones), named through the `.pdb` (recompiled code as `sub_XXXXXXXX`) |
+| `ANYX360_TEST_FATAL` | `<seconds>`: an allocation fails then and the process ends on it, to test the out-of-memory report in the log and the player's message box (`ANYX360_INPUT` or `ANYX360_NUI_SCRIPT` turn the box off; so does `ANYX360_NO_ERROR_BOX`) |
 | `ANYX360_CAPTURE_DIR` | Saves the guest frame as BMP every 5 s |
 | `ANYX360_DUMP_AT` | Thread dumps at the given seconds (`"95,100"`); without it, one comes after 10 s without frames, with the GPU command processor's host stack |
 | `ANYX360_MEMSCAN` | With `ANYX360_DUMP_AT`: logs guest memory holding that text (ASCII or UTF-16BE) |

@@ -522,8 +522,11 @@ Call of Duty: Black Ops II:
   the window and opens another, and the launcher closes.
 - The downloadable maps aren't available (they need the Title Update, which isn't supported), so
   the launcher leaves the copy's map packs out.
-- Split screen can run below 60 FPS: two players at 45-60 in heavy moments (Zombies especially),
-  four at about 40-50 on the test machine. Other programs using the processor lower it further.
+- Split screen can run below 60 FPS: two players at 45-60 in heavy moments of a scripted fight,
+  four at about 40-50 on the test machine; in a real two-player Zombies match, with many zombies on
+  screen, 25-45. Other programs using the processor or most of the memory lower it a lot (an
+  editor's C++ indexer took Windows to 50 GB and the game to under 30 FPS, then out of memory: the
+  game now says so in a message and in its log).
 - Only the first mission, Local matches, TranZit and Grief have been played.
 
 Resident Evil 6:

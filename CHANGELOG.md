@@ -8,6 +8,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Fixed
+
+- **Out of memory no longer closes the game silently.** When Windows runs out of memory the game
+  tells the player in a message box (English or Spanish) how much is in use, how much the game
+  uses and which programs use the most, and writes the same to its log; any fatal error in Black
+  Ops II's or Modern Warfare 3's multiplayer program (started by the campaign's, so the launcher
+  never saw it close) shows a message too. A player's Black Ops II crash in two-player Zombies was
+  an editor's C++ indexer (clangd) using 50 GB of Windows' memory, not the game, which stays at
+  about 2.7 GB ([docs/BLACKOPS2.md](docs/BLACKOPS2.md#out-of-memory-and-the-late-slowdown-0150-2026-10-24)).
+
+### Added
+
+- **Memory in the log and in F1**: every 5 s the game's commit and working set, Windows' commit
+  charge, limit and free RAM, the video memory, and Xenia's texture cache, render targets and
+  pipelines; a warning naming the programs using the most when Windows runs short.
+- For developers: `ANYX360_PROFILE` can start when a scene gets heavy (`draws2500`), and
+  `ANYX360_TEST_FATAL` tests the out-of-memory report. A `.clangd` file keeps the recompiled
+  sources out of clangd's background index.
+
+### Changed
+
+- **Black Ops II multiplayer and Zombies**: the game's `memcpy` runs as the host's, 3-8% of each
+  of its busiest threads before, under 2% now. The frame rate in heavy split screen is still held
+  by Xenia's GPU command thread (about 5 us per draw: 5,000 draws a frame are about 43 FPS).
+- Xenia logs a failed pipeline's HRESULT unsigned (`0x8007000E`, not `0x-7FF8FFF2`).
+
 ## [0.16.0] - 2026-10-24
 
 Title updates: a game can be played with its update, and Kinect Adventures is the first.
