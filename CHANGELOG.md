@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-24
+
+Resident Evil 6, in testing: the campaign with one player.
+
 ### Added
 
 - **Resident Evil 6** (in testing; [docs/RESIDENTEVIL6.md](docs/RESIDENTEVIL6.md)): the Games on
@@ -718,7 +722,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.3...v0.14.0
 [0.13.3]: https://github.com/danielbarretoes/AnyX360/compare/v0.13.2...v0.13.3
