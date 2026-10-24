@@ -8,6 +8,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Changed
+
+- **Faster split screen in Black Ops II**: Xenia's GPU command thread, which limited the frame, no longer sleeps a millisecond at a time while the GPU waits for
+  the game's CPU, and a thread of its own now records the Direct3D 12 commands. Two-player Zombies
+  on the test laptop (RTX 5060): 42.7 FPS on average in its heaviest moments before, 50.6 now
+  (worst frames 62 ms before, 43 ms now), 58-60 in lighter ones; a two-player match, 34 to 60. What
+  is left is in [docs/BLACKOPS2.md](docs/BLACKOPS2.md#split-screen-frame-rate-2026-10-24). Both
+  changes are Xenia options (`wait_reg_mem_yield_us`, `d3d12_replay_thread`) under `[xenia]`
+  in `settings.toml`.
+
+### Added
+
+- **Where the time goes**: the game's log has, every 5 s, each thread's CPU time and the GPU's
+  counters (time per frame, draws, resolves, the command processor's waits), and F1 shows the
+  busiest threads and the GPU's work. For developers: `ANYX360_PROFILE`, a sampling profiler for
+  named threads, and repeated presses in scripted input (`~period x count`).
+
 ## [0.14.0] - 2026-10-23
 
 Backups of your prepared games in one file (.anyx), with their downloadable content; the launcher

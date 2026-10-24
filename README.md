@@ -478,7 +478,8 @@ Call of Duty: Black Ops II:
   the window and opens another, and the launcher closes.
 - The downloadable maps aren't available (they need the Title Update, which isn't supported), so
   the launcher leaves the copy's map packs out.
-- Four-player split screen runs below 60 FPS (about 40-50 on the test machine).
+- Split screen can run below 60 FPS: two players at 45-60 in heavy moments (Zombies especially),
+  four at about 40-50 on the test machine. Other programs using the processor lower it further.
 - Only the first mission, Local matches, TranZit and Grief have been played.
 
 Found something else? Open an issue with the version (shown in the launcher) and the game's

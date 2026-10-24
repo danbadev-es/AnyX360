@@ -182,9 +182,69 @@ descriptor as the campaign: one vblank per frame (60 FPS), main thread on hardwa
   Depot (TranZit), Town or Farm. TranZit with two players reaches round 1 with zombies, both
   players move and fire, and after both go down the game returns to the lobby with both players.
   TranZit alone starts too. In Town, Grief (it needs two players) plays with two: CDC against CIA.
-  50-60 FPS with two players. The two views keep the game's black side bars, as on the console.
+  45-60 FPS with two players (below). The two views keep the game's black side bars, as on the
+  console.
 - **Switching**: campaign to multiplayer, campaign to Zombies, multiplayer to Zombies and back to
   the campaign work. The campaign route still reaches the first mission's gameplay.
+
+### Split screen frame rate (2026-10-24)
+A player reported 17 FPS in two-player Zombies on an RTX 5060 laptop (plugged in, render scale 1x,
+1080p with FSR). The test machine is that laptop (Core i7-13620H: 6 performance and 4 efficiency
+cores; RTX 5060 Laptop GPU).
+
+**Measuring.** Two-player TranZit from the campaign's menu, then a scripted fight in the Bus Depot
+(both players aim, fire, knife, turn and reload in a loop in round 1 until both are down), with the
+per-thread CPU time and the GPU counters the runtime logs every 5 s. Runs of the same route differ
+a lot (where the players look takes the draws from 2,300 to 3,900 a frame, and the laptop's clocks
+follow its temperature), so the comparison was made inside each run: a temporary build switched
+both changes below off and on every 15 s, and only the 5 s windows entirely in one state count.
+Four runs, gameplay windows with at least 2,000 draws a frame:
+
+| | As in 0.14.0 | Now |
+|---|---|---|
+| Frame rate (5 s windows) | 42.7 FPS (lowest 33.8) | 50.6 FPS (lowest 37.4) |
+| Worst frames (p99) | 62 ms | 43 ms |
+| Draws per frame | 3,400 | 3,500 |
+| GPU Commands thread | 82% working, 17% asleep in WAIT_REG_MEM | 95% working |
+| D3D12 Replay thread | - | 22% of a core |
+| Game's main thread / render thread | 96% / 94% | 91% / 92% |
+| GPU time per frame | 3.6-4.1 ms (about 20% busy) | the same |
+
+Lighter moments of the same fight (2,300-2,500 draws) hold 58-60 FPS now; a two-player
+multiplayer match (Aftermath) went from 34 to 60 FPS with the first version of these changes.
+
+**What limited the frame** was not the GPU, busy a fifth of the time, but Xenia's single "GPU
+Commands" thread, which turns the game's command buffers into Direct3D 12 work. It was busy the
+whole frame:
+
+- **Asleep in WAIT_REG_MEM**, 17-23% of its time: the game makes the GPU wait for values its CPU
+  writes a moment later, and Xenia slept a millisecond (or more, with the timer's granularity)
+  each time the value wasn't there yet. It now yields for the first millisecond and only then
+  sleeps (Xenia option `wait_reg_mem_yield_us`, 1000; 0 is the old behaviour).
+- **Replaying the recorded commands**: Xenia records Direct3D 12 commands into a list of its own
+  and replayed them into the real command list at the end of each submission, on the same thread:
+  15% of its time in the multiplayer match. A "D3D12 Replay" thread now replays them while they are
+  still being recorded, and the command processor only waits for the tail at the end of the
+  submission (Xenia option `d3d12_replay_thread`, on).
+
+Both can be turned off in `settings.toml`'s `[xenia]` section if a game misbehaves; the other nine
+games ran their regression routes with both on.
+
+**What limits it now**, in the heavier windows, are three threads near a full core each: the GPU
+Commands thread (95%: two thirds of it processing draws, then guest memory uploads, texture and
+binding updates; about 10% presenting the frame, about 9% in Xenia's global lock, which the game's
+threads also take when they write to memory the GPU reads, and about 7% waiting for the replay's
+tail), the game's main thread (`guest 11`, 91%) and its render thread (`Backend`, 92%, part of it
+in those write-watch faults). Holding 60 there needs the recompiled code to run faster as well as
+the command processor. A busy machine costs more than all of this: with another program using ten
+cores, the same fight ran at 36-38 FPS with or without the changes. The 17 FPS weren't reproduced;
+the lowest 5 s window seen as in 0.14.0 was 33.8 FPS. A first session without the shader cache
+plays as a later one (the pipelines compile in a few seconds).
+
+**Tools** for the next round: the 5 s log line and F1 show each thread's CPU time and the GPU's
+counters (`cpu:` and `gpu:` lines), `ANYX360_PROFILE` samples named threads and names their
+hottest functions, and scripted input repeats presses (`~period x count`) for long fights (see
+[GEARS3.md](GEARS3.md#debugging-switches)).
 
 ### Routes
 Times from the first input poll, with an existing user folder; give the second program its
@@ -259,7 +319,8 @@ accepts and V or Backspace goes back.
 ### Known issues
 - The DLC isn't usable, so the launcher leaves it out (installed, Uprising shows a region error
   box at start: above).
-- Four players run at 37-51 FPS and Zombies with two at 50-60 on the test machine.
+- Four players run at 37-51 FPS on the test machine, and two players at 45-60 in heavy moments
+  (Zombies especially: see the split screen frame rate above).
 - Xbox LIVE and System Link aren't available (no network play).
 - Not tried: Zombies with three or four players, Survival and the Farm location, Zombies'
   custom game options, other multiplayer modes and maps, a match played to its end, the Zombies
