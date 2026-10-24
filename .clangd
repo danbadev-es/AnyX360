@@ -1,0 +1,8 @@
+# clangd (the C++ language server of VS Code and other editors): no background index of the
+# recompiled games' generated sources (games/<id>/recomp*/, thousands of files of megabytes each).
+# Indexing them took clangd past 50 GB of Windows' memory, and a game running alongside then failed
+# to allocate and closed (docs/BLACKOPS2.md, "Out of memory").
+If:
+  PathMatch: games/[^/]+/recomp[^/]*/.*
+Index:
+  Background: Skip
