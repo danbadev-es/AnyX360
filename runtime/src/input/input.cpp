@@ -58,14 +58,18 @@ int ResolveLocked(uint32_t user, uint32_t connected) {
 }
 
 // ---- scripted input ---------------------------------------------------------------------------
-// ANYX360_INPUT="<seconds>:<button>[/<hold>][@<user>],..." presses each button for 120 ms (or <hold>
-// seconds) at the given time after the first input poll, on player <user> (default 0). Buttons:
-// START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT, left stick LUP LDOWN LLEFT LRIGHT.
+// ANYX360_INPUT="<seconds>:<button>[/<hold>][~<period>x<count>][@<user>],..." presses each button for
+// 120 ms (or <hold> seconds) at the given time after the first input poll, on player <user> (default
+// 0); with ~<period>x<count>, again every <period> seconds, <count> times in all. Buttons: START BACK A
+// B X Y UP DOWN LEFT RIGHT LB RB LT RT LS RS, left stick LUP LDOWN LLEFT LRIGHT, right stick RUP RDOWN
+// RLEFT RRIGHT.
 
 struct Press {
   double at = 0;
   std::string button;
   double hold = 0.12;
+  double period = 0;
+  uint32_t count = 1;
   uint32_t user = 0;
 };
 
@@ -87,6 +91,11 @@ const std::vector<Press>& Script() {
       if (size_t at = press.button.find('@'); at != std::string::npos) {
         press.user = uint32_t(std::atoi(press.button.c_str() + at + 1)) & 3;
         press.button.resize(at);
+      }
+      if (size_t tilde = press.button.find('~'); tilde != std::string::npos) {
+        press.period = std::atof(press.button.c_str() + tilde + 1);
+        if (const char* x = std::strchr(press.button.c_str() + tilde, 'x')) press.count = uint32_t(std::max(1, std::atoi(x + 1)));
+        press.button.resize(tilde);
       }
       if (size_t slash = press.button.find('/'); slash != std::string::npos) {
         press.hold = std::atof(press.button.c_str() + slash + 1);
@@ -114,16 +123,24 @@ void ApplyScript(uint32_t user, Pad& pad) {
       {"X", XINPUT_GAMEPAD_X},              {"Y", XINPUT_GAMEPAD_Y},
       {"UP", XINPUT_GAMEPAD_DPAD_UP},       {"DOWN", XINPUT_GAMEPAD_DPAD_DOWN},
       {"LEFT", XINPUT_GAMEPAD_DPAD_LEFT},   {"RIGHT", XINPUT_GAMEPAD_DPAD_RIGHT},
-      {"LB", XINPUT_GAMEPAD_LEFT_SHOULDER}, {"RB", XINPUT_GAMEPAD_RIGHT_SHOULDER}};
+      {"LB", XINPUT_GAMEPAD_LEFT_SHOULDER}, {"RB", XINPUT_GAMEPAD_RIGHT_SHOULDER},
+      {"LS", XINPUT_GAMEPAD_LEFT_THUMB},    {"RS", XINPUT_GAMEPAD_RIGHT_THUMB}};
   uint16_t buttons = 0;
   for (const Press& p : Script()) {
-    if (p.user != user || now < p.at || now >= p.at + p.hold) continue;
+    if (p.user != user || now < p.at) continue;
+    // The press this time falls in (a repeated one), and whether it is still held.
+    const double repeat = p.period > 0 ? std::min(std::floor((now - p.at) / p.period), double(p.count - 1)) : 0;
+    if (now >= p.at + repeat * p.period + p.hold) continue;
     if (p.button == "LT") pad.left_trigger = 255;
     if (p.button == "RT") pad.right_trigger = 255;
     if (p.button == "LUP") pad.ly = 32767;
     if (p.button == "LDOWN") pad.ly = -32768;
     if (p.button == "LLEFT") pad.lx = -32768;
     if (p.button == "LRIGHT") pad.lx = 32767;
+    if (p.button == "RUP") pad.ry = 32767;
+    if (p.button == "RDOWN") pad.ry = -32768;
+    if (p.button == "RLEFT") pad.rx = -32768;
+    if (p.button == "RRIGHT") pad.rx = 32767;
     for (auto& [name, bit] : names)
       if (p.button == name) buttons |= bit;
   }

@@ -239,7 +239,7 @@ All opt-in through environment variables read by the runtime:
 
 | Variable | Effect |
 |---|---|
-| `ANYX360_INPUT` | Scripted pad input: `"25:START,35:A,170:START/0.3,50:START@1"` (`seconds:button[/hold][@player]`, player 0-3, default 0; buttons START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT LUP LDOWN LLEFT LRIGHT). A player with scripted input counts as connected |
+| `ANYX360_INPUT` | Scripted pad input: `"25:START,35:A,170:START/0.3,50:START@1,200:RT/0.2~3x40"` (`seconds:button[/hold][~period x count][@player]`, player 0-3, default 0; `~3x40` presses again every 3 s, 40 times in all; buttons START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT LS RS, left stick LUP LDOWN LLEFT LRIGHT, right stick RUP RDOWN RLEFT RRIGHT). A player with scripted input counts as connected |
 | `ANYX360_INPUT_NEXT` | When the title starts another of its executables (`XamLoaderLaunchTitle`), the new process's `ANYX360_INPUT` (without it, the new process gets no scripted input) |
 | `ANYX360_INPUT_TRACE` | Logs every change of each player's virtual pad |
 | `ANYX360_FRAMETIMES` | Writes every vblank, VdSwap, GPU swap, present and display vblank to a CSV; summarise with `tools/scripts/frametimes.py <csv> [--from s] [--to s]` |
@@ -249,6 +249,7 @@ All opt-in through environment variables read by the runtime:
 | `ANYX360_VBLANK_SPIN_US` | How long the vblank thread spins before each tick (default 300) |
 | `ANYX360_NO_DISPLAY_LOCK` | Free-running vblank instead of locking it to the display |
 | `ANYX360_DISPATCH_SAFETY_MS` | Interval of the dispatcher's missed-wakeup re-check for infinite waits (default 250, 0 disables) |
+| `ANYX360_PROFILE` | A sampling profiler for named threads: `"GPU Commands\|guest 11\|Backend:140:60"` (`threads:start s:seconds`; guest threads by the names titles give them). Logs each thread's hottest functions (self, inclusive, and the caller of the top ones), named through the `.pdb` (recompiled code as `sub_XXXXXXXX`) |
 | `ANYX360_CAPTURE_DIR` | Saves the guest frame as BMP every 5 s |
 | `ANYX360_DUMP_AT` | Thread dumps at the given seconds (`"95,100"`); without it, one comes after 10 s without frames, with the GPU command processor's host stack |
 | `ANYX360_MEMSCAN` | With `ANYX360_DUMP_AT`: logs guest memory holding that text (ASCII or UTF-16BE) |
