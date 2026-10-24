@@ -1,0 +1,50 @@
+# Resident Evil 6 recompiler configuration (XenonRecomp format). Paths are relative to this file.
+# This file contains no game code or data; it only describes where things are.
+#
+# file_path is the default.xex (BH6MasterRelease.exe) of the Games on Demand package written out
+# with x360tool god-extract (see docs/RESIDENTEVIL6.md). It is encrypted with the retail key and uses
+# basic (zero-fill) compression.
+
+[main]
+file_path = "../../extracted/re6/game/default.xex"
+out_directory_path = "recomp2"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x83A5ED20
+savegprlr_14_address = 0x83A5ECD0
+restfpr_14_address = 0x83A5FD8C
+savefpr_14_address = 0x83A5FD40
+restvmx_14_address = 0x83A60078
+savevmx_14_address = 0x83A5FDE0
+restvmx_64_address = 0x83A6010C
+savevmx_64_address = 0x83A5FE74
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: word for word Black Ops
+# II's, apart from the global setjmp reads and the call longjmp makes). The other longjmp
+# candidates (0x827556E0, 0x82796AF8, 0x83821F88, 0x838F7570) are ordinary functions.
+setjmp_address = 0x83A65250
+longjmp_address = 0x83A64F30
+
+# Functions the analyser gets wrong (address + size), added as they are found. Both are leaf
+# functions without .pdata entries whose switch counts down CTR with bdzf; the last conditional
+# branch targets the next instruction, which the analyser takes for an empty block, so it cut the
+# function there (as in Black Ops II's sub_82539CB8) and the later cases' branches back to the shared
+# return paths were lost.
+functions = [
+  # Maps a code to an HRESULT (compares r3 with 0x805000xx codes); ends at 0x837266B8 (blr).
+  { address = 0x83726460, size = 0x25C },
+  # A check on a global state table (cases 0-4); ends at 0x824DDC30 (blr).
+  { address = 0x824DDB90, size = 0xA4 },
+]

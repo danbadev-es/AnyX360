@@ -1,0 +1,71 @@
+== XEX2 header ==
+module flags:     0x00000001 title
+PE data offset:   0x00005000
+base address:     0x82000000
+entry point:      0x83A74418
+image size:       0x01E40000 (30.25 MiB)
+page size:        0x10000
+encryption:       AES-128 (normal)
+compression:      basic (zero-fill blocks), 3 blocks
+region:           0xFFFFFFFF
+allowed media:    0x00000004
+original PE name: BH6MasterRelease.exe
+
+== Execution info ==
+title id:         43430819
+media id:         4EA1CC2E
+version:          0.0.0.3 (base 0.0.0.3)
+disc:             1 of 1
+savegame id:      00000000
+default stack:    0x40000
+title workspace:  0x100000
+system flags:     0x00000200
+
+== Optional headers (18) ==
+  000002FF  RESOURCE_INFO                  value/offset 0x00002F8C
+  000003FF  FILE_FORMAT_INFO               value/offset 0x00002FA0
+  00004304  ?                              value/offset 0x00002FC0
+  00010100  ENTRY_POINT                    value/offset 0x83A74418
+  00010201  IMAGE_BASE_ADDRESS             value/offset 0x82000000
+  000103FF  IMPORT_LIBRARIES               value/offset 0x00004660
+  00018002  CHECKSUM_TIMESTAMP             value/offset 0x00002FD0
+  000183FF  ORIGINAL_PE_NAME               value/offset 0x00002FD8
+  000200FF  STATIC_LIBRARIES               value/offset 0x00002FF4
+  00020104  TLS_INFO                       value/offset 0x00003118
+  00020200  DEFAULT_STACK_SIZE             value/offset 0x00040000
+  00030000  SYSTEM_FLAGS                   value/offset 0x00000200
+  00040006  EXECUTION_INFO                 value/offset 0x00003128
+  00040201  TITLE_WORKSPACE_SIZE           value/offset 0x00100000
+  00040310  GAME_RATINGS                   value/offset 0x00003140
+  00040404  LAN_KEY                        value/offset 0x00003180
+  000405FF  XBOX360_LOGO                   value/offset 0x00003190
+  000407FF  ALTERNATE_TITLE_IDS            value/offset 0x00003858
+
+== Import libraries (2) ==
+  xboxkrnl.exe     v2.0.21076.0    (min 2.0.14719.0)  345 import records
+  xam.xex          v2.0.21076.0    (min 2.0.14719.0)  242 import records
+
+== Statically linked SDK libraries (18) ==
+  LIBCPMT  2.0.11886  (tail 0x0400)
+  XNET     2.0.21076  (tail 0x4000)
+  XMP      2.0.21076  (tail 0x4000)
+  D3D9     2.0.21076  (tail 0x4000)
+  D3DX9    2.0.21076  (tail 0x4000)
+  XGRAPHC  2.0.21076  (tail 0x4000)
+  XAPOBA   2.0.21076  (tail 0x4000)
+  XAUDIO2  2.0.21076  (tail 0x4000)
+  XONLINE  2.0.21076  (tail 0x4000)
+  XHV2     2.0.21076  (tail 0x4000)
+  XPARTY   2.0.21076  (tail 0x4000)
+  XAPILIB  2.0.21076  (tail 0x4000)
+  XHTTP    2.0.21076  (tail 0x4000)
+  XBOXKRNL 2.0.21076  (tail 0x4000)
+  XMCORE   2.0.21076  (tail 0x4000)
+  LINK     10.0.11886  (tail 0x4400)
+  C2       16.0.11886  (tail 0x4400)
+  C1       16.0.11886  (tail 0x4400)
+
+== Page descriptors (484) ==
+  code       24.56 MiB
+  data       1.31 MiB
+  read-only  4.38 MiB

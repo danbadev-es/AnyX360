@@ -1,0 +1,20 @@
+{
+  "id": "re6",
+  "title": "Resident Evil 6",
+  "cover": "resident-evil-6",
+  "status": "testing",
+  "exe": "ResidentEvil6",
+  "user_dir": "ResidentEvil6",
+  "title_id": "43430819",
+  "xex": {"version": "0.0.0.3", "media_id": "4EA1CC2E"},
+  "dev_game_dir": "extracted/re6/game",
+  "launcher_name": "AnyX360 Resident Evil 6",
+  "size_gb": 8,
+  "archive_hint": "Resident Evil 6 (Games on Demand)",
+  "input": "keyboard_pad",
+  "required_files": ["nativeXenon/serial.srt", "nativeXenon/arc/X360/Title.arc"],
+  "owners": "Capcom",
+  "trademarks": ["Xbox", "Xbox 360", "Resident Evil"],
+  "content_needs_update": ["11A6F0E4EE9991F11986CBE085875AB184FC13CF43", "52B6C8179BD9B9F78966F35D30E6872CF25396E343"],
+  "components": []
+}
