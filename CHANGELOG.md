@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-10-26
+
+Black Ops II: why two-player Zombies closed and slowed down, a faster job queue, and the memory in
+the log and F1.
+
 ### Fixed
 
 - **Out of memory no longer closes the game silently.** When Windows runs out of memory the game
@@ -782,7 +787,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.16.1...HEAD
+[0.16.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.14.0...v0.14.1
