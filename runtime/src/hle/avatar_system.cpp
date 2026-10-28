@@ -339,6 +339,12 @@ bool LoadShape(uint32_t index, x360tool::AvatarShapeOverride& shape, std::string
 // body modification template in the pack's table), the head takes the description's chin, nose and
 // ears.
 void ApplyShapes(x360tool::AvatarModel& model, const Part& part, const Description& d) {
+  // Testing: ANYX360_AVATAR_SHAPES=0 leaves the parts as they are, to compare.
+  static const bool off = [] {
+    const char* v = std::getenv("ANYX360_AVATAR_SHAPES");
+    return v && *v == '0';
+  }();
+  if (off) return;
   std::vector<uint32_t> shapes;
   if (part.slot == 0x2) {
     for (const auto& worn : d.parts) {
@@ -730,9 +736,9 @@ bool BuildAssets(uint32_t metadata, uint32_t mask, uint32_t result, uint32_t res
     if (!names.empty()) names += ", ";
     for (char16_t c : g.pack->entries()[part->index].name) names += c < 0x80 ? char(c) : '?';
   }
-  KLOG_I("avatars: built %u parts (mask %X, %s, body %u, %u joints): %s; %u + %u bytes", n, mask,
+  KLOG_I("avatars: built %u parts (mask %X, %s, body %u, %u joints): %s; %u + %u bytes at %08X, %08X", n, mask,
          described ? "described" : "no description: default", d.body, Load<uint32_t>(skeleton), names.c_str(),
-         cpu - result, gpu_at);
+         cpu - result, gpu_at, result, gpu);
   return true;
 }
 
