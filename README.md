@@ -499,8 +499,7 @@ Kinect Sports:
 
 - In testing: only the menus, the start of Bowling (before its update) and Football's loading have
   been tried, with the test player.
-- You play as the default avatar. The avatars' face shapes (chin, nose, ears) aren't applied, and
-  tight clothes can show the body through them.
+- You play as the default avatar.
 - Same webcam limits as Dance Central 3.
 
 Kinect Joy Ride:

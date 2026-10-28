@@ -28,9 +28,15 @@ copies it there on its first run, so avatar games without a pack (Doritos Crash 
 (meshes, material parameters, textures) and writes it as OBJ.
 
 - **Table** (big-endian): a 0x28-byte header (+0x1C entry count: 1282), entries of 0xF8 bytes
-  (+0x00 the asset's category bits, +0x04 a second word, +0xBC 13 offsets of its name per language,
-  +0xF0 offset and size of its STRB file, 0 for 203 entries without data), the names (UTF-16
-  big-endian), then the STRB files. The entry's index is the asset's number in its ID.
+  (+0x00 the asset's category bits, +0x04 a second word, +0x98 a word (an ordering?), +0x9C the
+  asset ID of a linked asset, +0xBC 13 offsets of its name per language, +0xF0 offset and size of
+  its STRB file, 0 for 203 entries without data), the names (UTF-16 big-endian), then the STRB
+  files. The entry's index is the asset's number in its ID. 40 entries also keep colours at
+  +0x08. **Links** (+0x9C): 266 components link to their hiding or body modification template
+  (e.g. "Pinstripe Pants" to "Pinstripe Pants Hiding Template", "Male Power Tee" to the generic
+  "Male Short Sleeved Top Template", "Cork High Heels" to "High Heel Body Modification Template");
+  90 hairstyles link to their version for under a hat ("Peak" to "Peak (Hat)"); eye shadows to
+  another eye shadow. `x360tool avatar-shape <toc> all` checks every link.
 - **Category bits** (first word): components 0-12 (head 1, body 2, hair 4, shirt 8, trousers 0x10,
   shoes 0x20, hat 0x40, gloves 0x80, glasses 0x100, wristwear 0x200, earrings 0x400, ring 0x800,
   carryable 0x1000; a part may cover several, e.g. a wrap shirt 0x208); face textures (eyes 0x2000,
@@ -68,6 +74,18 @@ pixel shader constant; kind 2 a vertex shader constant. Kinect Sports maps ids t
   3 eyes (14 frames), 4 mouth (14 frames), 5 eye shadow; the title picks the frame.
 - 27 is a rim light colour with its exponent in w; black in every asset, left as it is.
 
+**Textures** (`x360tool avatar-model <toc> <entry>` prints each one's layout): DXT1 or DXT5,
+8-in-16 endian; linear ones (most) have rows 32 blocks apart (Xenia's pitch for a texture's base
+level), tiled ones (format bit 0x100) use the GPU's 2D tiling. The title makes a D3D texture header
+per texture and frame from the 44-byte texture records (Kinect Sports `82524770`:
+`XGSetTextureHeaderEx(width, height, 1 level, format)`, then each frame at address + frame x slice
+size); the per-mesh code (`8259E8C0`) picks the frame for ids 7-10 and 12 (eyebrows, eyes, mouth,
+each side) from the avatar's expression, and sets wrap or clamp from the texture parameter's flags.
+So the **width and height in the record are what the GPU samples**: the head's blank face slots say
+64x64 (eyebrows, eyes, mouth), but the pack's face textures are 128x64, a whole eye or mouth per
+frame with the same slice size. The system writes the texture's own header in the slot; with the
+slot's, only the left half of each eye, eyebrow and mouth showed (half-closed, shifted eyes).
+
 ## Descriptions (`XAVATAR_METADATA`)
 
 As Kinect Sports passes them for its guests (big-endian):
@@ -101,13 +119,45 @@ How Kinect Sports draws them (`8259D418`): passes by material (0 body/clothing, 
 3 shades, 4 head), each walking all parts' meshes of that material (`8259E2A0`), constants and
 textures per mesh (`8259E8C0`). It never writes depth, cull or stencil state.
 
+## Shape overrides: hiding templates and face shapes
+
+The body is a whole body, and clothes are drawn over it: without help, the body's skin pokes
+through tight clothes (light patches on trousers) and z-fights with them. On the console the system
+removes the body's triangles under each worn component and reshapes the body where it needs to
+(high heels raise the feet); it shapes the head with the chin, nose and ears the same way. AnyX360
+does the same when it builds the parts (`ApplyShapes`):
+
+- the **body** takes the template each worn component links to (the table's +0x9C, above), if it
+  was made for that body (male or female);
+- the **head** takes the description's chin, nose and ears (+12, +28, +44);
+- under a **hat**, a hairstyle is replaced by its linked version for hats;
+- the default avatars keep the head's own shape (the pack's first ears are "Fantasy Ears").
+
+The format (block 4, little-endian; `x360tool/src/avatar_model.h`): two sections, each a 32-byte
+header {count, the target's index (vertex) region size, the target's asset ID, 0, a bit width}:
+
+1. `count` triangle numbers of that width (sorted), counted through the target's index region:
+   triangles to hide (made degenerate);
+2. a lattice vertex stream as in models (the 402-bit header without the count: scale, minimum, the
+   three lattice widths, four fields as base + width), each vertex starting with its byte offset in
+   the target's vertex region (that width), then its position and the four fields (normal, blend
+   weights, blend indices, colour): vertices to replace; their UVs stay.
+
+The region sizes say which model a template fits (MaleBody 13584/45568 bytes, FemaleBody
+14724/49280, Head 5076/33792). `x360tool avatar-shape <toc> <entry>` applies one to its target and
+`all` checks the 266 in the pack (230 templates, 36 face shapes): all apply.
+
+**Testing**: `ANYX360_AVATAR` dresses the players' avatars (not the random ones titles ask for):
+a comma-separated list of pack entries (`x360tool avatar-pack`'s `index.tsv`), each taking its
+slots' place (a body sets the gender; a face texture or face shape its place in the face), or
+`random:<seed>`. `ANYX360_AVATAR_SHAPES=0` builds the parts without shape overrides, to compare.
+
 ## Open
 
-- **Shape overrides**: chin, nose and ears change the head's vertices; hiding templates (e.g.
-  "Black Skinny Fit Jeans Hiding Template") remove the body's triangles under clothes (a triangle
-  count, the target's index bytes, the target asset ID, a bit width, then sorted triangle indices;
-  a second section of vertex changes). Not applied yet; how an item finds its template isn't in the
-  pack's table.
 - **Animations** (`XamAvatarLoadAnimation`): 41 in the pack.
+- Unmapped avatar buffers: in Kinect Sports' menus Xenia refuses a few draws of avatar parts (index
+  buffers the size of a head's or a body's) because their memory is no longer mapped ("Invalid
+  upload range", about three frames each, as in 0.16.1); probably avatars drawn once more after
+  the title freed them. Not visible in the screenshots taken; not investigated further.
 - The 16 bytes after each face texture, the second part list and the trailing bytes of a
   description.

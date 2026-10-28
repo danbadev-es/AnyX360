@@ -110,8 +110,11 @@ pause notification; Dance Central 3 answers it by showing the Kinect Guide.
   starts when the hand is raised, and the avatar follows the body: it reaches for the ball rack
   and bowls. Only Bowling's start was tried with the scripted player; the other sports, whole
   games and two players have not been tried.
-- **Not done**: the avatars' face shapes (chin, nose, ears) and the pack's hiding templates (the
-  body under tight clothes can show through); the system's avatar animations
+- **Clothes and faces** (unreleased): the body loses the triangles under the clothes worn (the
+  pack's hiding templates; before, its skin showed through the trousers), the faces take their
+  chin, nose and ears, the eyes, eyebrows and mouth show whole, and hair fits under hats
+  ([AVATARS.md](AVATARS.md#shape-overrides-hiding-templates-and-face-shapes)).
+- **Not done**: the system's avatar animations
   (`XamAvatarLoadAnimation`, which the game imports; it has played without them so far).
 - **Scripted route** (synthetic source): `3:enter;5:walk_out;27:arm_right_10_80;35:lower;
   40:arm_right_10_80;48:lower`, then `55:arm_right_84_-24` picks "Player" (`94_-25` the guest on

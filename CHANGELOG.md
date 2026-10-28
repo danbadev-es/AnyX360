@@ -8,6 +8,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Fixed
+
+- **Xbox Avatars' faces** (Kinect Sports, Doritos Crash Course, Kinect Joy Ride): the eyes,
+  eyebrows and mouth show whole. The pack's face textures are 128x64, but the head's slots for them
+  say 64x64, and the GPU showed only their left half (half-closed or shifted eyes); each now keeps
+  its own size.
+- **Avatars' clothes**: the body no longer shows through the clothes. Like the console, the system
+  removes the body's triangles under each component worn and reshapes it where needed (high
+  heels), using the hiding and body modification templates each component links to in the avatar
+  asset pack ([docs/AVATARS.md](docs/AVATARS.md#shape-overrides-hiding-templates-and-face-shapes)).
+
+### Added
+
+- **Avatars' face shapes**: chins, noses and ears from the avatars' descriptions; hairstyles take
+  their version made for hats under a hat.
+- `x360tool avatar-shape` decodes the pack's shape overrides and checks them and its links;
+  `avatar-model` prints texture layouts. `ANYX360_AVATAR` dresses the players' avatars for testing
+  and `ANYX360_AVATAR_SHAPES=0` turns shape overrides off.
+
 ## [0.17.0] - 2026-10-28
 
 The other Kinect-era games with their title updates: Fruit Ninja Kinect, Kinect Sports, Kinect Joy
