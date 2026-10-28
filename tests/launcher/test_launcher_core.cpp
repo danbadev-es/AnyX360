@@ -197,19 +197,26 @@ std::string MakeStfs(uint32_t content_type, uint32_t title_id, const std::map<st
     PutBe(table, e + 0x32, parent, 2);
     PutBe(table, e + 0x34, size);
   };
+  // Folders at any depth (Resident Evil 6's nativeXenon/arc/X360/Title.arc), each under its parent.
+  auto parent_of = [&](const std::string& path) -> uint16_t {
+    const size_t slash = path.rfind('/');
+    return slash == std::string::npos ? 0xFFFF : folder_index[path.substr(0, slash)];
+  };
   for (const auto& [path, data] : files) {
-    size_t slash = path.find('/');
-    if (slash != std::string::npos && !folder_index.count(path.substr(0, slash))) {
-      folder_index[path.substr(0, slash)] = uint16_t(entry);
-      add_entry(path.substr(0, slash), 0xFFFF, true, 0, 0, 0);
+    for (size_t slash = path.find('/'); slash != std::string::npos; slash = path.find('/', slash + 1)) {
+      const std::string folder = path.substr(0, slash);
+      if (folder_index.count(folder)) continue;
+      const uint16_t parent = parent_of(folder);
+      folder_index[folder] = uint16_t(entry);
+      add_entry(folder.substr(folder.rfind('/') == std::string::npos ? 0 : folder.rfind('/') + 1), parent, true, 0,
+                0, 0);
     }
   }
   uint32_t next = 1;
   for (const auto& [path, data] : files) {
-    size_t slash = path.find('/');
+    size_t slash = path.rfind('/');
     uint32_t count = uint32_t(std::max<size_t>(1, (data.size() + kBlock - 1) / kBlock));
-    add_entry(slash == std::string::npos ? path : path.substr(slash + 1),
-              slash == std::string::npos ? 0xFFFF : folder_index[path.substr(0, slash)], false, next, count,
+    add_entry(slash == std::string::npos ? path : path.substr(slash + 1), parent_of(path), false, next, count,
               uint32_t(data.size()));
     for (uint32_t k = 0; k < count; ++k) {
       blocks.push_back({next + k, data.substr(k * kBlock, kBlock)});
@@ -738,8 +745,8 @@ int main() {
     CHECK(!NeedsTitleUpdate(g, L"ANYPACKAGE"));
   }
 
-  // A game with one pack that needs its title update (Kinect Joy Ride's Chevrolet Car Pack, named by
-  // its package file name in game.json): the others are installed, that one is left out and noted.
+  // A game with a pack that needs its title update (Resident Evil 6's Siege, named by its package
+  // file name in game.json): the others are installed, that one is left out and noted.
   for (const CatalogGame& g : kCatalog) {
     if (!g.content || !*g.content_needs_update) continue;
     std::wstring needs_update = g.content_needs_update;
