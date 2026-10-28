@@ -7,6 +7,7 @@
   "user_dir": "KinectSports",
   "title_id": "4D5308C9",
   "xex": {"version": "0.0.0.2", "media_id": "655F2429"},
+  "update": {"version": "0.0.4.2", "package": "TU_16L6269_0000008000000.0000000000102"},
   "dev_game_dir": "extracted/ks/game",
   "launcher_name": "AnyX360 Kinect Sports",
   "size_gb": 4,

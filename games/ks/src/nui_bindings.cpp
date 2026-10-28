@@ -1,11 +1,14 @@
-// Kinect Sports' Kinect library (NUI 2.0.11775, the same launch-era build as Kinect Adventures'),
-// replaced at its API boundary by the virtual sensor (x360/nui.h).
+// Kinect Sports' Kinect library, replaced at its API boundary by the virtual sensor (x360/nui.h).
 //
-// The addresses are the entry points the game calls (tools/scripts/nui_recon.py, see
-// games/ks/notes/nui_entry_points.md). Each was matched to Kinect Adventures' function of the same
-// build by its instructions with addresses and offsets masked (the same code, linked elsewhere);
-// names, signatures and frame layouts are in games/ka/notes/nui_api.md. The pure code linked
-// around the library (829B0000-829BB000, 829E3000-829F0000) works on its results and stays.
+// The game is recompiled from its title update (0.0.4.2), which was built with a later XDK: its
+// library is NUI 2.0.20353, close to Fruit Ninja Kinect's 2.0.20500, where the disc's was 2.0.11775
+// (Kinect Adventures' launch-era build). The addresses are the update's. Each was found from the
+// disc's entry points (tools/scripts/nui_recon.py, games/ks/notes/nui_entry_points.md) by
+// instruction shape (addresses and offsets masked): the function of the same shape in the update or
+// in Fruit Ninja Kinect's library, or the call at the same place in the game's callers; the leaf
+// functions (camera settings, troubleshooter) are the same instructions. Names, signatures and
+// frame layouts are in games/ka/notes/nui_api.md. The pure code linked around the library works on
+// its results and stays.
 #include <mutex>
 #include <vector>
 
@@ -14,8 +17,8 @@
 #include "x360/kernel.h"
 #include "x360/nui.h"
 
-PPC_EXTERN_FUNC(sub_82A93C88);  // XGSetTextureHeaderEx (the title's XG library)
-PPC_EXTERN_FUNC(sub_82A93F70);  // XGOffsetResourceAddress
+PPC_EXTERN_FUNC(sub_82AE8748);  // XGSetTextureHeaderEx (the title's XG library)
+PPC_EXTERN_FUNC(sub_82AE8A30);  // XGOffsetResourceAddress
 
 namespace ks {
 
@@ -29,8 +32,10 @@ uint32_t Load32(uint32_t address) { return load_be<uint32_t>(x360::hle::to_host(
 void Store32(uint32_t address, uint32_t value) { store_be<uint32_t>(x360::hle::to_host(address), value); }
 
 // ---- image stream formats ---------------------------------------------------------------------
-// ImageStreamOpen (829D1AD8) is Kinect Adventures' (82D2AAB0): each NUI_IMAGE_TYPE accepts one
-// resolution and gets a D3DFORMAT and frame size.
+// ImageStreamOpen (82A1E268) is Fruit Ninja Kinect's (2.0.20500) and reads the same tables
+// (820598B0 per image type, 82059940 per stream, word for word Fruit Ninja Kinect's 82001C18 and
+// 82001CA8): each NUI_IMAGE_TYPE has one resolution and a D3DFORMAT and frame size. The disc's
+// 2.0.11775 numbered the plain depth image 4; this build numbers it 3, and adds the small depth 8.
 bool StreamFormat(uint32_t type, uint32_t resolution, nui::StreamFormat& format) {
   struct Entry {
     uint32_t type, resolution, width, height, bytes_per_pixel, d3d_format;
@@ -40,8 +45,9 @@ bool StreamFormat(uint32_t type, uint32_t resolution, nui::StreamFormat& format)
       {0, 1, 320, 240, 2, 0x1A220058, nui::StreamFormat::kDepthPlayer},
       {1, 2, 640, 480, 4, 0x28287EB2, nui::StreamFormat::kColorRgb},
       {2, 2, 640, 480, 2, 0x1A20000C, nui::StreamFormat::kColorYuv},
-      {4, 1, 320, 240, 2, 0x1A220058, nui::StreamFormat::kDepth},
+      {3, 1, 320, 240, 2, 0x1A220058, nui::StreamFormat::kDepth},
       {7, 0, 80, 60, 2, 0x1A220058, nui::StreamFormat::kDepthPlayer},
+      {8, 0, 80, 60, 2, 0x1A220058, nui::StreamFormat::kDepth},
   };
   for (const Entry& e : kEntries) {
     if (e.type != type || e.resolution != resolution) continue;
@@ -55,7 +61,7 @@ bool StreamFormat(uint32_t type, uint32_t resolution, nui::StreamFormat& format)
   return false;
 }
 
-// The texture header of an image frame, made as the library makes its own (829D21D8):
+// The texture header of an image frame, made as the library makes its own (82A1DA78):
 // XGSetTextureHeaderEx(width, height, 1 level, usage 4, format, exp bias 0, flags 1, base offset 0,
 // mip offset "contiguous", pitch 0 (default), header, NULL, NULL), then
 // XGOffsetResourceAddress(header, pixels). Arguments 9-13 go on the stack at r1+0x54, 8 bytes apart.
@@ -74,18 +80,18 @@ void TextureHeader(PPCContext& ctx, uint32_t header, const nui::StreamFormat& fo
   ctx.r8.u64 = 0;
   ctx.r9.u64 = 1;
   ctx.r10.u64 = 0;
-  ctx.lr = 0x829D22A4;
-  sub_82A93C88(ctx, base);
+  ctx.lr = 0x82A1DC50;
+  sub_82AE8748(ctx, base);
   ctx.r3.u64 = header;
   ctx.r4.u64 = pixels;
-  ctx.lr = 0x829D22B0;
-  sub_82A93F70(ctx, base);
+  ctx.lr = 0x82A1DC64;
+  sub_82AE8A30(ctx, base);
   ctx = saved;
 }
 
 // ---- color camera settings: kept as the game sets them ---------------------------------------
-// 829C90F0(camera, setting, value) sets them; 829C8658/829C8668(camera, setting, value*) read them
-// back. 829C9110(camera, float[4]) sets a region. The camera is always 0.
+// 82A13A78(camera, setting, value) sets them; 82A131E0/82A131F0(camera, setting, value*) read them
+// back. 82A13A98(camera, float[4]) sets a region. The camera is always 0.
 uint32_t g_camera_settings[16] = {};
 uint32_t g_camera_region[4] = {};
 
@@ -106,14 +112,14 @@ uint32_t CameraSetRegion(uint32_t camera, uint32_t region) {
   return nui::kOk;
 }
 
-// 829C5988(angle*, status*): the motor's elevation, from XamNuiCameraElevationGetAngle.
+// 82A13DE0(angle*, status*): the motor's elevation, from XamNuiCameraElevationGetAngle.
 uint32_t CameraElevationGetAngle(uint32_t angle_ptr, uint32_t status_ptr) {
   if (status_ptr) Store32(status_ptr, 0);
   return nui::CameraElevationGetAngle(angle_ptr);
 }
 
 // ---- identity: nobody is enrolled -------------------------------------------------------------
-// 829DA858(tracking ID, flags, callback, context): identify the player with that skeleton. As in
+// 82A28F08(tracking ID, flags, callback, context): identify the player with that skeleton. As in
 // Kinect Adventures, the answer comes with the next skeleton frame through the callback: done (1),
 // S_OK, enrollment index -2 (nobody enrolled is this player), no flags.
 struct IdentityRequest {
@@ -130,7 +136,7 @@ uint32_t IdentityIdentify(uint32_t tracking_id, uint32_t flags, uint32_t callbac
   return nui::kOk;
 }
 
-// 829D2D28, on the game's Kinect thread: the identity answers first, then the frame.
+// 82A1EEB8, on the game's Kinect thread: the identity answers first, then the frame.
 uint32_t SkeletonGetNextFrame(uint32_t timeout_ms, uint32_t frame) {
   std::vector<IdentityRequest> requests;
   {
@@ -162,33 +168,36 @@ void InstallNui() {
 
 }  // namespace ks
 
-// Initialization (Kinect Adventures' 82D25C88).
-X360_GUEST_FUNCTION(829CF908, x360::nui::Initialize)
+// The disc's (0.0.0.2) addresses of each are in docs/KINECTSPORTS.md; those matched in Fruit Ninja
+// Kinect's library are its 821C2918 (initialization), 821B3720, 821B3870, 821B30F8 (skeletons),
+// 821C3CC0, 821C3120, 821C3448 (image streams) and 821D15D0 (elevation adjustment).
 
-// Skeleton tracking (82D26620, 82D25DE0, 82D26768, 82D25EF8, 82D26190, 82D28E28).
-X360_GUEST_FUNCTION(829D2BE0, x360::nui::SkeletonTrackingEnable)
-X360_GUEST_FUNCTION(829D23A0, x360::nui::SkeletonTrackingDisable)
-X360_GUEST_FUNCTION(829D2D28, ks::SkeletonGetNextFrame)
-X360_GUEST_FUNCTION(829D24B8, x360::nui::SkeletonSetTrackedSkeletons)
-X360_GUEST_FUNCTION(829D2750, x360::nui::TransformSmooth)
-X360_GUEST_TRACE(829CFE50, "NUI depth to color pixel coordinates (pure)")
+// Initialization.
+X360_GUEST_FUNCTION(82A1CDF8, x360::nui::Initialize)
 
-// Image streams and camera (82D2AAB0, 82D28FB8, 82D292C8, 82D2B678, 82D2BF98, 82D28A08, 82D27F70,
-// 82D27F80, 82D28A18, 82D28A28, 82D27608).
-X360_GUEST_FUNCTION(829D1AD8, x360::nui::ImageStreamOpen)
-X360_GUEST_FUNCTION(829CFFE0, x360::nui::ImageStreamGetNextFrame)
-X360_GUEST_FUNCTION(829D02F0, x360::nui::ImageStreamReleaseFrame)
-X360_GUEST_FUNCTION(829C5988, ks::CameraElevationGetAngle)
-X360_GUEST_STUB(829C62A8, "NUI elevation adjustment", 0)
-X360_GUEST_FUNCTION(829C90F0, ks::CameraSet)
-X360_GUEST_FUNCTION(829C8658, ks::CameraGet)
-X360_GUEST_FUNCTION(829C8668, ks::CameraGet)
-X360_GUEST_STUB(829C9100, "NUI camera property 829C9100", 0)
-X360_GUEST_FUNCTION(829C9110, ks::CameraSetRegion)
-X360_GUEST_STUB(829C7D00, "NUI 829C7D00", x360::nui::kFail)
+// Skeleton tracking.
+X360_GUEST_FUNCTION(82A1ED68, x360::nui::SkeletonTrackingEnable)
+X360_GUEST_FUNCTION(82A1E488, x360::nui::SkeletonTrackingDisable)
+X360_GUEST_FUNCTION(82A1EEB8, ks::SkeletonGetNextFrame)
+X360_GUEST_FUNCTION(82A1E600, x360::nui::SkeletonSetTrackedSkeletons)
+X360_GUEST_FUNCTION(82A1E8C8, x360::nui::TransformSmooth)
+X360_GUEST_TRACE(82A1E100, "NUI depth to color pixel coordinates (pure)")
 
-// Identity (82D2D6C0, 82D2D840, 82D2DB58) and the troubleshooter (82D2DB60).
-X360_GUEST_STUB(829DA6D8, "NUI identity request (with callback)", x360::nui::kFail)
-X360_GUEST_FUNCTION(829DA858, ks::IdentityIdentify)
-X360_GUEST_STUB(829DAB70, "NUI identity 829DAB70", 0)
-X360_GUEST_STUB(829C79C8, "NUI troubleshooter UI", 0)
+// Image streams and camera.
+X360_GUEST_FUNCTION(82A1E268, x360::nui::ImageStreamOpen)
+X360_GUEST_FUNCTION(82A1D600, x360::nui::ImageStreamGetNextFrame)
+X360_GUEST_FUNCTION(82A1D928, x360::nui::ImageStreamReleaseFrame)
+X360_GUEST_FUNCTION(82A13DE0, ks::CameraElevationGetAngle)
+X360_GUEST_STUB(82A14780, "NUI elevation adjustment", 0)
+X360_GUEST_FUNCTION(82A13A78, ks::CameraSet)
+X360_GUEST_FUNCTION(82A131E0, ks::CameraGet)
+X360_GUEST_FUNCTION(82A131F0, ks::CameraGet)
+X360_GUEST_STUB(82A13A88, "NUI camera property 82A13A88", 0)
+X360_GUEST_FUNCTION(82A13A98, ks::CameraSetRegion)
+X360_GUEST_STUB(82A12A50, "NUI 82A12A50", x360::nui::kFail)
+
+// Identity and the troubleshooter (which calls XamShowNuiTroubleshooterUI).
+X360_GUEST_STUB(82A28D48, "NUI identity request (with callback)", x360::nui::kFail)
+X360_GUEST_FUNCTION(82A28F08, ks::IdentityIdentify)
+X360_GUEST_STUB(82A29280, "NUI identity 82A29280", 0)
+X360_GUEST_STUB(82A15ED8, "NUI troubleshooter UI", 0)
