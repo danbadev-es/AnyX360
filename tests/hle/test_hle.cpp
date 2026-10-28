@@ -15,6 +15,7 @@
 #include "x360/profile.h"
 #include "x360/settings.h"
 #include "../../runtime/src/input/input_internal.h"
+#include "avatar_model.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -345,6 +346,66 @@ int main() {
     settings::Load(folder / "settings.toml");
     CHECK(!settings::Get().kinect.tilt_manual && !settings::Get().kinect.centre_player);
     fs::remove_all(folder);
+  }
+
+  // Avatar shape overrides (hiding templates, face shapes): a synthetic one hides triangles 0 and 2
+  // of a three-triangle part and moves its second vertex, keeping its UVs.
+  {
+    std::vector<uint8_t> block;
+    uint64_t bit = 0;
+    auto put = [&](uint64_t value, uint32_t n) {
+      for (uint32_t i = 0; i < n; ++i, ++bit) {
+        if ((bit >> 3) >= block.size()) block.push_back(0);
+        if ((value >> i) & 1) block[bit >> 3] |= uint8_t(1u << (bit & 7));
+      }
+    };
+    auto section = [&](uint32_t count, uint32_t region, uint32_t bits) {
+      put(count, 32), put(region, 32);
+      put(2, 32), put(7, 16), put(1, 16), put(0x09F1C8C1, 32), put(0xE0B29CA1, 32);  // target: entry 7
+      put(0, 32), put(bits, 32);
+    };
+    section(2, 18, 4);
+    put(0, 4), put(2, 4);
+    section(1, 96, 8);
+    float scale = 0.5f, zero = 0.0f;
+    uint32_t u;
+    std::memcpy(&u, &scale, 4);
+    put(u, 32);
+    std::memcpy(&u, &zero, 4);
+    put(u, 32), put(u, 32), put(u, 32);
+    put(4, 6), put(4, 6), put(4, 6);
+    put(0x123, 32), put(0, 32);
+    for (int k = 0; k < 3; ++k) put(0, 32), put(0, 32);
+    put(32, 8), put(1, 4), put(0, 4), put(2, 4);  // vertex at byte 32: lattice (1, 0, 2), no field bits
+    x360tool::AvatarShapeOverride shape;
+    std::string error;
+    CHECK(x360tool::parse_avatar_shape_override(block, shape, error));
+    CHECK(shape.target == 7 && shape.hidden_triangles.size() == 2 && shape.hidden_triangles[1] == 2);
+    CHECK(shape.vertices.size() == 1 && shape.vertices[0].offset == 32 && shape.vertices[0].fields[0] == 0x123);
+    x360tool::AvatarModel model;
+    model.header[3] = 96, model.header[4] = 18, model.header[7] = 0x100, model.header[8] = 0x200;
+    x360tool::AvatarMesh mesh;
+    mesh.stride = 32, mesh.uv_sets = 1, mesh.vertex_count = 3, mesh.triangles = 3;
+    mesh.vertex_offset = 0x100, mesh.index_offset = 0x200;
+    mesh.vertices.assign(96, 0xAA);
+    mesh.indices = {0, 1, 2, 0, 2, 1, 1, 2, 0};
+    model.meshes.push_back(mesh);
+    CHECK(shape.fits(model));
+    CHECK(x360tool::apply_avatar_shape_override(model, shape) == 3);
+    const auto& m = model.meshes[0];
+    CHECK(m.indices[0] == m.indices[1] && m.indices[1] == m.indices[2]);
+    CHECK(m.indices[3] == 0 && m.indices[4] == 2 && m.indices[5] == 1);
+    CHECK(m.indices[6] == m.indices[7] && m.indices[7] == m.indices[8]);
+    const uint8_t* v = &m.vertices[32];
+    auto be_float = [](const uint8_t* p) {
+      const uint32_t bits = uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | p[3];
+      float f;
+      std::memcpy(&f, &bits, 4);
+      return f;
+    };
+    CHECK(be_float(v) == 1.0f && be_float(v + 4) == 0.0f && std::fabs(be_float(v + 8) - 1.7320508f) < 1e-5f);
+    CHECK(v[12] == 0 && v[13] == 0 && v[14] == 0x01 && v[15] == 0x23);
+    CHECK(v[28] == 0xAA && m.vertices[0] == 0xAA);  // UVs and other vertices untouched
   }
 
   // Weak stubs: link, log once, return 0
