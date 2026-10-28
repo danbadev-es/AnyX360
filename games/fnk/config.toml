@@ -1,12 +1,19 @@
 # Fruit Ninja Kinect recompiler configuration (XenonRecomp format). Paths are relative to this file.
 # This file contains no game code or data; it only describes where things are.
 #
-# file_path is the default.xex of the Xbox Live Arcade package written out with x360tool
-# stfs-extract (see docs/FRUITNINJAKINECT.md). It is encrypted with the retail key and LZX-compressed.
+# The game is recompiled from its title update's executable (version 0.0.1.3, "Fruit Ninja Kinect
+# Title Update"): XenonRecomp applies patch_file_path to file_path and writes patched_file_path,
+# which XenonAnalyse reads (x360tool xex-patch makes the same file).
+# file_path is the base executable (version 0.0.0.3), the default.xex of the Xbox Live Arcade
+# package written out with x360tool stfs-extract (see docs/FRUITNINJAKINECT.md). It is encrypted
+# with the retail key and LZX-compressed. patch_file_path is default.xexp from the update's package
+# (TU_1C422RP_000000C000000.0000000000083, x360tool stfs-extract), see docs/FRUITNINJAKINECT.md.
 
 [main]
 file_path = "../../extracted/fnk/game/default.xex"
-out_directory_path = "recomp6"
+patch_file_path = "../../extracted/fnk/update/default.xexp"
+patched_file_path = "../../extracted/fnk/update/default_0.0.1.3.xex"
+out_directory_path = "recomp7"
 switch_table_file_path = "switch_tables.toml"
 
 # Optimisations stay off until the game runs (XenonRecomp recommendation).
@@ -19,22 +26,24 @@ cr_as_local = false
 non_argument_as_local = false
 non_volatile_as_local = false
 
-# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
 # image: each pattern occurs exactly once).
-restgprlr_14_address = 0x823B8740
-savegprlr_14_address = 0x823B86F0
-restfpr_14_address = 0x823B973C
-savefpr_14_address = 0x823B96F0
-restvmx_14_address = 0x823B9A28
-savevmx_14_address = 0x823B9790
-restvmx_64_address = 0x823B9ABC
-savevmx_64_address = 0x823B9824
+restgprlr_14_address = 0x823B9EE0
+savegprlr_14_address = 0x823B9E90
+restfpr_14_address = 0x823BAEDC
+savefpr_14_address = 0x823BAE90
+restvmx_14_address = 0x823BB1C8
+savevmx_14_address = 0x823BAF30
+restvmx_64_address = 0x823BB25C
+savevmx_64_address = 0x823BAFC4
 
 # The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: setjmp saves the non-volatile
 # registers at r3 and returns 0; longjmp restores them through r7 and returns r4, or 1). libjpeg's error
 # handling needs them: D3DX tries a DLC texture as a JPEG and returns E_FAIL through longjmp.
-setjmp_address = 0x823BB4C0
-longjmp_address = 0x823BB0B0
+# In the patched image: the base's pair (823BB4C0/823BB0B0) matched by instruction shape
+# and checked over 24 instructions.
+setjmp_address = 0x823BCF40
+longjmp_address = 0x823BCB30
 
 # Functions the analyser misses (address + size), added as they are found.
 # functions = [
