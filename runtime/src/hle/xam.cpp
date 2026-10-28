@@ -58,7 +58,12 @@ uint32_t Complete(uint32_t overlapped, uint32_t result, uint32_t length = 0, uin
   if (uint32_t event = Load<uint32_t>(overlapped + 0x0C)) {
     if (uint32_t body = ObjectFromHandle(event)) SetEvent(body);
   }
-  if (Load<uint32_t>(overlapped + 0x10)) KLOG_W("XOVERLAPPED completion routines are not delivered");
+  // The completion routine (dwErrorCode, dwNumberOfBytesTransferred, pOverlapped) runs as a user APC
+  // at the caller's next alertable wait, as on the console (Doritos Crash Course's update enumerates its
+  // saves with one).
+  if (uint32_t routine = Load<uint32_t>(overlapped + 0x10)) {
+    if (Thread* thread = CurrentThread()) QueueUserApc(*thread, routine & ~1u, result, length, overlapped);
+  }
   return X_ERROR_IO_PENDING;
 }
 
@@ -466,6 +471,36 @@ fs::path ContentPath(uint32_t user_index, uint32_t content_data) {
   return ContentFolder(user_index, type) / file;
 }
 
+// A package's display name (XCONTENT_DATA+8, 128 UTF-16 characters, as the title gave it), kept
+// beside the type folders as Xenia keeps its headers: <user>\content\Headers\<type>\<file>.header.
+// The content enumerators answer it, as the console does; they used to give the file name (Doritos
+// Crash Course's update enumerates its saves to find the one it made).
+constexpr uint32_t kDisplayNameBytes = 0x100;
+fs::path DisplayNamePath(uint32_t user_index, uint32_t type, const std::string& file) {
+  char type_dir[16];
+  std::snprintf(type_dir, sizeof(type_dir), "%08X", type);
+  return ContentFolder(user_index, type).parent_path() / "Headers" / type_dir / (file + ".header");
+}
+void SaveDisplayName(uint32_t user_index, uint32_t content_data) {
+  const uint32_t type = Load<uint32_t>(content_data + 4);
+  const std::string file(Ptr<const char>(content_data + 0x108), strnlen(Ptr<const char>(content_data + 0x108), 42));
+  const fs::path header = DisplayNamePath(user_index, type, file);
+  std::error_code ec;
+  fs::create_directories(header.parent_path(), ec);
+  std::ofstream(header, std::ios::binary).write(Ptr<const char>(content_data + 8), kDisplayNameBytes);
+}
+// The saved display name into an XCONTENT_DATA (big-endian UTF-16, as written); false if none.
+bool LoadDisplayName(uint32_t user_index, uint32_t type, const std::string& file, uint8_t* display_name) {
+  std::ifstream in(DisplayNamePath(user_index, type, file), std::ios::binary);
+  if (!in) return false;
+  char buffer[kDisplayNameBytes] = {};
+  in.read(buffer, kDisplayNameBytes);
+  if (in.gcount() != std::streamsize(kDisplayNameBytes)) return false;
+  buffer[kDisplayNameBytes - 2] = buffer[kDisplayNameBytes - 1] = 0;
+  std::memcpy(display_name, buffer, kDisplayNameBytes);
+  return true;
+}
+
 uint32_t XamContentCreateEx(uint32_t user_index, uint32_t root_name_ptr, uint32_t content_data, uint32_t flags,
                             uint32_t disposition_ptr, uint32_t license_mask_ptr, uint32_t cache_size,
                             uint64_t content_size, uint32_t overlapped) {
@@ -486,6 +521,8 @@ uint32_t XamContentCreateEx(uint32_t user_index, uint32_t root_name_ptr, uint32_
     disposition = exists && mode != 2 && mode != 5 ? 2 : 1;  // 1 created, 2 opened
     MountContent(root, path);
   }
+  // A new package keeps the display name it was created with, for the enumerators.
+  if (disposition == 1) SaveDisplayName(user_index, content_data);
   KLOG_I("XamContentCreateEx %s (user %u): -> %s (%u)", root.c_str(), user_index, path.string().c_str(), result);
   if (disposition_ptr) Store<uint32_t>(disposition_ptr, disposition);
   if (license_mask_ptr) Store<uint32_t>(license_mask_ptr, 0xFFFFFFFF);
@@ -499,7 +536,9 @@ uint32_t XamContentClose(uint32_t root_name_ptr, uint32_t overlapped) {
 
 uint32_t XamContentDelete(uint32_t user_index, uint32_t content_data, uint32_t overlapped) {
   std::error_code ec;
-  fs::remove_all(ContentPath(user_index, content_data), ec);
+  const fs::path path = ContentPath(user_index, content_data);
+  fs::remove_all(path, ec);
+  fs::remove(DisplayNamePath(user_index, Load<uint32_t>(content_data + 4), path.filename().string()), ec);
   return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
 }
 
@@ -533,8 +572,10 @@ std::vector<std::vector<uint8_t>> ListContent(uint32_t user_index, uint32_t devi
       // The file name field holds 42 characters with no terminator: a package's name (as
       // downloadable content has, "81FC9DE0...4D") uses all of them.
       std::string name = entry.path().filename().string().substr(0, 42);
-      for (size_t i = 0; i < name.size() && i < 41; ++i)
-        x360::store_be<uint16_t>(item.data() + 8 + i * 2, uint8_t(name[i]));
+      if (!LoadDisplayName(user_index, content_type, name, item.data() + 8)) {
+        for (size_t i = 0; i < name.size() && i < 41; ++i)
+          x360::store_be<uint16_t>(item.data() + 8 + i * 2, uint8_t(name[i]));
+      }
       std::memcpy(item.data() + 0x108, name.data(), name.size());
       items.push_back(std::move(item));
     }

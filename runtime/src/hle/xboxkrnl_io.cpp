@@ -118,6 +118,8 @@ struct File : Object {
   fs::path host_path;
   std::string guest_path;
   bool directory = false;
+  // Opened for asynchronous I/O (no FILE_SYNCHRONOUS_IO_ALERT/NONALERT): reads answer STATUS_PENDING.
+  bool asynchronous = false;
   uint64_t position = 0;
   // Directory enumeration state.
   std::vector<WIN32_FIND_DATAW> entries;
@@ -161,6 +163,7 @@ bool WriteNetworkOpenInfo(const fs::path& path, uint32_t info) {
 
 constexpr uint32_t kFileDirectoryFile = 0x1;
 constexpr uint32_t kFileNonDirectoryFile = 0x40;
+constexpr uint32_t kFileSynchronousIo = 0x30;  // FILE_SYNCHRONOUS_IO_ALERT | FILE_SYNCHRONOUS_IO_NONALERT
 
 uint32_t OpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_attributes, uint32_t io_status,
                   uint32_t disposition, uint32_t create_options) {
@@ -246,6 +249,7 @@ uint32_t OpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_
 
   auto file = std::make_shared<File>();
   file->handle = h;
+  file->asynchronous = (create_options & kFileSynchronousIo) == 0;
   file->host_path = r.host;
   file->guest_path = guest;
   Store<uint32_t>(handle_ptr, CreateHandle(file));
@@ -317,6 +321,15 @@ void QueueCompletion(uint32_t apc_routine, uint32_t apc_context, uint32_t io_sta
   if (Thread* thread = CurrentThread()) QueueUserApc(*thread, apc_routine & ~1u, apc_context, io_status, 0);
 }
 
+// A read on a file opened for asynchronous I/O answers STATUS_PENDING, as on the console (and in
+// Xenia), though it is already done: the I/O status block holds the result, the event is set, and
+// GetOverlappedResult finds it complete. Titles that read overlapped check for ERROR_IO_PENDING:
+// Doritos Crash Course's update took its save's completed read as a failure, gave up on the save,
+// said "Could not find device" and saved again and again. End of file stays an error.
+uint32_t Pending(const File& file, uint32_t status) {
+  return file.asynchronous && status == X_STATUS_SUCCESS ? X_STATUS_PENDING : status;
+}
+
 uint32_t NtReadFile(uint32_t handle, uint32_t event, uint32_t apc_routine, uint32_t apc_context, uint32_t io_status,
                     uint32_t buffer, uint32_t length, uint32_t byte_offset_ptr) {
   auto file = LookupHandleAs<File>(handle);
@@ -329,7 +342,7 @@ uint32_t NtReadFile(uint32_t handle, uint32_t event, uint32_t apc_routine, uint3
   SetIoStatus(io_status, status, read);
   SignalEvent(event);
   QueueCompletion(apc_routine, apc_context, io_status, status);
-  return status;
+  return Pending(*file, status);
 }
 
 uint32_t NtReadFileScatter(uint32_t handle, uint32_t event, uint32_t apc_routine, uint32_t apc_context,
@@ -353,7 +366,7 @@ uint32_t NtReadFileScatter(uint32_t handle, uint32_t event, uint32_t apc_routine
   SetIoStatus(io_status, status, total);
   SignalEvent(event);
   QueueCompletion(apc_routine, apc_context, io_status, status);
-  return status;
+  return Pending(*file, status);
 }
 
 uint32_t WriteAt(File& file, uint64_t* offset, uint32_t buffer, uint32_t length, uint32_t* written) {

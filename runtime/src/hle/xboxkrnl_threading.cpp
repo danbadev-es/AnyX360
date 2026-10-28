@@ -3,6 +3,7 @@
 #include <set>
 #include <bitset>
 #include <chrono>
+#include <cstring>
 #include <mutex>
 #include <thread>
 
@@ -447,7 +448,12 @@ uint32_t NtCancelTimer(uint32_t handle, uint32_t previous_ptr) {
 uint32_t NtWaitForSingleObjectEx(uint32_t handle, uint32_t wait_mode, uint32_t alertable, uint32_t timeout_ptr) {
   (void)wait_mode;
   uint32_t body = ObjectFromHandle(handle);
-  if (!body) return X_STATUS_INVALID_HANDLE;
+  // A file: its I/O is always complete here (a read on an asynchronous file answers STATUS_PENDING
+  // when it is already done, and XAPI then waits on the file), so it is signalled.
+  if (!body) {
+    auto object = LookupHandle(handle);
+    return object && std::strcmp(object->TypeName(), "File") == 0 ? X_STATUS_SUCCESS : X_STATUS_INVALID_HANDLE;
+  }
   int64_t timeout;
   return WaitForObject(body, TimeoutPtr(timeout_ptr, timeout), alertable != 0);
 }
