@@ -39,6 +39,7 @@ constexpr uint32_t kJointBytes = 96;
 constexpr uint32_t kRecordBytes = 32;
 constexpr uint32_t kDescriptorBytes = 52;
 constexpr uint32_t kNone = 0xFFFFFFFF;
+constexpr uint32_t kTemplateKind = 0x01000000;  // hiding and body modification templates
 
 // A description (XAVATAR_METADATA, big-endian), as titles pass them (Kinect Sports' guests) and as
 // this system writes them:
@@ -82,6 +83,9 @@ struct Part {
   // genders", but this byte groups them: 1 partings, crops and spikes, 2 bobs, buns, ponytails
   // and plaits, 0 and 3 either.
   uint32_t style = 0;
+  // A hairstyle's version for under a hat (the pack entry's link), and whether this is one.
+  uint32_t hat_version = kNone;
+  bool for_hats = false;
 };
 
 // The default look's hairstyles (the pack's English names), per body type.
@@ -239,6 +243,16 @@ void LoadPack() {
     g.max_gpu[bit] = std::max(g.max_gpu[bit], AlignUp(part.gpu, 0x1000));
     g.parts.push_back(std::move(part));
   }
+  // Hairstyles link to their version for under a hat (e.g. "Peak" to "Peak (Hat)"): those are worn
+  // with hats, not chosen on their own.
+  for (Part& part : g.parts) {
+    const uint32_t linked = g.pack->entries()[part.index].linked;
+    if (part.slot != 0x4 || linked == part.index || linked >= g.pack->entries().size()) continue;
+    auto it = std::find_if(g.parts.begin(), g.parts.end(), [&](const Part& p) { return p.index == linked; });
+    if (it == g.parts.end() || it->slot != 0x4) continue;
+    part.hat_version = linked;
+    it->for_hats = true;
+  }
   g.loaded = !g.parts.empty();
   KLOG_I("avatars: %zu parts and %zu face textures and features in %s", g.parts.size(), g.extras.size(),
          toc.string().c_str());
@@ -257,7 +271,7 @@ const Part* Choose(uint32_t slot, uint32_t gender, std::mt19937* rng) {
   std::vector<const Part*> candidates;
   for (const Part& p : g.parts) {
     if (p.slot != slot || (p.gender != gender && p.gender != 3)) continue;
-    if (slot == 0x4 && p.style != gender && p.style != 0 && p.style != 3) continue;
+    if (slot == 0x4 && ((p.style != gender && p.style != 0 && p.style != 3) || p.for_hats)) continue;
     candidates.push_back(&p);
   }
   if (candidates.empty()) return nullptr;
@@ -300,6 +314,52 @@ bool LoadTexture(const x360tool::AvatarPackEntry& e, std::vector<uint8_t>& file,
   }
   error = "no texture";
   return false;
+}
+
+// A shape override from the pack (its block 4): a face shape, or a template clothes link to.
+bool LoadShape(uint32_t index, x360tool::AvatarShapeOverride& shape, std::string& error) {
+  if (index >= g.pack->entries().size()) {
+    error = "no such entry";
+    return false;
+  }
+  auto data = g.pack->data(g.pack->entries()[index]);
+  x360tool::Strb strb;
+  if (data.empty() || !x360tool::parse_strb(data, strb, error)) return false;
+  for (const auto& block : strb.blocks) {
+    if (block.id == uint32_t(x360tool::StrbBlockId::kShapeOverrides))
+      return x360tool::parse_avatar_shape_override(data.subspan(block.offset, block.length), shape, error,
+                                                   g.left_handed);
+  }
+  error = "no shape override";
+  return false;
+}
+
+// What the system changes in a part for the rest of the avatar, as the console does: the body loses
+// the triangles under the clothes worn and takes their shape (each component links to its hiding or
+// body modification template in the pack's table), the head takes the description's chin, nose and
+// ears.
+void ApplyShapes(x360tool::AvatarModel& model, const Part& part, const Description& d) {
+  std::vector<uint32_t> shapes;
+  if (part.slot == 0x2) {
+    for (const auto& worn : d.parts) {
+      const uint32_t linked = g.pack->entries()[worn.index].linked;
+      if (linked < g.pack->entries().size() && g.pack->entries()[linked].word0 == kTemplateKind) shapes.push_back(linked);
+    }
+  } else if (part.slot == 0x1) {
+    for (uint32_t feature : d.features)
+      if (feature != kNone) shapes.push_back(feature);
+  }
+  for (uint32_t index : shapes) {
+    x360tool::AvatarShapeOverride shape;
+    std::string error;
+    if (!LoadShape(index, shape, error)) {
+      KLOG_W("avatars: shape override %u: %s", index, error.c_str());
+      continue;
+    }
+    // Only those made for this part (the male or the female body, the head).
+    if (shape.target != part.index || !shape.fits(model)) continue;
+    x360tool::apply_avatar_shape_override(model, shape);
+  }
 }
 
 float LoadFloat(uint32_t address) {
@@ -408,8 +468,10 @@ Description MakeDescription(Look look, uint32_t seed) {
     d.colors[kEyes] = kEyeColors[rng() % 4];
     d.colors[kEyeShadow] = d.body == 2 ? 0xFF6A4A7A : 0xFF000000;
   }
-  for (uint32_t k = 0; k < kFeatureCount; ++k)
-    if (const Part* p = ChooseExtra(kFeatureKinds[k], d.body, pick)) d.features[k] = p->index;
+  // Chin, nose and ears change the head's shape: the default avatars keep the head's own (the pack's
+  // first ears are "Fantasy Ears"), a random one may get any.
+  for (uint32_t k = 0; random && k < kFeatureCount; ++k)
+    if (const Part* p = rng() % 2 ? ChooseExtra(kFeatureKinds[k], d.body, pick) : nullptr) d.features[k] = p->index;
   // Eyes, eyebrows and a mouth; a random avatar may also get facial hair or eye shadow.
   for (uint32_t k = 0; k < kFaceTextureCount; ++k) {
     const uint32_t kind = kFaceTextureKinds[k];
@@ -430,6 +492,37 @@ Description MakeDescription(Look look, uint32_t seed) {
     d.parts.push_back(worn);
   }
   return d;
+}
+
+// Testing: ANYX360_AVATAR changes the players' avatars (not the random ones titles ask for):
+// "random:<seed>" makes them random, or a comma-separated list of pack entries (x360tool avatar-pack's
+// index.tsv) puts those on: a component takes its slots' place (a body changes the gender), a face
+// texture or a face shape its place in the face.
+void Customize(Description& d) {
+  const char* spec = std::getenv("ANYX360_AVATAR");
+  if (!spec || !*spec) return;
+  const std::string text = spec;
+  if (text.rfind("random:", 0) == 0) {
+    d = MakeDescription(Look::kRandom, uint32_t(std::strtoul(text.c_str() + 7, nullptr, 0)));
+    return;
+  }
+  for (size_t at = 0; at < text.size();) {
+    const size_t end = std::min(text.find(',', at), text.size());
+    const uint32_t index = uint32_t(std::strtoul(text.substr(at, end - at).c_str(), nullptr, 0));
+    at = end + 1;
+    if (const Part* p = FindPart(index)) {
+      std::erase_if(d.parts, [&](const Description::Worn& w) { return (FindPart(w.index)->slots & p->slots) != 0; });
+      d.parts.push_back({index, {}});
+      if (p->slot == 0x2) d.body = p->gender == 2 ? 2 : 1;
+      continue;
+    }
+    if (index >= g.pack->entries().size()) continue;
+    const uint32_t kind = g.pack->entries()[index].word0;
+    for (uint32_t k = 0; k < kFaceTextureCount; ++k)
+      if (kFaceTextureKinds[k] == kind) d.face[k] = index;
+    for (uint32_t k = 0; k < kFeatureCount; ++k)
+      if (kFeatureKinds[k] == kind) d.features[k] = index;
+  }
 }
 
 // An ARGB colour as the float4 (r, g, b, a) the shaders take.
@@ -501,7 +594,9 @@ void WriteMetadata(uint32_t metadata, Look look, uint32_t seed) {
   std::memset(Ptr<uint8_t>(metadata), 0, kMetadataSize);
   if (!Available()) return;
   std::lock_guard lock(g_mutex);
-  WriteDescription(metadata, MakeDescription(look, seed));
+  Description d = MakeDescription(look, seed);
+  if (look != Look::kRandom) Customize(d);
+  WriteDescription(metadata, d);
 }
 
 uint32_t BodyType(uint32_t metadata) {
@@ -539,8 +634,16 @@ bool BuildAssets(uint32_t metadata, uint32_t mask, uint32_t result, uint32_t res
   // second. Parts with nothing to draw ("Bald") stay out: it stops drawing an avatar at the first
   // part without indices (8259E750).
   std::vector<std::pair<const Part*, const Description::Worn*>> parts;
+  bool hat = false;
   for (const auto& worn : d.parts) {
     const Part* p = FindPart(worn.index);
+    if (p && (p->slots & 0x40)) hat = true;
+  }
+  for (const auto& worn : d.parts) {
+    const Part* p = FindPart(worn.index);
+    // Under a hat, the hairstyle's version made for hats (cut where the hat sits).
+    if (p && hat && p->hat_version != kNone)
+      if (const Part* version = FindPart(p->hat_version); version && version->meshes) p = version;
     if (p && p->meshes && (p->slot & mask) && parts.size() < kMaxParts) parts.emplace_back(p, &worn);
   }
   std::stable_sort(parts.begin(), parts.end(), [](const auto& a, const auto& b) { return a.first->slot < b.first->slot; });
@@ -577,6 +680,35 @@ bool BuildAssets(uint32_t metadata, uint32_t mask, uint32_t result, uint32_t res
       return false;
     }
     ApplyColors(model, part, parts[i].second->colors, d.colors);
+    ApplyShapes(model, part, d);
+    // The head's blank texture slots take the description's face textures. The slots' headers are
+    // placeholders (the eyes', eyebrows' and mouth's say 64x64): the textures keep their own size
+    // (128x64 for those, a whole eye or mouth per frame), or the GPU shows only their left half.
+    std::vector<std::vector<uint8_t>> face_files;
+    if (part.slot == 0x1) {
+      for (size_t k = 0; k < model.textures.size() && k < kFaceTextureCount; ++k) {
+        auto& slot = model.textures[k];
+        uint32_t index = kNone;
+        for (uint32_t s = 0; s < kFaceTextureCount; ++s)
+          if (kFaceTextureKinds[s] == kHeadTextureKinds[k]) index = d.face[s];
+        if (index == kNone || !slot.blank) continue;
+        std::vector<uint8_t> texture_file;
+        x360tool::AvatarTexture texture;
+        std::string texture_error;
+        if (!LoadTexture(g.pack->entries()[index], texture_file, texture, texture_error)) {
+          KLOG_W("avatars: face texture %u: %s", index, texture_error.c_str());
+          continue;
+        }
+        if (texture.blank || texture.size > slot.size || texture.slice_count > slot.slice_count) {
+          KLOG_W("avatars: face texture %u (%ux%u, %u bytes) doesn't fit its slot (%u bytes)", index, texture.width,
+                 texture.height, texture.size, slot.size);
+          continue;
+        }
+        texture.gpu_offset = slot.gpu_offset;
+        slot = texture;
+        face_files.push_back(std::move(texture_file));  // the texture's data points into it
+      }
+    }
     const uint32_t cpu_size = model.cpu_size(), part_gpu = AlignUp(model.gpu_size(), 0x1000);
     if (cpu + cpu_size > result + result_size || gpu_at + part_gpu > gpu_size) {
       error = "buffers too small";
@@ -590,26 +722,6 @@ bool BuildAssets(uint32_t metadata, uint32_t mask, uint32_t result, uint32_t res
     x360tool::build_avatar_part(model, std::span<uint8_t>(Ptr<uint8_t>(cpu), cpu_size), cpu,
                                 std::span<uint8_t>(Ptr<uint8_t>(gpu + gpu_at), part_gpu), gpu + gpu_at,
                                 std::span<uint8_t, 52>(Ptr<uint8_t>(descriptors + i * kDescriptorBytes), 52), tile);
-    // The head's face textures, copied into its blank texture slots.
-    if (part.slot == 0x1) {
-      for (size_t k = 0; k < model.textures.size() && k < kFaceTextureCount; ++k) {
-        const auto& slot = model.textures[k];
-        uint32_t index = kNone;
-        for (uint32_t s = 0; s < kFaceTextureCount; ++s)
-          if (kFaceTextureKinds[s] == kHeadTextureKinds[k]) index = d.face[s];
-        if (index == kNone || !slot.blank) continue;
-        std::vector<uint8_t> texture_file;
-        x360tool::AvatarTexture texture;
-        std::string texture_error;
-        if (!LoadTexture(g.pack->entries()[index], texture_file, texture, texture_error)) {
-          KLOG_W("avatars: face texture %u: %s", index, texture_error.c_str());
-          continue;
-        }
-        if (texture.slice_count > slot.slice_count || texture.slice_size > slot.slice_size) continue;
-        x360tool::write_avatar_texture(texture, std::span<uint8_t>(Ptr<uint8_t>(gpu + gpu_at + slot.gpu_offset), slot.size),
-                                       tile);
-      }
-    }
     cpu = AlignUp(cpu + cpu_size, 16);
     gpu_at += part_gpu;
   }

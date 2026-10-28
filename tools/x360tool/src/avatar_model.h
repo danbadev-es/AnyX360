@@ -75,6 +75,31 @@ void write_avatar_texture(const AvatarTexture& texture, std::span<uint8_t> gpu, 
 // Parses a texture block (the pack's textures: a 33-byte texture header and the data).
 bool parse_avatar_texture(std::span<const uint8_t> block, AvatarTexture& out, std::string& error);
 
+// A shape override (the pack's block 4: face shapes such as chins, noses and ears, and the hiding and
+// body modification templates clothes link to): triangles of the target part to hide and vertices
+// of it to replace. Little-endian; two sections, each {count, the target's index (vertex) region
+// size, the target's asset ID, 0, a bit width}: first `count` triangle numbers of that width, then a
+// lattice vertex stream (as in models, without UVs) whose vertices each start with their byte offset
+// in the target's vertex region.
+struct AvatarShapeOverride {
+  uint32_t target = 0;  // the target's pack entry (MaleBody, FemaleBody, Head)
+  uint32_t index_bytes = 0, vertex_bytes = 0;  // the target's index and vertex region sizes
+  std::vector<uint32_t> hidden_triangles;
+  struct Vertex {
+    uint32_t offset = 0;  // in the target's vertex region
+    float position[3] = {};
+    uint32_t fields[4] = {};  // normal, blend weights, blend indices, colour
+  };
+  std::vector<Vertex> vertices;
+  // Whether it fits a model (its regions are the sizes it was made for).
+  bool fits(const AvatarModel& m) const { return m.header[4] == index_bytes && m.header[3] == vertex_bytes; }
+};
+bool parse_avatar_shape_override(std::span<const uint8_t> block, AvatarShapeOverride& out, std::string& error,
+                                 bool left_handed = false);
+// Hides its triangles (made degenerate) and replaces its vertices (keeping their UVs) in a parsed
+// model; returns how many it changed.
+uint32_t apply_avatar_shape_override(AvatarModel& model, const AvatarShapeOverride& shape);
+
 // The model as Wavefront OBJ (positions, normals, UVs of set 0, one group per mesh), for checking.
 std::string avatar_model_obj(const AvatarModel& model);
 

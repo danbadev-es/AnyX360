@@ -71,6 +71,9 @@ struct AvatarPackEntry {
   uint32_t index = 0;
   uint32_t word0 = 0, word1 = 0;  // +0x00, +0x04: what the asset is (not decoded yet)
   std::u16string name;            // English
+  // +0x9C: the asset ID of the template a component links to (its hiding or body modification
+  // template, a shape override of the body): the entry, or -1.
+  uint32_t linked = 0xFFFFFFFF;
   uint32_t offset = 0, size = 0;  // its STRB file in the pack
 };
 

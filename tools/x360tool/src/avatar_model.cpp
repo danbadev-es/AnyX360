@@ -67,6 +67,54 @@ uint32_t need(const BitReader& r, uint64_t pos, uint32_t n) {
   return v;
 }
 
+// A lattice vertex stream's header (without the count, which models store before it and shape
+// overrides in their own header): scale, minimum, bits of each lattice coordinate, then base and
+// bit width of four u32 fields (normal, blend weights, blend indices, colour). 402 bits.
+struct Lattice {
+  float scale = 0, minimum[3] = {};
+  uint32_t n[3] = {}, base[4] = {}, nbits[4] = {};
+  double step[3] = {};
+  uint64_t vertex_bits() const { return uint64_t(n[0]) + n[1] + n[2] + nbits[0] + nbits[1] + nbits[2] + nbits[3]; }
+};
+constexpr uint32_t kLatticeHeaderBits = 402;
+
+Lattice read_lattice(const BitReader& v, uint64_t at) {
+  Lattice l;
+  l.scale = bits_float(need(v, at, 32));
+  for (int k = 0; k < 3; ++k) l.minimum[k] = bits_float(need(v, at + 32 + 32 * k, 32));
+  for (int k = 0; k < 3; ++k) l.n[k] = need(v, at + 128 + 6 * k, 6);
+  for (int k = 0; k < 4; ++k) {
+    l.base[k] = need(v, at + 146 + 64 * k, 32);
+    l.nbits[k] = need(v, at + 178 + 64 * k, 32);
+    if (l.nbits[k] > 32) fail("field wider than 32 bits");
+  }
+  for (int k = 0; k < 3; ++k) l.step[k] = l.scale * kLattice[k];
+  return l;
+}
+
+// One vertex at `q` (advanced past it): position and the four fields, mirrored in z if asked.
+void read_lattice_vertex(const BitReader& v, uint64_t& q, const Lattice& l, bool left_handed, float position[3],
+                         uint32_t field[4]) {
+  const uint32_t qx = need(v, q, l.n[0]);
+  q += l.n[0];
+  const uint32_t qy = need(v, q, l.n[1]);
+  q += l.n[1];
+  const uint32_t qz = need(v, q, l.n[2]);
+  q += l.n[2];
+  for (int k = 0; k < 4; ++k) {
+    field[k] = l.base[k] + need(v, q, l.nbits[k]);
+    q += l.nbits[k];
+  }
+  position[1] = float(qy * l.step[1] + l.minimum[1]);
+  position[2] = float(qz * l.step[2] + l.minimum[2] + ((qy & 1) ? l.step[2] / 3 : 0.0));
+  position[0] = float(qx * l.step[0] + l.minimum[0] + (((qy ^ qz) & 1) ? l.step[0] / 2 : 0.0));
+  if (left_handed) {
+    position[2] = -position[2];
+    const int32_t nz10 = sign_extend(field[0] >> 22, 10);
+    field[0] = (field[0] & 0x3FFFFF) | (uint32_t(-nz10) & 0x3FF) << 22;
+  }
+}
+
 uint32_t texture_block_bytes(uint32_t format) {
   switch (format & 0x3F) {
     case 0x12:  // DXT1
@@ -138,45 +186,18 @@ bool parse_avatar_model(std::span<const uint8_t> d, AvatarModel& out, std::strin
       // blend weights, blend indices, colour) as base + n bits, and uv_sets half2 coordinates.
       BitReader v(d.subspan(p));
       const uint32_t count = need(v, 0, 32);
-      const float scale = bits_float(need(v, 32, 32));
-      const float minimum[3] = {bits_float(need(v, 64, 32)), bits_float(need(v, 96, 32)), bits_float(need(v, 128, 32))};
-      const uint32_t nx = need(v, 160, 6), ny = need(v, 166, 6), nz = need(v, 172, 6);
-      uint32_t base[4], nbits[4];
-      for (int k = 0; k < 4; ++k) {
-        base[k] = need(v, 178 + 64 * k, 32);
-        nbits[k] = need(v, 210 + 64 * k, 32);
-        if (nbits[k] > 32) fail("field wider than 32 bits");
-      }
+      const Lattice lattice = read_lattice(v, 32);
       if (count != mesh.vertex_count) fail("vertex count mismatch");
-      const uint64_t bits = uint64_t(nx) + ny + nz + nbits[0] + nbits[1] + nbits[2] + nbits[3] + 32ull * mesh.uv_sets;
-      const double step[3] = {scale * kLattice[0], scale * kLattice[1], scale * kLattice[2]};
+      const uint64_t bits = lattice.vertex_bits() + 32ull * mesh.uv_sets;
       mesh.vertices.resize(size_t(count) * mesh.stride);
-      uint64_t pos = 434;
+      uint64_t pos = 32 + kLatticeHeaderBits;
       for (uint32_t i = 0; i < count; ++i, pos += bits) {
         uint64_t q = pos;
-        const uint32_t qx = need(v, q, nx);
-        q += nx;
-        const uint32_t qy = need(v, q, ny);
-        q += ny;
-        const uint32_t qz = need(v, q, nz);
-        q += nz;
+        float position[3];
         uint32_t field[4];
-        for (int k = 0; k < 4; ++k) {
-          field[k] = base[k] + need(v, q, nbits[k]);
-          q += nbits[k];
-        }
-        const float y = float(qy * step[1] + minimum[1]);
-        float z = float(qz * step[2] + minimum[2] + ((qy & 1) ? step[2] / 3 : 0.0));
-        const float x = float(qx * step[0] + minimum[0] + (((qy ^ qz) & 1) ? step[0] / 2 : 0.0));
-        if (left_handed) {
-          z = -z;
-          const int32_t nz10 = sign_extend(field[0] >> 22, 10);
-          field[0] = (field[0] & 0x3FFFFF) | (uint32_t(-nz10) & 0x3FF) << 22;
-        }
+        read_lattice_vertex(v, q, lattice, left_handed, position, field);
         uint8_t* out_v = &mesh.vertices[size_t(i) * mesh.stride];
-        put32(out_v + 0, float_bits(x));
-        put32(out_v + 4, float_bits(y));
-        put32(out_v + 8, float_bits(z));
+        for (int k = 0; k < 3; ++k) put32(out_v + 4 * k, float_bits(position[k]));
         for (int k = 0; k < 4; ++k) put32(out_v + 12 + 4 * k, field[k]);
         for (uint32_t s = 0; s < mesh.uv_sets; ++s, q += 32) {
           put16(out_v + 28 + 4 * s, need(v, q, 16));
@@ -341,6 +362,77 @@ bool parse_avatar_texture(std::span<const uint8_t> block, AvatarTexture& out, st
     return false;
   }
   return true;
+}
+
+bool parse_avatar_shape_override(std::span<const uint8_t> d, AvatarShapeOverride& out, std::string& error,
+                                 bool left_handed) {
+  out = {};
+  try {
+    // Two sections, each {count, the target's index (or vertex) region size, the target's asset ID,
+    // 0, a bit width}: triangles to hide, then vertices to replace.
+    auto section_header = [&](size_t at, uint32_t& count, uint32_t& region, uint32_t& target, uint32_t& bits) {
+      if (at + 32 > d.size()) fail("shape override truncated");
+      count = le32(d, at);
+      region = le32(d, at + 4);
+      target = uint32_t(d[at + 12]) | uint32_t(d[at + 13]) << 8;  // the asset ID's entry (LE words)
+      bits = le32(d, at + 28);
+      if (bits > 32 || (count && bits == 0)) fail("bad shape override section");
+    };
+    uint32_t count, bits;
+    section_header(0, count, out.index_bytes, out.target, bits);
+    BitReader t(d.subspan(32));
+    for (uint32_t i = 0; i < count; ++i) out.hidden_triangles.push_back(need(t, uint64_t(i) * bits, bits));
+    size_t p = 32 + size_t((uint64_t(count) * bits + 7) / 8);
+    uint32_t vertex_target;
+    section_header(p, count, out.vertex_bytes, vertex_target, bits);
+    p += 32;
+    BitReader v(d.subspan(p));
+    const Lattice lattice = read_lattice(v, 0);
+    uint64_t q = kLatticeHeaderBits;
+    for (uint32_t i = 0; i < count; ++i) {
+      AvatarShapeOverride::Vertex vertex;
+      vertex.offset = need(v, q, bits);
+      q += bits;
+      read_lattice_vertex(v, q, lattice, left_handed, vertex.position, vertex.fields);
+      out.vertices.push_back(vertex);
+    }
+  } catch (const Fail& f) {
+    error = f.message;
+    return false;
+  }
+  return true;
+}
+
+uint32_t apply_avatar_shape_override(AvatarModel& model, const AvatarShapeOverride& shape) {
+  uint32_t changed = 0;
+  // Triangles are numbered through the part's index region (its meshes in order of their indices).
+  const uint32_t index_region = model.header[8];
+  for (uint32_t triangle : shape.hidden_triangles) {
+    const uint32_t at = index_region + triangle * 6;
+    for (auto& mesh : model.meshes) {
+      if (at < mesh.index_offset || at + 6 > mesh.index_offset + mesh.indices.size() * 2) continue;
+      const size_t first = (at - mesh.index_offset) / 2;
+      mesh.indices[first + 1] = mesh.indices[first + 2] = mesh.indices[first];  // degenerate: not drawn
+      ++changed;
+      break;
+    }
+  }
+  // Vertices are byte offsets in the vertex region; a replacement keeps the vertex's UVs.
+  const uint32_t vertex_region = model.header[7];
+  for (const auto& vertex : shape.vertices) {
+    const uint32_t at = vertex_region + vertex.offset;
+    for (auto& mesh : model.meshes) {
+      if (at < mesh.vertex_offset || at >= mesh.vertex_offset + mesh.vertices.size()) continue;
+      const uint32_t rel = at - mesh.vertex_offset;
+      if (rel % mesh.stride) break;
+      uint8_t* out = &mesh.vertices[rel];
+      for (int k = 0; k < 3; ++k) put32(out + 4 * k, float_bits(vertex.position[k]));
+      for (int k = 0; k < 4; ++k) put32(out + 12 + 4 * k, vertex.fields[k]);
+      ++changed;
+      break;
+    }
+  }
+  return changed;
 }
 
 std::string avatar_model_obj(const AvatarModel& model) {

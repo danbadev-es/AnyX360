@@ -130,6 +130,8 @@ AvatarPack::AvatarPack(std::vector<uint8_t> toc) : toc_(std::move(toc)) {
     entry.word1 = x360::load_be<uint32_t>(e + 4);
     entry.offset = x360::load_be<uint32_t>(e + 0xF0);
     entry.size = x360::load_be<uint32_t>(e + 0xF4);
+    if (x360::load_be<uint32_t>(e + 0x9C) != 0 && x360::load_be<uint32_t>(e + 0xA4) == 0xC1C8F109)
+      entry.linked = x360::load_be<uint16_t>(e + 0xA0);
     if (size_t(entry.offset) + entry.size > toc_.size()) throw Error("AvatarAssetPack.toc: entry " + std::to_string(i) + " out of range");
     for (size_t at = x360::load_be<uint32_t>(e + 0xBC); at + 1 < toc_.size(); at += 2) {
       const char16_t c = char16_t(x360::load_be<uint16_t>(&toc_[at]));

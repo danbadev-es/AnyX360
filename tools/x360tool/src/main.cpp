@@ -31,6 +31,10 @@
 //   avatar-model <AvatarAssetPack.toc> <entry|all> [out.obj]
 //                                             Decode a part's model (or check every model in the
 //                                             pack); write it as Wavefront OBJ
+//   avatar-shape <AvatarAssetPack.toc> <entry|all>
+//                                             Decode a shape override (face shapes, clothes'
+//                                             hiding templates) and apply it to its target (or
+//                                             check every one in the pack, and every link)
 #include <cstdio>
 #include <fstream>
 #include <map>
@@ -538,14 +542,94 @@ int cmd_avatar_model(const fs::path& toc, const std::string& which, const std::o
     }
   }
   for (const auto& t : model.textures)
-    std::printf("  texture: format %08X %ux%u, %u slices%s%s\n", t.format, t.width, t.height, t.slice_count,
-                t.blank ? ", blank" : "", t.tiled ? ", tiled" : "");
+    std::printf("  texture: format %08X %ux%u, %u slices%s%s; at %X, %u bytes, slice %u bytes, %u rows of %u bytes\n",
+                t.format, t.width, t.height, t.slice_count, t.blank ? ", blank" : "", t.tiled ? ", tiled" : "",
+                t.gpu_offset, t.size, t.slice_size, t.rows, t.row_bytes);
   if (obj) {
     const std::string text = avatar_model_obj(model);
     write_file(*obj, std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(text.data()), text.size()));
     std::printf("wrote %s\n", obj->string().c_str());
   }
   return 0;
+}
+
+// A pack entry's shape override block (empty if it has none).
+bool load_pack_shape(const AvatarPack& pack, const AvatarPackEntry& e, AvatarShapeOverride& shape, std::string& error) {
+  auto data = pack.data(e);
+  Strb strb;
+  if (e.size == 0) {
+    error = "no shape override block";
+    return false;
+  }
+  if (!parse_strb(data, strb, error)) return false;
+  for (const StrbBlock& block : strb.blocks) {
+    if (block.id == uint32_t(StrbBlockId::kShapeOverrides))
+      return parse_avatar_shape_override(data.subspan(block.offset, block.length), shape, error);
+  }
+  error = "no shape override block";
+  return false;
+}
+
+int cmd_avatar_shape(const fs::path& toc, const std::string& which) {
+  AvatarPack pack(read_file(toc));
+  std::map<uint32_t, std::pair<std::vector<uint8_t>, AvatarModel>> targets;
+  auto check = [&](const AvatarPackEntry& e, bool verbose) {
+    AvatarShapeOverride shape;
+    std::string error;
+    if (!load_pack_shape(pack, e, shape, error)) {
+      if (verbose || error != "no shape override block") std::printf("entry %u: %s\n", e.index, error.c_str());
+      return error == "no shape override block" ? 0 : -1;
+    }
+    if (shape.target >= pack.entries().size()) {
+      std::printf("entry %u: target %u out of range\n", e.index, shape.target);
+      return -1;
+    }
+    auto it = targets.find(shape.target);
+    if (it == targets.end()) {
+      it = targets.emplace(shape.target, std::pair<std::vector<uint8_t>, AvatarModel>()).first;
+      if (!load_pack_model(pack, pack.entries()[shape.target], it->second.first, it->second.second, error)) {
+        std::printf("entry %u: target %u: %s\n", e.index, shape.target, error.c_str());
+        return -1;
+      }
+    }
+    AvatarModel model = it->second.second;
+    const bool fits = shape.fits(model);
+    const uint32_t changed = fits ? apply_avatar_shape_override(model, shape) : 0;
+    const size_t wanted = shape.hidden_triangles.size() + shape.vertices.size();
+    if (verbose || !fits || changed != wanted) {
+      std::string name;
+      for (char16_t c : e.name) name += c < 0x80 ? char(c) : '?';
+      std::printf("entry %u (%s): target %u, %zu triangles hidden, %zu vertices replaced%s; applied %u of %zu\n",
+                  e.index, name.c_str(), shape.target, shape.hidden_triangles.size(), shape.vertices.size(),
+                  fits ? "" : " (doesn't fit the target)", changed, wanted);
+    }
+    return fits && changed == wanted ? 1 : -1;
+  };
+  if (which == "all") {
+    // Components link to a template (a shape override of the body), hairstyles to their version for
+    // under a hat.
+    size_t good = 0, bad = 0, templates = 0, hats = 0, bad_links = 0;
+    for (const auto& e : pack.entries()) {
+      const int r = check(e, false);
+      good += r > 0, bad += r < 0;
+      if (e.linked == 0xFFFFFFFF) continue;
+      const uint32_t kind = e.linked < pack.entries().size() ? pack.entries()[e.linked].word0 : 0;
+      if (kind == 0x01000000) {
+        ++templates;
+      } else if (kind == e.word0) {  // hairstyles (their version for under a hat), eye shadows
+        ++hats;
+      } else {
+        std::printf("entry %u links to %u (%08X)\n", e.index, e.linked, kind);
+        ++bad_links;
+      }
+    }
+    std::printf("%zu shape overrides apply, %zu don't; %zu components link to a template, %zu to another of their kind "
+                "(hairstyles: their version for under a hat), %zu other links\n", good, bad, templates, hats, bad_links);
+    return bad || bad_links ? 1 : 0;
+  }
+  const uint32_t index = uint32_t(std::strtoul(which.c_str(), nullptr, 0));
+  if (index >= pack.entries().size()) throw Error("no such entry");
+  return check(pack.entries()[index], true) > 0 ? 0 : 1;
 }
 
 }  // namespace
@@ -584,6 +668,7 @@ int main(int argc, char** argv) {
     if (cmd == "stfs-extract" && argc >= 4)
       return cmd_stfs_extract(argv[2], argv[3], argc >= 5 && std::string(argv[4]) == "--verify");
     if (cmd == "avatar-pack" && argc >= 4) return cmd_avatar_pack(argv[2], argv[3]);
+    if (cmd == "avatar-shape" && argc >= 4) return cmd_avatar_shape(argv[2], argv[3]);
     if (cmd == "avatar-model" && argc >= 4)
       return cmd_avatar_model(argv[2], argv[3], argc >= 5 ? std::optional<fs::path>(argv[4]) : std::nullopt);
     if (cmd == "avatar-unpack" && argc >= 4) {
