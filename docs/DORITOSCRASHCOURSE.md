@@ -13,10 +13,42 @@ Every value below comes from its `default.xex`, read with `x360tool xex-info`. T
 | Image | 18 MiB: 8.4 MiB code (`.text`), 8 MiB data, 1.6 MiB read-only |
 | XDK | 2.0.11626 (June 2010); links XAVATAR, XCAM, XHV2, XAudio2 and XMCORE; no NUI |
 | Imports | `xboxkrnl.exe`: 153 functions; `xam.xex`: 92 functions ([list](../games/dcc/notes/imports.txt)) |
-| Target version | The base package; no Title Update |
+| Target version | 0.0.2.2: the base package patched with its title update (since 0.17.0), with its DLC |
 
 The game's own version string is "Doritos Avatar Crash Course"; its title screen shows the
 *Crash Course 2* logo. A side-scrolling obstacle course for up to four players, with a controller.
+
+## The title update (since 0.17.0)
+The archive holds the game's title update in the console's form,
+`58410A71\000B0000\tu00000002_00000000`: an STFS "LIVE" package of content type 0x000B0000, "Doritos
+Crash Course Title Update", 8.8 MB, with `default.xexp` (a delta patch from 0.0.0.2 to 0.0.2.2),
+`patch.pak` (4.6 MB of game data the game reads from `update:\`) and the avatar awards.
+
+The update is a rebuild with a later XDK, 2.0.21173 (the base: 2.0.11626): the code moved
+everywhere (entry `0x82265618`, image 18.75 MiB) and it has 33 more imports (sockets and XNet
+helpers, the audio ducker, `XamContentFlush`, `XamTaskSchedule` and others), all in the runtime.
+
+- **Recompiled from the update.** `config.toml` names the base, the patch and the patched
+  executable; the register helpers and setjmp/longjmp (`824E41C0`/`824E4490`, the base's pair
+  matched by instruction shape) are the patched image's. XenonAnalyse finds 614 jump tables, 2
+  unresolved (calls through tables of function pointers).
+- **Avatars**: the avatar library is 2.0.21173 now, but its default skeleton builder is the same
+  code: `82506768` (the base's `825F7EE0`), matched by instruction shape, one match, checked over 16
+  instructions. The players and crowd are built from Kinect Sports' asset pack as before.
+- **Saves.** The update saves the player's progress (`dcc_game_progress`, a 4 KB encrypted save) from
+  the title screen on (the base game didn't save there), and on the next start reads it back with an overlapped
+  `ReadFile` on a file opened for asynchronous I/O, which must answer `ERROR_IO_PENDING`. The
+  runtime completed the read at once and said so; the game took that as a failed read, said "Could
+  not find device" and saved again and again. Reads on asynchronous files now answer
+  `STATUS_PENDING` (already complete, as Xenia does), and a wait on a file returns at once. The
+  runtime also keeps each save's display name (`content\Headers\<type>\<file>.header`, as Xenia
+  keeps its headers) for the enumerators, which had been giving the file name, and delivers
+  `XOVERLAPPED` completion routines as user APCs (the game enumerates its saves with one).
+- **At start** the game patches the copy's `default.xex` (cached), mounts the update as `update:\`
+  and reads `patch.pak` from there. Without it, it ends at once saying where the update goes; the
+  launcher installs it from the archive (or the `tu00000002_00000000` package alone).
+
+The addresses in the sections below are the base executable's (0.0.0.2) unless said otherwise.
 
 ## Recompiler configuration
 - **Register save/restore helpers** and **setjmp/longjmp** (`825DAC40`, `825DAF10`, the same CRT
@@ -52,8 +84,18 @@ crowd keeps its looks (hats, shades, watches and rings included).
   jumps and falls into the water, comes back at the last checkpoint, and the game offers "Stuck?
   Press RB to skip ahead". The race timer runs and the camera follows. 60 FPS. The scripted pad
   got a third of the way through the first level (a person finishes levels).
-- **Not tried**: finishing a level (the results), the DLC pack, local multiplayer, the Title
-  Update (not supported).
+- **Not tried**: finishing a level (the results), the DLC pack, local multiplayer.
+
+## Status with the title update (2026-10-28)
+Prepared by the launcher from the archive (the copy, its DLC pack and the update; Kinect Sports'
+avatar data beside it) and played on the build recompiled from 0.0.2.2 with the scripted pad: the
+logos, the title screen, the save made at the first start and read back at the next (the save
+menu, country and level selection), level 1 started offline (B on the sign-in question) with the
+player's avatar running, jumping and the timer going, "Stuck? Press RB to skip ahead". The game
+reads `patch.pak` from `update:\` (over 100 reads). Started without the update, it ends at once
+with the message.
+
+Scripted pad: `15:A,25:A,35:A,45:A,55:A,65:A,72:B,90:LRIGHT/50` and `A/0.5` every 3 s to jump.
 
 ## Reproducing
 From the arcade package (`<package>` is the folder that holds `58410A71`):
@@ -61,12 +103,15 @@ From the arcade package (`<package>` is the folder that holds `58410A71`):
 ```
 build.bat
 build\tools\x360tool\release\x360tool.exe stfs-extract "<package>\58410A71\000D0000\<file>" extracted\dcc\game --verify
+build\tools\x360tool\release\x360tool.exe stfs-extract "<package>\58410A71\000B0000\tu00000002_00000000" extracted\dcc\update
+build\tools\x360tool\release\x360tool.exe xex-patch extracted\dcc\game\default.xex extracted\dcc\update\default.xexp extracted\dcc\update\default_0.0.2.2.xex
 cd games\dcc
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\dcc\game\default.xex switch_tables.toml
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\dcc\update\default_0.0.2.2.xex switch_tables.toml
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 cd ..\..
 build.bat
 ```
 
-XenonRecomp writes into `out_directory_path` from `config.toml`, and that folder must exist and be
-empty before it runs.
+XenonRecomp writes into `out_directory_path` from `config.toml` (`recomp5`), and that folder must
+exist and be empty before it runs. A developer build needs the update's files in
+`%LOCALAPPDATA%\AnyX360\DoritosCrashCourse\content\000B0000\tu00000002_00000000\`.

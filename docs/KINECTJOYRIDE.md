@@ -13,7 +13,7 @@ by holding an imaginary steering wheel. Every value below comes from its `defaul
 | Image | 26.88 MiB: 16.75 MiB code (`.text`), 6.75 MiB data, 3.38 MiB read-only |
 | XDK | 2.0.11775 (the Kinect launch); links NUI (tail `0x4006`), NUISP, ST, XAVATAR, D3D9, XAudio2, XHV2 and the online libraries |
 | Imports | `xboxkrnl.exe`: 174 functions and 13 variables; `xam.xex`: 145 functions ([list](../games/kjr/notes/imports.txt)) |
-| Target version | The base game; no Title Update |
+| Target version | 0.0.3.1: the base game patched with Title Update #3 (since 0.17.0), with both DLC packs |
 
 The disc also carries the console's avatar asset pack (`AvatarAssetPack`, 13.8 MB, as Kinect
 Sports'), the game's avatar awards and a system update. The game's data are BigPark packages
@@ -60,15 +60,36 @@ photos' scenes.
 - **Kinect Joy Ride Chevy Volt** (61 KB, an unlock list: `UNLOCK_CAR_VOLT_STOCK`): works. The Volt
   (its car is on the disc) appears as the eleventh vehicle, "New", unlocked.
 - **Chevrolet Car Pack** (15 MB: the Camaro, Corvette and Cruze in `archive.bpk`, a "resident"
-  pack): needs Title Update 3. The base game mounts it and reads its manifest and unlock list, but
-  never opens `archive.bpk` (`ANYX360_LOG_FILES=1`); the executable has no "resident" or
-  "archive.bpk" string. The cars don't appear. game.json names it in `content_needs_update` and the
-  launcher leaves it out, with its note.
+  pack): needs Title Update 3, which the game is played with since 0.17.0. The base game mounted it
+  and read its manifest and unlock list but never opened `archive.bpk`; the updated game reads it,
+  the vehicle choice has 14 cars (the three Chevrolets last, "Nuevo", unlocked) and the Cruze was
+  driven in a Pro Race. The launcher installs it (`content_needs_update` is gone from game.json).
 - **The 26 avatar items** (content type `0x9000`: T-shirts, helmets, caps, gloves, shoes, the
   Daredevil outfit) are the game's avatar awards for the console's avatar editor. The game only
   enumerates content type 2 (`829E9810` calls `XContentCreateEnumerator(user, 0, 2, ...)`), so it
   doesn't use them; the launcher doesn't install them.
-- **Title Update 3** (`default.xexp`, `update.bpk`): not supported, as for every title.
+- **Title Update 3** (`default.xexp`, `update.bpk`): required since 0.17.0 (next section).
+
+## Title Update #3 (since 0.17.0)
+The archive holds the update as a root file, `TU_16L629R_0000004000000.00000000000O1`: an STFS
+"LIVE" package of content type 0x000B0000, "Kinect JoyRide Title Update #3", 4.5 MB, with
+`default.xexp` (a delta patch from 0.0.0.1 to 0.0.3.1), `update.bpk` (2.5 MB of game data, read
+from `update:\`) and `manifest.xml`.
+
+- **Recompiled from the update.** `config.toml` names the base, the patch and the patched
+  executable (same XDK, same image size, entry `0x82712E88`); the register helpers and
+  setjmp/longjmp (`82A03C30`/`82A03F00`) are the patched image's. XenonAnalyse: 484 jump tables, 5
+  unresolved, as on the base.
+- **Guest addresses moved.** The NUI library by `+0x6F78` (`82CEB760`-`82D00FA0`), the game's Kinect
+  layer by about `+0x5D38`, the XG texture functions by `+0x5FB8`, the avatar skeleton builder by
+  `+0x6FA8` (`82CCFBD8`). Every address in `src/nui_bindings.cpp` and `src/main.cpp` matched exactly
+  one `.pdata` function of the patched image by instruction shape (immediates and branch targets
+  masked), or the delta of its neighbours, and was checked over 16 instructions at its new address.
+- **At start** the game patches the copy's `default.xex` (cached), mounts the update as `update:\`
+  and reads `update.bpk` and the Car Pack's `archive.bpk`. Without the update, it ends at once saying
+  where it goes; the launcher installs it from the archive (or the `TU_` file alone).
+
+The addresses in the other sections are the base executable's (0.0.0.1) unless said otherwise.
 
 ## Bring-up
 - Nothing in the runtime was needed beyond the NUI bindings: the avatar system, LDI, content
@@ -104,6 +125,15 @@ photos' scenes.
 - **The other activities** (Stunt, Sprint, Smash, Trick, Xbox LIVE race) are offered in the
   activity menu; they weren't started. Xbox LIVE needs the online service, which is gone.
 - **Saves**: fans, unlocks and the session are kept (`content\00000001\title.dat`, `player.dat`).
+
+## Status with Title Update #3 (2026-10-28)
+Prepared by the launcher from the archive (the copy, both DLC packs and the update) and played on
+the build recompiled from 0.0.3.1 with the scripted player (`kjr_regress`): a new player's title
+screen, autosave notice, the driving tutorial, the garage, Pro Race on Curva del Faro driven to the
+finish, the results, the fans, back to the main menu, at a steady 30 FPS (median 30.0, lowest
+28.0). Then, in the vehicle choice, the Car Pack's Chevrolet Cruze (style, colour) and a Pro Race
+with it. The game reads `update.bpk` from `update:\` (63 reads). Started without the update, it
+ends at once with the message.
 
 ## Routes (scripted player)
 The game was driven live (`ANYX360_NUI_SCRIPT=@<file>`, appending lines while it runs). The hand
@@ -166,19 +196,23 @@ From the Games on Demand package (`<package>` is the folder that holds `4D53093B
 ```
 build.bat
 build\tools\x360tool\release\x360tool.exe god-extract "<package>\4D53093B\00007000\<file>" extracted\kjr\game
-build\tools\x360tool\release\x360tool.exe xex-extract extracted\kjr\game\default.xex extracted\kjr\default.bin --key keys\xex2_retail.key
-python -I tools\scripts\find_helpers.py extracted\kjr\default.bin
+build\tools\x360tool\release\x360tool.exe stfs-extract "<package>\TU_16L629R_0000004000000.00000000000O1" extracted\kjr\update
+build\tools\x360tool\release\x360tool.exe xex-patch extracted\kjr\game\default.xex extracted\kjr\update\default.xexp extracted\kjr\update\default_0.0.3.1.xex
+build\tools\x360tool\release\x360tool.exe xex-extract extracted\kjr\update\default_0.0.3.1.xex extracted\kjr\patched.bin --key keys\xex2_retail.key
+python -I tools\scripts\find_helpers.py extracted\kjr\patched.bin
 cd games\kjr
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\kjr\game\default.xex switch_tables.toml
-mkdir recomp3
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\kjr\update\default_0.0.3.1.xex switch_tables.toml
+mkdir recomp4
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 cd ..\..
 build.bat release kjr
 ```
 
-XenonRecomp writes into `out_directory_path` from `config.toml` (`recomp3`), and that folder must
+XenonRecomp writes into `out_directory_path` from `config.toml` (`recomp4`), and that folder must
 exist and be empty before it runs. To play the DLC in a developer build, extract each package
-(`x360tool stfs-extract`) to `%LOCALAPPDATA%\AnyX360\KinectJoyRide\content\00000002\<package file name>\`.
+(`x360tool stfs-extract`) to `%LOCALAPPDATA%\AnyX360\KinectJoyRide\content\00000002\<package file name>\`,
+and the update's files to `...\content\000B0000\TU_16L629R_0000004000000.00000000000O1\` (the game
+needs them).
 
 ## Pending
 - **60 FPS**: the game presents every second vblank and its clock counts vblanks, so it runs at 30
@@ -197,7 +231,6 @@ exist and be empty before it runs. To play the DLC in a developer build, extract
   (adding an avatar), the settings, three or more people in view.
 - **A person with a webcam**: the steering, pushes, drifts and tricks were only made by the
   scripted player (`wheel_*`, `boost`, `lean_*`); how the bridge's skeletons steer is untested.
-- **The Chevrolet Car Pack** needs Title Update 3 (above).
 - **Avatars**: the default avatar's face textures look sleepy (half-closed eyes) in the garage and
   the lobby: the eyes' frame may not be the one the game expects; the face shapes and hiding
   templates aren't applied ([AVATARS.md](AVATARS.md)); `XamAvatarLoadAnimation` (imported) fails.

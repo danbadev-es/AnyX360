@@ -2,7 +2,8 @@ KINECT SPORTS (in testing)
 ==========================================================
 Played with a webcam in place of the Kinect.
 Your copy: the Games on Demand package (in an archive or a folder) or a folder with the disc's
-files. Adding it also installs the console's avatar data the disc carries, which Doritos Crash
+files, and its title update (the TU_ file next to it, or added alone afterwards): the game needs
+it. Adding it also installs the console's avatar data the disc carries, which Doritos Crash
 Course uses too.
 Saved games and settings: %LOCALAPPDATA%\AnyX360\KinectSports
 

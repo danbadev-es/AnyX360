@@ -1,6 +1,7 @@
 DORITOS CRASH COURSE
 ==========================================================
-Your copy: the Xbox Live Arcade package (in an archive or a folder). The title update is left out.
+Your copy: the Xbox Live Arcade package (in an archive or a folder), and its title update (the
+58410A71\000B0000 package next to it, or added alone afterwards): the game needs it.
 Saved games and settings: %LOCALAPPDATA%\AnyX360\DoritosCrashCourse
 
 AVATARS

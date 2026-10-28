@@ -2,9 +2,10 @@ KINECT JOY RIDE (in testing)
 ==========================================================
 Played with a webcam in place of the Kinect.
 Your copy: the Games on Demand package (in an archive or a folder) or a folder with the disc's
-files. The "Kinect Joy Ride Chevy Volt" downloadable content is installed if it is next to it;
-the "Chevrolet Car Pack" needs the game's title update and is left out. Adding the game also
-installs the console's avatar data its disc carries.
+files, and its Title Update #3 (the TU_ file next to it, or added alone afterwards): the game
+needs it. The "Kinect Joy Ride Chevy Volt" and "Chevrolet Car Pack" downloadable content is
+installed if it is next to it. Adding the game also installs the console's avatar data its disc
+carries.
 Saved games and settings: %LOCALAPPDATA%\AnyX360\KinectJoyRide
 
 THE WEBCAM
@@ -28,6 +29,5 @@ KNOWN ISSUES
   test player, not yet by a person with a webcam. If something is wrong, tell us with the logs.
 - It runs at 30 FPS, as on the console (the 60 FPS setting doesn't apply to it).
 - You drive as the default avatar (there is no Xbox profile with yours).
-- The Chevrolet cars need the title update, which AnyX360 doesn't play.
 - Online play and avatar awards need Xbox Live, which is gone.
 - Same webcam limits as Dance Central 3.

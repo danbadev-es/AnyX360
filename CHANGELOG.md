@@ -8,6 +8,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+The other Kinect-era games with their title updates: Fruit Ninja Kinect, Kinect Sports, Kinect Joy
+Ride and Doritos Crash Course are recompiled from their updated executables, and the launcher
+installs and requires each update, as for Kinect Adventures in 0.16.0.
+
+### Changed
+
+- **Fruit Ninja Kinect is played with its title update (0.0.1.3)**, Kinect Sports with its own
+  (0.0.4.2: the calorie challenge and the new main menu), Kinect Joy Ride with Title Update #3
+  (0.0.3.1) and Doritos Crash Course with its own (0.0.2.2). Each game patches the copy's executable
+  with the update at start and reads the update's files; without it, it ends at once saying where
+  the update goes. The launcher installs the update from the same archive, a `TU_…` file or a
+  `000B0000` package, and shows "Needs its title update" until it is there. Remake these games'
+  `.anyx` backups to include the update.
+- Every guest address in their hand-written code was matched again in the updated executables by
+  instruction shape. Kinect Sports' and Doritos Crash Course's updates were rebuilt with later XDKs
+  (a newer Kinect library, avatar library and CRT): Kinect Sports' Kinect bindings were found again
+  through Fruit Ninja Kinect's library of the same generation and the game's own calls
+  ([games/ks/notes/tu_addresses.md](games/ks/notes/tu_addresses.md)).
+
+### Added
+
+- **Kinect Joy Ride's Chevrolet Car Pack** (the Camaro, Corvette and Cruze), which needs Title
+  Update 3: the launcher installs it now.
+
+### Fixed
+
+- **A title update whose executable is smaller than the base's** (Fruit Ninja Kinect's) was refused
+  as an invalid executable by the XEX patcher (XenonRecomp fork, also used by the runtime and
+  `x360tool xex-patch`).
+- **Reads on files opened for asynchronous I/O** answer "pending" (already complete), as on the
+  console: Doritos Crash Course's update reads its save overlapped and took the immediate answer for
+  a failure ("Could not find device", saving again and again on every start after the first).
+  `XOVERLAPPED` completion routines run as user APCs, and saves keep the display name the game gave
+  them (`content\Headers\`) for the content enumerators.
+
 ## [0.16.1] - 2026-10-26
 
 Black Ops II: why two-player Zombies closed and slowed down, a faster job queue, and the memory in

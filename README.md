@@ -40,12 +40,14 @@ the sensor.
   webcam, from a Games on Demand copy with its downloadable content and its title update (version
   0.0.1.3).
 - **Fruit Ninja Kinect** (in testing): the Xbox Live Arcade game, slicing fruit with your hands in
-  front of the webcam, with its downloadable content.
+  front of the webcam, with its downloadable content and its title update (version 0.0.1.3).
 - **Doritos Crash Course** (in testing): the Xbox Live Arcade obstacle race with a controller, where
-  everyone is an Xbox Avatar.
-- **Kinect Sports** (in testing): Rare's six sports, played with the webcam, with Xbox Avatars.
+  everyone is an Xbox Avatar, with its title update (version 0.0.2.2).
+- **Kinect Sports** (in testing): Rare's six sports, played with the webcam, with Xbox Avatars and
+  its title update (version 0.0.4.2: the calorie challenge and the new menus).
 - **Kinect Joy Ride** (in testing): BigPark's kart racer, steering an imaginary wheel in front of
-  the webcam, with Xbox Avatars at the wheel, two players in split screen and its Chevy Volt pack.
+  the webcam, with Xbox Avatars at the wheel, two players in split screen, its Chevy Volt and
+  Chevrolet Car Pack DLC and Title Update #3 (version 0.0.3.1).
 - **Call of Duty: Modern Warfare 3** (in testing): the campaign at 60 FPS, with keyboard and mouse
   or a controller, and multiplayer and Special Ops in split screen on one machine.
 - **Call of Duty: Black Ops II** (in testing): the campaign at 60 FPS, and multiplayer (with bots)
@@ -86,17 +88,18 @@ carries: AnyX360 builds each avatar from it, with the clothes, hair and face the
    The launcher recognises the game by its content, its title ID and its version (the one AnyX360
    was recompiled from: an update or a re-release under the same title ID is refused) and checks the
    copy is complete. The game's downloadable content in the copy is installed too (but Black Ops II's,
-   Modern Warfare 3's and two of Resident Evil 6's, which need the title update); other games'
+   Modern Warfare 3's and two of Resident Evil 6's, which need their title update); other games'
    content is left out. Add each game you have the same way: it appears with its box art.
 
-   **Title updates.** A game AnyX360 plays with its title update (Kinect Adventures, so far) is
+   **Title updates.** A game AnyX360 plays with its title update (Kinect Adventures, Fruit Ninja
+   Kinect, Doritos Crash Course, Kinect Sports and Kinect Joy Ride) is
    recompiled from the updated executable: the launcher installs the update from the copy (the
    `TU_…` file, or a `<TitleID>\000B0000\` package) and the game is ready only with it. Its version
    must be the one AnyX360 plays; another is left out. A copy added without it shows "Needs its
    title update": add the update the same way (the same archive, or the `TU_…` file alone). The
    game patches its disc's executable with the update when it starts (cached after the first time)
-   and reads the update's files. The other games' updates are left out for now: they play their
-   disc's version.
+   and reads the update's files. The other games' updates (Resident Evil 6, Modern Warfare 3, Black
+   Ops II) are left out for now: they play their disc's version.
 5. Choose a game and press **Play**. The launcher works with the mouse, the keyboard or an Xbox
    controller.
 
@@ -237,6 +240,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Zen, Party (two players)         | 🧪 Not tried yet                               |
 | Progress and best scores         | ✅ Saved                                       |
 | Downloadable content             | ✅ Installed by the launcher                   |
+| Title update (0.0.1.3)           | ✅ Required: the game is recompiled from it    |
 | Leaderboards, avatar awards      | ❌ Not available: they need Xbox Live          |
 
 | Doritos Crash Course             | Status                                         |
@@ -244,14 +248,18 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Menus, country and level choice  | ✅ Working with a controller or the keyboard   |
 | Levels                           | 🧪 Running, jumping, checkpoints; finishing one not tried yet |
 | Avatars (player, crowd)          | ✅ With the avatar data from Kinect Sports     |
+| Saving progress                  | ✅ Saved and loaded again                      |
+| Title update (0.0.2.2)           | ✅ Required: the game is recompiled from it    |
 | Leaderboards                     | ❌ Not available: they need Xbox Live          |
 
 | Kinect Sports                    | Status                                         |
 | -------------------------------- | ---------------------------------------------- |
-| Menus, picking the main player   | ✅ Working (hand cursor)                       |
+| Menus, picking the main player   | ✅ Working (hand cursor), with the update's new menus |
 | Avatars                          | ✅ The game's guests with their looks; you play as the default avatar |
 | Bowling                          | 🧪 Starts and follows the body; not played through yet |
+| Football                         | 🧪 Loads; not played through yet               |
 | Other sports, two players        | 🧪 Not tried yet                               |
+| Title update (0.0.4.2)           | ✅ Required: the game is recompiled from it    |
 | Online, avatar awards            | ❌ Not available: they need Xbox Live          |
 
 | Kinect Joy Ride                  | Status                                         |
@@ -262,7 +270,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Two players (split screen)       | 🧪 A race played to the finish with two scripted players |
 | Stunt, Sprint, Smash, Trick      | 🧪 Offered; not tried yet                      |
 | Avatars                          | ✅ The drivers; you drive as the default avatar |
-| Downloadable content             | ✅ The Chevy Volt; the Chevrolet Car Pack needs the Title Update (left out) |
+| Downloadable content             | ✅ The Chevy Volt and the Chevrolet Car Pack (Camaro, Corvette, Cruze) |
+| Title Update #3 (0.0.3.1)        | ✅ Required: the game is recompiled from it    |
 | Online, avatar awards            | ❌ Not available: they need Xbox Live          |
 
 | Call of Duty: Modern Warfare 3   | Status                                         |
@@ -488,7 +497,8 @@ Doritos Crash Course:
 
 Kinect Sports:
 
-- In testing: only the menus and the start of Bowling have been tried, with the test player.
+- In testing: only the menus, the start of Bowling (before its update) and Football's loading have
+  been tried, with the test player.
 - You play as the default avatar. The avatars' face shapes (chin, nose, ears) aren't applied, and
   tight clothes can show the body through them.
 - Same webcam limits as Dance Central 3.
@@ -500,8 +510,6 @@ Kinect Joy Ride:
 - It runs at 30 FPS, as on the console: its clock counts the screen's refreshes, so it can't simply
   run at 60.
 - You drive as the default avatar, whose eyes look half closed in the garage.
-- The Chevrolet Car Pack's cars need the Title Update, which isn't supported: the launcher leaves
-  it out.
 - Same webcam limits as Dance Central 3.
 
 Call of Duty: Modern Warfare 3:
@@ -596,16 +604,16 @@ environment with pinned, hash-checked packages.
   `x360tool god-extract`, and the title update's `default.xexp` to `extracted/ka/update/` with
   `x360tool stfs-extract` (see [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing)).
 - Fruit Ninja Kinect: extract the Xbox Live Arcade package to `extracted/fnk/game/` with
-  `x360tool stfs-extract` (see [docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md#reproducing)).
-- Doritos Crash Course: the same, to `extracted/dcc/game/` (see
+  `x360tool stfs-extract`, and its title update to `extracted/fnk/update/` (see [docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md#reproducing)).
+- Doritos Crash Course: the same, to `extracted/dcc/game/` and `extracted/dcc/update/` (see
   [docs/DORITOSCRASHCOURSE.md](docs/DORITOSCRASHCOURSE.md#reproducing)).
 - Kinect Sports: extract the Games on Demand package's disc files to `extracted/ks/game/` with
-  `x360tool god-extract` (see [docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing)).
+  `x360tool god-extract`, and its title update to `extracted/ks/update/` (see [docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing)).
 - Call of Duty: Modern Warfare 3: the same, to `extracted/mw3/game/` (see
   [docs/MODERNWARFARE3.md](docs/MODERNWARFARE3.md#reproducing)).
 - Call of Duty: Black Ops II: the same, to `extracted/bo2/game/` (see
   [docs/BLACKOPS2.md](docs/BLACKOPS2.md#reproducing)).
-- Kinect Joy Ride: the same, to `extracted/kjr/game/` (see
+- Kinect Joy Ride: the same, to `extracted/kjr/game/`, and its title update to `extracted/kjr/update/` (see
   [docs/KINECTJOYRIDE.md](docs/KINECTJOYRIDE.md#reproducing)).
 - Kinect Party: extract the Xbox Live Arcade package to `extracted/kp/game/` with
   `x360tool stfs-extract` (see [docs/KINECTPARTY.md](docs/KINECTPARTY.md#reproducing)).
@@ -616,12 +624,12 @@ environment with pinned, hash-checked packages.
 Both folders are git-ignored.
 
 > [!IMPORTANT]
-> The targets are the base executables, without title updates, except Kinect Adventures (title
-> `4D5308ED`, 0.0.0.3 patched with its title update to 0.0.1.3): Gears of War 3 (title
-> `4D5308AB`), Dance Central 3 (title `373307D9`), Fruit
-> Ninja Kinect (title `58410B79`), Doritos Crash Course (title `58410A71`), Kinect Sports
-> (title `4D5308C9`), Call of Duty: Modern Warfare 3 (title `415608CB`), Call of Duty: Black
-> Ops II (title `415608C3`), Kinect Joy Ride (title `4D53093B`) and Resident Evil 6 (title
+> The targets are the base executables, patched with their title update for Kinect Adventures (title
+> `4D5308ED`, 0.0.0.3 to 0.0.1.3), Fruit Ninja Kinect (title `58410B79`, 0.0.0.3 to 0.0.1.3),
+> Doritos Crash Course (title `58410A71`, 0.0.0.2 to 0.0.2.2), Kinect Sports (title `4D5308C9`,
+> 0.0.0.2 to 0.0.4.2) and Kinect Joy Ride (title `4D53093B`, 0.0.0.1 to 0.0.3.1); without one for
+> Gears of War 3 (title `4D5308AB`), Dance Central 3 (title `373307D9`), Call of Duty: Modern
+> Warfare 3 (title `415608CB`), Call of Duty: Black Ops II (title `415608C3`) and Resident Evil 6 (title
 > `43430819`, version 0.0.0.3); for the two Call of Duty games, both the single-player `default.xex`
 > and the multiplayer `default_mp.xex`.
 

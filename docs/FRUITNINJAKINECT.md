@@ -14,14 +14,15 @@ Every value below comes from its `default.xex`, read with `x360tool xex-info`. T
 | Functions | 32,125 |
 | XDK | 2.0.20500 (February 2011); links NUI and ST 2.0.20500, XACT3, XAudio2 and XMCORE |
 | Imports | `xboxkrnl.exe`: 153 functions; `xam.xex`: 106 functions ([list](../games/fnk/notes/imports.txt)) |
-| Target version | The base package and its DLC; no Title Update |
+| Target version | 0.0.1.3: the base package patched with its title update (since 0.17.0), with its DLC |
 
 ## The arcade package
 An Xbox Live Arcade game is one STFS package whose files are the game folder. `x360tool
 stfs-extract` with `--verify` checks every block's hash and extracts it; the DLC packs (content type 2) are
 STFS packages too. The launcher does the same on "Add game": it recognises the package by its
 content type, extracts it as the game, puts the DLC in the game's content folder
-(`%LOCALAPPDATA%\AnyX360\FruitNinjaKinect\content\00000002\`) and skips the Title Update.
+(`%LOCALAPPDATA%\AnyX360\FruitNinjaKinect\content\00000002\`) and installs the title update
+(next section).
 
 The executable is told it runs from a download (`GameDescriptor::arcade`):
 `XTitleGetDeploymentType` answers 2 and `XContentQueryVolumeDeviceType` the hard drive. The license
@@ -33,6 +34,31 @@ XMemCompress for the title's own code to expand as it reads them: they start wit
 XAPI asks the file system whether a file is compressed (`NtQueryInformationFile` class 27,
 `FileXctdCompressionInformation`). The answer now comes from the file's header; answered "no", the
 game read compressed bytes and loaded `particles.fnk` again and again behind the Halfbrick logo.
+
+## The title update (since 0.17.0)
+The archive holds the game's title update as a root file, `TU_1C422RP_000000C000000.0000000000083`:
+an STFS "LIVE" package of content type 0x000B0000, "Fruit Ninja Kinect Title Update", 1.5 MB. It
+holds `default.xexp` (a delta patch from 0.0.0.3 to 0.0.1.3) and 14 menu, effect and string-table
+files the game reads from `update:\`.
+
+- **Recompiled from the update.** `config.toml` names the base (`file_path`), the patch
+  (`patch_file_path`) and the patched executable (`patched_file_path`). The patched image is smaller
+  than the base's (`0x8D0000` against `0x900000`); the XEX patcher (XenonRecomp's, which the runtime
+  and `x360tool xex-patch` share) refused such an update as an invalid executable, and now patches
+  in a buffer that holds the larger of the two (fork branch `anyx360-tu2`). Same XDK (2.0.20500);
+  entry point `0x821D6478`.
+- **Guest addresses moved.** The NUI library by `+0x27F78`, the XG texture functions by `+0x1D40`,
+  the game's own functions by `-0x21170` to `-0x31040`, the library's format tables by `+8`
+  (`82001C18`, `82001CA8`). Every address in `src/nui_bindings.cpp` matched exactly one `.pdata`
+  function of the patched image by instruction shape (immediates and branch targets masked) and was
+  checked over 16 instructions at its new address. The register helpers and setjmp/longjmp
+  (`823BCF40`/`823BCB30`) moved with the CRT. XenonAnalyse: the same 181 jump tables, 2 unresolved.
+- **At start** the game patches the copy's `default.xex` with the update (cached in
+  `cache\patched\`), mounts it as `update:\` and reads its string tables and menus from there.
+  Without it, it ends at once saying where the update goes; the launcher installs it from the
+  archive (or the `TU_` file alone) and shows "Needs its title update" until it is there.
+
+The addresses in the sections below are the base executable's (0.0.0.3) unless said otherwise.
 
 ## Recompiler configuration
 - **Register save/restore helpers**: found with `tools/scripts/find_helpers.py`; the addresses are
@@ -81,8 +107,10 @@ From the arcade package (`<package>` is the folder that holds `58410B79`):
 ```
 build.bat
 build\tools\x360tool\release\x360tool.exe stfs-extract "<package>\58410B79\000D0000\<file>" extracted\fnk\game --verify
+build\tools\x360tool\release\x360tool.exe stfs-extract "<package>\TU_1C422RP_000000C000000.0000000000083" extracted\fnk\update
+build\tools\x360tool\release\x360tool.exe xex-patch extracted\fnk\game\default.xex extracted\fnk\update\default.xexp extracted\fnk\update\default_0.0.1.3.xex
 cd games\fnk
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\fnk\game\default.xex switch_tables.toml
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\fnk\update\default_0.0.1.3.xex switch_tables.toml
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 cd ..\..
 build.bat
@@ -92,7 +120,9 @@ XenonRecomp writes into `out_directory_path` from `config.toml`, and that folder
 empty before it runs: files left from an earlier run break the link, and a missing folder makes it
 stop without a message. To try the DLC in a developer build, extract each pack from
 `<package>\58410B79\00000002\` with `stfs-extract` to
-`%LOCALAPPDATA%\AnyX360\FruitNinjaKinect\content\00000002\<package file name>\`.
+`%LOCALAPPDATA%\AnyX360\FruitNinjaKinect\content\00000002\<package file name>\`, and the update's
+files to `...\content\000B0000\TU_1C422RP_000000C000000.0000000000083\` (the game needs them).
+The output folder is `recomp7`.
 
 ## Bring-up notes
 - **`ObOpenObjectByName`**: the game's worker threads open a semaphore by name.
@@ -120,3 +150,10 @@ stop without a message. To try the DLC in a developer build, extract each pack f
 - **To verify with a real webcam and a person**: Zen mode, Party mode (two players), the Kinect
   Tuner (Y), how the shadow and the blade feel with a real body.
 - **Not supported**: leaderboards and anything else online, avatar awards, gamer pictures.
+
+## Status with the title update (2026-10-28)
+Prepared by the launcher from the archive (the copy, the eight DLC packs and the update) and
+played again on the build recompiled from 0.0.1.3 with the scripted player: the title screen, the
+slicing route into an Arcade round with the eight packs installed (fruit, bombs, the timer running
+down), no errors. The game reads its string tables and menus from `update:\` (43 reads). Started
+without the update, it ends at once with the message.

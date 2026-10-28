@@ -13,10 +13,45 @@ from its `default.xex`, read with `x360tool xex-info`. The full dump is in
 | Image | 20 MiB: 15 MiB code (`.text`), 1.3 MiB data, 1.9 MiB read-only |
 | XDK | 2.0.11775 (the Kinect launch); links NUI and NUIHNDL 2.0.11775, XAVATAR, XAudio2, XHV2 |
 | Imports | `xboxkrnl.exe`: 189 functions; `xam.xex`: 150 functions ([list](../games/ks/notes/imports.txt)) |
-| Target version | The base game; no Title Update |
+| Target version | 0.0.4.2: the base game patched with its title update (since 0.17.0), with its DLC |
 
 The disc also carries the console's avatar asset pack (`AvatarAssetPack`, a PIRS package of title
 `FFFE07DF` holding `AvatarAssetPack.toc`), a system update and the game's avatar awards.
+
+## The title update (since 0.17.0)
+The archive holds the game's title update as a root file, `TU_16L6269_0000008000000.0000000000102`:
+an STFS "LIVE" package of content type 0x000B0000, "Kinect SportsTitle Update", 4.2 MB. It holds
+`default.xexp` (a delta patch from 0.0.0.2 to 0.0.4.2) and 36 files the game reads from
+`update:\`: bundles, the bundle lookup, localised text and the avatar asset inventory.
+
+The update is a rebuild with a later XDK, 2.0.20353 (the disc: 2.0.11775): every SDK library
+changed, NUI and XAVATAR included, and the image grew to 20.12 MiB (entry `0x82A70A60`). It has 23
+imports the disc didn't (SHA-256/384/512, `NtWriteFileGather`, `XamShowNuiMarketplaceUI` and
+others); four aren't in the runtime (`KeInitializeMutant`, `KeReleaseMutant`,
+`XamGetActiveDashAppInfo`, `XamShowGoldUpgradeUI`) and weren't called on the routes below, where
+the only unimplemented call was `NetDll_WSARecvFrom` (harmless offline).
+
+- **Recompiled from the update.** `config.toml` names the base, the patch and the patched
+  executable; the register helpers and setjmp/longjmp (`82FBD980`/`82FBDC50`, the base's pair matched
+  by instruction shape) are the patched image's. XenonAnalyse finds 337 jump tables, 4 unresolved.
+- **The Kinect library is NUI 2.0.20353**, close to Fruit Ninja Kinect's 2.0.20500, not the disc's
+  2.0.11775: most entry points changed code, so they couldn't simply be shifted. Each was found by
+  instruction shape (immediates and branch targets masked): the update's function of the same shape
+  as the disc's (when it didn't change), else Fruit Ninja Kinect's function of the same shape
+  (initialization, skeleton tracking, image streams, the XG texture functions), else the call at
+  the same place in the game's own callers (the camera settings, the identity requests, the
+  elevation). The leaf functions (camera settings, the troubleshooter, which calls
+  `XamShowNuiTroubleshooterUI`) are the same instructions. The table is in
+  [games/ks/src/nui_bindings.cpp](../games/ks/src/nui_bindings.cpp) and
+  [notes/tu_addresses.md](../games/ks/notes/tu_addresses.md). The image formats now come from the
+  library's tables, as Fruit Ninja Kinect's (the plain depth image is type 3 here, 4 on the disc).
+- **Avatars**: the update's XAVATAR (2.0.20353) builds avatars from the same asset pack; its
+  skeleton builder (`82AD7AE8`, the disc's `82A84A00`) was found through its caller.
+- **At start** the game patches the copy's `default.xex` (cached), mounts the update as `update:\`
+  and reads its bundles from there. Without it, it ends at once saying where the update goes; the
+  launcher installs it from the archive (or the `TU_` file alone).
+
+The addresses in the sections below are the disc's (0.0.0.2) unless said otherwise.
 
 ## Recompiler configuration
 - **Register save/restore helpers** and **setjmp/longjmp** (`82F6C150`, `82F6C420`, the CRT's):
@@ -84,18 +119,36 @@ pause notification; Dance Central 3 answers it by showing the Kinect Guide.
   Bowling is at `95_-22`, "Accept Players" at `74_-22`, the how-to screen's Skip at `37_4`; a raised
   hand (`10_80`) starts the game, `52_-36` reaches the right-hand ball rack.
 
+## Status with the title update (2026-10-28)
+Prepared by the launcher from the archive (the copy, the two DLC packs and the update) and played
+on the build recompiled from 0.0.4.2 with the scripted player:
+- **Menus**: the logos, the title screen, "Elegir jugador principal" with the avatars (the update's
+  avatar library), the guest's warning, the stadium, "Jugar".
+- **The update's main menu**: Competición, Desafío calórico (the calorie challenge the update
+  added), Prueba principal, Minijuegos; "¿Qué deporte te apetece probar?" with the six sports;
+  "¿Quién va a jugar?" (one player against the AI); Football loads ("Equipos de hoy").
+- The game reads its bundles from `update:\` (46 reads). Started without the update, it ends at once
+  with the message.
+- **Scripted route** (the menus moved with the update): `3:enter;5:walk_out;27:arm_right_10_80;
+  35:lower;40:arm_right_10_80;48:lower;55:arm_right_90_-30` (the left guest; `79_-31` "Sí" on its
+  warning), then `75_-22` Jugar, `95_-22` a sport (Football in the second row), `74_-22` against the
+  AI, `37_4` skips the how-to screen.
+
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `4D5308C9`):
 
 ```
 build.bat
 build\tools\x360tool\release\x360tool.exe god-extract "<package>\4D5308C9\00007000\<file>" extracted\ks\game
+build\tools\x360tool\release\x360tool.exe stfs-extract "<package>\TU_16L6269_0000008000000.0000000000102" extracted\ks\update
+build\tools\x360tool\release\x360tool.exe xex-patch extracted\ks\game\default.xex extracted\ks\update\default.xexp extracted\ks\update\default_0.0.4.2.xex
 cd games\ks
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\ks\game\default.xex switch_tables.toml
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\ks\update\default_0.0.4.2.xex switch_tables.toml
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 cd ..\..
 build.bat
 ```
 
-XenonRecomp writes into `out_directory_path` from `config.toml`, and that folder must exist and be
-empty before it runs.
+XenonRecomp writes into `out_directory_path` from `config.toml` (`recomp4`), and that folder must
+exist and be empty before it runs. A developer build needs the update's files in
+`%LOCALAPPDATA%\AnyX360\KinectSports\content\000B0000\TU_16L6269_0000008000000.0000000000102\`.
