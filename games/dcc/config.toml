@@ -1,12 +1,19 @@
 # Doritos Crash Course recompiler configuration (XenonRecomp format). Paths are relative to this file.
 # This file contains no game code or data; it only describes where things are.
 #
-# file_path is the default.xex of the Xbox Live Arcade package written out with x360tool
-# stfs-extract (see docs/DORITOSCRASHCOURSE.md). It is encrypted with the retail key and LZX-compressed.
+# The game is recompiled from its title update's executable (version 0.0.2.2, "Doritos Crash Course
+# Title Update"): XenonRecomp applies patch_file_path to file_path and writes patched_file_path,
+# which XenonAnalyse reads (x360tool xex-patch makes the same file).
+# file_path is the base executable (version 0.0.0.2), the default.xex of the Xbox Live Arcade
+# package written out with x360tool stfs-extract (see docs/DORITOSCRASHCOURSE.md). It is encrypted
+# with the retail key and LZX-compressed. patch_file_path is default.xexp from the update's package
+# (58410A71\000B0000\tu00000002_00000000, x360tool stfs-extract), see docs/DORITOSCRASHCOURSE.md.
 
 [main]
 file_path = "../../extracted/dcc/game/default.xex"
-out_directory_path = "recomp4"
+patch_file_path = "../../extracted/dcc/update/default.xexp"
+patched_file_path = "../../extracted/dcc/update/default_0.0.2.2.xex"
+out_directory_path = "recomp5"
 switch_table_file_path = "switch_tables.toml"
 
 # Optimisations stay off until the game runs (XenonRecomp recommendation).
@@ -19,22 +26,24 @@ cr_as_local = false
 non_argument_as_local = false
 non_volatile_as_local = false
 
-# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
 # image: each pattern occurs exactly once).
-restgprlr_14_address = 0x825D5AD0
-savegprlr_14_address = 0x825D5A80
-restfpr_14_address = 0x825D604C
-savefpr_14_address = 0x825D6000
-restvmx_14_address = 0x825D72D8
-savevmx_14_address = 0x825D7040
-restvmx_64_address = 0x825D736C
-savevmx_64_address = 0x825D70D4
+restgprlr_14_address = 0x824DECE0
+savegprlr_14_address = 0x824DEC90
+restfpr_14_address = 0x824DF25C
+savefpr_14_address = 0x824DF210
+restvmx_14_address = 0x824E0528
+savevmx_14_address = 0x824E0290
+restvmx_64_address = 0x824E05BC
+savevmx_64_address = 0x824E0324
 
 # The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: the same code as Fruit Ninja
 # Kinect's). The game calls setjmp in 13 places and longjmp in 20; as guest code longjmp can't return
 # to where setjmp was called.
-setjmp_address = 0x825DAC40
-longjmp_address = 0x825DAF10
+# In the patched image: the base's pair (825DAC40/825DAF10) matched by instruction shape
+# and checked over 24 instructions.
+setjmp_address = 0x824E41C0
+longjmp_address = 0x824E4490
 
 # Functions the analyser misses (address + size), added as they are found.
 # functions = [

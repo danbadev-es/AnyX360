@@ -12,9 +12,12 @@ int main(int argc, char** argv) {
   game.user_dir = game_info::kUserDir;
   game.dev_game_dir = game_info::kDevGameDir;
   game.title_id = game_info::kTitleId;
+  // Recompiled from its title update (0.0.2.2): the copy's 0.0.0.2 is patched with it at start.
+  game.update_package = game_info::kUpdatePackage;
+  game.update_version = game_info::kUpdateVersion;
   game.arcade = true;
   game.avatar_system = true;
   // The avatar library's default skeleton (this version has no shaping by height and weight).
-  game.avatar_skeleton = 0x825F7EE0;
+  game.avatar_skeleton = 0x82506768;
   return x360::host::RunHost(argc, argv, game);
 }
