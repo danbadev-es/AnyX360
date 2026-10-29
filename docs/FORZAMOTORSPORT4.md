@@ -78,32 +78,45 @@ isn't loaded while the game is told there's no Kinect (below).
 - Still missing, harmlessly so far: `EtxProducerRegister`; xam ordinals 442, 520, 80, 36, 1164 and
   xboxkrnl 642-649 by ordinal.
 
+## Fibers
+The game runs its jobs (the race start, the loading screens' tasks, work on its job threads) on
+**XAPI fibers**, a cooperative scheduler at `8294D940` and its neighbours. `CreateFiber`,
+`ConvertThreadToFiber`, `ConvertFiberToThread`, `DeleteFiber` and `SwitchToFiber` are XAPI code linked
+into the game, and `SwitchToFiber` (`82C82C10`) jumps to assembly (`82C85380`) that saves the
+registers into the current fiber's context block, loads the target's and ends with
+`KeSetCurrentStackPointers`, returning on the target's stack. Recompiled code can't switch stacks
+that way: the recompiler left the function empty, no job ever ran, and the game waited on the first
+race's loading screen for good.
+
+The runtime now runs each guest fiber on a host fiber with a guest context of its own
+([runtime/src/kernel/fibers.cpp](../runtime/src/kernel/fibers.cpp)): a switch suspends the caller
+where it is and resumes the target where it left off or, the first time, enters it as the assembly
+would (r1 and r14..r31 from its context block, then a call to its saved LR, the start thunk).
+[games/fm4/src/fibers.cpp](../games/fm4/src/fibers.cpp) hooks the game's five functions.
+
 ## Status (2026-10-29)
 - **Works**: the legal screen, the Turn 10 and Microsoft Studios logos (videos), the title screen
   and its attract video, A at the title, the profile save ("Saving content", `ForzaProfile`,
-  encrypted), the first-run brightness screen, the Top Gear introduction video with subtitles,
-  then the first race's loading screen ("Welcome to Forza Motorsport 4", a lap of the Bernese
-  Alps). 60 FPS, music and voices (XMA).
-- **Stops at the first race's loading screen.** The screen animates for good (left 9 minutes),
-  nothing more is read (the track's `bin.zip` is never opened; the last files are the Alps audio
-  zones), and no thread is stuck in an export: the game thread waits each frame for the frame
-  event, the main thread runs its loop (much of it in the CRT's `pow`, from `8287AE48`), every
-  worker waits. Not the downloadable content (the same without it), not Kinect, not a button
-  press. The `pow` time is the loading screen's colour fade (`822A7308` → `8243F330`), which
-  completes. What waits is the screen itself: `IELoading::Update` (`825482D0`) asks its pending UI
-  object (`this+352`) with `826460F8`, a UI script query, every frame, and it never stops being
-  busy. The 21 table-driven `bctr` the analyser leaves are tail calls through member-function
-  tables (correct). Next: what that UI query asks (the name at `[0x82DDF1D8]`) and what should
-  end it (see PROGRESS.md).
+  encrypted), the first-run brightness screen, the Top Gear introduction video with subtitles, the
+  welcome loading screen and its video, and **the first race**: a lap of the Bernese Alps in the
+  Ferrari 458 Italia, with the driving tutorial's prompts, the assisted steering and braking of the
+  first race (holding RT drives it), the other cars, the race end and the post-race menu with the
+  replay behind it. 60 FPS, music and voices (XMA).
+- **Stops after the first race**: "Continue" on the post-race menu hides the menu and the replay
+  goes on; nothing more is loaded (see PROGRESS.md).
 - Not reached yet: the menus after the first race, careers, Free Play, the garage, upgrades,
   tuning, the paint editor, the storefront, replays, Rivals, the downloadable cars and tracks.
-- **Kinect** (Autovista, head tracking, voice) and **split screen**: later.
+- **Kinect** (Autovista, head tracking, voice) and **split screen**: later. The race initialises
+  head tracking (`NuiInitialize` succeeds: the NUI library's thread then looks for the camera every
+  30 ms); with no sensor nothing comes of it.
 
 ## Routes (scripted input)
 On a new profile (an empty `<user>\content\00000001`), with `[players] p1 = { device = "pad" }`:
 `ANYX360_INPUT=28:A,40:A,60:A~15x6` presses A at the title (about 28 s; earlier presses fall on
-the logos), accepts the brightness screen, and the introduction plays by itself; the loading
-screen comes at about 125 s.
+the logos), accepts the brightness screen, and the introduction plays by itself; the welcome
+loading screen and its video come at about 60 s and the race at about 145 s. Holding RT drives it
+(the first race steers and brakes for the player): `155:RT/165` finishes it at about 320 s, and the
+post-race menu comes then (`335:A` is Continue).
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `4D530910`):

@@ -51,7 +51,10 @@ PPC_FUNC(sub_82947780) {
   static std::atomic<int> counts[64][16];
   const uint32_t ev = ctx.r4.u32, sub = ctx.r5.u32;
   const int c = (ev < 64 && sub < 16) ? ++counts[ev][sub] : 1;
-  if (c <= 3 || (c & (c - 1)) == 0)
+  static const double from = std::getenv("PROBE_EV_FROM") ? std::atof(std::getenv("PROBE_EV_FROM")) : 1e9;
+  static const double to = std::getenv("PROBE_EV_TO") ? std::atof(std::getenv("PROBE_EV_TO")) : 0;
+  const double now = Now();
+  if (c <= 3 || (c & (c - 1)) == 0 || (now >= from && now <= to && ev != 2))
     P("post event %u/%u #%d r6 %08X r7 %08X r8 %08X", ev, sub, c, ctx.r6.u32, ctx.r7.u32, ctx.r8.u32);
   __imp__sub_82947780(ctx, base);
 }
@@ -222,4 +225,26 @@ PPC_FUNC(sub_82AABF00) {
     P("82AABF00(%08X, %u) -> %d (lr %08X)", ctx.r3.u32, which, int(ctx.r3.u32), lr);
     last[which] = ctx.r3.u32;
   }
+}
+
+// The fiber scheduler's jobs: post (8294D940: queue, 0, functor) and run (82949A10: functor; +16 the
+// implementation, whose vtable slot 1 is the call).
+X360_GUEST_ORIGINAL(8294D940)
+PPC_FUNC(sub_8294D940) {
+  const uint32_t impl = ctx.r5.u32 ? L(base, ctx.r5.u32 + 16) : 0;
+  const uint32_t vt = impl ? L(base, impl) : 0;
+  P("job post queue %08X impl %08X vtable %08X call %08X arg %08X", ctx.r3.u32, impl, vt, vt ? L(base, vt + 4) : 0,
+    impl ? L(base, impl + 4) : 0);
+  __imp__sub_8294D940(ctx, base);
+}
+X360_GUEST_ORIGINAL(82949A10)
+PPC_FUNC(sub_82949A10) {
+  const uint32_t impl = L(base, ctx.r3.u32 + 16);
+  const uint32_t vt = impl ? L(base, impl) : 0;
+  const uint32_t call = vt ? L(base, vt + 4) : 0;
+  const uint32_t kthread = L(base, ctx.r13.u32 + 0x100);
+  P("job run begin impl %08X vtable %08X call %08X arg %08X fiber %08X", impl, vt, call, impl ? L(base, impl + 4) : 0,
+    L(base, kthread + 0x164));
+  __imp__sub_82949A10(ctx, base);
+  P("job run end call %08X", call);
 }
