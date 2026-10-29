@@ -1,0 +1,51 @@
+# Mortal Kombat Komplete Edition recompiler configuration (XenonRecomp format). Paths are relative
+# to this file. This file contains no game code or data; it only describes where things are.
+#
+# file_path is default.xex from the Games on Demand package (575207FD\00007000, x360tool
+# god-extract): MK9Game-Retail.exe, version 0.0.0.8, disc 1 of 1, encrypted with the retail key,
+# basic compression. No title update in the copy. See docs/MORTALKOMBAT.md.
+
+[main]
+file_path = "../../extracted/mk/game/default.xex"
+out_directory_path = "recomp"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py: each pattern
+# occurs exactly once).
+restgprlr_14_address = 0x82B26ED0
+savegprlr_14_address = 0x82B26E80
+restfpr_14_address = 0x82B2813C
+savefpr_14_address = 0x82B280F0
+restvmx_14_address = 0x82B2AE08
+savevmx_14_address = 0x82B2AB70
+restvmx_64_address = 0x82B2AE9C
+savevmx_64_address = 0x82B2AC04
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: setjmp saves f14-f31 and
+# r13-r31 at r3 and returns 0; longjmp restores them through r7 and returns r4, or 1, as in Modern
+# Warfare 3, Black Ops II and Forza Motorsport 4). The other longjmp candidates (82C02FE0,
+# 831A5B48, 82BDCC70) are to be checked.
+setjmp_address = 0x82FE1340
+longjmp_address = 0x82FE1020
+
+# Functions the analyser misses (address + size). The recompiler's other "ERROR" branches are in
+# junk functions it makes of the 8 bytes of exception data before each function with a handler
+# (and of the rest of that function after them), which nothing calls: the real function, from
+# .pdata, is complete.
+functions = [
+  # Maps an HRESULT to an error code (compares r3 with 0x805000xx codes); a leaf function without
+  # a .pdata entry whose switch counts down CTR with bdzf, and whose last conditional branch
+  # targets the next instruction, which the analyser took for its end (as Black Ops II's and
+  # Resident Evil 6's). Ends at 0x82CF0808 (blr).
+  { address = 0x82CF05B0, size = 0x25C },
+]

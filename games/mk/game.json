@@ -1,0 +1,19 @@
+{
+  "id": "mk",
+  "title": "Mortal Kombat Komplete Edition",
+  "cover": "mortal-kombat",
+  "status": "testing",
+  "exe": "MortalKombat",
+  "user_dir": "MortalKombat",
+  "title_id": "575207FD",
+  "xex": {"version": "0.0.0.0", "media_id": "00000000"},
+  "dev_game_dir": "extracted/mk/game",
+  "launcher_name": "AnyX360 Mortal Kombat Komplete Edition",
+  "size_gb": 8,
+  "archive_hint": "Mortal Kombat Komplete Edition (Games on Demand)",
+  "input": "keyboard_pad",
+  "required_files": [],
+  "owners": "Warner Bros. Interactive Entertainment, NetherRealm Studios",
+  "trademarks": ["Xbox", "Xbox 360", "Mortal Kombat"],
+  "components": []
+}
