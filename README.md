@@ -71,6 +71,10 @@ the sensor.
   Demand copy with its downloadable content, at 60 FPS: the arcade ladder's fights, local versus
   with two players and tag versus; Story mode and the Challenge Tower are still to be checked
   ([docs/MORTALKOMBAT.md](docs/MORTALKOMBAT.md)).
+- **Call of Duty: Black Ops III** (in testing): the Xbox 360 version's multiplayer (local matches,
+  with bots) and Zombies (Shadows of Evil) at 60 FPS, with its title update (version 0.0.8.5) and
+  its downloadable content, which multiplayer needs (the Compatibility Packs); one player: this
+  version has no campaign and no split screen ([docs/BLACKOPS3.md](docs/BLACKOPS3.md)).
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
 carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for. Your
@@ -89,7 +93,8 @@ own avatar is made in the launcher's avatar editor and plays in every avatar gam
    Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for Doritos Crash Course, 4 GB for
    Kinect Sports, 8 GB for Call of Duty: Modern Warfare 3, 8 GB for Call of Duty: Black Ops II,
    2 GB for Kinect Joy Ride, 1 GB for Kinect Party, 8 GB for Resident Evil 6 (3 GB more for its
-   downloadable content) and 2 GB for Minecraft (1 GB more for its downloadable content).
+   downloadable content), 2 GB for Minecraft (1 GB more for its downloadable content) and 6 GB for
+   Call of Duty: Black Ops III (4 GB more for its downloadable content).
 3. Run **`AnyX360.exe`** and accept the terms of use.
 4. Choose **Add game** (the **+** tile), or drop your copy on the window, as you have it:
    - **A file**: an archive of any kind (.7z, .rar, .zip, split or not, .tar.gz...), a disc image
@@ -108,7 +113,7 @@ own avatar is made in the launcher's avatar editor and plays in every avatar gam
 
    **Title updates.** A game AnyX360 plays with its title update (Kinect Adventures, Fruit Ninja
    Kinect, Doritos Crash Course, Kinect Sports, Kinect Joy Ride, Resident Evil 6, Modern Warfare 3,
-   Black Ops II and Minecraft; for the two Call of Duty games, both programs) is
+   Black Ops II, Black Ops III and Minecraft; for the Call of Duty games, both programs) is
    recompiled from the updated executable: the launcher installs the update from the copy (the
    `TU_…` file, or a `<TitleID>\000B0000\` package) and the game is ready only with it. Its version
    must be the one AnyX360 plays; another is left out. A copy added without it shows "Needs its
@@ -350,6 +355,16 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Title Update (0.0.18.14)         | ✅ Required: both programs are recompiled from it |
 | Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link needs a network |
 
+| Call of Duty: Black Ops III      | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Menus, settings, saves           | ✅ Working (60 FPS)                            |
+| Multiplayer                      | 🧪 Local matches (Team Deathmatch on Combine) played, with bots; needs the Compatibility Packs |
+| Zombies                          | 🧪 Its own program, started from the menu; Shadows of Evil played to the end of a game |
+| Downloadable content             | ✅ Installed, required for multiplayer; The Giant, Der Eisendrache and Awakening's maps not tried yet |
+| Title Update (0.0.8.5)           | ✅ Required: both programs are recompiled from it |
+| Split screen, campaign           | ❌ Not in this version of the game (one local player, no campaign) |
+| Xbox LIVE, LAN                   | ❌ Not available: Xbox LIVE is gone            |
+
 | Resident Evil 6                  | Status                                         |
 | -------------------------------- | ---------------------------------------------- |
 | Start-up, title, saves           | ✅ Working (30 FPS, as on the console)         |
@@ -456,6 +471,11 @@ The same keys as Modern Warfare 3; in split screen (multiplayer and Zombies), pl
 controllers and press A in the lobby to join. Grenades are tactical (Q, LB) and lethal (R, RB);
 E (X) also buys, opens doors and revives in Zombies, and the arrows or 1-4 (D-pad) call in
 scorestreaks.
+
+### Call of Duty: Black Ops III
+
+The same keys as Black Ops II, for one player (this version has no split screen): E (X) also buys,
+opens doors and revives in Zombies, and the arrows or 1-4 (D-pad) call in scorestreaks.
 
 ### Resident Evil 6
 
@@ -610,6 +630,14 @@ Call of Duty: Black Ops II:
 - Only the first mission, Local matches (Magma among the downloadable maps), TranZit, Grief and
   Die Rise have been played.
 
+Call of Duty: Black Ops III:
+
+- Zombies is a second program: switching to it from the menu closes the window and opens another
+  (about a minute), and the launcher closes.
+- Multiplayer needs the Compatibility Packs (downloadable content): add the copy with them.
+- One player: this version of the game has no split screen and no campaign.
+- Only local matches on Combine (with bots) and Shadows of Evil have been played.
+
 Resident Evil 6:
 
 - In testing: the start, the saves and Leon's prologue up to the street after the alley have been
@@ -698,6 +726,9 @@ environment with pinned, hash-checked packages.
 - Call of Duty: Black Ops II: the same, to `extracted/bo2/game/`, and its title update to
   `extracted/bo2/update/` (see
   [docs/BLACKOPS2.md](docs/BLACKOPS2.md#reproducing)).
+- Call of Duty: Black Ops III: the same, to `extracted/bo3/game/`, and its title update to
+  `extracted/bo3/update/` (see
+  [docs/BLACKOPS3.md](docs/BLACKOPS3.md#reproducing)).
 - Kinect Joy Ride: the same, to `extracted/kjr/game/`, and its title update to `extracted/kjr/update/` (see
   [docs/KINECTJOYRIDE.md](docs/KINECTJOYRIDE.md#reproducing)).
 - Kinect Party: extract the Xbox Live Arcade package to `extracted/kp/game/` with
@@ -717,9 +748,11 @@ Both folders are git-ignored.
 > Doritos Crash Course (title `58410A71`, 0.0.0.2 to 0.0.2.2), Kinect Sports (title `4D5308C9`,
 > 0.0.0.2 to 0.0.4.2), Kinect Joy Ride (title `4D53093B`, 0.0.0.1 to 0.0.3.1), Resident Evil 6
 > (title `43430819`, 0.0.0.3 to 0.0.6.3), Call of Duty: Modern Warfare 3 (title `415608CB`, 0.0.0.8
-> to 0.0.23.8), Call of Duty: Black Ops II (title `415608C3`, 0.0.0.14 to 0.0.18.14) and Minecraft:
-> Xbox 360 Edition (title `584111F7`, 0.0.0.1 to 0.0.80.1); for the two Call of Duty games, both the
-> single-player `default.xex` and the multiplayer `default_mp.xex`, each with its own `.xexp`.
+> to 0.0.23.8), Call of Duty: Black Ops II (title `415608C3`, 0.0.0.14 to 0.0.18.14), Call of Duty:
+> Black Ops III (title `4156091D`, 0.0.0.5 to 0.0.8.5) and Minecraft: Xbox 360 Edition (title
+> `584111F7`, 0.0.0.1 to 0.0.80.1); for Modern Warfare 3 and Black Ops II, both the single-player
+> `default.xex` and the multiplayer `default_mp.xex`, and for Black Ops III the multiplayer
+> `default.xex` and the Zombies `default_zm.xex`, each with its own `.xexp`.
 > Without one for Gears of War 3 (title `4D5308AB`) and Dance Central 3 (title `373307D9`).
 
 ### 4. Recompile the Game
@@ -733,6 +766,7 @@ names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing-fro
 [docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing),
 [docs/MODERNWARFARE3.md](docs/MODERNWARFARE3.md#reproducing),
 [docs/BLACKOPS2.md](docs/BLACKOPS2.md#reproducing),
+[docs/BLACKOPS3.md](docs/BLACKOPS3.md#reproducing),
 [docs/RESIDENTEVIL6.md](docs/RESIDENTEVIL6.md#reproducing) and
 [docs/MINECRAFT.md](docs/MINECRAFT.md#reproducing). For Gears of War 3:
 
@@ -834,6 +868,7 @@ games/kp/         Kinect Party: recompiler config, entry point, Kinect bindings,
 games/minecraft/  Minecraft: Xbox 360 Edition: recompiler config, entry point, notes
 games/fm4/        Forza Motorsport 4: recompiler configs (the game and its two DLLs), entry point, notes
 games/mk/         Mortal Kombat Komplete Edition: recompiler config, entry point, fiber hooks, notes
+games/bo3/        Call of Duty: Black Ops III: recompiler configs (multiplayer and Zombies), entry points, notes
 runtime/          Kernel and XAM reimplementation, input, settings, GPU and audio glue,
                   the virtual Kinect (runtime/src/nui) and its debug window (runtime/kinect_window)
 tools/x360tool/   Disc and XEX tooling

@@ -8,6 +8,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **Call of Duty: Black Ops III** (in testing, [docs/BLACKOPS3.md](docs/BLACKOPS3.md)): the Xbox
+  360 version, from a Games on Demand copy with its title update (version 0.0.8.5, both programs
+  recompiled from it) and its downloadable content. Multiplayer (a second program for Zombies,
+  `BlackOps3ZM.exe`, as in Black Ops II): local matches on Combine, with bots, at 60 FPS; Zombies:
+  Shadows of Evil. Multiplayer needs the copy's Compatibility Packs, which the launcher installs.
+  This version has no campaign and no split screen (its engine has one local player).
+
+### Changed
+
+- Call of Duty: Black Ops III leaves "Coming soon".
+
+### Fixed
+
+- `MmSetAddressProtect` refuses a protection that doesn't name exactly one access, as the console
+  and Xenia do, instead of making the memory inaccessible (Black Ops III's allocator passes 0).
+
 ## [0.27.0] - 2026-10-30
 
 Mortal Kombat Komplete Edition, in testing: the arcade ladder and local versus for two players.
