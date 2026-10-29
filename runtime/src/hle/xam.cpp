@@ -1242,6 +1242,19 @@ uint32_t XamInputGetKeystrokeEx(uint32_t user_index_ptr, uint32_t flags, uint32_
   return X_ERROR_EMPTY;
 }
 uint32_t XamInputControl() { return X_ERROR_SUCCESS; }
+
+// The Kinect's XStudio service (xstudio.xex): absent, as Xenia answers (E_FAIL). Forza Motorsport 4
+// asks it at start.
+uint32_t XamXStudioRequest(uint32_t request, uint32_t result_ptr) {
+  (void)request;
+  if (result_ptr) Store<uint32_t>(result_ptr, 0);
+  return 0x80004005;
+}
+
+// X_DASH_APP_INFO (0xC bytes): no dashboard application is active.
+void XamGetActiveDashAppInfo(uint32_t info) {
+  if (info) std::memset(Ptr(info), 0, 0xC);
+}
 uint32_t XamInputRawState() { return X_ERROR_DEVICE_NOT_CONNECTED; }
 
 // Inactivity (the dashboard's screen dimming) doesn't apply.
@@ -1745,13 +1758,31 @@ uint32_t XamAvatarSetCustomAsset() { return X_ERROR_SUCCESS; }
 // virtual sensor replaces (x360/nui.h). The system only reports a connected sensor and no
 // microphone array.
 
-// X_NUI_DEVICE_STATUS: camera, tilt and microphone status (NTSTATUS), status bits.
+// X_NUI_DEVICE_STATUS: camera, tilt and microphone status (NTSTATUS), status bits. A title played
+// without the sensor (GameDescriptor::kinect_sensor false: Forza Motorsport 4, whose Kinect features
+// are optional) is told none is connected.
+constexpr uint32_t kStatusDeviceNotConnected = 0xC000009D;
 uint32_t XamNuiGetDeviceStatus(uint32_t status) {
   std::memset(Ptr(status), 0, 0x10);
+  if (!TitlePaths().kinect_sensor) {
+    Store<uint32_t>(status + 0x00, kStatusDeviceNotConnected);
+    Store<uint32_t>(status + 0x04, kStatusDeviceNotConnected);
+    Store<uint32_t>(status + 0x08, kStatusDeviceNotConnected);
+    return X_ERROR_SUCCESS;
+  }
   Store<uint32_t>(status + 0x0C, 1);  // ready
   return X_ERROR_SUCCESS;
 }
 uint32_t XamVoiceGetMicArrayStatus() { return 0; }
+
+// The Kinect camera driver (xboxkrnl), which a title's own NUI library talks to. Kinect titles have
+// that library replaced by the virtual sensor and don't get here; without the sensor the camera
+// isn't connected.
+uint32_t PsCamDeviceRequest() { return TitlePaths().kinect_sensor ? X_STATUS_SUCCESS : kStatusDeviceNotConnected; }
+uint32_t XamNuiCameraTiltSetCallback(uint32_t callback) {
+  (void)callback;
+  return X_ERROR_SUCCESS;
+}
 
 // ---- XAM "apps" reached through XMsg* (message semantics from Xenia's xam/apps) ----------------
 
@@ -2288,6 +2319,8 @@ X360_EXPORT(XNotifyGetNext, XNotifyGetNext)
 X360_EXPORT(XNotifyPositionUI, XNotifyPositionUI)
 X360_EXPORT(XamInputGetCapabilities, XamInputGetCapabilities)
 X360_EXPORT(XamInputGetState, XamInputGetState)
+X360_EXPORT(XamXStudioRequest, XamXStudioRequest)
+X360_EXPORT(XamGetActiveDashAppInfo, XamGetActiveDashAppInfo)
 X360_EXPORT(XamInputSetState, XamInputSetState)
 X360_EXPORT(XamInputGetKeystroke, XamInputGetKeystroke)
 X360_EXPORT(XamInputGetKeystrokeEx, XamInputGetKeystrokeEx)
@@ -2399,4 +2432,6 @@ X360_EXPORT(XamAvatarManifestGetBodyType, XamAvatarManifestGetBodyType)
 X360_EXPORT(XamAvatarGenerateMipMaps, XamAvatarGenerateMipMaps)
 X360_EXPORT(XamAvatarSetCustomAsset, XamAvatarSetCustomAsset)
 X360_EXPORT(XamNuiGetDeviceStatus, XamNuiGetDeviceStatus)
+X360_EXPORT(PsCamDeviceRequest, PsCamDeviceRequest)
+X360_EXPORT(XamNuiCameraTiltSetCallback, XamNuiCameraTiltSetCallback)
 X360_EXPORT(XamVoiceGetMicArrayStatus, XamVoiceGetMicArrayStatus)

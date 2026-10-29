@@ -93,6 +93,10 @@ struct GameDescriptor {
   // "\"strict\""}): set before the GPU starts, under the player's own [xenia] options in
   // settings.toml (which win). Not written to settings.toml.
   std::vector<std::pair<const char*, const char*>> xenia_options;
+  // The system reports a Kinect sensor connected (XamNuiGetDeviceStatus), as the Kinect games need;
+  // false: none is (Forza Motorsport 4, whose Kinect features are optional and use its own NUI
+  // library with the camera driver, which isn't emulated).
+  bool kinect_sensor = true;
   // Game-specific default settings, applied before settings.toml is read.
   std::function<void(settings::Settings&)> defaults;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).

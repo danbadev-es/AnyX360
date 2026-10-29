@@ -21,5 +21,9 @@ int main(int argc, char** argv) {
   // Kinect's voice commands. The game loads both at start and stops with a disc error without them.
   game.modules = {{"XMediaFacade_default.xex", xmedia_PPCFuncMappings},
                   {"SpeechFacade_default.xex", speech_PPCFuncMappings}};
+  // No Kinect for now: its features (Autovista, head tracking, the voice commands) use the game's
+  // own NUI library and the camera driver. Told a sensor is there, the game waits for its camera
+  // before the first race forever.
+  game.kinect_sensor = false;
   return x360::host::RunHost(argc, argv, game);
 }

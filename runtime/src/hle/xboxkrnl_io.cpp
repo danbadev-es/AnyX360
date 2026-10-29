@@ -177,6 +177,16 @@ uint32_t OpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_
   Resolved r = Resolve(guest);
   static const bool log_files = std::getenv("ANYX360_LOG_FILES") != nullptr;
   if (log_files) KLOG_I("open %s (access %08X, disposition %u, options %08X)", guest.c_str(), desired_access, disposition, create_options);
+  // The whole hard disk, which the XDK's XMountUtilityDrive opens to ask its geometry
+  // (NtDeviceIoControlFile) before it mounts the cache partition (Forza Motorsport 4): a file with
+  // nothing behind it, as Xenia's null device.
+  if (Lower(guest) == "\\device\\harddisk0\\partition0") {
+    auto file = std::make_shared<File>();
+    file->guest_path = guest;
+    Store<uint32_t>(handle_ptr, CreateHandle(file));
+    SetIoStatus(io_status, X_STATUS_SUCCESS, 1);
+    return X_STATUS_SUCCESS;
+  }
   if (!r.ok) {
     // A path with no device: some titles try one relative to the current directory (root
     // 0xFFFFFFFD, none on the console either) and then the same file under game:\.
@@ -277,6 +287,13 @@ uint32_t NtOpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t objec
 // Reads `length` bytes at `offset` (or the current position) into guest memory.
 uint32_t ReadAt(File& file, uint64_t* offset, uint32_t buffer, uint32_t length, uint32_t* read) {
   uint64_t at = offset ? *offset : file.position;
+  if (file.handle == INVALID_HANDLE_VALUE && !file.directory) {
+    // A file with nothing behind it (the raw hard disk): blank sectors.
+    std::memset(Ptr(buffer), 0, length);
+    file.position = at + length;
+    *read = length;
+    return X_STATUS_SUCCESS;
+  }
   OVERLAPPED ov{};
   ov.Offset = DWORD(at);
   ov.OffsetHigh = DWORD(at >> 32);
@@ -371,6 +388,11 @@ uint32_t NtReadFileScatter(uint32_t handle, uint32_t event, uint32_t apc_routine
 
 uint32_t WriteAt(File& file, uint64_t* offset, uint32_t buffer, uint32_t length, uint32_t* written) {
   uint64_t at = offset ? *offset : file.position;
+  if (file.handle == INVALID_HANDLE_VALUE && !file.directory) {  // nothing behind it: dropped
+    file.position = at + length;
+    *written = length;
+    return X_STATUS_SUCCESS;
+  }
   OVERLAPPED ov{};
   ov.Offset = DWORD(at);
   ov.OffsetHigh = DWORD(at >> 32);
@@ -575,6 +597,12 @@ uint32_t NtQueryVolumeInformationFile(uint32_t handle, uint32_t io_status, uint3
       Store<uint32_t>(info + 0x10, 32);       // sectors per unit
       Store<uint32_t>(info + 0x14, 0x200);    // bytes per sector
       written = 0x18;
+      break;
+    case 4:  // FileFsDeviceInformation {device type, characteristics}: FILE_DEVICE_UNKNOWN, as Xenia
+      // (the XDK's XMountUtilityDrive asks it of the cache partition: Forza Motorsport 4)
+      Store<uint32_t>(info + 0x00, 0x22);
+      Store<uint32_t>(info + 0x04, 0);
+      written = 0x8;
       break;
     case 5:  // FileFsAttributeInformation
       Store<uint32_t>(info + 0x00, 0);

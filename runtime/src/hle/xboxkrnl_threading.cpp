@@ -63,7 +63,9 @@ uint32_t ExCreateThread(uint32_t handle_ptr, uint32_t stack_size, uint32_t threa
   std::shared_ptr<Thread> thread;
   uint32_t status = CreateThread(stack_size, xapi_startup, start_address, start_context, creation_flags, &thread);
   if (status != X_STATUS_SUCCESS) return status;
-  if (handle_ptr) Store<uint32_t>(handle_ptr, thread->handle);
+  // Creation flag 0x80: the caller gets the thread's KTHREAD instead of a handle, and starts it with
+  // KeResumeThread (Forza Motorsport 4's audio thread, created suspended).
+  if (handle_ptr) Store<uint32_t>(handle_ptr, (creation_flags & 0x80) ? thread->kthread : thread->handle);
   if (thread_id_ptr) Store<uint32_t>(thread_id_ptr, thread->thread_id);
   KLOG_I("ExCreateThread: id %X start %08X ctx %08X flags %08X%s", thread->thread_id, start_address, start_context,
          creation_flags, (creation_flags & 1) ? " (suspended)" : "");

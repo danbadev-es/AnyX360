@@ -367,6 +367,7 @@ struct TitleInfo {
   uint32_t avatar_skeleton = 0;       // the avatar library's skeleton builder (GameDescriptor)
   uint8_t main_thread_processor = 1;  // hardware thread of the main thread (GameDescriptor)
   bool game_region_from_country = false;  // XGetGameRegion from the country (GameDescriptor)
+  bool kinect_sensor = true;  // a Kinect sensor is reported connected (GameDescriptor)
   // The title's executables XamLoaderLaunchTitle can start: {XEX name in lower case, host
   // executable} (GameDescriptor::executables).
   std::vector<std::pair<std::string, std::filesystem::path>> executables;
