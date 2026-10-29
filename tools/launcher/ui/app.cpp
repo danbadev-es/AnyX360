@@ -64,16 +64,30 @@ enum : int {
   kIdTermsText,
   kIdProfile,
   kIdProfileLanguage,
+  kIdSwitchProfile,
+  kIdGamertagField,
   kIdTile = 1000,
   kIdCompatible = 2000,
   kIdButton = 3000,
   kIdChoice = 3100,
   kIdMenuItem = 3200,
-  kIdProfileName = 3300,  // + player 0-3
+  kIdWhoTile = 3300,      // + profile; the last is "Create profile"
+  kIdProfileRow = 3500,   // + profile; the last is "Create profile"
+  kIdKey = 3700,          // + row * 16 + key: the on-screen keyboard
 };
 
-// The profile's file, in AnyX360's folder of %LOCALAPPDATA% (next to the games' own folders).
-fs::path ProfileFile() { return x360::profile::File(LocalAppData() / L"AnyX360"); }
+// AnyX360's folder of %LOCALAPPDATA%: profile.txt and the profiles (next to the games' own folders).
+fs::path ProfilesRoot() { return LocalAppData() / L"AnyX360"; }
+
+// The on-screen keyboard for a gamertag: letters and digits, then Shift, Space and Delete.
+constexpr const wchar_t* kKeyRows[] = {L"1234567890", L"QWERTYUIOP", L"ASDFGHJKL", L"ZXCVBNM"};
+constexpr int kKeyShift = 0, kKeySpace = 1, kKeyErase = 2;  // the last row's keys
+
+// A profile's colour for its gamerpic (none yet: its initial on this), from its XUID.
+Color ProfileColor(uint64_t xuid) {
+  constexpr uint32_t kColors[] = {0x107C10, 0x0063B1, 0x8E44AD, 0xC0392B, 0xD35400, 0x16A085, 0x2C3E50, 0xB7950B};
+  return Color::Hex(kColors[(xuid ^ (xuid >> 17) ^ (xuid >> 33)) % std::size(kColors)]);
+}
 
 // What the games are told for a profile language ("auto": Windows').
 std::wstring LanguageLabel(const std::string& tag) {
@@ -250,7 +264,7 @@ struct App::Target {
   bool focusable = true;
 };
 
-enum class OverlayKind { kAdd, kProgress, kMessage, kPassword, kMenu, kTerms, kProfile };
+enum class OverlayKind { kAdd, kProgress, kMessage, kPassword, kMenu, kTerms, kWho, kProfiles, kGamertag };
 
 struct App::Overlay {
   struct Action {
@@ -272,9 +286,12 @@ struct App::Overlay {
   // The ⋯ menu.
   RectF anchor;
   std::vector<Action> items;
-  // The profile being edited.
-  std::wstring names[x360::profile::kPlayers];
-  std::string language;
+  // "Who's playing?" at start: it can't be left without choosing.
+  bool required = false;
+  // A gamertag typed (in `typed`): the profile renamed (0: a new one), the on-screen keyboard's
+  // Shift.
+  uint64_t xuid = 0;
+  bool shift = true;
   // The terms.
   bool require_acceptance = false, checked = false;
   float scroll = 0, content = 0, view = 0;
@@ -284,7 +301,9 @@ struct App::Overlay {
 
 App::App(Host& host) : host_(host), images_([&host] { host.Post([&host] { host.Invalidate(); }); }) {
   compatible_open_ = ReadSetting(SettingsFile(L"launcher_compatible.txt")) == L"1";
-  profile_ = x360::profile::Read(ProfileFile());
+  // A profile.txt from before 0.20.0 becomes profiles; a first start makes one to choose.
+  sign_in_ = x360::profiles::LoadSignIn(ProfilesRoot(), true);
+  profiles_ = x360::profiles::List(ProfilesRoot());
   drawer_.Go(compatible_open_ ? 1.0f : 0.0f, 0, 0);
   selection_.Go(1, 0, 0);
   background_fade_.Go(1, 0, 0);
@@ -303,6 +322,7 @@ App::~App() {
 // ---- the library ----------------------------------------------------------------------------
 
 void App::Load(std::wstring select) {
+  title_stats_.clear();
   if (select.empty() && SelectedGame() >= 0) select = games_[size_t(SelectedGame())].info->id;
   games_ = ReadLibrary();
   tiles_.clear();
@@ -340,6 +360,7 @@ void App::Select(int tile) {
 }
 
 void App::CheckTerms() {
+  if (!Player()) ShowWhoIsPlaying(true);
   if (!TermsAccepted()) ShowTerms(true);
 }
 
@@ -414,8 +435,15 @@ void App::Paint(Canvas& c) {
   if (!overlays_.empty()) {
     targets_.clear();  // modal: only the top overlay can be reached
     Overlay& overlay = overlays_.back();
+    // A menu opened from an overlay (a profile's) shows over it.
+    if (overlay.kind == OverlayKind::kMenu && overlays_.size() > 1) {
+      Overlay& under = overlays_[overlays_.size() - 2];
+      if (under.kind == OverlayKind::kWho) DrawWho(c, under, false);
+      else if (under.kind != OverlayKind::kTerms && under.kind != OverlayKind::kMenu) DrawOverlay(c, under, false);
+    }
     if (overlay.kind == OverlayKind::kTerms) DrawTerms(c, overlay, true);
     else if (overlay.kind == OverlayKind::kMenu) DrawMenu(c, overlay, true);
+    else if (overlay.kind == OverlayKind::kWho) DrawWho(c, overlay, true);
     else DrawOverlay(c, overlay, true);
   }
   if (drop_hover_) {
@@ -499,8 +527,21 @@ void App::DrawHeader(Canvas& c) {
   };
   link(Tr(kTextTermsLink), kIdTerms, [this] { ShowTerms(false); });
   link(Tr(kTextOtherLanguage), kIdLanguage, [this] { ToggleLanguage(); });
-  link(profile_.names[0].empty() ? Tr(kTextProfileLink) : Widen(profile_.names[0]), kIdProfile,
-       [this] { OpenProfile(); });
+  // The profile playing, with its gamerpic: its profiles; and switching to another.
+  const x360::profiles::Profile* player = Player();
+  if (player) link(Tr(kTextSwitchProfile), kIdSwitchProfile, [this] { ShowWhoIsPlaying(false); });
+  {
+    TextStyle style = Style(14, DWRITE_FONT_WEIGHT_SEMI_BOLD, hover_ == kIdProfile ? kText : Color::Hex(0xE6E6E6));
+    const std::wstring text = player ? Widen(player->gamertag) : Tr(kTextProfileLink);
+    const float w = c.MeasureText(text, style).width;
+    const float pic = player ? 30 : 0;
+    const RectF r{x - w - pic, 21, w + pic, 30};
+    if (player) DrawGamerpic(c, r.x + 13, r.cy(), 13, player);
+    c.Text(text, {r.right() - w, 26, w + 2, 20}, style);
+    if (focus_ == kIdProfile && focus_visible_) DrawFocus(c, r);
+    AddTarget(r, kIdProfile, [this] { OpenProfiles(); });
+    x -= r.w + 22;
+  }
   TextStyle by = Style(13, DWRITE_FONT_WEIGHT_NORMAL, kTextTertiary);
   const std::wstring developed = Tr(kTextDeveloped);
   const float by_w = c.MeasureText(developed, by).width;
@@ -628,6 +669,14 @@ void App::DrawDetails(Canvas& c) {
       const bool in_place = Exists(LocationFile(*lib.info));
       std::wstring where = in_place ? Tr(kTextLocationLine, {ShortPath(lib.dir)}) : Tr(kTextExtractedLine);
       std::wstring status = Tr(lib.info->playable ? kTextStatusPlayable : kTextStatusTesting) + L"  ·  " + where;
+      // The time the profile playing has played it.
+      if (const x360::profiles::Profile* player = Player()) {
+        const auto& stats = TitleStats(player->xuid, lib.info->title_id);
+        const std::wstring gamertag = Widen(player->gamertag);
+        status += L"  ·  " + (stats && !stats->last_played.empty()
+                                  ? Tr(kTextPlayed, {gamertag, PlayTime(stats->seconds), ShortDate(stats->last_played)})
+                                  : Tr(kTextNotPlayed, {gamertag}));
+      }
       c.Text(status, {kMargin, y + 74, w, 20}, Style(13, DWRITE_FONT_WEIGHT_NORMAL, kTextTertiary));
     }
     const RectF play{kMargin, y + 108, 184, 50};
@@ -809,7 +858,9 @@ void App::DrawOverlay(Canvas& c, Overlay& overlay, bool top) {
   if (overlay.kind == OverlayKind::kAdd) extra = 150 + 34;
   if (overlay.kind == OverlayKind::kProgress) extra = 40;
   if (overlay.kind == OverlayKind::kPassword) extra = 64 + 26 + (overlay.wrong ? 22 : 0);
-  if (overlay.kind == OverlayKind::kProfile) extra = x360::profile::kPlayers * 52 + 30 + 52;
+  const float profile_row = 56;
+  if (overlay.kind == OverlayKind::kProfiles) extra = (profiles_.size() + 1) * profile_row + (Player() ? 14 + 44 : 0);
+  if (overlay.kind == OverlayKind::kGamertag) extra = 46 + 16 + 5 * 50 - 8;
   const float band_h = 40 + 48 + 14 + text_h + (extra ? 22 + extra : 0) + 30 + 42 + 40;
   const float band_y = std::round((height_ - band_h) / 2 + (1 - fade) * 14);
   c.FillRect({0, band_y, width_, band_h}, kPanel.Alpha(fade));
@@ -889,52 +940,114 @@ void App::DrawOverlay(Canvas& c, Overlay& overlay, bool top) {
     }
     c.Text(Tr(kTextPasswordKeyboard), {x, note_y, column_w, 20}, Style(13, DWRITE_FONT_WEIGHT_NORMAL, kTextTertiary.Alpha(fade)));
     y += extra;
-  } else if (overlay.kind == OverlayKind::kProfile) {
-    const float label_w = 190;
-    TextStyle label = Style(15, DWRITE_FONT_WEIGHT_NORMAL, kTextSecondary.Alpha(fade));
-    label.vertical = Align::kCenter;
-    TextStyle value = Style(17, DWRITE_FONT_WEIGHT_NORMAL, kText.Alpha(fade));
-    value.vertical = Align::kCenter;
-    auto box = [&](const RectF& r, bool focused) {
-      c.FillRect(r, Color::Hex(0x0F0F0F, fade));
-      c.StrokeRect(r, (focused ? kGreen : Color::Hex(0x444444)).Alpha(fade), focused ? 2.0f : 1.0f);
-    };
+  } else if (overlay.kind == OverlayKind::kProfiles) {
     float row_y = y;
-    for (int i = 0; i < x360::profile::kPlayers; ++i, row_y += 52) {
-      c.Text(Tr(kTextPlayerName, {std::to_wstring(i + 1)}), {x, row_y, label_w, 44}, label);
-      const RectF field{x + label_w, row_y, column_w - label_w, 44};
-      const int id = kIdProfileName + i;
-      const bool focused = focus_ == id;
-      box(field, focused);
-      c.Text(overlay.names[i], field.Inset(14, 0), value);
-      if (focused) {
-        const float caret = field.x + 14 + c.MeasureText(overlay.names[i], value).width + 2;
-        c.Line(caret, field.y + 10, caret, field.bottom() - 10, kText.Alpha(fade), 1.5f);
-      }
-      if (top) AddTarget(field, id, [] {});
-    }
-    c.Text(Tr(kTextNameRules), {x + label_w, row_y - 4, column_w - label_w, 20},
-           Style(13, DWRITE_FONT_WEIGHT_NORMAL, kTextTertiary.Alpha(fade)));
-    row_y += 30;
-    // The language: Enter, A or a click goes to the next one (a list of 17 would be taller than the window).
-    c.Text(Tr(kTextGameLanguage), {x, row_y, label_w, 44}, label);
-    const RectF chooser{x + label_w, row_y, column_w - label_w, 44};
-    box(chooser, focus_ == kIdProfileLanguage);
-    if (hover_ == kIdProfileLanguage) c.FillRect(chooser.Inset(1, 1), kPanelHover.Alpha(fade));
-    c.Text(LanguageLabel(overlay.language), chooser.Inset(14, 0), value);
-    TextStyle arrow = Style(17, DWRITE_FONT_WEIGHT_NORMAL, kTextSecondary.Alpha(fade), Align::kEnd);
+    TextStyle name = Style(17, DWRITE_FONT_WEIGHT_SEMI_LIGHT, kText.Alpha(fade));
+    name.vertical = Align::kCenter;
+    TextStyle badge = Style(13, DWRITE_FONT_WEIGHT_SEMI_BOLD, kGreenText.Alpha(fade), Align::kEnd);
+    badge.vertical = Align::kCenter;
+    TextStyle arrow = Style(18, DWRITE_FONT_WEIGHT_NORMAL, kTextSecondary.Alpha(fade), Align::kEnd);
     arrow.vertical = Align::kCenter;
-    c.Text(L"›", chooser.Inset(14, 0), arrow);
-    if (top) {
-      AddTarget(chooser, kIdProfileLanguage, [this] {
-        Overlay& profile = overlays_.back();
-        std::vector<std::string> tags = {"auto"};
-        for (const auto& language : x360::profile::Languages()) tags.push_back(language.tag);
-        auto at = std::find(tags.begin(), tags.end(), profile.language);
-        profile.language = (at == tags.end() || at + 1 == tags.end()) ? tags[0] : *(at + 1);
-        host_.Invalidate();
-      });
+    for (size_t i = 0; i <= profiles_.size(); ++i, row_y += profile_row) {
+      const RectF r{x, row_y, column_w, profile_row - 6};
+      const int id = kIdProfileRow + int(i);
+      c.FillRect(r, (hover_ == id ? kPanelHover : kPanelHigh).Alpha(fade));
+      if (i < profiles_.size()) {
+        const x360::profiles::Profile& p = profiles_[i];
+        DrawGamerpic(c, r.x + 30, r.cy(), 17, &p, fade);
+        c.Text(Widen(p.gamertag), {r.x + 60, r.y, r.w - 260, r.h}, name);
+        std::wstring signed_in;
+        for (int slot = 0; slot < x360::profile::kPlayers; ++slot)
+          if (sign_in_.slots[slot] == p.xuid)
+            signed_in = slot == 0 ? Tr(kTextBadgePlaying) : Tr(kTextPlayerName, {std::to_wstring(slot + 1)});
+        if (!signed_in.empty()) {
+          if (signed_in != Tr(kTextBadgePlaying)) badge.color = kTextSecondary.Alpha(fade);
+          c.Text(signed_in, {r.right() - 240, r.y, 200, r.h}, badge);
+          badge.color = kGreenText.Alpha(fade);
+        }
+        c.Text(L"›", r.Inset(18, 0), arrow);
+        if (top) AddTarget(r, id, [this, r, xuid = p.xuid] { OpenProfileMenu(r, xuid); });
+      } else {
+        TextStyle plus = Style(22, DWRITE_FONT_WEIGHT_LIGHT, kGreenText.Alpha(fade), Align::kCenter);
+        plus.vertical = Align::kCenter;
+        c.Text(L"+", {r.x + 13, r.y, 34, r.h}, plus);
+        c.Text(Tr(kTextCreateProfile), {r.x + 60, r.y, r.w - 80, r.h}, name);
+        if (top) AddTarget(r, id, [this] { OpenGamertag(0); });
+      }
+      if (focus_ == id && focus_visible_) DrawFocus(c, r);
     }
+    // The games' language, the profile playing's: Enter, A or a click goes to the next one.
+    if (const x360::profiles::Profile* player = Player()) {
+      row_y += 14 - 6;
+      const float label_w = 260;
+      TextStyle label = Style(15, DWRITE_FONT_WEIGHT_NORMAL, kTextSecondary.Alpha(fade));
+      label.vertical = Align::kCenter;
+      TextStyle value = Style(17, DWRITE_FONT_WEIGHT_NORMAL, kText.Alpha(fade));
+      value.vertical = Align::kCenter;
+      c.Text(Tr(kTextGameLanguage) + L" (" + Widen(player->gamertag) + L")", {x, row_y, label_w, 44}, label);
+      const RectF chooser{x + label_w, row_y, column_w - label_w, 44};
+      c.FillRect(chooser, (hover_ == kIdProfileLanguage ? kPanelHover : Color::Hex(0x0F0F0F)).Alpha(fade));
+      c.StrokeRect(chooser, (focus_ == kIdProfileLanguage ? kGreen : Color::Hex(0x444444)).Alpha(fade),
+                   focus_ == kIdProfileLanguage ? 2.0f : 1.0f);
+      c.Text(LanguageLabel(player->language), chooser.Inset(14, 0), value);
+      c.Text(L"›", chooser.Inset(14, 0), arrow);
+      if (top) {
+        AddTarget(chooser, kIdProfileLanguage, [this] {
+          const x360::profiles::Profile* playing = Player();
+          if (!playing) return;
+          std::vector<std::string> tags = {"auto"};
+          for (const auto& language : x360::profile::Languages()) tags.push_back(language.tag);
+          auto at = std::find(tags.begin(), tags.end(), playing->language);
+          x360::profiles::Profile changed = *playing;
+          changed.language = (at == tags.end() || at + 1 == tags.end()) ? tags[0] : *(at + 1);
+          // The profile's, and profile.txt's for a game started without it.
+          x360::profile::SignIn sign_in = x360::profile::Read(x360::profile::File(ProfilesRoot()));
+          sign_in.language = changed.language;
+          if (!x360::profiles::Save(ProfilesRoot(), changed) ||
+              !x360::profile::Write(x360::profile::File(ProfilesRoot()), sign_in))
+            return ShowMessage(Tr(kTextProblemTitle), Tr(kTextErrorProfileWrite, {ShortPath(ProfilesRoot())}), true);
+          ReloadProfiles();
+        });
+      }
+    }
+    y += extra;
+  } else if (overlay.kind == OverlayKind::kGamertag) {
+    // The gamertag typed, with a caret, then the on-screen keyboard.
+    const RectF field{x, y, column_w, 46};
+    c.FillRect(field, Color::Hex(0x0F0F0F, fade));
+    c.StrokeRect(field, kGreen.Alpha(fade), 2.0f);
+    TextStyle value = Style(20, DWRITE_FONT_WEIGHT_NORMAL, kText.Alpha(fade));
+    value.vertical = Align::kCenter;
+    c.Text(overlay.typed, field.Inset(14, 0), value);
+    const float caret = field.x + 14 + c.MeasureText(overlay.typed, value).width + 2;
+    c.Line(caret, field.y + 11, caret, field.bottom() - 11, kText.Alpha(fade), 1.5f);
+    if (top) AddTarget(field, kIdGamertagField, [] {}, false);
+    const float gap = 6, key_h = 44;
+    const float unit = std::floor((column_w - gap * 9) / 10);
+    float key_y = field.bottom() + 16;
+    TextStyle key_text = Style(17, DWRITE_FONT_WEIGHT_SEMI_BOLD, kText.Alpha(fade), Align::kCenter);
+    key_text.vertical = Align::kCenter;
+    auto key = [&](const RectF& r, int id, const std::wstring& label, std::function<void()> action, bool on = false) {
+      c.FillRect(r, (on ? Color::Hex(0x2F4A2F) : hover_ == id ? kPanelHover : kPanelHigh).Alpha(fade));
+      c.Text(label, r, key_text);
+      if (focus_ == id && focus_visible_) DrawFocus(c, r);
+      if (top) AddTarget(r, id, std::move(action));
+    };
+    for (int row = 0; row < 4; ++row, key_y += key_h + gap) {
+      const std::wstring keys = kKeyRows[row];
+      const float row_x = x + (column_w - (keys.size() * (unit + gap) - gap)) / 2;
+      for (size_t k = 0; k < keys.size(); ++k) {
+        const wchar_t ch = overlay.shift ? keys[k] : wchar_t(std::towlower(keys[k]));
+        key({row_x + k * (unit + gap), key_y, unit, key_h}, kIdKey + row * 16 + int(k), std::wstring(1, ch),
+            [this, ch] { TypeGamertag(ch); });
+      }
+    }
+    const float wide = (column_w - 2 * gap) / 4;
+    key({x, key_y, wide, key_h}, kIdKey + 4 * 16 + kKeyShift, Tr(kTextKeyShift), [this] {
+      overlays_.back().shift = !overlays_.back().shift;
+    }, overlay.shift);
+    key({x + wide + gap, key_y, wide * 2, key_h}, kIdKey + 4 * 16 + kKeySpace, Tr(kTextKeySpace), [this] { TypeGamertag(L' '); });
+    key({x + wide * 3 + gap * 2, key_y, wide, key_h}, kIdKey + 4 * 16 + kKeyErase, Tr(kTextKeyErase), [this] { TypeGamertag(L'\b'); });
     y += extra;
   }
 
@@ -1064,7 +1177,9 @@ void App::FocusFirst() {
   if (!overlays_.empty()) {
     switch (overlays_.back().kind) {
       case OverlayKind::kPassword: preferred = {kIdPassword}; break;
-      case OverlayKind::kProfile: preferred = {kIdProfileName}; break;
+      case OverlayKind::kWho: preferred = {kIdWhoTile}; break;
+      case OverlayKind::kProfiles: preferred = {kIdProfileRow}; break;
+      case OverlayKind::kGamertag: preferred = {kIdKey + 16}; break;
       case OverlayKind::kAdd: preferred = {kIdChoice}; break;
       case OverlayKind::kMenu:
         for (int i = 0; i < 8; ++i) preferred.push_back(kIdMenuItem + i);
@@ -1233,10 +1348,12 @@ void App::KeyPressed(Key key, bool from_pad) {
       break;
     case Key::kBack: Back(); break;
     case Key::kMore:
-      if (overlays_.empty() && SelectedGame() >= 0) OpenMore(more_button_);
+      if (!overlays_.empty() && overlays_.back().kind == OverlayKind::kGamertag) overlays_.back().shift = !overlays_.back().shift;
+      else if (overlays_.empty() && SelectedGame() >= 0) OpenMore(more_button_);
       break;
     case Key::kCompatible:
-      if (overlays_.empty()) ToggleCompatible();
+      if (!overlays_.empty() && overlays_.back().kind == OverlayKind::kGamertag) TypeGamertag(L' ');
+      else if (overlays_.empty()) ToggleCompatible();
       break;
     case Key::kNext:
     case Key::kPrevious: {
@@ -1258,7 +1375,8 @@ void App::KeyPressed(Key key, bool from_pad) {
       }
       break;
     case Key::kPlay:
-      if (overlays_.empty()) Play();
+      if (!overlays_.empty() && overlays_.back().kind == OverlayKind::kGamertag) SubmitGamertag();
+      else if (overlays_.empty()) Play();
       break;
   }
   host_.Invalidate();
@@ -1267,24 +1385,16 @@ void App::KeyPressed(Key key, bool from_pad) {
 bool App::WantsText() const {
   if (overlays_.empty()) return false;
   const OverlayKind kind = overlays_.back().kind;
-  return (kind == OverlayKind::kPassword && focus_ == kIdPassword) ||
-         (kind == OverlayKind::kProfile && focus_ >= kIdProfileName && focus_ < kIdProfileName + x360::profile::kPlayers);
+  return (kind == OverlayKind::kPassword && focus_ == kIdPassword) || kind == OverlayKind::kGamertag;
 }
 
 void App::Character(wchar_t ch) {
   if (!WantsText()) return;
   Overlay& overlay = overlays_.back();
-  if (overlay.kind == OverlayKind::kProfile) {
-    std::wstring& name = overlay.names[focus_ - kIdProfileName];
-    if (ch == L'\b') {
-      if (!name.empty()) name.pop_back();
-    } else if (ch == L'\r') {
-      overlay.buttons[0].run();
-    } else if (ch == 27) {
-      Back();
-    } else if (NameCharacter(ch) && name.size() < x360::profile::kNameLength) {
-      name += ch;
-    }
+  if (overlay.kind == OverlayKind::kGamertag) {
+    if (ch == L'\r') return SubmitGamertag();
+    if (ch == 27) return PopOverlay();
+    if (ch == L'\b' || NameCharacter(ch)) TypeGamertag(ch);
     return host_.Invalidate();
   }
   if (ch == L'\b') {
@@ -1301,7 +1411,7 @@ void App::Character(wchar_t ch) {
 
 void App::Paste(const std::wstring& text) {
   if (!WantsText()) return;
-  if (overlays_.back().kind == OverlayKind::kProfile) {
+  if (overlays_.back().kind == OverlayKind::kGamertag) {
     for (wchar_t ch : text)
       if (NameCharacter(ch)) Character(ch);
     return;
@@ -1450,6 +1560,7 @@ void App::Play() {
 }
 
 void App::GameExited(uint32_t code) {
+  title_stats_.clear();  // the game added its time
   const CatalogGame* game = running_game_;
   running_game_ = nullptr;
   if (code == 0) return host_.Close();  // closed normally (or restarted from the game's settings)
@@ -1495,27 +1606,220 @@ void App::OpenMore(const RectF& anchor) {
   PushOverlay(std::move(overlay));
 }
 
-void App::OpenProfile() {
+// ---- profiles (x360/profiles.h) --------------------------------------------------------------
+
+const std::optional<x360::profiles::TitleStats>& App::TitleStats(uint64_t xuid, uint32_t title_id) {
+  auto [found, added] = title_stats_.try_emplace({xuid, title_id});
+  if (added) found->second = x360::profiles::ReadTitle(ProfilesRoot(), xuid, title_id);
+  return found->second;
+}
+
+void App::ReloadProfiles() {
+  title_stats_.clear();
+  sign_in_ = x360::profile::Read(x360::profile::File(ProfilesRoot()));
+  profiles_ = x360::profiles::List(ProfilesRoot());
+  host_.Invalidate();
+}
+
+const x360::profiles::Profile* App::Player() const {
+  for (const x360::profiles::Profile& p : profiles_)
+    if (sign_in_.slots[0] && p.xuid == sign_in_.slots[0]) return &p;
+  return nullptr;
+}
+
+void App::DrawGamerpic(Canvas& c, float cx, float cy, float radius, const x360::profiles::Profile* profile,
+                       float opacity) {
+  c.FillCircle(cx, cy, radius, (profile ? ProfileColor(profile->xuid) : kPanelHover).Alpha(opacity));
+  const std::wstring initial = profile && !profile->gamertag.empty()
+                                   ? std::wstring(1, wchar_t(std::towupper(wchar_t(profile->gamertag[0]))))
+                                   : L"+";
+  TextStyle letter = Style(radius * 1.05f, DWRITE_FONT_WEIGHT_SEMI_LIGHT, kText.Alpha(opacity), Align::kCenter);
+  letter.vertical = Align::kCenter;
+  c.Text(initial, {cx - radius, cy - radius - radius * 0.06f, radius * 2, radius * 2}, letter);
+}
+
+void App::ShowWhoIsPlaying(bool required) {
+  ReloadProfiles();
   Overlay overlay;
-  overlay.kind = OverlayKind::kProfile;
+  overlay.kind = OverlayKind::kWho;
+  overlay.required = required;
+  if (!required) {
+    overlay.buttons.push_back({Tr(kTextCancel), [this] { PopOverlay(); }});
+    overlay.back = [this] { PopOverlay(); };
+  }
+  PushOverlay(std::move(overlay));
+}
+
+void App::DrawWho(Canvas& c, Overlay& overlay, bool top) {
+  const float fade = overlay.fade.Value(Now());
+  c.FillRect({0, 0, width_, height_}, Color::Hex(0x000000, 0.7f * fade));
+  const float column_w = std::min(900.0f, width_ - 2 * kMargin);
+  const float x = (width_ - column_w) / 2;
+  const RectF band{0, 36, width_, height_ - 72};
+  c.FillRect(band, kPanel.Alpha(fade));
+  float y = band.y + 30;
+  c.FillRect({x - 18, y + 8, 4, 32}, kGreen.Alpha(fade));
+  c.Text(Tr(kTextWhoTitle), {x, y, column_w, 48}, Style(34, DWRITE_FONT_WEIGHT_LIGHT, kText.Alpha(fade)));
+  if (std::shared_ptr<const Image> mark = Logo(kLogoMark, 40))
+    DrawLogo(c, mark, x + column_w - mark->width * 96 / dpi_, y + 4, fade);
+  y += 62;
+  TextStyle text = Body();
+  text.color = kTextSecondary.Alpha(fade);
+  c.Text(Tr(kTextWhoText), {x, y, column_w, 44}, text);
+  y += 64;
+  // The tiles, in rows: each profile, then "Create profile".
+  const float tile_w = 150, tile_h = 178, gap = 22;
+  const size_t count = profiles_.size() + 1;
+  const size_t per_row = std::max<size_t>(1, size_t((column_w + gap) / (tile_w + gap)));
+  // In the middle of the space left, as far as it fits.
+  const size_t rows = (count + per_row - 1) / per_row;
+  const float space = band.bottom() - 70 - y, used = rows * (tile_h + gap) - gap;
+  if (used < space) y += std::round((space - used) / 2 * 0.8f);
+  TextStyle name = Style(16, DWRITE_FONT_WEIGHT_SEMI_LIGHT, kText.Alpha(fade), Align::kCenter);
+  for (size_t i = 0; i < count; ++i) {
+    const size_t row = i / per_row, in_row = std::min(per_row, count - row * per_row);
+    const float row_x = x + (column_w - (in_row * (tile_w + gap) - gap)) / 2;
+    const RectF r{row_x + (i % per_row) * (tile_w + gap), y + row * (tile_h + gap), tile_w, tile_h};
+    if (r.bottom() > band.bottom() - 70) break;  // more than fit: the rest from Profiles
+    const int id = kIdWhoTile + int(i);
+    c.FillRect(r, (hover_ == id ? kPanelHover : kPanelHigh).Alpha(fade));
+    const x360::profiles::Profile* p = i < profiles_.size() ? &profiles_[i] : nullptr;
+    DrawGamerpic(c, r.cx(), r.y + 66, 46, p, fade);
+    c.Text(p ? Widen(p->gamertag) : Tr(kTextCreateProfile), {r.x + 6, r.y + 128, r.w - 12, 40}, name);
+    if (p && sign_in_.slots[0] == p->xuid) c.StrokeRect(r.Inset(1), kGreen.Alpha(fade), 2);
+    if (focus_ == id && focus_visible_) DrawFocus(c, r);
+    if (top) {
+      if (p) AddTarget(r, id, [this, xuid = p->xuid] { SignInAs(xuid); });
+      else AddTarget(r, id, [this] { OpenGamertag(0); });
+    }
+  }
+  float bx = x + column_w;
+  for (int i = int(overlay.buttons.size()) - 1; i >= 0; --i) {
+    const Overlay::Action& action = overlay.buttons[size_t(i)];
+    const float w = std::max(132.0f, c.MeasureText(action.label, Style(16, DWRITE_FONT_WEIGHT_SEMI_BOLD, kText)).width + 44);
+    if (top) Button(c, {bx - w, band.bottom() - 30 - 42, w, 42}, action.label, kIdButton + i, action.run, false, action.enabled);
+    bx -= w + 10;
+  }
+}
+
+void App::SignInAs(uint64_t xuid) {
+  if (!x360::profiles::SetSlot(ProfilesRoot(), 0, xuid))
+    return ShowMessage(Tr(kTextProblemTitle), Tr(kTextErrorProfileWrite, {ShortPath(ProfilesRoot())}), true);
+  ReloadProfiles();
+  // Back to the library from "Who's playing?" (and the gamertag typed for a new profile).
+  while (!overlays_.empty() && (overlays_.back().kind == OverlayKind::kWho ||
+                                overlays_.back().kind == OverlayKind::kGamertag ||
+                                overlays_.back().kind == OverlayKind::kMenu))
+    PopOverlay();
+}
+
+void App::OpenProfiles() {
+  ReloadProfiles();
+  Overlay overlay;
+  overlay.kind = OverlayKind::kProfiles;
   overlay.title = Tr(kTextProfileTitle);
   overlay.text = Tr(kTextProfileText);
-  for (int i = 0; i < x360::profile::kPlayers; ++i) overlay.names[i] = Widen(profile_.names[i]);
-  overlay.language = profile_.language;
-  overlay.buttons.push_back({Tr(kTextSave), [this] {
-                               const Overlay& edited = overlays_.back();
-                               x360::profile::Profile profile;
-                               for (int i = 0; i < x360::profile::kPlayers; ++i)
-                                 profile.names[i] = x360::profile::CleanName(Narrow(edited.names[i]));
-                               profile.language = edited.language;
-                               if (!x360::profile::Write(ProfileFile(), profile))
-                                 return ShowMessage(Tr(kTextProblemTitle), ShortPath(ProfileFile()), true);
-                               profile_ = profile;
-                               PopOverlay();
-                             }});
-  overlay.buttons.push_back({Tr(kTextCancel), [this] { PopOverlay(); }});
+  overlay.buttons.push_back({Tr(kTextTermsClose), [this] { PopOverlay(); }});
+  overlay.primary = false;
   overlay.back = [this] { PopOverlay(); };
   PushOverlay(std::move(overlay));
+}
+
+void App::OpenProfileMenu(const RectF& anchor, uint64_t xuid) {
+  const auto found = std::find_if(profiles_.begin(), profiles_.end(), [xuid](const auto& p) { return p.xuid == xuid; });
+  if (found == profiles_.end()) return;
+  const std::wstring gamertag = Widen(found->gamertag);
+  Overlay overlay;
+  overlay.kind = OverlayKind::kMenu;
+  overlay.anchor = {anchor.right() - 330, anchor.y, 330, anchor.h};
+  overlay.items.push_back({Tr(kTextMenuPlayAs, {gamertag}), [this, xuid] { SignInAs(xuid); PopOverlay(); },
+                           sign_in_.slots[0] != xuid});
+  overlay.items.push_back({Tr(kTextMenuRename), [this, xuid] { PopOverlay(); OpenGamertag(xuid); }});
+  overlay.items.push_back({Tr(kTextMenuDeleteProfile), [this, xuid, gamertag] {
+                             PopOverlay();
+                             Overlay confirm;
+                             confirm.title = Tr(kTextDeleteProfileTitle, {gamertag});
+                             confirm.text = Tr(kTextConfirmDeleteProfile, {gamertag, Widen(x360::profiles::XuidText(xuid))});
+                             confirm.buttons.push_back({Tr(kTextDelete), [this, xuid] {
+                                                          PopOverlay();
+                                                          if (!x360::profiles::Remove(ProfilesRoot(), xuid))
+                                                            ShowMessage(Tr(kTextProblemTitle),
+                                                                        Tr(kTextErrorProfileWrite, {ShortPath(ProfilesRoot())}), true);
+                                                          ReloadProfiles();
+                                                          if (!Player()) ShowWhoIsPlaying(true);  // it was playing
+                                                        }});
+                             confirm.buttons.push_back({Tr(kTextCancel), [this] { PopOverlay(); }});
+                             confirm.back = [this] { PopOverlay(); };
+                             PushOverlay(std::move(confirm));
+                           }});
+  overlay.back = [this] { PopOverlay(); };
+  PushOverlay(std::move(overlay));
+}
+
+void App::OpenGamertag(uint64_t xuid) {
+  Overlay overlay;
+  overlay.kind = OverlayKind::kGamertag;
+  overlay.xuid = xuid;
+  if (xuid) {
+    for (const x360::profiles::Profile& p : profiles_)
+      if (p.xuid == xuid) overlay.typed = Widen(p.gamertag), overlay.title = Tr(kTextRenameTitle, {overlay.typed});
+    overlay.shift = overlay.typed.empty();
+  } else {
+    overlay.title = Tr(kTextNewProfileTitle);
+  }
+  overlay.text = Tr(kTextNameRules);
+  overlay.buttons.push_back({xuid ? Tr(kTextSave) : Tr(kTextCreate), [this] { SubmitGamertag(); }});
+  overlay.buttons.push_back({Tr(kTextCancel), [this] { PopOverlay(); }});
+  // B deletes what was typed, then goes back.
+  overlay.back = [this] {
+    if (!overlays_.back().typed.empty()) TypeGamertag(L'\b');
+    else PopOverlay();
+  };
+  PushOverlay(std::move(overlay));
+}
+
+void App::TypeGamertag(wchar_t ch) {
+  if (overlays_.empty() || overlays_.back().kind != OverlayKind::kGamertag) return;
+  Overlay& overlay = overlays_.back();
+  std::wstring& typed = overlay.typed;
+  if (ch == L'\b') {
+    if (!typed.empty()) typed.pop_back();
+    if (typed.empty()) overlay.shift = true;
+  } else if (typed.size() < x360::profile::kNameLength && NameCharacter(ch)) {
+    if (ch == L' ' && (typed.empty() || typed.back() == L' ')) return;
+    if (std::iswalpha(ch)) {
+      // From the on-screen keyboard, as Shift says; typed on the keyboard, as typed.
+      typed += ch;
+      if (overlay.shift && focus_ >= kIdKey) typed.back() = wchar_t(std::towupper(ch)), overlay.shift = false;
+    } else {
+      typed += ch;
+    }
+  }
+  overlay.error = false;
+  overlay.text = Tr(kTextNameRules);
+  host_.Invalidate();
+}
+
+void App::SubmitGamertag() {
+  if (overlays_.empty() || overlays_.back().kind != OverlayKind::kGamertag) return;
+  Overlay& overlay = overlays_.back();
+  const std::string gamertag = Narrow(overlay.typed);
+  const x360::profiles::Result result =
+      overlay.xuid ? x360::profiles::Rename(ProfilesRoot(), overlay.xuid, gamertag)
+                   : x360::profiles::Create(ProfilesRoot(), gamertag, Player() ? Player()->language : sign_in_.language);
+  if (!result) {
+    overlay.error = true;
+    overlay.text = result.error == x360::profiles::Error::kEmptyName ? Tr(kTextErrorNameEmpty)
+                   : result.error == x360::profiles::Error::kNameTaken
+                       ? Tr(kTextErrorNameTaken, {Widen(x360::profile::CleanName(gamertag))})
+                       : Tr(kTextErrorProfileWrite, {ShortPath(ProfilesRoot())});
+    return host_.Invalidate();
+  }
+  const bool created = !overlay.xuid;
+  PopOverlay();
+  ReloadProfiles();
+  // A new profile from "Who's playing?" plays at once.
+  if (created && !overlays_.empty() && overlays_.back().kind == OverlayKind::kWho) SignInAs(result.profile.xuid);
 }
 
 void App::ChangeCover(const CatalogGame& game) {
@@ -1684,11 +1988,42 @@ void App::ShowState(std::wstring_view state) {
     focus_visible_ = true;
   } else if (state == L"terms") {
     ShowTerms(true);
-  } else if (state == L"profile") {
-    profile_.names[0] = "Daniel";
-    profile_.names[1] = "Ana";
-    profile_.language = "auto";
-    OpenProfile();
+  } else if (state == L"who" || state == L"profiles" || state == L"profile" || state == L"newprofile") {
+    // Made-up profiles (nothing is written): Daniel playing, Ana on player 2's slot.
+    const char* names[] = {"Daniel", "Ana", "Leo", "Marta"};
+    const uint64_t xuids[] = {x360::profiles::kLegacyXuid, x360::profiles::kLegacyXuid + 1, 0xE0003A41C29F0B57ull,
+                              0xE000B19D4402C6E1ull};
+    profiles_.clear();
+    for (int i = 0; i < 4; ++i) {
+      x360::profiles::Profile p;
+      p.xuid = xuids[i];
+      p.gamertag = names[i];
+      p.created = "2026-10-29T05:00:0" + std::to_string(i) + "Z";
+      profiles_.push_back(p);
+    }
+    sign_in_ = {};
+    if (state != L"who") sign_in_.slots[0] = xuids[0], sign_in_.slots[1] = xuids[1];
+    if (state == L"who") {
+      Overlay overlay;
+      overlay.kind = OverlayKind::kWho;
+      overlay.required = true;
+      PushOverlay(std::move(overlay));
+      focus_ = kIdWhoTile + 1;
+    } else if (state == L"newprofile") {
+      OpenGamertag(0);
+      overlays_.back().typed = L"Lu";
+      overlays_.back().shift = false;
+      focus_ = kIdKey + 1 * 16 + 4;  // T
+    } else {
+      Overlay overlay;
+      overlay.kind = OverlayKind::kProfiles;
+      overlay.title = Tr(kTextProfileTitle);
+      overlay.text = Tr(kTextProfileText);
+      overlay.primary = false;
+      overlay.buttons.push_back({Tr(kTextTermsClose), [] {}});
+      PushOverlay(std::move(overlay));
+      focus_ = kIdProfileRow + 1;
+    }
     focus_visible_ = true;
   }
   host_.Invalidate();

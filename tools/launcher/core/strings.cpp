@@ -6,6 +6,7 @@
 #include <shlwapi.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <iterator>
 
 #include "core/paths.h"
@@ -126,12 +127,12 @@ const wchar_t* const kEnglish[] = {
     L"Prepared in the games folder",
     L"Keyboard and mouse or an Xbox controller",
     L"Played with your webcam: your whole body in view, 2-3 m away",
-    L"Players",
-    L"Players and language",
-    L"The names the games show for each player, and the language they are told to use. They apply "
-    L"the next time a game starts; a game without that language uses its own.",
+    L"Profiles",
+    L"Profiles",
+    L"Each player's profile, as on the console: its gamertag, its saves in every game and its time played. "
+    L"The games are told the language of the profile playing; a game without it uses its own.",
     L"Player {0}",
-    L"Letters, numbers and spaces, up to 15 (as a gamertag). Empty: the game's own name.",
+    L"Letters, numbers and spaces, up to 15.",
     L"Game language",
     L"Automatic: {0}, as Windows",
     L"Automatic: English (Windows' language isn't one of the console's)",
@@ -166,6 +167,36 @@ const wchar_t* const kEnglish[] = {
     L"A title update couldn't be read: its package is damaged.",
     L"That is {0}'s title update. Add the game first; its update can be added after.",
     L"Needs its title update",
+    L"Who's playing?",
+    L"Choose your profile: it keeps its own saves in every game. The other players choose theirs in the "
+    L"game's sign-in screen.",
+    L"Create profile",
+    L"Switch profile",
+    L"New profile",
+    L"Rename {0}",
+    L"Create",
+    L"Play as {0}",
+    L"Rename…",
+    L"Delete profile…",
+    L"Delete {0}?",
+    L"{0} is no longer a profile here. Its saves stay in each game's folder (players\\{1}, or the game's "
+    L"own folder), and its time played stays too: nothing is erased.",
+    L"Delete",
+    L"Type a gamertag.",
+    L"Another profile is called {0}.",
+    L"The profile couldn't be saved in {0}.",
+    L"Playing",
+    L"Space",
+    L"Shift",
+    L"Delete",
+    L"{0} has played {1} · last on {2}",
+    L"{0} hasn't played it yet",
+    L"{0} h {1} min",
+    L"{0} min",
+    L"under a minute",
+    L"Shift",
+    L"Space",
+    L"Done",
 };
 
 const wchar_t* const kSpanish[] = {
@@ -280,12 +311,13 @@ const wchar_t* const kSpanish[] = {
     L"Preparado en la carpeta games",
     L"Teclado y ratón o mando de Xbox",
     L"Se juega con tu webcam: todo el cuerpo a la vista, a 2-3 m",
-    L"Jugadores",
-    L"Jugadores e idioma",
-    L"Los nombres que los juegos muestran para cada jugador y el idioma que se les pide usar. Se "
-    L"aplican la próxima vez que empiece un juego; si un juego no tiene ese idioma, usa el suyo.",
+    L"Perfiles",
+    L"Perfiles",
+    L"El perfil de cada jugador, como en la consola: su gamertag, sus partidas guardadas en cada juego y "
+    L"su tiempo de juego. A los juegos se les dice el idioma del perfil que juega; un juego que no lo "
+    L"tenga usa el suyo.",
     L"Jugador {0}",
-    L"Letras, números y espacios, hasta 15 (como un gamertag). Vacío: el nombre del propio juego.",
+    L"Letras, números y espacios, hasta 15.",
     L"Idioma de los juegos",
     L"Automático: {0}, como Windows",
     L"Automático: inglés (el idioma de Windows no es uno de los de la consola)",
@@ -320,6 +352,36 @@ const wchar_t* const kSpanish[] = {
     L"No se ha podido leer una actualización del título: su paquete está dañado.",
     L"Esa es la actualización del título de {0}. Añade antes el juego; su actualización se puede añadir después.",
     L"Necesita su actualización del título",
+    L"¿Quién juega?",
+    L"Elige tu perfil: tiene sus propias partidas guardadas en cada juego. Los demás jugadores eligen el "
+    L"suyo en la pantalla de inicio de sesión del juego.",
+    L"Crear perfil",
+    L"Cambiar de perfil",
+    L"Perfil nuevo",
+    L"Cambiar el nombre de {0}",
+    L"Crear",
+    L"Jugar como {0}",
+    L"Cambiar el nombre…",
+    L"Eliminar el perfil…",
+    L"¿Eliminar a {0}?",
+    L"{0} deja de ser un perfil aquí. Sus partidas guardadas se quedan en la carpeta de cada juego "
+    L"(players\\{1}, o la propia carpeta del juego), y su tiempo de juego también: no se borra nada.",
+    L"Eliminar",
+    L"Escribe un gamertag.",
+    L"Otro perfil se llama {0}.",
+    L"No se ha podido guardar el perfil en {0}.",
+    L"Jugando",
+    L"Espacio",
+    L"Mayús",
+    L"Borrar",
+    L"{0} ha jugado {1} · la última vez el {2}",
+    L"{0} aún no lo ha jugado",
+    L"{0} h {1} min",
+    L"{0} min",
+    L"menos de un minuto",
+    L"Mayús",
+    L"Espacio",
+    L"Hecho",
 };
 static_assert(std::size(kEnglish) == kTextCount && std::size(kSpanish) == kTextCount);
 
@@ -385,6 +447,28 @@ std::wstring ShortPath(const std::filesystem::path& path) {
 std::wstring Gigabytes(uint64_t bytes) {
   wchar_t text[32];
   swprintf(text, 32, L"%.1f GB", double(bytes) / (1024.0 * 1024.0 * 1024.0));
+  return text;
+}
+
+std::wstring PlayTime(uint64_t seconds) {
+  const uint64_t minutes = seconds / 60;
+  if (minutes == 0) return Tr(kTextUnderAMinute);
+  if (minutes < 60) return Tr(kTextMinutes, {std::to_wstring(minutes)});
+  return Tr(kTextHoursMinutes, {std::to_wstring(minutes / 60), std::to_wstring(minutes % 60)});
+}
+
+std::wstring ShortDate(const std::string& iso) {
+  SYSTEMTIME utc{};
+  if (sscanf_s(iso.c_str(), "%4hu-%2hu-%2huT%2hu:%2hu:%2hu", &utc.wYear, &utc.wMonth, &utc.wDay, &utc.wHour,
+                  &utc.wMinute, &utc.wSecond) != 6)
+    return {};
+  SYSTEMTIME local{};
+  if (!SystemTimeToTzSpecificLocalTime(nullptr, &utc, &local)) local = utc;
+  wchar_t text[64];
+  const wchar_t* locale = g_language == Language::kSpanish ? L"es-ES" : L"en-GB";
+  if (!GetDateFormatEx(locale, 0, &local, g_language == Language::kSpanish ? L"d 'de' MMMM 'de' yyyy" : L"d MMMM yyyy",
+                       text, 64, nullptr))
+    return {};
   return text;
 }
 

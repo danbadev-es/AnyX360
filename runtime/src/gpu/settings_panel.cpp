@@ -520,7 +520,9 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
         ImGui::AlignTextToFramePadding();
         ImGui::Text("Player %u", user + 1);
         ImGui::SameLine();
-        ImGui::TextDisabled("%s", s.players[user].name.c_str());
+        // The profile signed in, else the name the slot signs in with.
+        const std::string gamertag = kernel::UserName(user);
+        ImGui::TextDisabled("%s", gamertag.empty() ? s.players[user].name.c_str() : gamertag.c_str());
         ImGui::TableNextColumn();
         int device = DeviceIndex(input::GetSlotDevice(user));
         ImGui::SetNextItemWidth(Px(220));
@@ -556,22 +558,24 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
 
     BeginCard("Signing in");
     if (BeginRows("##signin")) {
-      static const char* const kSignIn[] = {"on_demand", "at_start", "manual"};
-      static const char* const kSignInLabels[] = {"When the game asks", "At startup", "Only from this panel"};
+      static const char* const kSignIn[] = {"on_demand", "automatic", "at_start", "manual"};
+      static const char* const kSignInLabels[] = {"When the game asks: choose a profile", "When the game asks: at once",
+                                                  "At startup", "Only from this panel"};
       int policy = 0;
-      for (int i = 0; i < 3; ++i)
+      for (int i = 0; i < 4; ++i)
         if (s.sign_in == kSignIn[i]) policy = i;
       Row("Players 2-4 sign in");
-      ImGui::SetNextItemWidth(Px(240));
-      if (ImGui::Combo("##policy", &policy, kSignInLabels, 3)) {
+      ImGui::SetNextItemWidth(Px(300));
+      if (ImGui::Combo("##policy", &policy, kSignInLabels, 4)) {
         std::string chosen = kSignIn[policy];
         settings::Update([chosen](Settings& st) { st.sign_in = chosen; });
       }
       ImGui::EndTable();
     }
     Note("Split screen: player 2 presses Start in the main menu to join (as \"not signed in\"). To join with a "
-         "profile, sign in at the title screen: signing in later sends the game back to the title screen. Playing "
-         "alone with a controller: set player 1 to it.");
+         "profile, sign in at the title screen: signing in later sends the game back to the title screen. When the "
+         "game asks, each player chooses their profile (or creates one) with their own controller; \"at once\" signs "
+         "them in as the profile last used on their slot. Playing alone with a controller: set player 1 to it.");
     EndCard();
   }
 

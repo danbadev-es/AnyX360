@@ -442,7 +442,19 @@ bool IsConnected(uint32_t user) {
 
 uint32_t ConnectedControllers() { return ControllerMask(); }
 
+std::atomic<bool> g_system_ui{false};
+
+void SetSystemUiOpen(bool open) {
+  if (g_system_ui.exchange(open) != open) KLOG_I("input: the controllers %s", open ? "go to a system UI" : "are the game's again");
+}
+
 bool GetPad(uint32_t user, Pad& pad) {
+  const bool connected = GetUiPad(user, pad);
+  if (g_system_ui) pad = {};
+  return connected;
+}
+
+bool GetUiPad(uint32_t user, Pad& pad) {
   pad = {};
   if (user >= 4) return false;
   Device device;

@@ -13,6 +13,7 @@
 #include "x360/kernel.h"
 #include "x360/memory.h"
 #include "x360/profile.h"
+#include "x360/profiles.h"
 #include "x360/settings.h"
 #include "../../runtime/src/input/input_internal.h"
 #include "avatar_model.h"
@@ -278,20 +279,21 @@ int main() {
     sleeper.join();
   }
 
-  // The player profile (x360/profile.h): written by the launcher, read by every game.
+  // Who is signed in (x360/profile.h): written by the launcher and the sign-in picker, read by
+  // every game. And the global profiles (x360/profiles.h).
   {
     namespace fs = std::filesystem;
     const fs::path folder = fs::temp_directory_path() / "anyx360_test_profile";
     fs::remove_all(folder);
-    profile::Profile written;
-    written.names[0] = "  Daniel  B!rr@to ";
-    written.names[1] = "Ana";
+    profile::SignIn written;
+    written.slots[0] = 0xE000000012345678ull;
+    written.slots[2] = 0xE0003A41C29F0B57ull;
     written.language = "es";
     CHECK(profile::Write(profile::File(folder), written));
-    const profile::Profile read = profile::Read(profile::File(folder));
-    CHECK(read.names[0] == "Daniel Brrto");  // a gamertag's letters, digits and single spaces
-    CHECK(read.names[1] == "Ana" && read.names[2].empty() && read.names[3].empty());
-    CHECK(read.language == "es");
+    const profile::SignIn read = profile::Read(profile::File(folder));
+    CHECK(read.slots[0] == 0xE000000012345678ull && read.slots[1] == 0 && read.slots[2] == 0xE0003A41C29F0B57ull);
+    CHECK(read.language == "es" && !read.legacy);
+    CHECK(profile::CleanName("  Daniel  B!rr@to ") == "Daniel Brrto");  // a gamertag's letters, digits and single spaces
     CHECK(profile::CleanName("ABCDEFGHIJKLMNOPQRS") == "ABCDEFGHIJKLMNO");
     CHECK(profile::Read(folder / "missing.txt").language == "auto");
     CHECK(profile::Resolve("es").language == 5 && profile::Resolve("en").language == 1);
@@ -299,6 +301,53 @@ int main() {
     CHECK(profile::Resolve("auto").language == (windows ? windows : 1));
     const uint32_t country = profile::Resolve("es").country;
     CHECK(country >= 1 && country <= 110);
+    fs::remove_all(folder);
+
+    // A profile.txt from before 0.20.0: its names become profiles with the XUIDs they played with.
+    fs::create_directories(folder);
+    std::ofstream(profile::File(folder), std::ios::binary) << "player1 = Daniel\nplayer2 =\nplayer3 = Ana\nlanguage = es\n";
+    const profile::SignIn migrated = profiles::LoadSignIn(folder, false);
+    CHECK(migrated.slots[0] == profiles::kLegacyXuid && migrated.slots[1] == 0 &&
+          migrated.slots[2] == profiles::kLegacyXuid + 2 && migrated.slots[3] == 0);
+    CHECK(fs::exists(folder / "profile.txt.before-0.20.0"));
+    const auto daniel = profiles::Load(folder, profiles::kLegacyXuid);
+    const auto ana = profiles::Load(folder, profiles::kLegacyXuid + 2);
+    CHECK(daniel && daniel->gamertag == "Daniel" && daniel->language == "es" && !daniel->created.empty());
+    CHECK(ana && ana->gamertag == "Ana");
+    CHECK(!profiles::Load(folder, profiles::kLegacyXuid + 1) && profiles::List(folder).size() == 2);
+    CHECK(profile::Read(profile::File(folder)).slots[2] == profiles::kLegacyXuid + 2);  // rewritten
+    CHECK(!profile::Read(profile::File(folder)).legacy);
+    // Once only: a profile deleted later isn't made again.
+    CHECK(profiles::Remove(folder, profiles::kLegacyXuid + 2));
+    CHECK(profiles::LoadSignIn(folder, true).slots[2] == 0 && profiles::List(folder).size() == 1);
+    CHECK(fs::exists(profiles::ProfileFolder(folder, profiles::kLegacyXuid + 2) / "profile.deleted.json"));
+
+    // Saves: the first offline XUID keeps the game's root folder, the others players\<XUID>.
+    const fs::path user = folder / "GearsOfWar3";
+    CHECK(profiles::UserFolder(user, profiles::kLegacyXuid) == user);
+    CHECK(profiles::UserFolder(user, profiles::kLegacyXuid + 1) == user / "players" / "E000000012345679");
+    CHECK(profiles::UserFolder(user, 0xE0003A41C29F0B57ull) == user / "players" / "E0003A41C29F0B57");
+
+    // Time played, per profile and title.
+    CHECK(profiles::AddPlayTime(folder, profiles::kLegacyXuid, 0x4D5308AB, "Gears of War 3", 61));
+    CHECK(profiles::AddPlayTime(folder, profiles::kLegacyXuid, 0x4D5308AB, "", 60));
+    const auto played = profiles::ReadTitle(folder, profiles::kLegacyXuid, 0x4D5308AB);
+    CHECK(played && played->seconds == 121 && played->title == "Gears of War 3" && played->last_played.size() == 20);
+    CHECK(!profiles::ReadTitle(folder, profiles::kLegacyXuid, 0x415608CB));
+    fs::remove_all(folder);
+
+    // A first start without profile.txt: a profile for the launcher's "Who's playing?", nobody signed in.
+    CHECK(profiles::LoadSignIn(folder, false).slots[0] == 0 && !fs::exists(profiles::ProfilesFolder(folder)));
+    CHECK(profiles::LoadSignIn(folder, true).slots[0] == 0);
+    const auto first = profiles::List(folder);
+    CHECK(first.size() == 1 && first[0].xuid == profiles::kLegacyXuid && first[0].gamertag == "Player");
+    fs::remove_all(folder);
+    // Player 2 played without a name (a game has saves in players\<their XUID>): "Player 2".
+    fs::create_directories(folder / "BlackOps2" / "players" / "E000000012345679" / "profile");
+    CHECK(profiles::LoadSignIn(folder, true).slots[1] == 0);
+    const auto with_saves = profiles::List(folder);
+    CHECK(with_saves.size() == 2 && with_saves[1].xuid == profiles::kLegacyXuid + 1 &&
+          with_saves[1].gamertag == "Player 2");
     fs::remove_all(folder);
   }
 

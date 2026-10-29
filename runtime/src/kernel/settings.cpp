@@ -185,7 +185,7 @@ std::string Serialize(const Settings& s) {
     << "[input.bindings]\n";
   for (const auto& [control, keys] : s.input.bindings) o << control << " = " << Quote(keys) << "\n";
   o << "\n[players]\n"
-    << "sign_in = " << Quote(s.sign_in) << "  # on_demand, at_start, manual\n";
+    << "sign_in = " << Quote(s.sign_in) << "  # on_demand (a profile is chosen), automatic, at_start, manual\n";
   for (int i = 0; i < 4; ++i)
     o << "p" << i + 1 << " = { device = " << Quote(s.players[i].device) << ", name = " << Quote(s.players[i].name)
       << " }  # keyboard_mouse, pad, pad1-pad4, none\n";

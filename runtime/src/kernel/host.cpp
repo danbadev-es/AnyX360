@@ -12,6 +12,7 @@
 #include "anyx360_version.h"
 #include "x360/kernel.h"
 #include "x360/profile.h"
+#include "x360/profiles.h"
 #include "xex.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -155,10 +156,28 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
     for (char& c : xex) c = char(std::tolower(uint8_t(c)));
     info.executables.emplace_back(xex, exe_dir / (std::string(executable.exe) + ".exe"));
   }
-  // The player profile, next to the games' user folders (the launcher writes it).
-  const profile::Profile player_profile = profile::Read(profile::File(info.user_root.parent_path()));
-  for (int i = 0; i < profile::kPlayers; ++i) info.player_names[i] = player_profile.names[i];
-  const profile::Locale locale = profile::Resolve(player_profile.language);
+  // Who is signed in, next to the games' user folders (the launcher writes it), and their profiles.
+  // A profile.txt from before 0.20.0 becomes profiles first.
+  info.profiles_root = info.user_root.parent_path();
+  const profile::SignIn sign_in = profiles::LoadSignIn(info.profiles_root, false);
+  const profiles::SignedIn signed_in = profiles::Resolve(info.profiles_root, sign_in);
+  for (int i = 0; i < profile::kPlayers; ++i) {
+    if (!signed_in.slots[i]) continue;
+    info.players[i].xuid = signed_in.slots[i]->xuid;
+    info.players[i].gamertag = signed_in.slots[i]->gamertag;
+  }
+  // Player 1 without a profile signed in plays as the one that keeps the root folder, if it exists.
+  if (!info.players[0].xuid) {
+    if (std::optional<profiles::Profile> first = profiles::Load(info.profiles_root, profiles::kLegacyXuid)) {
+      bool elsewhere = false;
+      for (const auto& player : info.players) elsewhere |= player.xuid == first->xuid;
+      if (!elsewhere) info.players[0] = {first->xuid, first->gamertag};
+    }
+  }
+  // The language: player 1's profile's, else profile.txt's.
+  std::string language = sign_in.language;
+  if (signed_in.slots[0] && signed_in.slots[0]->language != "auto") language = signed_in.slots[0]->language;
+  const profile::Locale locale = profile::Resolve(language);
   info.language = locale.language;
   info.country = locale.country;
 
@@ -190,8 +209,11 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   const auto& d = info.display;
   std::printf("AnyX360 " ANYX360_VERSION_FULL " - %s\n  game: %s\n  user: %s\n", game.title_name,
               info.game_root.string().c_str(), info.user_root.string().c_str());
-  std::printf("  language %u, country %u (profile: %s)\n", info.language, info.country,
-              player_profile.language.c_str());
+  std::printf("  language %u, country %u (profile: %s)\n", info.language, info.country, language.c_str());
+  for (int i = 0; i < profile::kPlayers; ++i)
+    if (info.players[i].xuid)
+      std::printf("  player %d: %s (%s)\n", i + 1, info.players[i].gamertag.c_str(),
+                  profiles::XuidText(info.players[i].xuid).c_str());
   std::printf("  display: %ux%u%s, rendering %ux%u (%ux), %u FPS\n", d.width, d.height,
               d.fullscreen ? " fullscreen" : "", 1280 * d.render_scale, 720 * d.render_scale, d.render_scale,
               d.target_fps);

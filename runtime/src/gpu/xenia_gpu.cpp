@@ -516,6 +516,7 @@ std::string Restart() {
 
 std::string ReplaceProcess(const std::filesystem::path& exe, const std::vector<std::wstring>& arguments) {
   settings::SaveNow();
+  kernel::SavePlayTime();  // the next process counts from its start
   std::wstring command = QuoteArgument(exe.wstring());
   for (const std::wstring& arg : arguments) command += L" " + QuoteArgument(arg);
   command += L" --restarted-from " + std::to_wstring(GetCurrentProcessId());

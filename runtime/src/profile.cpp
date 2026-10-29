@@ -1,13 +1,16 @@
-// The player profile shared by the launcher and the games (see x360/profile.h).
+// Who is signed in and the games' language, shared by the launcher and the games (see x360/profile.h).
 #include "x360/profile.h"
 
 #include <cctype>
+#include <cstdio>
 #include <fstream>
 #include <sstream>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+
+#include "x360/profiles.h"
 
 namespace x360::profile {
 
@@ -76,8 +79,8 @@ std::string Trim(std::string_view s) {
 
 std::filesystem::path File(const std::filesystem::path& folder) { return folder / "profile.txt"; }
 
-Profile Read(const std::filesystem::path& file) {
-  Profile profile;
+SignIn Read(const std::filesystem::path& file) {
+  SignIn sign_in;
   std::ifstream in(file, std::ios::binary);
   std::string line;
   while (std::getline(in, line)) {
@@ -85,23 +88,32 @@ Profile Read(const std::filesystem::path& file) {
     if (equals == std::string::npos) continue;
     const std::string key = Trim(std::string_view(line).substr(0, equals));
     const std::string value = Trim(std::string_view(line).substr(equals + 1));
-    if (key.size() == 7 && key.compare(0, 6, "player") == 0 && key[6] >= '1' && key[6] <= '0' + kPlayers)
-      profile.names[key[6] - '1'] = CleanName(value);
-    else if (key == "language")
-      profile.language = value.empty() ? "auto" : value;
+    const bool numbered = key.size() >= 5 && key.back() >= '1' && key.back() <= '0' + kPlayers;
+    const int slot = numbered ? key.back() - '1' : -1;
+    if (numbered && key.size() == 5 && key.compare(0, 4, "slot") == 0) {
+      sign_in.slots[slot] = 0;
+      if (!value.empty() && value.size() <= 16 && value.find_first_not_of("0123456789abcdefABCDEF") == std::string::npos)
+        sign_in.slots[slot] = std::stoull(value, nullptr, 16);
+    } else if (numbered && key.size() == 7 && key.compare(0, 6, "player") == 0) {
+      sign_in.legacy = true;
+      sign_in.names[slot] = CleanName(value);
+    } else if (key == "language") {
+      sign_in.language = value.empty() ? "auto" : value;
+    }
   }
-  return profile;
+  return sign_in;
 }
 
-bool Write(const std::filesystem::path& file, const Profile& profile) {
-  std::error_code ec;
-  std::filesystem::create_directories(file.parent_path(), ec);
+bool Write(const std::filesystem::path& file, const SignIn& sign_in) {
   std::ostringstream text;
-  for (int i = 0; i < kPlayers; ++i) text << "player" << i + 1 << " = " << CleanName(profile.names[i]) << "\n";
-  text << "language = " << (profile.language.empty() ? "auto" : profile.language) << "\n";
-  std::ofstream out(file, std::ios::binary | std::ios::trunc);
-  out << text.str();
-  return bool(out);
+  text << "# Who is signed in on each controller slot (profiles\\<XUID>\\profile.json) and the games' language.\n";
+  for (int i = 0; i < kPlayers; ++i) {
+    char xuid[20] = "";
+    if (sign_in.slots[i]) std::snprintf(xuid, sizeof(xuid), "%016llX", (unsigned long long)sign_in.slots[i]);
+    text << "slot" << i + 1 << " =" << (sign_in.slots[i] ? " " : "") << xuid << "\n";
+  }
+  text << "language = " << (sign_in.language.empty() ? "auto" : sign_in.language) << "\n";
+  return profiles::WriteAtomic(file, text.str());
 }
 
 std::string CleanName(std::string_view name) {

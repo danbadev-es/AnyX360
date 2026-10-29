@@ -48,8 +48,13 @@ bool IsConnected(uint32_t user);
 // Connected controllers, bit i = controller i.
 uint32_t ConnectedControllers();
 
-// A player's controller state. Returns false if the player has no connected device. Any thread.
+// A player's controller state. Returns false if the player has no connected device. Neutral (but
+// connected) while a system UI is open (SetSystemUiOpen). Any thread.
 bool GetPad(uint32_t user, Pad& pad);
+// A system UI over the game (the sign-in picker) takes the controllers: the game reads neutral pads
+// while it is open, the UI reads them with GetUiPad (the scripted input too). Any thread.
+void SetSystemUiOpen(bool open);
+bool GetUiPad(uint32_t user, Pad& pad);
 void SetVibration(uint32_t user, uint16_t left, uint16_t right);
 
 // Off while the settings panel is open: the keyboard and mouse player's pad is neutral and the

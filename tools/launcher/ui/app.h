@@ -2,7 +2,8 @@
 // dashboard): the player's games as box art in a row, the selected one's details and Play, a
 // collapsible "compatible games" drawer (this release's games and the coming ones), and overlays
 // instead of dialogs (add a game, progress, messages, confirmations, a password, the ⋯ menu, the
-// terms). Mouse, keyboard and an Xbox controller move one focus.
+// terms, "Who's playing?" and the profiles, x360/profiles.h). Mouse, keyboard and an Xbox
+// controller move one focus.
 //
 // Everything is laid out while it is drawn: Paint() records what the pointer and the focus can
 // reach, and input acts on that.
@@ -18,7 +19,7 @@
 
 #include "core/jobs.h"
 #include "core/library.h"
-#include "x360/profile.h"
+#include "x360/profiles.h"
 #include "d2d/canvas.h"
 #include "ui/images.h"
 
@@ -50,7 +51,8 @@ class App : public JobObserver {
 
   // Reads the library; the selection stays on the same game (or `select`).
   void Load(std::wstring select = {});
-  // Shows the terms if they haven't been accepted (the launcher closes if they are declined).
+  // Shows the terms if they haven't been accepted (the launcher closes if they are declined), and
+  // "Who's playing?" (under them) if no profile is remembered.
   void CheckTerms();
 
   void Paint(Canvas& canvas);
@@ -85,7 +87,8 @@ class App : public JobObserver {
   void QuitWhenDone(fs::path result) { quit_result_ = std::move(result); }
 
   ImageCache& images() { return images_; }
-  // Screenshots: library, empty, compatible, add, progress, error, confirm, password, menu, terms.
+  // Screenshots: library, empty, compatible, add, progress, error, confirm, password, menu, terms,
+  // who, profiles (or profile), newprofile.
   void ShowState(std::wstring_view state);
 
   // JobObserver (the job's thread).
@@ -158,8 +161,20 @@ class App : public JobObserver {
   void ShowTerms(bool require_acceptance);
   void ToggleCompatible();
   void ToggleLanguage();
-  // The players' names and the games' language (x360/profile.h), for every game.
-  void OpenProfile();
+  // Profiles (x360/profiles.h): "Who's playing?" (`required`: at start, nobody signed in yet),
+  // their list (create, rename, delete, the games' language), a gamertag typed (`xuid` 0: a new
+  // profile, signed in once made).
+  void ReloadProfiles();
+  const x360::profiles::Profile* Player() const;  // signed in on slot 1; null: nobody
+  void ShowWhoIsPlaying(bool required);
+  void OpenProfiles();
+  void OpenProfileMenu(const RectF& anchor, uint64_t xuid);
+  void OpenGamertag(uint64_t xuid);
+  void SubmitGamertag();
+  void TypeGamertag(wchar_t ch);
+  void SignInAs(uint64_t xuid);
+  void DrawWho(Canvas& c, Overlay& overlay, bool top);
+  void DrawGamerpic(Canvas& c, float cx, float cy, float radius, const x360::profiles::Profile* profile, float opacity = 1);
   void PushOverlay(Overlay overlay);
   void PopOverlay();
   void Finish(const Outcome& outcome);
@@ -172,7 +187,13 @@ class App : public JobObserver {
   int selected_ = 0;                 // index into tiles_
   std::vector<CompatibleItem> compatible_;
   bool compatible_open_ = false;
-  x360::profile::Profile profile_;
+  // Who is signed in (profile.txt) and every profile, read again after each change.
+  x360::profile::SignIn sign_in_;
+  std::vector<x360::profiles::Profile> profiles_;
+  // Time played (titles\<TitleID>.json) by profile and title, read once: forgotten when the
+  // library or the profiles are read again and when a game exits.
+  std::map<std::pair<uint64_t, uint32_t>, std::optional<x360::profiles::TitleStats>> title_stats_;
+  const std::optional<x360::profiles::TitleStats>& TitleStats(uint64_t xuid, uint32_t title_id);
 
   // The layout of the last Paint.
   std::vector<Target> targets_;

@@ -123,7 +123,7 @@ enum Text {
   kTextExtractedLine,
   kTextKeyboardPad,
   kTextWebcam,
-  kTextProfileLink,      // the header's link when player 1 has no name
+  kTextProfileLink,      // the header's link when nobody is signed in
   kTextProfileTitle,
   kTextProfileText,
   kTextPlayerName,       // {0} 1-4
@@ -156,6 +156,34 @@ enum Text {
   kTextErrorUpdateDamaged,
   kTextErrorUpdateNoGame,  // {0} game
   kTextStatusNeedsUpdate,
+  kTextWhoTitle,
+  kTextWhoText,
+  kTextCreateProfile,
+  kTextSwitchProfile,
+  kTextNewProfileTitle,
+  kTextRenameTitle,  // {0} gamertag
+  kTextCreate,
+  kTextMenuPlayAs,  // {0} gamertag
+  kTextMenuRename,
+  kTextMenuDeleteProfile,
+  kTextDeleteProfileTitle,  // {0} gamertag
+  kTextConfirmDeleteProfile,  // {0} gamertag, {1} XUID
+  kTextDelete,
+  kTextErrorNameEmpty,
+  kTextErrorNameTaken,  // {0} gamertag
+  kTextErrorProfileWrite,  // {0} folder
+  kTextBadgePlaying,
+  kTextKeySpace,
+  kTextKeyShift,
+  kTextKeyErase,
+  kTextPlayed,  // {0} gamertag, {1} time, {2} date
+  kTextNotPlayed,  // {0} gamertag
+  kTextHoursMinutes,  // {0} hours, {1} minutes
+  kTextMinutes,  // {0} minutes
+  kTextUnderAMinute,
+  kTextHintShift,
+  kTextHintSpace,
+  kTextHintDone,
   kTextCount
 };
 
@@ -180,6 +208,11 @@ std::string Narrow(const std::wstring& text);  // to UTF-8
 // A path short enough for one line of a message ("C:\Users\...\Disc\Game").
 std::wstring ShortPath(const std::filesystem::path& path);
 std::wstring Gigabytes(uint64_t bytes);
+// Time played: "3 h 20 min", "45 min", "under a minute".
+std::wstring PlayTime(uint64_t seconds);
+// An ISO 8601 UTC time ("2026-10-29T05:04:00Z") as a short date in the current language, in the
+// computer's time zone; empty if it isn't one.
+std::wstring ShortDate(const std::string& iso);
 std::wstring Hex32(uint32_t value);
 
 }  // namespace anyx360::launcher

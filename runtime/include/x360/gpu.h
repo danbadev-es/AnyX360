@@ -59,6 +59,13 @@ void RequestQuit(int exit_code);
 // that drive this session don't carry over. Exits on success; returns the error otherwise. Any thread.
 std::string ReplaceProcess(const std::filesystem::path& exe, const std::vector<std::wstring>& arguments);
 
+// The sign-in picker over the game (signin_picker.cpp), for a title's sign-in UI: the profiles not
+// signed in, "Create profile" with an on-screen keyboard, and Cancel, driven by every controller
+// and the keyboard. A profile chosen signs in on the slot whose controller chose it
+// (kernel::SignInProfile); after `count` players, or Cancel, it closes (kernel::CloseSigninUi).
+// False when there is no game window to show it in. Any thread.
+bool OpenSigninPicker(uint32_t count);
+
 // Records a guest frame (VdSwap) for the performance overlay.
 void NotifySwap(uint32_t frontbuffer_width, uint32_t frontbuffer_height);
 

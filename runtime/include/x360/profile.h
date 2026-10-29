@@ -1,10 +1,16 @@
-// The player profile the launcher sets for every game, in %LOCALAPPDATA%\AnyX360\profile.txt: the
-// four players' names (their gamertags) and the language the games are told to use. One setting a
-// line, "key = value", UTF-8:
+// Who is signed in, in %LOCALAPPDATA%\AnyX360\profile.txt: the XUID of the profile on each of the
+// four controller slots (x360/profiles.h; empty: nobody) and the language the games are told. The
+// launcher signs player 1 in ("Who's playing?"); the games' sign-in picker signs players 2-4 in.
+// One setting a line, "key = value", UTF-8:
 //
-//   player1 = Daniel
-//   player2 = Ana
+//   slot1 = E000000012345678
+//   slot2 = E0003A41C29F0B57
+//   slot3 =
+//   slot4 =
 //   language = auto
+//
+// Before 0.20.0 the file held the four players' names (player1 = Daniel ...): they are read as
+// `names` and become profiles (profiles::LoadSignIn).
 //
 // `language` is "auto" (Windows' display language) or one of Languages()' tags. Games read it once,
 // when they start.
@@ -21,16 +27,20 @@ namespace x360::profile {
 constexpr int kPlayers = 4;
 constexpr size_t kNameLength = 15;  // a gamertag's
 
-struct Profile {
-  std::string names[kPlayers];  // empty: the game's own ("Player", "Player 2", ...)
+struct SignIn {
+  uint64_t slots[kPlayers] = {};  // the profile signed in on each slot; 0: nobody
   std::string language = "auto";
+  // A file from before 0.20.0: the players' names (empty: the game's own), only read.
+  bool legacy = false;
+  std::string names[kPlayers];
 };
 
 // profile.txt in `folder`: AnyX360's folder in %LOCALAPPDATA%, the parent of each game's user folder.
 std::filesystem::path File(const std::filesystem::path& folder);
 // A missing or unreadable file reads as the defaults.
-Profile Read(const std::filesystem::path& file);
-bool Write(const std::filesystem::path& file, const Profile& profile);
+SignIn Read(const std::filesystem::path& file);
+// Writes the slots and the language (atomically).
+bool Write(const std::filesystem::path& file, const SignIn& sign_in);
 
 // A name as a gamertag can be: letters, digits and spaces, trimmed, at most kNameLength.
 std::string CleanName(std::string_view name);

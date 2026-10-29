@@ -26,9 +26,13 @@ std::span<const uint8_t> InterSemiBold() { return kInterSemiBold; }
 add_library(x360_runtime STATIC
   src/memory.cpp
   src/profile.cpp
+  src/profiles.cpp
   ${inter_cpp}
 )
 target_include_directories(x360_runtime PUBLIC include)
+# Profiles are JSON files (rapidjson, header-only, as the launcher's .anyx manifests).
+target_include_directories(x360_runtime SYSTEM PRIVATE ${ANYX360_THIRDPARTY}/xenia/third_party/rapidjson/include)
+target_link_libraries(x360_runtime PUBLIC bcrypt)
 
 # The Kinect debug window (kinect_window/): its own thread and Direct2D window. Game-independent, so
 # not under src/nui (compiled into every game's objects); the nui:: functions it calls are each

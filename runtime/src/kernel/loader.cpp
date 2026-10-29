@@ -423,7 +423,9 @@ int Run(const TitleInfo& info) {
     KLOG_I("title exited with %08X", code);
     gpu::RequestQuit(int(code));
   }).detach();
-  return gpu::RunMessageLoop();
+  const int code = gpu::RunMessageLoop();
+  SavePlayTime();
+  return code;
 }
 
 }  // namespace x360::kernel

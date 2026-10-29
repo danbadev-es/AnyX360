@@ -1,10 +1,13 @@
 // xam.xex exports: users and profiles, content (saves), enumerators, notifications, input (see
 // x360/input.h), loader, tasks and system UI.
 //
-// Local players: player 1 ("Player") is always signed in; players 2-4 sign in when the title shows
-// the sign-in UI (players.sign_in = "on_demand"), at startup ("at_start") or from the settings
-// panel, if their slot has a connected device. Player 1 keeps the original paths (<user>\profile,
-// <user>\content); the others use <user>\players\<XUID>\.
+// Local players: each slot plays as a global profile (x360/profiles.h, docs/PROFILES.md), the one
+// profile.txt signs in on it, else as settings.toml's name with the slot's old offline XUID. Player 1
+// is always signed in; players 2-4 sign in when the title shows the sign-in UI (players.sign_in =
+// "on_demand": a picker of profiles, gpu/signin_picker.cpp; "automatic": at once), at startup
+// ("at_start") or from the settings panel, if their slot has a connected device. Each player's saves
+// and profile settings are in profiles::UserFolder: the game's root folder (<user>\profile,
+// <user>\content) for the profile with the first offline XUID, <user>\players\<XUID>\ for the others.
 #include <atomic>
 #include <chrono>
 #include <deque>
@@ -13,11 +16,14 @@
 #include <optional>
 #include <random>
 #include <set>
+#include <thread>
 #include <tuple>
 
 #include "avatar_system.h"
+#include "x360/gpu.h"
 #include "x360/input.h"
 #include "x360/kernel.h"
+#include "x360/profiles.h"
 #include "x360/settings.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -35,7 +41,8 @@ void UnmountContent(const std::string& root_name);
 
 namespace {
 
-constexpr uint64_t kXuid = 0xE000000012345678ull;  // player 1's offline XUID; player n: kXuid + n - 1
+// Player 1's offline XUID without a profile; player n: kXuid + n - 1 (as before profiles existed).
+constexpr uint64_t kXuid = x360::profiles::kLegacyXuid;
 
 // XNotify IDs (area 0, system).
 constexpr uint32_t kNotifySystemUi = 0x00000009;
@@ -156,27 +163,68 @@ uint32_t XamGetPrivateEnumStructureFromHandle(uint32_t handle, uint32_t out_ptr)
 
 // ---- users ------------------------------------------------------------------------------------
 
+using Clock = std::chrono::steady_clock;
+
 struct User {
   bool signed_in = false;
   uint64_t xuid = 0;
   std::string name;
+  bool profile = false;         // a global profile (its time played is kept), not the slot's own name
+  Clock::time_point counted{};  // time played: counted until then (SavePlayTime)
 };
 std::mutex g_user_mutex;
 User g_users[4];
 
+// Who plays on a slot when it signs in without choosing: the profile profile.txt signs in on it
+// (the launcher's), else settings.toml's name (development runs) with the slot's old XUID.
+User SlotUser(uint32_t i) {
+  User user;
+  const TitleInfo::Player& player = TitlePaths().players[i];
+  if (player.xuid) {
+    user.xuid = player.xuid;
+    user.name = player.gamertag;
+    user.profile = true;
+    return user;
+  }
+  const x360::settings::Settings& s = x360::settings::Get();
+  user.xuid = kXuid + i;
+  user.name = s.players[i].name.empty() ? "Player " + std::to_string(i + 1) : s.players[i].name;
+  return user;
+}
+
+// The profile settings read from disk, by player: a player signing in as another profile reads its own.
+void ForgetProfileBlobs(uint32_t user_index);
+
 void InitUsers() {
-  x360::settings::Settings s = x360::settings::Get();
+  const bool at_start = x360::settings::Get().sign_in == "at_start";
   std::lock_guard lock(g_user_mutex);
   for (uint32_t i = 0; i < 4; ++i) {
-    g_users[i].xuid = kXuid + i;
-    // The launcher's profile first, then settings.toml (development runs).
-    const std::string& chosen = TitlePaths().player_names[i];
-    g_users[i].name = !chosen.empty()              ? chosen
-                      : s.players[i].name.empty() ? "Player " + std::to_string(i + 1)
-                                                  : s.players[i].name;
-    g_users[i].signed_in = i == 0 || (s.sign_in == "at_start" && x360::input::IsConnected(i));
-    if (i && g_users[i].signed_in) KLOG_I("users: player %u (%s) signed in at startup", i + 1, g_users[i].name.c_str());
+    g_users[i] = SlotUser(i);
+    g_users[i].signed_in = i == 0 || (at_start && x360::input::IsConnected(i));
+    g_users[i].counted = Clock::now();
+    if (g_users[i].signed_in)
+      KLOG_I("users: player %u (%s, %016llX) signed in at startup", i + 1, g_users[i].name.c_str(),
+             (unsigned long long)g_users[i].xuid);
   }
+}
+
+// How the title's sign-in UI signs players in: "picker" (a profile is chosen), "automatic" or
+// "manual" (nobody). players.sign_in "on_demand" is the picker, except in scripted runs
+// (ANYX360_INPUT, ANYX360_INPUT_LIVE, ANYX360_NUI_SCRIPT), whose routes expect players to sign in at once, unless
+// ANYX360_SIGNIN_PICKER=1 asks for the picker.
+std::string SigninMode() {
+  const std::string& mode = x360::settings::Get().sign_in;
+  if (mode == "manual") return "manual";
+  if (mode == "on_demand") {
+    static const bool scripted =
+        std::getenv("ANYX360_INPUT") || std::getenv("ANYX360_INPUT_LIVE") || std::getenv("ANYX360_NUI_SCRIPT");
+    static const bool picker = [] {
+      const char* env = std::getenv("ANYX360_SIGNIN_PICKER");
+      return env && *env == '1';
+    }();
+    return scripted && !picker ? "automatic" : "picker";
+  }
+  return "automatic";  // "automatic", and "at_start" for anyone not signed in at startup
 }
 
 uint32_t SignedInMask() {
@@ -309,15 +357,23 @@ uint32_t XamUserGetCachedUserFlags(uint32_t user_index) {
 std::mutex g_profile_mutex;
 std::map<std::pair<uint32_t, uint32_t>, std::vector<uint8_t>> g_profile_blobs;  // (player, id)
 
-// Player 1 keeps the original folders; players 2-4 have theirs under players\<XUID>.
+// The player's folder for their saves and profile settings: the game's root folder for the profile
+// with the first offline XUID, players\<XUID> for the others.
 fs::path UserRoot(uint32_t user_index) {
-  if (user_index == 0 || user_index >= 4) return TitlePaths().user_root;
-  char xuid[24];
-  std::snprintf(xuid, sizeof(xuid), "%016llX", (unsigned long long)(kXuid + user_index));
-  return TitlePaths().user_root / "players" / xuid;
+  uint64_t xuid = kXuid;
+  if (user_index < 4) {
+    std::lock_guard lock(g_user_mutex);
+    xuid = g_users[user_index].xuid;
+  }
+  return x360::profiles::UserFolder(TitlePaths().user_root, xuid);
 }
 
 fs::path ProfileDir(uint32_t user_index) { return UserRoot(user_index) / "profile"; }
+
+void ForgetProfileBlobs(uint32_t user_index) {
+  std::lock_guard lock(g_profile_mutex);
+  std::erase_if(g_profile_blobs, [user_index](const auto& entry) { return entry.first.first == user_index; });
+}
 
 std::vector<uint8_t>* ProfileBlob(uint32_t user_index, uint32_t id) {
   auto it = g_profile_blobs.find({user_index, id});
@@ -606,8 +662,13 @@ constexpr uint32_t kContentAggregateDataSize = 0x148;
 uint32_t XamContentAggregateCreateEnumerator(uint64_t xuid, uint32_t device_id, uint32_t content_type,
                                              uint32_t title_id, uint32_t handle_ptr) {
   if (!handle_ptr) return X_ERROR_INVALID_PARAMETER;
-  uint32_t user_index = xuid >= kXuid && xuid < kXuid + 4 ? uint32_t(xuid - kXuid) : 0;
-  uint64_t owner = content_type == kContentMarketplace ? 0 : kXuid + user_index;
+  const int player = UserFromXuid(xuid);
+  uint32_t user_index = player < 0 ? 0 : uint32_t(player);
+  uint64_t owner = 0;
+  if (content_type != kContentMarketplace) {
+    std::lock_guard lock(g_user_mutex);
+    owner = g_users[user_index].xuid;
+  }
   std::vector<std::vector<uint8_t>> items;
   if (title_id == 0 || title_id == Title().title_id) {
     items = ListContent(user_index, device_id, content_type, kContentAggregateDataSize);
@@ -627,7 +688,10 @@ uint32_t XamContentGetCreator(uint32_t user_index, uint32_t content_data, uint32
                               uint32_t overlapped) {
   (void)content_data;
   if (is_creator_ptr) Store<uint32_t>(is_creator_ptr, 1);
-  if (xuid_ptr) Store<uint64_t>(xuid_ptr, kXuid + (user_index < 4 ? user_index : 0));
+  if (xuid_ptr) {
+    std::lock_guard lock(g_user_mutex);
+    Store<uint64_t>(xuid_ptr, g_users[user_index < 4 ? user_index : 0].xuid);
+  }
   return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
 }
 
@@ -1051,13 +1115,32 @@ uint32_t XamTaskCloseHandle(uint32_t handle) {
 
 // ---- system UI --------------------------------------------------------------------------------
 
-// The sign-in UI: signs in up to `count` more players whose slot has a connected device (unless
-// players.sign_in is "manual"), as if they had picked their profile.
-uint32_t XamShowSigninUI(uint32_t count, uint32_t flags) {
-  KLOG_I("XamShowSigninUI(%u, %X)", count, flags);
-  Broadcast(kNotifySystemUi, 1);
+std::atomic<bool> g_kinect_guide_open{false};    // SetKinectGuideOpen
+std::atomic<bool> g_signin_picker_open{false};   // the sign-in picker is shown (CloseSigninUi)
+
+// The sign-in UI. With the picker (SigninMode), it opens and this returns at once, as on the
+// console: the title sees the system UI open (it pauses, XamIsUIActive) and its controllers go
+// neutral until the picker closes; each profile chosen signs in on the slot whose controller chose
+// it (SignInProfile). Otherwise up to `count` more players whose slot has a connected device sign in
+// at once as their slot's profile (not when players.sign_in is "manual").
+uint32_t ShowSignin(uint32_t count, uint32_t flags, bool kinect) {
+  KLOG_I("%s(%u, %X)", kinect ? "XamShowNuiSigninUI" : "XamShowSigninUI", count, flags);
+  // The Kinect's sign-in is made with gestures, which the picker can't take: at once.
+  std::string mode = SigninMode();
+  if (kinect && mode == "picker") mode = "automatic";
+  if (mode == "picker") {
+    if (g_signin_picker_open.exchange(true)) return X_ERROR_SUCCESS;  // already shown
+    Broadcast(kNotifySystemUi, 1);
+    x360::input::SetSystemUiOpen(true);
+    if (x360::gpu::OpenSigninPicker(std::max<uint32_t>(count, 1))) return X_ERROR_SUCCESS;
+    // No window to show it in (tests): the players sign in at once.
+    x360::input::SetSystemUiOpen(false);
+    g_signin_picker_open = false;
+  } else {
+    Broadcast(kNotifySystemUi, 1);
+  }
   g_in_signin_ui = true;
-  if (x360::settings::Get().sign_in != "manual") {
+  if (mode != "manual") {
     uint32_t remaining = std::max<uint32_t>(count, 1);
     for (uint32_t i = 1; i < 4 && remaining; ++i) {
       if (IsUserSignedIn(i) || !x360::input::IsConnected(i)) continue;
@@ -1069,6 +1152,7 @@ uint32_t XamShowSigninUI(uint32_t count, uint32_t flags) {
   Broadcast(kNotifySystemUi, 0);
   return X_ERROR_SUCCESS;
 }
+uint32_t XamShowSigninUI(uint32_t count, uint32_t flags) { return ShowSignin(count, flags, false); }
 
 // A message box: nobody sees it, the button with the focus is pressed at once. The text is logged.
 // XamShowMessageBoxUI(user, title, text, button count, buttons, focus, flags, result*, overlapped);
@@ -1139,7 +1223,7 @@ uint32_t XamShowMarketplaceDownloadItemsUI(uint32_t user_index, uint32_t ui_type
 // Kinect versions of the system UI take the tracking ID of the skeleton that asked first.
 uint32_t XamShowNuiSigninUI(uint32_t tracking_id, uint32_t count, uint32_t flags) {
   (void)tracking_id;
-  return XamShowSigninUI(count, flags);
+  return ShowSignin(count, flags, true);
 }
 uint32_t XamShowNuiDeviceSelectorUI(uint32_t tracking_id, uint32_t user_index, uint32_t content_type,
                                     uint32_t content_flags, uint64_t total_requested, uint32_t device_id_ptr,
@@ -1151,8 +1235,7 @@ uint32_t XamShowNuiDeviceSelectorUI(uint32_t tracking_id, uint32_t user_index, u
   (void)tracking_id;
   XamShowDirtyDiscErrorUI(user_index);
 }
-std::atomic<bool> g_kinect_guide_open{false};  // SetKinectGuideOpen
-uint32_t XamIsUIActive() { return g_kinect_guide_open ? 1 : 0; }
+uint32_t XamIsUIActive() { return g_kinect_guide_open || g_signin_picker_open ? 1 : 0; }
 // The Kinect Guide (a Kinect title shows it when a player holds the guide gesture, the left arm
 // down at 45 degrees): there is no overlay here, but the title still sees the system UI open and
 // close, and pauses as it would on the console. Asked while the gesture holds it open (Dance
@@ -1605,18 +1688,71 @@ void InitXam() {
   InitUsers();
   LoadLaunchData();
   x360::input::OnDevicesChanged([] { Broadcast(kNotifyInputDevicesChanged, 0); });
+  // Time played, every minute (and when the game exits).
+  std::thread([] {
+    SetThreadDescription(GetCurrentThread(), L"Time played");
+    for (;;) {
+      std::this_thread::sleep_for(std::chrono::minutes(1));
+      SavePlayTime();
+    }
+  }).detach();
 }
 
 bool IsUserSignedIn(uint32_t user_index) { return GetUser(user_index).has_value(); }
+
+std::string UserName(uint32_t user_index) {
+  auto user = GetUser(user_index);
+  return user ? user->name : std::string();
+}
+
+uint64_t UserXuid(uint32_t user_index) {
+  auto user = GetUser(user_index);
+  return user ? user->xuid : 0;
+}
+
+void SavePlayTime() {
+  struct Due {
+    uint64_t xuid, seconds;
+  };
+  std::vector<Due> due;
+  {
+    std::lock_guard lock(g_user_mutex);
+    const Clock::time_point now = Clock::now();
+    for (User& user : g_users) {
+      if (!user.signed_in || !user.profile) continue;
+      const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now - user.counted);
+      user.counted += seconds;
+      due.push_back({user.xuid, uint64_t(seconds.count())});
+    }
+  }
+  static std::mutex writing;  // the minute's thread and the exit
+  std::lock_guard lock(writing);
+  for (const Due& d : due)
+    if (!x360::profiles::AddPlayTime(TitlePaths().profiles_root, d.xuid, Title().title_id, TitlePaths().title_name,
+                                     d.seconds))
+      KLOG_W("users: the time played of %016llX could not be saved", (unsigned long long)d.xuid);
+}
 
 void SignInUser(uint32_t user_index) {
   if (user_index >= 4) return;
   {
     std::lock_guard lock(g_user_mutex);
     if (g_users[user_index].signed_in) return;
-    g_users[user_index].signed_in = true;
+    User user = SlotUser(user_index);
+    // Its profile already plays on another slot (the picker moved it): the slot's own name.
+    for (const User& other : g_users) {
+      if (&other == &g_users[user_index] || !other.signed_in || other.xuid != user.xuid) continue;
+      user = User{};
+      user.xuid = kXuid + user_index;
+      const std::string& name = x360::settings::Get().players[user_index].name;
+      user.name = name.empty() ? "Player " + std::to_string(user_index + 1) : name;
+    }
+    user.signed_in = true;
+    user.counted = Clock::now();
+    g_users[user_index] = user;
   }
-  KLOG_I("users: player %u signed in", user_index + 1);
+  ForgetProfileBlobs(user_index);
+  KLOG_I("users: player %u (%s) signed in", user_index + 1, UserName(user_index).c_str());
   // As if picked in the system's sign-in UI, which is open while the sign-in changes.
   if (!g_in_signin_ui) Broadcast(kNotifySystemUi, 1);
   Broadcast(kNotifySigninChanged, SignedInMask());
@@ -1635,8 +1771,35 @@ void SetKinectGuideOpen(bool open) {
 
 void Notify(uint32_t id, uint32_t param) { Broadcast(id, param); }
 
+bool SignInProfile(uint32_t user_index, uint64_t xuid, const std::string& gamertag) {
+  if (user_index == 0 || user_index >= 4 || !xuid) return false;
+  {
+    std::lock_guard lock(g_user_mutex);
+    if (g_users[user_index].signed_in) return false;
+    for (const User& other : g_users)
+      if (other.signed_in && other.xuid == xuid) return false;
+    User& user = g_users[user_index];
+    user = User{true, xuid, gamertag, true, Clock::now()};
+  }
+  ForgetProfileBlobs(user_index);
+  KLOG_I("users: player %u signed in as %s (%016llX)", user_index + 1, gamertag.c_str(), (unsigned long long)xuid);
+  // Remembered for the next game (profile.txt), as the console keeps its players signed in.
+  x360::profiles::SetSlot(TitlePaths().profiles_root, int(user_index), xuid);
+  Broadcast(kNotifySigninChanged, SignedInMask());  // the picker is still open: the system UI is
+  return true;
+}
+
+void CloseSigninUi() {
+  if (!g_signin_picker_open) return;
+  x360::input::SetSystemUiOpen(false);
+  g_signin_picker_open = false;
+  KLOG_I("users: the sign-in picker closed");
+  Broadcast(kNotifySystemUi, 0);
+}
+
 void SignOutUser(uint32_t user_index) {
   if (user_index == 0 || user_index >= 4) return;
+  SavePlayTime();
   {
     std::lock_guard lock(g_user_mutex);
     if (!g_users[user_index].signed_in) return;

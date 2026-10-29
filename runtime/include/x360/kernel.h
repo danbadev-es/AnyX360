@@ -372,9 +372,16 @@ struct TitleInfo {
   // Started by another process of the game (--restarted-from): a title switching executables or the
   // settings panel's restart. Only then is there launch data to take.
   bool restarted = false;
-  // From the player profile the launcher sets (x360/profile.h): the players' names (empty:
-  // settings.toml's, else "Player N") and the language and country games are told.
-  std::string player_names[4];
+  // AnyX360's folder of %LOCALAPPDATA% (the parent of user_root): profile.txt and the profiles
+  // (x360/profiles.h).
+  std::filesystem::path profiles_root;
+  // The profile signed in on each slot in profile.txt (xuid 0: none; the slot plays as
+  // settings.toml's name, else "Player N"), and the language and country games are told.
+  struct Player {
+    uint64_t xuid = 0;
+    std::string gamertag;
+  };
+  Player players[4];
   uint32_t language = 1, country = 103;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).
   std::function<void()> on_function_table;
@@ -459,8 +466,20 @@ void InitIo(const TitleInfo& info);
 void InitXam();
 // Local players' profiles (xam.cpp). Player 1 is always signed in.
 bool IsUserSignedIn(uint32_t user_index);
-void SignInUser(uint32_t user_index);   // any thread
+void SignInUser(uint32_t user_index);   // any thread; as the slot's profile in profile.txt
 void SignOutUser(uint32_t user_index);  // players 2-4
+// The gamertag and XUID of a signed-in player (empty, 0: not signed in).
+std::string UserName(uint32_t user_index);
+uint64_t UserXuid(uint32_t user_index);
+// The sign-in picker (gpu::OpenSigninPicker) signs a player in as a profile: false if the slot is
+// signed in already or the profile plays on another slot. The title is told while the picker is
+// still open. Players 2-4; any thread.
+bool SignInProfile(uint32_t user_index, uint64_t xuid, const std::string& gamertag);
+// The picker closed: the title sees the system UI close, and gets its controllers back.
+void CloseSigninUi();
+// Adds the time played since the last call to each signed-in profile's titles\<TitleID>.json
+// (x360/profiles.h). The runtime calls it every minute and when the game exits. Any thread.
+void SavePlayTime();
 // The Kinect Guide opens (the virtual Kinect recognised the guide gesture) or closes (the player
 // lowered their arm): the title sees the system UI open while it is, and pauses as it would on the
 // console. There is no overlay. Any thread.

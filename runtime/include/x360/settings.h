@@ -82,8 +82,10 @@ struct Settings {
   KinectSettings kinect;
   PlayerSettings players[4] = {{"keyboard_mouse", "Player"}, {"pad", "Player 2"}, {"none", "Player 3"},
                                {"none", "Player 4"}};
-  // When local players sign in: "on_demand" (when the title asks), "at_start" (every player with a
-  // device, at boot) or "manual" (from the panel only).
+  // When local players sign in: "on_demand" (when the title asks, each choosing a profile in the
+  // sign-in picker; at once in scripted runs), "automatic" (when the title asks, at once, as their
+  // slot's profile), "at_start" (every player with a device, at boot) or "manual" (from the panel
+  // only).
   std::string sign_in = "on_demand";
   PacingSettings pacing;
   // [xenia]: options of Xenia's GPU code by name, each value as TOML text (half_pixel_offset = false):

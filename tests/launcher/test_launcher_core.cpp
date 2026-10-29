@@ -32,6 +32,7 @@
 #include "core/sevenzip.h"
 #include "core/strings.h"
 #include "core/terms.h"
+#include "x360/profiles.h"
 
 using namespace anyx360::launcher;
 
@@ -1194,6 +1195,76 @@ int main() {
   }
 
   std::error_code ec;
+  {  // Profiles (x360/profiles.h), as the launcher manages them, in the sandbox's %LOCALAPPDATA%.
+    namespace profiles = x360::profiles;
+    const fs::path root = LocalAppData() / L"AnyX360";
+    fs::create_directories(root);
+    // A user folder from before 0.20.0: two names, player 2's saves in players\<its XUID>.
+    WriteFile(root / L"profile.txt", "player1 = Daniel\nplayer2 = Ana\nlanguage = auto\n");
+    WriteFile(root / L"GearsOfWar3" / L"content" / L"save.bin", "player 1's save");
+    WriteFile(root / L"GearsOfWar3" / L"players" / L"E000000012345679" / L"content" / L"save.bin", "player 2's save");
+    const x360::profile::SignIn sign_in = profiles::LoadSignIn(root, true);
+    CHECK(sign_in.slots[0] == profiles::kLegacyXuid && sign_in.slots[1] == profiles::kLegacyXuid + 1);
+    const std::vector<profiles::Profile> migrated = profiles::List(root);
+    CHECK(migrated.size() == 2 && migrated[0].gamertag == "Daniel" && migrated[1].gamertag == "Ana");
+    // Nothing moved: each profile's folder is where its saves already are.
+    CHECK(Exists(profiles::UserFolder(root / L"GearsOfWar3", migrated[0].xuid) / L"content" / L"save.bin"));
+    CHECK(Exists(profiles::UserFolder(root / L"GearsOfWar3", migrated[1].xuid) / L"content" / L"save.bin"));
+    CHECK(Exists(root / L"profile.txt.before-0.20.0"));
+    CHECK(x360::profile::Read(root / L"profile.txt.before-0.20.0").names[1] == "Ana");
+
+    // Create: a random offline XUID, a clean gamertag, no two alike.
+    const profiles::Result leo = profiles::Create(root, "  Leo  99 ", "es");
+    CHECK(leo && leo.profile.gamertag == "Leo 99" && leo.profile.language == "es");
+    CHECK((leo.profile.xuid >> 48) == 0xE000 && leo.profile.xuid != profiles::kLegacyXuid);
+    CHECK(profiles::Create(root, "leo 99").error == profiles::Error::kNameTaken);
+    CHECK(profiles::Create(root, "!!!").error == profiles::Error::kEmptyName);
+    CHECK(profiles::List(root).size() == 3);
+    CHECK(profiles::UserFolder(root / L"GearsOfWar3", leo.profile.xuid) ==
+          root / L"GearsOfWar3" / L"players" / Widen(profiles::XuidText(leo.profile.xuid)));
+    // Rename.
+    CHECK(profiles::Rename(root, leo.profile.xuid, "Leon"));
+    CHECK(profiles::Load(root, leo.profile.xuid)->gamertag == "Leon");
+    CHECK(profiles::Rename(root, leo.profile.xuid, "ana").error == profiles::Error::kNameTaken);
+    CHECK(profiles::Rename(root, 0xE000000000000001ull, "X").error == profiles::Error::kNotFound);
+    // Signing in moves a profile between slots; deleting one signs it out and keeps its saves.
+    CHECK(profiles::SetSlot(root, 2, profiles::kLegacyXuid + 1));
+    const x360::profile::SignIn moved = x360::profile::Read(root / L"profile.txt");
+    CHECK(moved.slots[1] == 0 && moved.slots[2] == profiles::kLegacyXuid + 1 && moved.slots[0] == profiles::kLegacyXuid);
+    CHECK(profiles::Remove(root, profiles::kLegacyXuid + 1));
+    CHECK(x360::profile::Read(root / L"profile.txt").slots[2] == 0);
+    CHECK(!profiles::Load(root, profiles::kLegacyXuid + 1) && profiles::List(root).size() == 2);
+    CHECK(Exists(root / L"GearsOfWar3" / L"players" / L"E000000012345679" / L"content" / L"save.bin"));
+    CHECK(profiles::Remove(root, profiles::kLegacyXuid + 1).error == profiles::Error::kNotFound);
+    // A profile file damaged or copied under another XUID isn't one.
+    WriteFile(root / L"profiles" / L"E000000000000BAD" / L"profile.json", "{\"xuid\": \"E000000000000BAD\"");
+    WriteFile(root / L"profiles" / L"E000000000000C0D" / L"profile.json", "{\"xuid\": \"E000000012345678\"}");
+    CHECK(profiles::List(root).size() == 2);
+
+    // Atomic writes: the file replaced whole, no temporary file left.
+    const fs::path file = root / L"atomic" / L"file.txt";
+    CHECK(profiles::WriteAtomic(file, "first"));
+    CHECK(profiles::WriteAtomic(file, "second"));
+    std::ifstream in(file, std::ios::binary);
+    CHECK(std::string(std::istreambuf_iterator<char>(in), {}) == "second");
+    in.close();
+    size_t files = 0;
+    for (const auto& entry : fs::directory_iterator(file.parent_path())) files += entry.is_regular_file();
+    CHECK(files == 1);
+
+    // Time played, as the details show it.
+    SetLanguage(Language::kEnglish);
+    CHECK(PlayTime(30) == L"under a minute" && PlayTime(45 * 60) == L"45 min" && PlayTime(3 * 3600 + 20 * 60 + 5) == L"3 h 20 min");
+    CHECK(!ShortDate("2026-10-29T12:00:00Z").empty() && ShortDate("yesterday").empty());
+    CHECK(ShortDate("2026-10-29T12:00:00Z").find(L"2026") != std::wstring::npos);
+    SetLanguage(Language::kSpanish);
+    CHECK(PlayTime(30) == L"menos de un minuto");
+    CHECK(ShortDate("2026-10-29T12:00:00Z").find(L"octubre") != std::wstring::npos);
+    SetLanguage(Language::kEnglish);
+    fs::remove_all(root / L"profiles", ec);
+    fs::remove(root / L"profile.txt", ec);
+  }
+
   fs::remove_all(sandbox, ec);
   std::printf("%s (%d failures)\n", failures ? "FAILED" : "OK", failures);
   return failures ? 1 : 0;
