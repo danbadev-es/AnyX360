@@ -464,6 +464,36 @@ void XeCryptAesCbc(uint32_t state, uint32_t input, uint32_t size, uint32_t outpu
   std::memcpy(Ptr(feed), iv, 16);
 }
 
+// Keys a title obscures with the console's key obfuscation key (key 0x18 in the hypervisor) and
+// later uses by their obscured form. Any fixed key does: this one is all zeros, as Xenia's, so the
+// data a title encrypts with them (Forza Motorsport 4's saves) is the same as in Xenia.
+const uint8_t kKeyObfuscationKey[16] = {};
+
+// An AES state in guest memory for these functions, one per thread (allocated once).
+uint32_t ObfuscationState() {
+  thread_local const uint32_t state = SystemAlloc(kAesStateSize);
+  std::memset(Ptr(state), 0, kAesStateSize);
+  std::memcpy(Ptr(state), kKeyObfuscationKey, 16);
+  return state;
+}
+
+uint32_t XeKeysObscureKey(uint32_t input, uint32_t output) {
+  XeCryptAesEcb(ObfuscationState(), input, output, 1);
+  return X_STATUS_SUCCESS;
+}
+
+// XeKeysAesCbcUsingKey(obscured key, input, size, output, feed, encrypt).
+uint32_t XeKeysAesCbcUsingKey(uint32_t obscured_key, uint32_t input, uint32_t size, uint32_t output, uint32_t feed,
+                              uint32_t encrypt) {
+  const uint32_t state = ObfuscationState();
+  uint8_t key[16];
+  std::memcpy(key, Ptr(obscured_key), 16);
+  AesInPlace(state, false, false, key, 16, nullptr);
+  std::memcpy(Ptr(state), key, 16);
+  XeCryptAesCbc(state, input, size, output, feed, encrypt);
+  return X_STATUS_SUCCESS;
+}
+
 // A made-up console ID: 5 raw bytes and the same as 12 decimal digits (not NUL-terminated).
 uint32_t XeKeysGetConsoleID(uint32_t raw_ptr, uint32_t text_ptr) {
   static const uint8_t kRaw[5] = {0x39, 0x10, 0x40, 0x66, 0x7E};
@@ -515,5 +545,7 @@ X360_EXPORT(XeCryptAesKey, XeCryptAesKey)
 X360_EXPORT(XeCryptAesEcb, XeCryptAesEcb)
 X360_EXPORT(XeCryptAesCbc, XeCryptAesCbc)
 X360_EXPORT(XeKeysGetConsoleID, XeKeysGetConsoleID)
+X360_EXPORT(XeKeysObscureKey, XeKeysObscureKey)
+X360_EXPORT(XeKeysAesCbcUsingKey, XeKeysAesCbcUsingKey)
 X360_EXPORT(XeKeysConsolePrivateKeySign, XeKeysConsolePrivateKeySign)
 X360_EXPORT(XeKeysConsoleSignatureVerification, XeKeysConsoleSignatureVerification)

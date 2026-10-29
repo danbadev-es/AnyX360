@@ -458,6 +458,25 @@ uint32_t NtWaitForSingleObjectEx(uint32_t handle, uint32_t wait_mode, uint32_t a
   return WaitForObject(body, TimeoutPtr(timeout_ptr, timeout), alertable != 0);
 }
 
+// ---- kernel stacks ----------------------------------------------------------------------------
+// A title can run code on a stack of its own: MmCreateKernelStack gives one (its top address), and
+// KeSetCurrentStackPointers (below, written by hand: it sets r1) switches the thread to it and back
+// (Forza Motorsport 4).
+
+uint32_t MmCreateKernelStack(uint32_t stack_size, uint32_t unknown) {
+  (void)unknown;
+  const uint32_t size = (stack_size + 0xFFF) & ~0xFFFu;
+  const uint32_t stack = SystemAlloc(std::max<uint32_t>(size, 0x4000), (stack_size & 0xF000) ? 0x1000 : 0x10000);
+  return stack ? stack + size : 0;
+}
+
+// MmDeleteKernelStack(stack base (high), stack end (low)).
+uint32_t MmDeleteKernelStack(uint32_t stack_base, uint32_t stack_end) {
+  (void)stack_base;
+  SystemFree(stack_end);
+  return X_STATUS_SUCCESS;
+}
+
 // Signals one object (an event is set, a semaphore released once, a mutant released) and waits on
 // another (Forza Motorsport 4's video decoder hands frames between its threads with it).
 uint32_t NtSignalAndWaitForSingleObjectEx(uint32_t signal_handle, uint32_t wait_handle, uint32_t alertable,
@@ -546,6 +565,32 @@ uint32_t ObReferenceObjectByHandle(uint32_t handle, uint32_t object_type, uint32
   uint32_t body = ObjectFromHandle(handle);
   if (!body) return X_STATUS_INVALID_HANDLE;
   if (out_ptr) Store<uint32_t>(out_ptr, body);
+  return X_STATUS_SUCCESS;
+}
+
+// ObCreateObject(object type, attributes, size, out object): an object of the title's own type (Forza
+// Motorsport 4 makes some at start), after an X_OBJECT_HEADER {pointer count, handle count, type,
+// flags}. The memory is the type's allocate routine's (X_OBJECT_TYPE: allocate, free, ...,
+// pool tag at 0x18) when it has one, else the system heap's. A name isn't kept (the objects aren't
+// looked up by name), and references aren't counted (ObDereferenceObject never frees).
+uint32_t ObCreateObject(uint32_t object_type, uint32_t attributes, uint32_t size, uint32_t out_ptr) {
+  (void)attributes;
+  if (out_ptr) Store<uint32_t>(out_ptr, 0);
+  const uint32_t total = size + 0x10;
+  const uint32_t allocate = object_type ? Load<uint32_t>(object_type + 0x00) : 0;
+  uint32_t memory = 0;
+  if (allocate) {
+    memory = uint32_t(CallGuest(allocate, {total, Load<uint32_t>(object_type + 0x18), 1}));
+    if (memory) std::memset(Ptr(memory), 0, total);
+  } else {
+    memory = SystemAlloc(total);
+  }
+  if (!memory) return X_STATUS_NO_MEMORY;
+  Store<int32_t>(memory + 0x0, 1);
+  Store<int32_t>(memory + 0x4, 0);
+  Store<uint32_t>(memory + 0x8, object_type);
+  Store<uint16_t>(memory + 0xC, 1);  // OBJECT_HEADER_IS_TITLE_OBJECT
+  if (out_ptr) Store<uint32_t>(out_ptr, memory + 0x10);
   return X_STATUS_SUCCESS;
 }
 
@@ -796,12 +841,36 @@ X360_EXPORT(NtSetTimerEx, NtSetTimerEx)
 X360_EXPORT(NtCancelTimer, NtCancelTimer)
 X360_EXPORT(NtWaitForSingleObjectEx, NtWaitForSingleObjectEx)
 X360_EXPORT(NtSignalAndWaitForSingleObjectEx, NtSignalAndWaitForSingleObjectEx)
+X360_EXPORT(MmCreateKernelStack, MmCreateKernelStack)
+X360_EXPORT(MmDeleteKernelStack, MmDeleteKernelStack)
+
+// KeSetCurrentStackPointers(stack pointer, thread, stack allocation base, stack base (high), stack
+// limit (low)): the thread's stack becomes the given one and r1 points into it.
+PPC_FUNC(__imp__KeSetCurrentStackPointers) {
+  (void)base;
+  const uint32_t kthread = ctx.r4.u32;
+  const uint32_t stack_base = ctx.r6.u32, stack_limit = ctx.r7.u32;
+  if (kthread) {
+    Store<uint32_t>(kthread + 0x5C, stack_base);
+    Store<uint32_t>(kthread + 0x60, stack_limit);
+  }
+  if (Thread* t = CurrentThread(); t && t->kthread == kthread) {
+    t->stack_base = stack_base;
+    t->stack_limit = stack_limit;
+    if (t->pcr) {
+      Store<uint32_t>(t->pcr + 0x070, stack_base);
+      Store<uint32_t>(t->pcr + 0x074, stack_limit);
+    }
+  }
+  ctx.r1.u64 = ctx.r3.u32;
+}
 X360_EXPORT(NtWaitForMultipleObjectsEx, NtWaitForMultipleObjectsEx)
 X360_EXPORT(KeWaitForSingleObject, KeWaitForSingleObject)
 X360_EXPORT(KeWaitForMultipleObjects, KeWaitForMultipleObjects)
 X360_EXPORT(NtClose, NtClose)
 X360_EXPORT(NtDuplicateObject, NtDuplicateObject)
 X360_EXPORT(ObReferenceObjectByHandle, ObReferenceObjectByHandle)
+X360_EXPORT(ObCreateObject, ObCreateObject)
 X360_EXPORT(ObReferenceObject, ObReferenceObject)
 X360_EXPORT(ObDereferenceObject, ObDereferenceObject)
 X360_EXPORT(ObLookupThreadByThreadId, ObLookupThreadByThreadId)
