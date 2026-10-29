@@ -1,0 +1,21 @@
+{
+  "id": "bo3",
+  "title": "Call of Duty: Black Ops III",
+  "cover": "call-of-duty-black-ops-iii",
+  "status": "testing",
+  "exe": "BlackOps3",
+  "executables": {"default.xex": "BlackOps3", "default_zm.xex": "BlackOps3ZM"},
+  "user_dir": "BlackOps3",
+  "title_id": "4156091D",
+  "xex": {"version": "0.0.0.5", "media_id": "33B8D0AD"},
+  "update": {"version": "0.0.8.5", "package": "tu00000005_00000000"},
+  "dev_game_dir": "extracted/bo3/game",
+  "launcher_name": "AnyX360 Call of Duty: Black Ops III",
+  "size_gb": 6,
+  "archive_hint": "Call of Duty: Black Ops III (Games on Demand)",
+  "input": "keyboard_pad",
+  "required_files": ["default_zm.xex", "zm_zod.ff"],
+  "owners": "Activision Publishing, Treyarch",
+  "trademarks": ["Xbox", "Xbox 360", "Call of Duty", "Black Ops"],
+  "components": []
+}

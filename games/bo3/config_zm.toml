@@ -1,0 +1,46 @@
+# Call of Duty: Black Ops III Zombies recompiler configuration (XenonRecomp format). Paths are
+# relative to this file. This file contains no game code or data; it only describes where things are.
+#
+# file_path is default_zm.xex (cod_xenon_zm_Final.pe) of the Games on Demand package written out with
+# x360tool god-extract (see docs/BLACKOPS3.md): a second program of the same title, which the
+# multiplayer executable starts with XamLoaderLaunchTitle for Zombies. Encrypted with the retail key,
+# basic (zero-fill) compression, like default.xex.
+#
+# The executable is recompiled from the title update (version 0.0.8.5): XenonRecomp applies
+# patch_file_path (default_zm.xexp from the update's package, tu00000005_00000000, x360tool
+# stfs-extract; see docs/BLACKOPS3.md) to file_path (version 0.0.0.5) and writes patched_file_path,
+# which XenonAnalyse reads (x360tool xex-patch makes the same file).
+
+[main]
+file_path = "../../extracted/bo3/game/default_zm.xex"
+patch_file_path = "../../extracted/bo3/update/default_zm.xexp"
+patched_file_path = "../../extracted/bo3/update/default_zm_0.0.8.5.xex"
+out_directory_path = "recomp_zm"
+switch_table_file_path = "switch_tables_zm.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x82A08D00
+savegprlr_14_address = 0x82A08CB0
+restfpr_14_address = 0x82A097BC
+savefpr_14_address = 0x82A09770
+restvmx_14_address = 0x82A09AD8
+savevmx_14_address = 0x82A09840
+restvmx_64_address = 0x82A09B6C
+savevmx_64_address = 0x82A098D4
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: word for word the
+# multiplayer executable's). The other longjmp candidate, 0x826FFA68, is the ordinary function with a
+# switch found in multiplayer too.
+setjmp_address = 0x82A52740
+longjmp_address = 0x82A03720

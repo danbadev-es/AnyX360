@@ -1,0 +1,47 @@
+# Call of Duty: Black Ops III multiplayer recompiler configuration (XenonRecomp format). Paths are
+# relative to this file. This file contains no game code or data; it only describes where things are.
+#
+# file_path is default.xex (cod_xenon_mp_Final.pe: multiplayer, the executable the console starts)
+# of the Games on Demand package written out with x360tool god-extract (see docs/BLACKOPS3.md). It is
+# encrypted with the retail key and uses basic (zero-fill) compression. The other executable,
+# default_zm.xex (Zombies), is recompiled on its own (config_zm.toml).
+#
+# The executable is recompiled from the title update (version 0.0.8.5): XenonRecomp applies
+# patch_file_path (default.xexp from the update's package, tu00000005_00000000, x360tool
+# stfs-extract; see docs/BLACKOPS3.md) to file_path (version 0.0.0.5) and writes patched_file_path,
+# which XenonAnalyse reads (x360tool xex-patch makes the same file).
+
+[main]
+file_path = "../../extracted/bo3/game/default.xex"
+patch_file_path = "../../extracted/bo3/update/default.xexp"
+patched_file_path = "../../extracted/bo3/update/default_0.0.8.5.xex"
+out_directory_path = "recomp2"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x82A16AE0
+savegprlr_14_address = 0x82A16A90
+restfpr_14_address = 0x82A1759C
+savefpr_14_address = 0x82A17550
+restvmx_14_address = 0x82A178B8
+savevmx_14_address = 0x82A17620
+restvmx_64_address = 0x82A1794C
+savevmx_64_address = 0x82A176B4
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: the same code as Black Ops
+# II's and Modern Warfare 3's; setjmp first calls through a global when it is set, longjmp restores
+# the registers setjmp saved). The other longjmp candidate, 0x8270D0F8, is an ordinary function (a
+# switch).
+setjmp_address = 0x82A60780
+longjmp_address = 0x82A11500

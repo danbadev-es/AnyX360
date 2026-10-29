@@ -1,0 +1,69 @@
+== XEX2 header ==
+module flags:     0x00000001 title
+PE data offset:   0x00006000
+base address:     0x82000000
+entry point:      0x826C07D0
+image size:       0x02800000 (40.00 MiB)
+page size:        0x10000
+encryption:       AES-128 (normal)
+compression:      basic (zero-fill blocks), 5 blocks
+region:           0xFFFFFFFF
+allowed media:    0x00000004
+original PE name: cod_xenon_zm_Final.pe
+
+== Execution info ==
+title id:         4156091D
+media id:         33B8D0AD
+version:          0.0.0.5 (base 0.0.0.5)
+disc:             1 of 1
+savegame id:      00000000
+default stack:    0x50000
+system flags:     0x00002600
+
+== Optional headers (17) ==
+  000002FF  RESOURCE_INFO                  value/offset 0x00003E24
+  000003FF  FILE_FORMAT_INFO               value/offset 0x00003E38
+  00004304  ?                              value/offset 0x00003E68
+  00010100  ENTRY_POINT                    value/offset 0x826C07D0
+  00010201  IMAGE_BASE_ADDRESS             value/offset 0x82000000
+  000103FF  IMPORT_LIBRARIES               value/offset 0x00005664
+  00018002  CHECKSUM_TIMESTAMP             value/offset 0x00003E78
+  000183FF  ORIGINAL_PE_NAME               value/offset 0x00003E80
+  000200FF  STATIC_LIBRARIES               value/offset 0x00003E9C
+  00020104  TLS_INFO                       value/offset 0x00003FC0
+  00020200  DEFAULT_STACK_SIZE             value/offset 0x00050000
+  00030000  SYSTEM_FLAGS                   value/offset 0x00002600
+  00030100  ?                              value/offset 0x00004008
+  00040006  EXECUTION_INFO                 value/offset 0x00003FD0
+  00040310  GAME_RATINGS                   value/offset 0x00003FE8
+  00040404  LAN_KEY                        value/offset 0x00004028
+  000405FF  XBOX360_LOGO                   value/offset 0x00004038
+
+== Import libraries (2) ==
+  xam.xex          v2.0.21256.0    (min 2.0.17349.0)  218 import records
+  xboxkrnl.exe     v2.0.21256.0    (min 2.0.17349.0)  368 import records
+
+== Statically linked SDK libraries (18) ==
+  XAPILIB  2.0.21256  (tail 0x4000)
+  D3D9     2.0.21256  (tail 0x4000)
+  XGRAPHC  2.0.21256  (tail 0x4000)
+  XBOXKRNL 2.0.21256  (tail 0x4000)
+  XNET     2.0.21256  (tail 0x4000)
+  XAUDIO2  2.0.21256  (tail 0x4000)
+  XAPOBA   2.0.21256  (tail 0x4000)
+  XMCORE   2.0.21256  (tail 0x4000)
+  XONLINE  2.0.21256  (tail 0x400D)
+  XHV2     2.0.21256  (tail 0x4000)
+  LIBCPMT  2.0.11886  (tail 0x0400)
+  XMP      2.0.21256  (tail 0x4000)
+  XGSVCEP  2.0.21256  (tail 0x4000)
+  XHTTP    2.0.21256  (tail 0x4000)
+  XAUTH    2.0.21256  (tail 0x4000)
+  LINK     10.0.11886  (tail 0x4400)
+  C2       16.0.11886  (tail 0x4400)
+  C1       16.0.11886  (tail 0x4400)
+
+== Page descriptors (640) ==
+  code       9.19 MiB
+  data       29.19 MiB
+  read-only  1.62 MiB
