@@ -8,6 +8,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+Achievements, as on the console ([docs/ACHIEVEMENTS.md](docs/ACHIEVEMENTS.md)).
+
+### Added
+
+- **Achievements**: the games' achievements unlock for the profile playing, each once with its date
+  (`profiles\<XUID>\achievements\<TitleID>.json`). The list comes from the game's own data (its
+  SPA), the title update's when the game is played with one: each game writes it, with the
+  pictures, to `titles\<TitleID>\` when it starts.
+- **A toast when an achievement unlocks**: at the bottom of the screen, its picture, gamerscore and
+  name, with a short chime, in English or Spanish as the game. F2 > Display > Overlay turns it, or
+  its sound, off.
+- **The games' own achievement screens** show the real list: a game's "Achievements" (Minecraft's
+  main menu) opens the system's list over the paused game (the d-pad scrolls, B closes it), and
+  games that list achievements themselves get them, with their pictures.
+- **The launcher**: an **Achievements** page for the selected game (next to Play, and in the ⋯
+  menu): unlocked and locked achievements, their pictures and dates, the gamerscore earned of the
+  game's. The profile's gamerscore is in the header, and each profile's in Profiles. A game never
+  played shows the list read from its executable.
+
 ## [0.20.0] - 2026-10-29
 
 Global profiles, as on the console ([docs/PROFILES.md](docs/PROFILES.md)).

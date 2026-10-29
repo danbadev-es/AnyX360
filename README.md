@@ -173,6 +173,12 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   and manages them (create, rename, delete, the language the games use); in a game the sign-in
   screen is a picker driven by each player's controller, with an on-screen keyboard for a new
   gamertag. The names set before 0.20.0 become profiles with their saves.
+- **Achievements** - Each game's achievements, from its own data (its title update's when it has
+  one), unlock for the profile playing, once and with their date
+  ([docs/ACHIEVEMENTS.md](docs/ACHIEVEMENTS.md)): a toast at the bottom of the screen with a chime
+  (F2 turns them off), the game's own achievements menu lists them, and the launcher has an
+  **Achievements** page per game and the profile's gamerscore in the header. Achievements earned on
+  a console aren't imported.
 - **Shader Cache** - Shaders and pipelines are cached between runs, so stutter fades after the
   first play.
 - **Saves** - Stored in `%LOCALAPPDATA%\AnyX360\<game>` (each profile's in its own folder),
