@@ -408,6 +408,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
       if (g_app) g_app->Wheel(Dips(hwnd, at.x), Dips(hwnd, at.y), float(GET_WHEEL_DELTA_WPARAM(wparam)) / WHEEL_DELTA);
       return 0;
     }
+    case WM_MOUSEHWHEEL: {  // a tilting wheel, or a trackpad's sideways swipe
+      POINT at{GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+      ScreenToClient(hwnd, &at);
+      if (g_app) g_app->Wheel(Dips(hwnd, at.x), Dips(hwnd, at.y), float(GET_WHEEL_DELTA_WPARAM(wparam)) / WHEEL_DELTA, true);
+      return TRUE;
+    }
     case WM_SETCURSOR:
       if (LOWORD(lparam) == HTCLIENT) {
         SetCursor(LoadCursorW(nullptr, g_app && g_app->PointerOnTarget() ? IDC_HAND : IDC_ARROW));

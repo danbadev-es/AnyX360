@@ -790,6 +790,7 @@ void App::DrawDrawer(Canvas& c) {
     x += slot;
   }
   const float view_w = width_ - 2 * kMargin;
+  drawer_scroll_max_ = std::max(0.0f, x - 14 - view_w);
   if (focus_ >= kIdCompatible && focus_ < kIdButton) {
     const size_t i = size_t(focus_ - kIdCompatible);
     float target = drawer_scroll_target_;
@@ -1348,7 +1349,7 @@ void App::MouseUp(float x, float y) {
   pressed_ = -1;
 }
 
-void App::Wheel(float x, float y, float notches) {
+void App::Wheel(float x, float y, float notches, bool horizontal) {
   if (!overlays_.empty()) {
     Overlay& overlay = overlays_.back();
     if (overlay.kind == OverlayKind::kTerms || overlay.kind == OverlayKind::kAchievements)
@@ -1357,10 +1358,16 @@ void App::Wheel(float x, float y, float notches) {
   }
   const float drawer_top = height_ - kDrawerBar - (std::clamp(height_ * 0.42f, 230.0f, 330.0f) - kDrawerBar) * drawer_.to;
   if (compatible_open_ && y > drawer_top + kDrawerBar) {
-    drawer_scroll_target_ = std::max(0.0f, drawer_scroll_target_ - notches * 160);
+    // A tilt or a trackpad's sideways swipe scrolls the covers the other way round from a wheel.
+    drawer_scroll_target_ = std::clamp(drawer_scroll_target_ - (horizontal ? -notches : notches) * 160, 0.0f, drawer_scroll_max_);
     drawer_scroll_.Go(drawer_scroll_target_, Now(), 0.2);
+    // A focused cover would pull the row back to itself on the next frame.
+    if (focus_ >= kIdCompatible && focus_ < kIdButton) focus_ = kIdCompatibleBar;
   } else {
-    Select(selected_ - int(notches));
+    wheel_rest_ += horizontal ? -notches : notches;
+    const int steps = int(wheel_rest_);
+    wheel_rest_ -= float(steps);
+    if (steps != 0) Select(selected_ - steps);
   }
   host_.Invalidate();
 }

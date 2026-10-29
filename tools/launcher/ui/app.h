@@ -76,7 +76,7 @@ class App : public JobObserver {
   void MouseLeave();
   void MouseDown(float x, float y);
   void MouseUp(float x, float y);
-  void Wheel(float x, float y, float notches);
+  void Wheel(float x, float y, float notches, bool horizontal = false);
   // Right click: the ⋯ menu of the game under the pointer.
   void RightClick(float x, float y);
   // The pointer is on something that acts (the hand cursor).
@@ -261,7 +261,8 @@ class App : public JobObserver {
 
   // Movement.
   Animation row_scroll_, drawer_, drawer_scroll_, selection_, background_fade_;
-  float row_scroll_target_ = 0, drawer_scroll_target_ = 0;
+  float row_scroll_target_ = 0, drawer_scroll_target_ = 0, drawer_scroll_max_ = 0;
+  float wheel_rest_ = 0;  // a trackpad's partial notches, until they add up to one
   std::shared_ptr<const Image> background_, previous_background_;
   bool drop_hover_ = false;
 
