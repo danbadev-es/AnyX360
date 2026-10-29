@@ -1,0 +1,48 @@
+# Minecraft: Xbox 360 Edition recompiler configuration (XenonRecomp format). Paths are relative to
+# this file. This file contains no game code or data; it only describes where things are.
+#
+# The game is recompiled from its title update's executable (version 0.0.80.1): XenonRecomp applies
+# patch_file_path to file_path and writes patched_file_path, which XenonAnalyse reads (x360tool
+# xex-patch makes the same file). file_path is the default.xex of the Xbox Live Arcade package
+# (version 0.0.0.1, encrypted with the retail key, LZX-compressed), patch_file_path is default.xexp
+# from the update's package (584111F7\000B0000\tu00000001_00000000, x360tool stfs-extract), see
+# docs/MINECRAFT.md.
+
+[main]
+file_path = "../../extracted/minecraft/game/default.xex"
+patch_file_path = "../../extracted/minecraft/update/default.xexp"
+patched_file_path = "../../extracted/minecraft/update/default_0.0.80.1.xex"
+out_directory_path = "recomp"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x82B8E690
+savegprlr_14_address = 0x82B8E640
+restfpr_14_address = 0x82B8F37C
+savefpr_14_address = 0x82B8F330
+restvmx_14_address = 0x82B953F8
+savevmx_14_address = 0x82B95160
+restvmx_64_address = 0x82B9548C
+savevmx_64_address = 0x82B951F4
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: setjmp saves f14-f31,
+# r13-r31 and v14-v31 at r3 and returns 0, longjmp restores them through r7 and returns r4, or 1, as
+# Kinect Adventures'). The other longjmp candidates are ordinary functions.
+setjmp_address = 0x82B96480
+longjmp_address = 0x82B95F50
+
+# Functions the analyser misses (address + size), added as they are found.
+# functions = [
+#   { address = 0x0, size = 0x0 },
+# ]

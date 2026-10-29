@@ -1,0 +1,20 @@
+{
+  "id": "minecraft",
+  "title": "Minecraft: Xbox 360 Edition",
+  "cover": "minecraft",
+  "status": "testing",
+  "exe": "Minecraft",
+  "user_dir": "Minecraft",
+  "title_id": "584111F7",
+  "xex": {"version": "0.0.0.1", "media_id": "7CD33B56"},
+  "update": {"version": "0.0.80.1", "package": "tu00000001_00000000"},
+  "dev_game_dir": "extracted/minecraft/game",
+  "launcher_name": "AnyX360 Minecraft",
+  "size_gb": 2,
+  "archive_hint": "Minecraft: Xbox 360 Edition (Xbox Live Arcade)",
+  "input": "keyboard_pad",
+  "required_files": ["ArcadeInfo.xml"],
+  "owners": "Microsoft Corporation, Mojang, 4J Studios",
+  "trademarks": ["Xbox", "Xbox 360", "Minecraft"],
+  "components": []
+}
