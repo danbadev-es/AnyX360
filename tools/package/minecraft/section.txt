@@ -1,0 +1,34 @@
+MINECRAFT: XBOX 360 EDITION
+==========================================================
+Your copy: the Xbox Live Arcade package (in an archive or a folder) and its title update (the
+584111F7\000B0000 package next to it, or added alone afterwards): the game needs it. The
+downloadable content packs next to them (skins, texture packs, mash-ups) are installed too.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\Minecraft
+
+CONTROLS
+An Xbox controller, or the keyboard and mouse standing in for one:
+  Move (left stick)                     W A S D
+  Look (right stick)                    Mouse
+  Jump (A)                              Space
+  Mine / attack (RT)                    Left mouse button
+  Place / use (LT)                      Right mouse button
+  Change item (LB / RB)                 Q / R
+  Inventory (Y), crafting (X)           F, E
+  Pause (Start)                         Esc
+
+"Play Game" asks about Xbox LIVE: choose "Continue offline" (the second button).
+
+SPLIT SCREEN (UP TO FOUR PLAYERS)
+Each player needs a controller. In a game, the new player presses START: the game says "Press START
+to join". Press START again and the screen splits. Players 3 and 4 join the same way. To play
+player 1 with a controller too, open F2 > Players and set Player 1 to "Controller".
+
+KNOWN ISSUES
+- The pictures of the worlds in the Load list are black.
+- Split screen is heavier: on a slower PC the frame rate drops with three or four players.
+- Downloadable content added with an earlier AnyX360 launcher: add it again (the game needs each
+  pack's name, which the earlier launcher didn't keep).
+- Online games, joining other people's games, the store and leaderboards need Xbox LIVE, which is
+  gone.
+- Only some of the downloadable content packs have been tried: if something is wrong, tell us
+  with the logs.

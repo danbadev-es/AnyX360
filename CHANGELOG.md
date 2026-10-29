@@ -8,6 +8,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+Minecraft: Xbox 360 Edition, in testing: new and saved worlds, up to four players in split screen,
+and its downloadable content.
+
+### Added
+
+- **Minecraft: Xbox 360 Edition** ([docs/MINECRAFT.md](docs/MINECRAFT.md)): the Xbox Live Arcade
+  package recompiled from its last title update (0.0.80.1, required), which carries most of the
+  game. Menus, new worlds, playing, and saving and loading worlds work with one player at 60 FPS.
+  Up to four players play in split screen: in a game, a new player presses START twice to join.
+  The 92 downloadable content packs of the test copy load; the Skyrim mash-up was played.
+- **Content thumbnails**: XamContentSetThumbnail and XamContentGetThumbnail keep a package's
+  thumbnail (`__thumbnail.png` in its folder). Minecraft keeps each world's seed and options in it.
+
+### Fixed
+
+- **An asynchronous XamContentCreateEx now reports the disposition** (opened or created) as the
+  request's result, as the console does; it reported 0. Minecraft only reads its list of worlds
+  when it was opened, so the Load tab rebuilt it forever and never showed the worlds.
+- **Downloadable content keeps its display name.** The launcher records each pack's name when it
+  installs it (`content\Headers\00000002\`), and `.anyx` backups keep the names; enumerations
+  answer it as the console's do. Minecraft finds its packs by name and closed while starting with
+  packs listed under their file names. Packs added with an earlier launcher have no name: add them
+  again.
+
 ## [0.18.0] - 2026-10-29
 
 Resident Evil 6, Modern Warfare 3 and Black Ops II with their title updates, and their
