@@ -305,8 +305,11 @@ window not minimized, hidden, on another virtual desktop or covered by the windo
 maximized over it); then the window is painted again for its next picture, 30 a second (60 during
 a gesture), from a high-resolution waitable timer the message loop waits on; otherwise the launcher
 paints on events as before. Each frame draws the avatar again (the same Direct3D buffers, only the
-72 joints' constants change), reads it back and copies it into the same Direct2D bitmap. With
-Windows' animation effects off (Settings > Accessibility > Visual effects), it stands still.
+72 joints' constants change), reads it back and copies it into the same Direct2D bitmap: about
+1 ms of CPU per picture at the size Home draws it on a 2560x1440 screen (552x890 pixels, 8x
+multisampled; 0.6 ms on the clock), so about 3% of one core at 30 a second, measured headless on
+2026-10-29. With Windows' animation effects off (Settings > Accessibility > Visual effects), it
+stands still.
 
 **Pictures of it:** `--anim idle|wave|nod [--anim-time seconds]` poses the avatar that far into the
 idle (and the gesture) in `--screenshot` (Home's and the editor's avatar; without `--anim` it stands
