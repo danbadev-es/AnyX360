@@ -39,18 +39,42 @@ it stays forever. Nothing is read after the Alps audio zones; the track's `bin.z
   late and at a varying time (145 s to 350 s into the run): the video decodes slower than real
   time, the XMedia workers (threads starting at `881EE7A0`) being created and ended per frame.
   Right after the end the race load starts: the NUI thread (`827C1338`), the worker `82A68968`,
-  CareerRaceModes.xml, the job thread `82CE1700`, the Alps audio zones. After that, nothing
-  more is opened (being checked with a ten-minute run).
+  CareerRaceModes.xml, the job thread `82CE1700`, the Alps audio zones. After that nothing more
+  is opened, allocated or queried for ten minutes (LOG_FILES + ANYX360_TRACE): neither the
+  track's `bin.zip` nor the car's zip (`media\cars\fer_f142_10.zip`, the 458) is requested.
+- Ruled out in this session: the main loop's mode flags (`822DADD8`'s object 40053530: +2080,
+  +2812..2817, +2844, +3050, +3973, +3975, +4144 don't change after the race load starts); the
+  job worker `82CE1700` (a timer service, idle); thread 22 (`828B96F0`, audio, 32 ms tick); Xenia
+  GPU warnings (none, with `[xenia] log_file`); physical allocation failures (none logged).
+- The main thread (17) spins at ~99 % with or without the native pow: its loop (`822DADD8`)
+  recomputes the gamma ramp (`8243F330` → `8287AE48`, D3D SetGammaRamp `826E6750`) every
+  iteration and yields (SwitchToThread). Not the blocker, but wasteful.
+- The game reads dev parameters (`disablesplashintro`, `skiptutorials`, `track`, `launch`,
+  `exhibition`, `pausephysicsonstreaming`, `streamsize`...; table near 0x820120E8) through
+  829490B8/82949198; `loadcmdlinedottxt` names a file (default `GAME:\cmdline.txt`) — a way to
+  launch a race directly and test the race loader outside the first-run flow.
+
+- Export trace of every thread late in the stall (`ANYX360_TRACE=FFFF:280`): only critical
+  sections, per-frame input/XUID polls, XNotifyGetNext, gamma (VdGetCurrentDisplayGamma), VdSwap,
+  and on the game thread every frame XexGetProcedureAddress + **XamMediaVerificationFailedBlocks**
+  (the media verification monitor `823BA2A0`: it polls the X_SECURITY_FAILURE_INFORMATION at
+  monitor+16 and stops once total blocks > 0 and complete; the game also calls
+  XamMediaVerificationVerify(100 blocks, no overlapped, no callback) again and again). Answering
+  "checked = total = the blocks asked for" (tried, then reverted: not committed) did not end the
+  stall in a 15-minute run.
+- The welcome video's end (13/1) always comes at about the same point of the log (line ~11480),
+  so the race load had several minutes in the 10- and 15-minute runs and still never asked for the
+  track or the car. Add timestamps to the probe to know when.
 
 ## Next step (exact)
-1. Probe `826460F8` again to print the queried name (`[0x82DDF1D8]` string) and `obj+132`
-   (probe.cpp already does it; the last run p3 printed nothing: check its build log first,
-   `scratchpad\fm4\build9.log`).
-2. Find what makes that UI query true: the UI animation/clip system (8299CB18, 824AB458) — e.g. a
-   clip driven by a video (`Media\UI\videos\LoadingAnim*.wmv` never opened), or a timeline that
-   needs an event. Also look at `CContentInstaller` (`823CD428` starts `CContentInstaller::
-   InstallThreadFunc` = `823C7618` through the CThread helpers 82943F10/829434E8; never started in
-   these runs) and the DB functions `IsCarInstalled`, `IsEnvironmentOnDisc`, `IsCarOnDisc`.
+1. Find the race setup that should follow the Alps audio: who requests the car and track loads
+   after `826D5358` (the race-start job run on thread 21: Kinect manager `82A689F8`, `82A78F80`...)
+   and what it waits for. Candidates: the Kinect manager / NUI thread (`827C1338` retries
+   `827BBE58` every 30 ms forever without a sensor; the worker `82A68968` waits on its object's
+   event at +17012), the DB install checks (`IsCarInstalled`, `IsEnvironmentOnDisc`,
+   `IsCarOnDisc`; `CContentInstaller` at `823CD428` never starts).
+2. Try a direct race launch with the dev parameters (`loadcmdlinedottxt`/`GAME:\cmdline.txt`,
+   or ExLoadedCommandLine) to see whether the race loader works outside the first-run flow.
 3. Then the single-player list: career/World Tour with saving, Free Play, garage/upgrades/tuning,
    paint editor, storefront, replays, Rivals offline, disc-2 cars, DLC.
 

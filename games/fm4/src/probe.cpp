@@ -122,6 +122,26 @@ PPC_FUNC(sub_82947780) {
   __imp__sub_82947780(ctx, base);
 }
 
+// The main loop (822DADD8): its object's flags, logged when they change.
+X360_GUEST_ORIGINAL(822DADD8)
+PPC_FUNC(sub_822DADD8) {
+  static uint64_t last = ~0ull;
+  static uint32_t last_ptr = 1;
+  const uint32_t self = ctx.r3.u32;
+  const uint16_t offsets[] = {2080, 2812, 2813, 2814, 2815, 2816, 2817, 2844, 3050, 3973, 3975, 4144};
+  uint64_t flags = 0;
+  for (int i = 0; i < 12; ++i) flags |= uint64_t(base[self + offsets[i]] != 0) << i;
+  const uint32_t ptr = __builtin_bswap32(*(uint32_t*)(base + self + 2804));
+  if (flags != last || ptr != last_ptr) {
+    std::fprintf(stderr, "PROBE main %08X flags", self);
+    for (int i = 0; i < 12; ++i) std::fprintf(stderr, " %u:%u", offsets[i], base[self + offsets[i]]);
+    std::fprintf(stderr, " +2804 %08X\n", ptr);
+    last = flags;
+    last_ptr = ptr;
+  }
+  __imp__sub_822DADD8(ctx, base);
+}
+
 // The facade's next frame: 0x166600E8 not ready yet, 0x16660026 the end.
 PPC_FUNC(sub_82985E78) {
   const uint32_t movie = ctx.r4.u32;
