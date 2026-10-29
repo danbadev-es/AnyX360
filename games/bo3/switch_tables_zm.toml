@@ -6383,3 +6383,32 @@ labels = [
 # unresolved table-driven bctr at 0x8236D9A4
 # unresolved table-driven bctr at 0x8237356C
 # unresolved table-driven bctr at 0x82373590
+
+# ---- ADDED BY HAND (games/bo3: docs/BLACKOPS3.md) ----
+# A switch through a table of byte offsets (lbzx, no shift) that XenonAnalyse leaves unresolved: its
+# bctr was taken for an indirect call and the first case reached ended the game ("indirect call to an
+# address without recompiled code", starting a match with bots).
+[[switch]]
+base = 0x8221C158
+r = 11
+default = 0x8221C1B8
+table = 0x8209E588
+table_size = 0xF
+labels = [
+    0x8221C15C,
+    0x8221C168,
+    0x8221C15C,
+    0x8221C174,
+    0x8221C194,
+    0x8221C1B8,
+    0x8221C188,
+    0x8221C180,
+    0x8221C180,
+    0x8221C1B8,
+    0x8221C1B8,
+    0x8221C1B8,
+    0x8221C1B8,
+    0x8221C1A0,
+    0x8221C180,
+]
+
