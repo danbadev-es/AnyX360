@@ -118,9 +118,10 @@ settings.toml (player 2 is connected by its scripted presses):
   presses START at the title, chooses Kombate, Torneo, Scorpion and Novato, and mashes attacks
   from the first fight on (about 100 s).
 - **Versus**: `ANYX360_INPUT=45:START,50:RB,55:A,61:A,67:START@1,71:A@1,74:A,90:X~0.35x200,90.15:A~0.35x200,90.3:Y~1.3x50,92:B~2.5x25@1,93:LLEFT/0.5~4x15@1,180:A@1`
-  switches to 2 JUGADORES, chooses Modo Versus and Uno contra uno; player 2 joins and takes
-  Sub-Zero, player 1 Scorpion; player 1 wins the match (about 150 s) and player 2 chooses Revancha
-  at 180 s.
+  switches to 2 JUGADORES (from 1 JUGADOR: in one later run on the same profile the menu didn't
+  start there, and the presses opened Extras), chooses Modo Versus and Uno contra uno; player 2
+  joins and takes Sub-Zero, player 1 Scorpion; player 1 wins the match (about 150 s) and player 2
+  chooses Revancha at 180 s.
 - **Tag versus** (with `p3`/`p4` given `pad3`/`pad4`): `ANYX360_INPUT=45:START,50:RB,55:A,59:DOWN,61:A,66:START@1,68:START@2,70:START@3,74:A,76:A@1,78:A@2,80:A@3,84:A,86:A@1,110:X~0.35x150,110.15:A~0.35x150`
   chooses Dos contra dos; the tag fight starts at about 110 s.
 
