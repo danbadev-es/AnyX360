@@ -83,6 +83,7 @@ class AvatarPack {
   const std::vector<AvatarPackEntry>& entries() const { return entries_; }
   std::span<const uint8_t> data(const AvatarPackEntry& e) const;
   std::span<const uint8_t> raw_entry(uint32_t index) const;  // the 0xF8 bytes
+  std::span<const uint8_t> toc() const { return toc_; }      // the whole table
 
  private:
   std::vector<uint8_t> toc_;

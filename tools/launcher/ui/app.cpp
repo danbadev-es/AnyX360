@@ -17,6 +17,8 @@
 #include "core/paths.h"
 #include "core/strings.h"
 #include "core/terms.h"
+#include "ui/app_internal.h"
+#include "ui/avatar_page.h"
 
 #define ANYX360_WIDEN2(x) L##x
 #define ANYX360_WIDEN(x) ANYX360_WIDEN2(x)
@@ -28,78 +30,13 @@ using anyx360::ui::TextStyle;
 
 namespace {
 
-// Metro dark: charcoal, flat panels, Xbox green for what acts.
-constexpr Color kBackground = Color::Hex(0x141414);
-constexpr Color kPanel = Color::Hex(0x1E1E1E);
-constexpr Color kPanelHigh = Color::Hex(0x2B2B2B);
-constexpr Color kPanelHover = Color::Hex(0x393939);
-constexpr Color kBorder = Color::Hex(0x333333);
-constexpr Color kText = Color::Hex(0xFFFFFF);
-constexpr Color kTextSecondary = Color::Hex(0xB8B8B8);
-constexpr Color kTextTertiary = Color::Hex(0x7E7E7E);
-constexpr Color kGreen = Color::Hex(0x107C10);
-constexpr Color kGreenHover = Color::Hex(0x1A9A1A);
-constexpr Color kGreenText = Color::Hex(0x7FD46F);
-constexpr Color kRed = Color::Hex(0xE81123);
-constexpr Color kRedText = Color::Hex(0xFF8080);
-
-constexpr float kMargin = 48;
-constexpr float kDrawerBar = 56;
-constexpr float kTileGap = 24;
-constexpr float kSelectedScale = 1.07f;
-
 // The logos in launcher.rc: the mark, and the mark over the "anyX360" wordmark.
 constexpr int kLogoMark = 2;
 constexpr int kLogoFull = 3;
 
-// Target ids: what the pointer and the focus reach. Stable across frames.
-enum : int {
-  kIdPlay = 1,
-  kIdMore,
-  kIdCompatibleBar,
-  kIdLanguage,
-  kIdTerms,
-  kIdPassword,
-  kIdTermsCheck,
-  kIdTermsText,
-  kIdProfile,
-  kIdProfileLanguage,
-  kIdSwitchProfile,
-  kIdGamertagField,
-  kIdAchievements,
-  kIdAchievementList,
-  kIdTile = 1000,
-  kIdCompatible = 2000,
-  kIdButton = 3000,
-  kIdChoice = 3100,
-  kIdMenuItem = 3200,
-  kIdWhoTile = 3300,      // + profile; the last is "Create profile"
-  kIdProfileRow = 3500,   // + profile; the last is "Create profile"
-  kIdKey = 3700,          // + row * 16 + key: the on-screen keyboard
-  kIdConsoleMode = 3900,  // the header's link to console mode
-  // Console mode (the dashboard).
-  kIdTab = 4000,             // + page
-  kIdConsoleGame = 4100,     // + game (index into games_): the Games page
-  kIdConsoleRecent = 4200,   // + game: Home's covers
-  kIdConsoleAch = 4300,      // + game: the Achievements page's rows
-  kIdConsoleProfile = 4400,  // + profile; the last is "Create profile"
-  kIdConsoleAction = 4500,   // + n: a page's buttons
-  kIdConsoleEnd = 4600,
-};
-constexpr int kPages = 6;
-
-// AnyX360's folder of %LOCALAPPDATA%: profile.txt and the profiles (next to the games' own folders).
-fs::path ProfilesRoot() { return LocalAppData() / L"AnyX360"; }
-
 // The on-screen keyboard for a gamertag: letters and digits, then Shift, Space and Delete.
 constexpr const wchar_t* kKeyRows[] = {L"1234567890", L"QWERTYUIOP", L"ASDFGHJKL", L"ZXCVBNM"};
 constexpr int kKeyShift = 0, kKeySpace = 1, kKeyErase = 2;  // the last row's keys
-
-// A profile's colour for its gamerpic (none yet: its initial on this), from its XUID.
-Color ProfileColor(uint64_t xuid) {
-  constexpr uint32_t kColors[] = {0x107C10, 0x0063B1, 0x8E44AD, 0xC0392B, 0xD35400, 0x16A085, 0x2C3E50, 0xB7950B};
-  return Color::Hex(kColors[(xuid ^ (xuid >> 17) ^ (xuid >> 33)) % std::size(kColors)]);
-}
 
 // What the games are told for a profile language ("auto": Windows').
 std::wstring LanguageLabel(const std::string& tag) {
@@ -113,32 +50,6 @@ std::wstring LanguageLabel(const std::string& tag) {
 
 // A gamertag's characters: letters and digits (ASCII) and spaces.
 bool NameCharacter(wchar_t ch) { return ch < 0x80 && (std::iswalnum(ch) || ch == L' '); }
-
-bool g_instant = false;  // screenshots: every animation at its end
-
-double Now() {
-  return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-}
-
-float EaseOut(float t) {
-  t = std::clamp(t, 0.0f, 1.0f);
-  return 1 - (1 - t) * (1 - t) * (1 - t);
-}
-
-TextStyle Style(float size, DWRITE_FONT_WEIGHT weight, Color color, Align align = Align::kStart, bool wrap = false) {
-  TextStyle style;
-  style.size = size;
-  style.weight = weight;
-  style.color = color;
-  style.align = align;
-  style.wrap = wrap;
-  return style;
-}
-
-const TextStyle& Body() {
-  static const TextStyle style = Style(15, DWRITE_FONT_WEIGHT_NORMAL, kTextSecondary, Align::kStart, true);
-  return style;
-}
 
 std::wstring Version() { return ANYX360_WIDEN(ANYX360_VERSION_FULL); }
 
@@ -239,16 +150,6 @@ constexpr wchar_t kGameFiles[] =
     L"*.anyx;*.7z;*.zip;*.zipx;*.rar;*.001;*.iso;*.xiso;*.tar;*.gz;*.tgz;*.bz2;*.tbz2;*.xz;*.txz;*.zst;*.cab;*.wim;"
     L"*.xex";
 
-// A promise answered once: by the player, or with the default when the launcher closes first.
-template <typename T>
-struct Answer {
-  std::promise<T> promise;
-  std::atomic<bool> given{false};
-  void Give(T value) {
-    if (!given.exchange(true)) promise.set_value(std::move(value));
-  }
-};
-
 }  // namespace
 
 float App::Animation::Value(double now) const {
@@ -269,48 +170,6 @@ void App::Animation::Go(float target, double now, double length) {
   duration = length;
 }
 
-struct App::Target {
-  RectF rect;
-  int id = 0;
-  std::function<void()> action;
-  bool focusable = true;
-};
-
-enum class OverlayKind { kAdd, kProgress, kMessage, kPassword, kMenu, kTerms, kWho, kProfiles, kGamertag, kAchievements };
-
-struct App::Overlay {
-  struct Action {
-    std::wstring label;
-    std::function<void()> run;
-    bool enabled = true;
-  };
-  OverlayKind kind = OverlayKind::kMessage;
-  std::wstring title, text;
-  bool error = false;
-  std::vector<Action> buttons;  // the first is the default
-  bool primary = true;          // the first button in green (not for a lone Cancel)
-  std::function<void()> back;   // Esc, B; none: nothing happens
-  // A password.
-  std::wstring typed;
-  bool wrong = false;
-  std::shared_ptr<Answer<std::optional<std::wstring>>> password;
-  std::shared_ptr<Answer<bool>> replace;
-  // The ⋯ menu.
-  RectF anchor;
-  std::vector<Action> items;
-  // "Who's playing?" at start: it can't be left without choosing.
-  bool required = false;
-  // A gamertag typed (in `typed`): the profile renamed (0: a new one), the on-screen keyboard's
-  // Shift. Achievements: the profile whose they are (0: nobody playing) and the title's.
-  uint64_t xuid = 0;
-  uint32_t title_id = 0;
-  bool shift = true;
-  // The terms.
-  bool require_acceptance = false, checked = false;
-  float scroll = 0, content = 0, view = 0;
-  Animation fade;
-  int saved_focus = -1;
-};
 
 App::App(Host& host) : host_(host), images_([&host] { host.Post([&host] { host.Invalidate(); }); }) {
   compatible_open_ = ReadSetting(SettingsFile(L"launcher_compatible.txt")) == L"1";
@@ -453,8 +312,12 @@ void App::Paint(Canvas& c) {
   if (!overlays_.empty()) {
     targets_.clear();  // modal: only the top overlay can be reached
     Overlay& overlay = overlays_.back();
-    // A menu opened from an overlay (a profile's) shows over it.
-    if (overlay.kind == OverlayKind::kMenu && overlays_.size() > 1) {
+    // A menu opened from an overlay (a profile's) shows over it; the avatar editor shows under a
+    // question or the gamerpic picker.
+    if (overlays_.size() > 1 && overlays_[overlays_.size() - 2].kind == OverlayKind::kAvatar &&
+        overlay.kind != OverlayKind::kAvatar)
+      DrawAvatarOverlay(c, overlays_[overlays_.size() - 2], false);
+    else if (overlay.kind == OverlayKind::kMenu && overlays_.size() > 1) {
       Overlay& under = overlays_[overlays_.size() - 2];
       if (under.kind == OverlayKind::kWho) DrawWho(c, under, false);
       else if (under.kind != OverlayKind::kTerms && under.kind != OverlayKind::kMenu) DrawOverlay(c, under, false);
@@ -463,6 +326,8 @@ void App::Paint(Canvas& c) {
     else if (overlay.kind == OverlayKind::kMenu) DrawMenu(c, overlay, true);
     else if (overlay.kind == OverlayKind::kWho) DrawWho(c, overlay, true);
     else if (overlay.kind == OverlayKind::kAchievements) DrawAchievements(c, overlay, true);
+    else if (overlay.kind == OverlayKind::kAvatar) DrawAvatarOverlay(c, overlay, true);
+    else if (overlay.kind == OverlayKind::kGamerpic) DrawGamerpicPicker(c, overlay, true);
     else DrawOverlay(c, overlay, true);
   }
   if (drop_hover_) {
@@ -491,7 +356,7 @@ bool App::Animating() const {
   const bool indeterminate = working_ && percent_ < 0;
   return row_scroll_.Running(now) || drawer_.Running(now) || drawer_scroll_.Running(now) ||
          selection_.Running(now) || background_fade_.Running(now) || indeterminate || game_starting_ ||
-         (running_game_ && leaving_at_ > 0) || page_fade_.Running(now);
+         (running_game_ && leaving_at_ > 0) || page_fade_.Running(now) || (avatar_ && avatar_->turning_until > now);
 }
 
 void App::DrawBackground(Canvas& c) {
@@ -1229,6 +1094,8 @@ void App::FocusFirst() {
         break;
       case OverlayKind::kTerms: preferred = {kIdTermsCheck, kIdButton}; break;
       case OverlayKind::kAchievements: preferred = {kIdAchievementList, kIdButton}; break;
+      case OverlayKind::kAvatar: preferred = {kIdAvatarRow}; break;
+      case OverlayKind::kGamerpic: preferred = {kIdGamerpic}; break;
       default: preferred = {kIdButton}; break;
     }
   } else if (console_) {
@@ -1321,6 +1188,11 @@ void App::Back() {
 
 void App::MouseMove(float x, float y) {
   mouse_x_ = x, mouse_y_ = y;
+  if (avatar_ && avatar_->dragging) {
+    avatar_->yaw += (x - avatar_->drag_x) * 0.012f;
+    avatar_->drag_x = x;
+    host_.Invalidate();
+  }
   const Target* target = TargetAt(x, y);
   const int hover = target && target->action ? target->id : -1;
   if (hover != hover_) {
@@ -1340,6 +1212,8 @@ void App::MouseDown(float x, float y) {
   const Target* target = TargetAt(x, y);
   pressed_ = target ? target->id : -1;
   if (target && target->focusable) focus_ = target->id;
+  // The avatar viewer: dragged, it turns.
+  if (AvatarShown() && avatar_ && avatar_->view.Contains(x, y)) avatar_->dragging = true, avatar_->drag_x = x;
   host_.Invalidate();
 }
 
@@ -1347,9 +1221,15 @@ void App::MouseUp(float x, float y) {
   const Target* target = TargetAt(x, y);
   if (target && target->id == pressed_) Activate(target->id);
   pressed_ = -1;
+  if (avatar_) avatar_->dragging = false;
 }
 
 void App::Wheel(float x, float y, float notches, bool horizontal) {
+  // Over the avatar viewer: the wheel zooms to its face and back.
+  if (AvatarShown() && avatar_ && avatar_->view.Contains(x, y)) {
+    if (!horizontal) avatar_->zoom = std::clamp(avatar_->zoom + notches * 0.15f, 0.0f, 1.0f);
+    return host_.Invalidate();
+  }
   if (!overlays_.empty()) {
     Overlay& overlay = overlays_.back();
     if (overlay.kind == OverlayKind::kTerms || overlay.kind == OverlayKind::kAchievements)
@@ -1396,6 +1276,8 @@ void App::KeyPressed(Key key, bool from_pad) {
     host_.Invalidate();
     return;
   }
+  // The avatar editor: left and right change a row, Y makes a random avatar, Start saves.
+  if (AvatarKey(key)) return;
   // The dashboard: LB and RB (Tab) change pages, Start plays the game with the focus, Y is its ⋯
   // menu, B and the Guide button go Home.
   if (console_ && overlays_.empty() && !game_starting_) {
@@ -1771,6 +1653,18 @@ const x360::profiles::Profile* App::Player() const {
 
 void App::DrawGamerpic(Canvas& c, float cx, float cy, float radius, const x360::profiles::Profile* profile,
                        float opacity) {
+  // Its picture (profile.json "gamerpic", in its folder), round; else its initial on its colour.
+  if (profile && !profile->gamerpic.empty()) {
+    const uint32_t pixels = uint32_t(std::lround(radius * 2 * dpi_ / 96));
+    const fs::path file = x360::profiles::ProfileFolder(ProfilesRoot(), profile->xuid) / fs::path(Widen(profile->gamerpic));
+    if (ID2D1Bitmap* bitmap = Bitmap(c, images_.Picture(file, pixels, pixels))) {
+      const RectF r{cx - radius, cy - radius, radius * 2, radius * 2};
+      c.PushClip(r, radius);
+      c.DrawBitmap(bitmap, r, opacity, true);
+      c.PopClip();
+      return;
+    }
+  }
   c.FillCircle(cx, cy, radius, (profile ? ProfileColor(profile->xuid) : kPanelHover).Alpha(opacity));
   const std::wstring initial = profile && !profile->gamertag.empty()
                                    ? std::wstring(1, wchar_t(std::towupper(wchar_t(profile->gamertag[0]))))
@@ -1877,6 +1771,8 @@ void App::OpenProfileMenu(const RectF& anchor, uint64_t xuid) {
   overlay.items.push_back({Tr(kTextMenuPlayAs, {gamertag}), [this, xuid] { SignInAs(xuid); PopOverlay(); },
                            sign_in_.slots[0] != xuid});
   overlay.items.push_back({Tr(kTextMenuRename), [this, xuid] { PopOverlay(); OpenGamertag(xuid); }});
+  overlay.items.push_back({Tr(kTextMenuEditAvatar), [this, xuid] { PopOverlay(); OpenAvatarEditor(xuid); }});
+  overlay.items.push_back({Tr(kTextMenuGamerpic), [this, xuid] { PopOverlay(); OpenGamerpicPicker(xuid); }});
   overlay.items.push_back({Tr(kTextMenuDeleteProfile), [this, xuid, gamertag] {
                              PopOverlay();
                              Overlay confirm;
@@ -2300,7 +2196,11 @@ void App::ToggleFullscreen() {
 
 void App::ShowPage(Page page) {
   if (page == page_) return;
+  // The avatar page with changes asks first (save, discard or stay).
+  if (page_ == Page::kAvatar && AvatarChanged()) return LeaveAvatar([this, page] { ShowPage(page); });
+  if (page_ == Page::kAvatar) avatar_.reset();
   page_ = page;
+  if (page == Page::kAvatar && Player()) BeginAvatarEdit(Player()->xuid);
   focus_ = -1;
   page_fade_ = {};
   page_fade_.Go(1, Now(), 0.18);
@@ -2366,6 +2266,7 @@ void App::DrawConsole(Canvas& c) {
     case Page::kGames: DrawGamesPage(c, area); break;
     case Page::kAchievements: DrawAchievementsPage(c, area); break;
     case Page::kProfiles: DrawProfilesPage(c, area); break;
+    case Page::kAvatar: DrawAvatarPage(c, area); break;
     case Page::kSettings: DrawSettingsPage(c, area); break;
     case Page::kAdd: DrawAddPage(c, area); break;
   }
@@ -2402,7 +2303,8 @@ void App::DrawTabs(Canvas& c) {
     AddTarget(card, kIdConsoleAction + 90, [this] { ShowPage(Page::kProfiles); });
   }
   // The pages.
-  const Text names[kPages] = {kTextPageHome, kTextPageGames, kTextAchievements, kTextPageProfiles, kTextPageSettings, kTextPageAdd};
+  const Text names[kPages] = {kTextPageHome,     kTextPageGames,     kTextAchievements, kTextPageProfiles,
+                              kTextPageAvatar,   kTextPageSettings,  kTextPageAdd};
   float x = kMargin;
   for (int i = 0; i < kPages; ++i) {
     const bool shown = int(page_) == i;
@@ -2430,6 +2332,9 @@ void App::DrawConsoleHints(Canvas& c) {
                              {L"LB RB", 0x5A5F66, kTextHintTabs}};
   if (focus_ >= kIdConsoleGame && focus_ < kIdConsoleProfile)
     hints.insert(hints.begin() + 1, {{L"Y", 0xE8B923, kTextHintMore}, {L"START", 0x5A5F66, kTextHintPlay}});
+  if (page_ == Page::kAvatar && avatar_ && avatar_->editor)
+    hints.insert(hints.begin() + 1, {{L"◀ ▶", 0x5A5F66, kTextHintChange}, {L"RS", 0x5A5F66, kTextHintTurn},
+                                     {L"Y", 0xE8B923, kTextAvatarRandom}, {L"START", 0x5A5F66, kTextSave}});
   float x = kMargin;
   const float cy = height_ - 36;
   for (const Hint& hint : hints) {
@@ -2715,11 +2620,44 @@ void App::ShowState(std::wstring_view state) {
     const std::wstring_view page = state.size() > 8 ? state.substr(8) : L"home";
     const std::pair<const wchar_t*, Page> pages[] = {{L"home", Page::kHome}, {L"games", Page::kGames},
                                                      {L"achievements", Page::kAchievements}, {L"profiles", Page::kProfiles},
-                                                     {L"settings", Page::kSettings}, {L"add", Page::kAdd}};
+                                                     {L"avatar", Page::kAvatar}, {L"settings", Page::kSettings},
+                                                     {L"add", Page::kAdd}};
     for (const auto& [name, p] : pages)
       if (page == name) page_ = p;
     page_fade_ = {};
     focus_ = -1;
+    focus_visible_ = true;
+    // The avatar page: the profile playing's (a made-up one without one), the hair row focused.
+    if (page_ == Page::kAvatar) {
+      ShowState(L"player");
+      BeginAvatarEdit(Player()->xuid);
+      focus_ = kIdAvatarRow + 4;
+    }
+    host_.Invalidate();
+    return;
+  }
+  // Somebody playing for the avatar states: the profile playing, else a made-up one (nothing is
+  // written).
+  if (state == L"player") {
+    if (!Player()) {
+      x360::profiles::Profile p;
+      p.xuid = x360::profiles::kLegacyXuid;
+      p.gamertag = "Daniel";
+      profiles_.push_back(p);
+      sign_in_.slots[0] = p.xuid;
+    }
+    return;
+  }
+  // The avatar editor over desktop mode, and the gamerpic picker.
+  if (state == L"avatar" || state == L"gamerpic") {
+    ShowState(L"player");
+    if (state == L"avatar") {
+      OpenAvatarEditor(Player()->xuid);
+      focus_ = kIdAvatarRow + 4;
+    } else {
+      OpenGamerpicPicker(Player()->xuid);
+      focus_ = kIdGamerpic;
+    }
     focus_visible_ = true;
     host_.Invalidate();
     return;

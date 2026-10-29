@@ -314,6 +314,8 @@ constexpr char kTermsEsUtf8[] = R\"terms(@ANYX360_TERMS_es@)terms\";
     ${ui}/main.cpp
     ${ui}/app.cpp
     ${ui}/images.cpp
+    ${ui}/avatar_view.cpp
+    ${ui}/avatar_page.cpp
     ${ui}/launcher.rc
     ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.manifest)
   # The icon and the logos it embeds (the build doesn't see what a .rc names on its own).
@@ -322,6 +324,6 @@ constexpr char kTermsEsUtf8[] = R\"terms(@ANYX360_TERMS_es@)terms\";
   set_target_properties(anyx360_launcher PROPERTIES OUTPUT_NAME AnyX360 RUNTIME_OUTPUT_DIRECTORY ${dir}/$<CONFIG>)
   target_compile_options(anyx360_launcher PRIVATE /utf-8)
   target_include_directories(anyx360_launcher PRIVATE ${ANYX360_GENERATED_DIR})
-  target_link_libraries(anyx360_launcher PRIVATE launcher_core ui_d2d ui_wic dwmapi xinput ole32 shell32 uuid)
+  target_link_libraries(anyx360_launcher PRIVATE launcher_core ui_d2d ui_wic dwmapi xinput ole32 shell32 uuid d3d11 d3dcompiler)
   anyx360_add_version_resource(anyx360_launcher "AnyX360 launcher" "AnyX360.exe")
 endfunction()

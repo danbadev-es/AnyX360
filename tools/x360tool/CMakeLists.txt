@@ -21,6 +21,8 @@ add_library(x360_formats STATIC
   src/exports.cpp
   src/avatar.cpp
   src/avatar_model.cpp
+  src/avatar_look.cpp
+  src/avatar_editor.cpp
 )
 target_include_directories(x360_formats PUBLIC src PRIVATE ${ANYX360_THIRDPARTY}/XenonRecomp/XenonUtils)
 target_link_libraries(x360_formats PUBLIC x360_runtime mspack_lzxd bcrypt)

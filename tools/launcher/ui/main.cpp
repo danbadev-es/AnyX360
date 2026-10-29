@@ -15,13 +15,18 @@
 //   --console | --desktop               start in console mode (the dashboard) or desktop mode, this
 //                                       time only (the mode chosen in the launcher is remembered)
 //   --pad also takes GUIDE (the Xbox button: the dashboard's Home)
+//   --render-avatar <png> [--size WxH] [--yaw degrees] [--zoom 0-1] [--avatar <entries|random:N>]
+//                                       the avatar of the profile playing (or that one) alone into a
+//                                       PNG, transparent around it (the viewer's picture)
+//   --avatar <entries|random:N>         screenshots: the avatar edited, instead of the profile's
 //   --screenshot <png> [--size WxH] [--dpi N] [--lang en|es] [--state S] [--root <dir>]
 //                                       draw the window offscreen into a PNG: S is library, empty,
 //                                       compatible, add, progress, error, confirm, password, menu,
 //                                       terms, who, profiles, newprofile, achievements,
 //                                       gameachievements or the dashboard's pages (console-home,
 //                                       console-games, console-achievements, console-profiles,
-//                                       console-settings, console-add); --root uses another release
+//                                       console-avatar, console-settings, console-add), avatar (the
+//                                       editor over desktop mode) or gamerpic; --root uses another release
 //                                       folder
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -44,6 +49,7 @@
 #include "core/terms.h"
 #include "d2d/canvas.h"
 #include "ui/app.h"
+#include "ui/avatar_page.h"
 #include "wic/image.h"
 
 using namespace anyx360::launcher;
@@ -259,6 +265,16 @@ void PollPads() {
     if (pressed & XINPUT_GAMEPAD_LEFT_SHOULDER) g_app->KeyPressed(Key::kPrevious, true);
     if (pressed & XINPUT_GAMEPAD_RIGHT_SHOULDER) g_app->KeyPressed(Key::kNext, true);
     if (pressed & kGuideButton) g_app->KeyPressed(Key::kGuide, true);
+    // The right stick: the avatar viewer turns and zooms.
+    {
+      constexpr float kStickDead = 8000;
+      auto axis = [](SHORT v) {
+        const float f = float(v);
+        return std::abs(f) < kStickDead ? 0.0f : (f - std::copysign(kStickDead, f)) / (32767.0f - kStickDead);
+      };
+      const float rx = axis(state.Gamepad.sThumbRX), ry = axis(state.Gamepad.sThumbRY);
+      if (rx || ry) g_app->Stick(rx, ry);
+    }
     // The d-pad or the left stick, repeating while held.
     const SHORT x = state.Gamepad.sThumbLX, y = state.Gamepad.sThumbLY;
     constexpr SHORT kDead = 10000;  // about 30 %: a light push moves the focus
@@ -479,12 +495,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
 }
 
 // The window drawn into a PNG, without showing it.
-int Screenshot(const fs::path& out, int width, int height, float dpi, const std::wstring& state, const std::wstring& select) {
+int Screenshot(const fs::path& out, int width, int height, float dpi, const std::wstring& state, const std::wstring& select,
+               const std::wstring& avatar) {
   using anyx360::ui::ComPtr;
   OffscreenHost host;
   App app(host);
   app.images().SetSynchronous(true);
   app.Load(select);
+  app.SetScreenshotAvatar(Narrow(avatar));
   ComPtr<IWICImagingFactory> wic;
   ComPtr<IWICBitmap> bitmap;
   ComPtr<ID2D1RenderTarget> target;
@@ -524,6 +542,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   int argc = 0;
   LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
   std::wstring select, source, password, screenshot, state = L"library", language, export_id;
+  std::wstring avatar, render_avatar;
+  float yaw = 0, zoom = 0;
   fs::path result, export_to;
   bool quit_when_done = false;
   int mode = -1;  // --desktop 0, --console 1; -1: the one saved
@@ -554,11 +574,20 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     else if (arg == L"--root") SetRootForTesting(argv[++i]);
     else if (arg == L"--size") swscanf_s(argv[++i], L"%dx%d", &shot_w, &shot_h);
     else if (arg == L"--pad") ParsePadScript(argv[++i]);
+    else if (arg == L"--avatar") avatar = argv[++i];
+    else if (arg == L"--render-avatar") render_avatar = argv[++i];
+    else if (arg == L"--yaw") yaw = float(_wtof(argv[++i])) * 3.14159265f / 180;
+    else if (arg == L"--zoom") zoom = float(_wtof(argv[++i]));
   }
   LocalFree(argv);
   if (language == L"es" || language == L"en") SetLanguage(language == L"es" ? Language::kSpanish : Language::kEnglish);
+  if (!render_avatar.empty()) {
+    const int code = RenderAvatarFile(render_avatar, shot_w, shot_h, yaw, zoom, Narrow(avatar));
+    OleUninitialize();
+    return code;
+  }
   if (!screenshot.empty()) {
-    const int code = Screenshot(screenshot, shot_w, shot_h, shot_dpi > 0 ? shot_dpi : 96, state, select);
+    const int code = Screenshot(screenshot, shot_w, shot_h, shot_dpi > 0 ? shot_dpi : 96, state, select, avatar);
     OleUninitialize();
     return code;
   }

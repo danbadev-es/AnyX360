@@ -24,7 +24,13 @@
 #include "d2d/canvas.h"
 #include "ui/images.h"
 
+namespace x360tool {
+class AvatarCatalog;
+}
+
 namespace anyx360::launcher::ui {
+
+struct AvatarEdit;  // ui/avatar_page.h
 
 using anyx360::ui::Canvas;
 using anyx360::ui::Color;
@@ -55,7 +61,7 @@ class Host {
 enum class Key { kLeft, kRight, kUp, kDown, kActivate, kBack, kMore, kCompatible, kNext, kPrevious, kHome, kEnd, kPlay, kGuide };
 
 // The dashboard's pages (console mode).
-enum class Page { kHome, kGames, kAchievements, kProfiles, kSettings, kAdd };
+enum class Page { kHome, kGames, kAchievements, kProfiles, kAvatar, kSettings, kAdd };
 
 class App : public JobObserver {
  public:
@@ -82,6 +88,8 @@ class App : public JobObserver {
   // The pointer is on something that acts (the hand cursor).
   bool PointerOnTarget() const { return hover_ >= 0; }
   void KeyPressed(Key key, bool from_pad);
+  // The right stick, while the avatar viewer shows: x turns it, y zooms (each -1 to 1, per poll).
+  void Stick(float x, float y);
   // A controller is connected: its button hints show.
   void PadConnected();
   void Character(wchar_t c);
@@ -109,7 +117,10 @@ class App : public JobObserver {
   ImageCache& images() { return images_; }
   // Screenshots: library, empty, compatible, add, progress, error, confirm, password, menu, terms,
   // who, profiles (or profile), newprofile, achievements (made up), gameachievements (the selected
-  // game's, from the files).
+  // game's, from the files), avatar (the editor over desktop mode), gamerpic (its picker), the
+  // dashboard's pages (console-<page>, console-avatar too). `avatar`: the avatar edited
+  // (x360tool::customize_avatar's syntax: entries, or random:<seed>) instead of the profile's.
+  void SetScreenshotAvatar(std::string avatar) { screenshot_avatar_ = std::move(avatar); }
   void ShowState(std::wstring_view state);
 
   // JobObserver (the job's thread).
@@ -205,6 +216,34 @@ class App : public JobObserver {
   void OpenAchievements(const LibraryGame& game);
   void DrawAchievements(Canvas& c, Overlay& overlay, bool top);
   void DrawGamerpic(Canvas& c, float cx, float cy, float radius, const x360::profiles::Profile* profile, float opacity = 1);
+  // The avatar editor (ui/avatar_page.cpp, docs/AVATARS.md): the dashboard's Avatar page edits the
+  // profile playing; in desktop mode an overlay edits any profile (its ⋯ menu in Profiles).
+  // The avatar asset pack is read once, off the UI thread (null until it is; then empty if there's
+  // none).
+  const x360tool::AvatarCatalog* AvatarPack();
+  void OpenAvatarEditor(uint64_t xuid);  // desktop mode's overlay
+  // Starts editing the profile's avatar (its saved one, else the default); false if there's no such
+  // profile.
+  bool BeginAvatarEdit(uint64_t xuid);
+  void DrawAvatarPage(Canvas& c, const RectF& area);
+  void DrawAvatarOverlay(Canvas& c, Overlay& overlay, bool top);
+  void DrawAvatarEditor(Canvas& c, const RectF& area, bool top, float fade);
+  // A key for the editor (left and right change the row with the focus); true if it took it.
+  bool AvatarKey(Key key);
+  bool AvatarShown() const;
+  bool AvatarChanged() const;
+  // Saves the description in the profile (and, if it has none, a gamerpic of it).
+  bool SaveAvatar();
+  // Leaves the editor: `then` runs once it has gone (asked first if there are changes).
+  void LeaveAvatar(std::function<void()> then);
+  // The gamerpic picker: the profile's avatar, its initial, or a picture from a game (its icon,
+  // its achievements').
+  void OpenGamerpicPicker(uint64_t xuid);
+  void DrawGamerpicPicker(Canvas& c, Overlay& overlay, bool top);
+  // A picture of the profile's avatar (`description`: kAvatarDescriptionSize bytes; empty: its
+  // saved one), its face on its colour, `size` pixels square.
+  bool RenderAvatarPicture(uint64_t xuid, const std::vector<uint8_t>& description, uint32_t size, Image& out);
+  bool SetGamerpic(uint64_t xuid, const Image* picture, const fs::path& file);
   void PushOverlay(Overlay overlay);
   void PopOverlay();
   void Finish(const Outcome& outcome);
@@ -288,6 +327,12 @@ class App : public JobObserver {
   std::wstring command_line_password_;
   bool command_line_password_used_ = false;
   std::optional<fs::path> quit_result_;
+
+  // The avatar editor.
+  std::shared_ptr<const x360tool::AvatarCatalog> avatar_pack_;
+  bool avatar_pack_reading_ = false;
+  std::unique_ptr<AvatarEdit> avatar_;
+  std::string screenshot_avatar_;
 
   // Decoded pictures as Direct2D bitmaps, for the canvas generation they were made for.
   std::map<std::shared_ptr<const Image>, ComPtr<ID2D1Bitmap>> bitmaps_;

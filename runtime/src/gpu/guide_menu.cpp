@@ -24,6 +24,7 @@
 #include <thread>
 #include <vector>
 
+#include "gamerpic.h"
 #include "gpu_internal.h"
 #include "stats_overlay.h"
 #include "ui_theme.h"
@@ -437,12 +438,15 @@ class GuideMenu : public xe::ui::ImGuiDialog {
     const ImVec2 at = ImGui::GetCursorScreenPos();
     const float r = S(22);
     const ImVec2 pic(at.x + r, at.y + r);
-    const std::string name = kernel::IsUserSignedIn(uint32_t(slot_)) ? kernel::UserName(uint32_t(slot_)) : "";
-    draw->AddCircleFilled(pic, r, color::kGreen, 40);
-    const char initial[2] = {name.empty() ? '?' : char(std::toupper(uint8_t(name[0]))), 0};
+    const bool signed_in = kernel::IsUserSignedIn(uint32_t(slot_));
+    const std::string name = signed_in ? kernel::UserName(uint32_t(slot_)) : "";
     ImGui::PushFont(Title());
-    const ImVec2 size = ImGui::CalcTextSize(initial);
-    draw->AddText(ImVec2(pic.x - size.x / 2, pic.y - size.y / 2), color::kText, initial);
+    if (!signed_in || !DrawGamerpic(draw, pic, r, kernel::UserXuid(uint32_t(slot_)))) {
+      draw->AddCircleFilled(pic, r, color::kGreen, 40);
+      const char initial[2] = {name.empty() ? '?' : char(std::toupper(uint8_t(name[0]))), 0};
+      const ImVec2 size = ImGui::CalcTextSize(initial);
+      draw->AddText(ImVec2(pic.x - size.x / 2, pic.y - size.y / 2), color::kText, initial);
+    }
     const float text_x = at.x + 2 * r + S(14);
     char player[48];
     std::snprintf(player, sizeof(player), Tr().player, unsigned(slot_ + 1));

@@ -220,6 +220,58 @@ enum Text {
   kTextStarting,  // {0} game
   kTextHintTabs,
   kTextHintPlay,
+  // The avatar editor and gamerpics.
+  kTextPageAvatar,
+  kTextAvatarTitle,  // {0} gamertag
+  kTextAvatarLoading,
+  kTextAvatarNoPack,
+  kTextAvatarNoProfile,
+  kTextAvatarError,  // {0} reason
+  kTextAvatarGender,
+  kTextAvatarMale,
+  kTextAvatarFemale,
+  kTextAvatarHair,
+  kTextAvatarHairColor,
+  kTextAvatarEyes,
+  kTextAvatarEyeColor,
+  kTextAvatarEyebrows,
+  kTextAvatarMouth,
+  kTextAvatarLipColor,
+  kTextAvatarFacialHair,
+  kTextAvatarNose,
+  kTextAvatarChin,
+  kTextAvatarEars,
+  kTextAvatarSkin,
+  kTextAvatarHeight,
+  kTextAvatarWeight,
+  kTextAvatarTop,
+  kTextAvatarBottom,
+  kTextAvatarShoes,
+  kTextAvatarHat,
+  kTextAvatarGlasses,
+  kTextAvatarAccessories,
+  kTextAvatarColors,
+  kTextAvatarOwnColors,
+  kTextAvatarColorway,  // {0} which, {1} of
+  kTextAvatarNone,
+  kTextAvatarOwnShape,
+  kTextAvatarRandom,
+  kTextAvatarGamerpic,
+  kTextAvatarSaved,  // {0} gamertag
+  kTextAvatarLeaveTitle,
+  kTextAvatarLeaveText,
+  kTextDiscard,
+  kTextAvatarViewHint,
+  kTextMenuEditAvatar,
+  kTextMenuGamerpic,
+  kTextGamerpicTitle,  // {0} gamertag
+  kTextGamerpicText,
+  kTextGamerpicAvatar,
+  kTextGamerpicInitial,
+  kTextGamerpicSaved,  // {0} gamertag
+  kTextErrorAvatarWrite,  // {0} folder
+  kTextHintTurn,
+  kTextHintChange,
   kTextCount
 };
 

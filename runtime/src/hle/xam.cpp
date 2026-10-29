@@ -1638,10 +1638,23 @@ uint32_t AvatarFailed(uint32_t overlapped) {
 }
 uint32_t AvatarDone(uint32_t overlapped) { return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS; }
 
-// A player's avatar: player 1 the default male avatar, the others alternate.
+// A player's avatar: the one the profile signed in on the slot was given in the launcher's avatar
+// editor; without one, player 1 the default male avatar and the others alternating
+// (x360::avatar::ChooseManifest).
 uint32_t XamAvatarGetManifestLocalUser(uint32_t user_index, uint32_t metadata, uint32_t overlapped) {
   if (!x360::avatar::Available() || !metadata) return AvatarFailed(overlapped);
-  x360::avatar::WriteMetadata(metadata, (user_index & 1) ? x360::avatar::Look::kFemale : x360::avatar::Look::kMale, 0);
+  const std::optional<User> user = GetUser(user_index);
+  const x360::avatar::Manifest manifest = x360::avatar::ChooseManifest(
+      TitlePaths().profiles_root, user_index, user && user->profile ? user->xuid : 0, x360::avatar::Overridden());
+  if (manifest.description && x360::avatar::WriteDescription(metadata, *manifest.description)) {
+    static std::mutex mutex;
+    static std::set<std::pair<uint32_t, uint64_t>> logged;
+    std::lock_guard lock(mutex);
+    if (logged.insert({user_index, user->xuid}).second)
+      KLOG_I("avatars: player %u gets %s's avatar", user_index + 1, user->name.c_str());
+    return AvatarDone(overlapped);
+  }
+  x360::avatar::WriteMetadata(metadata, manifest.look, 0);
   return AvatarDone(overlapped);
 }
 uint32_t XamAvatarGetManifestsByXuid(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t overlapped) {

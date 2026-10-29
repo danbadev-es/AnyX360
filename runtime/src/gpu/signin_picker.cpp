@@ -19,6 +19,7 @@
 #include <thread>
 #include <vector>
 
+#include "gamerpic.h"
 #include "gpu_internal.h"
 #include "stats_overlay.h"
 #include "ui_theme.h"
@@ -507,12 +508,15 @@ class SigninPicker : public xe::ui::ImGuiDialog {
                                                        : Tr().cancel;
       float text_x = at.x + S(16);
       if (item.kind != Item::kCancel) {
-        draw->AddCircleFilled(pic, r, selected ? color::Rgb(0x0B5A0B) : color::Rgb(0x30353B), 32);
-        const char initial[2] = {item.kind == Item::kProfile ? char(std::toupper(uint8_t(label[0]))) : '+', 0};
-        ImGui::PushFont(Heading());
-        const ImVec2 size = ImGui::CalcTextSize(initial);
-        draw->AddText(ImVec2(pic.x - size.x / 2, pic.y - size.y / 2), color::kText, initial);
-        ImGui::PopFont();
+        // The profile's gamerpic, else its initial.
+        if (item.kind != Item::kProfile || !DrawGamerpic(draw, pic, r, item.profile.xuid)) {
+          draw->AddCircleFilled(pic, r, selected ? color::Rgb(0x0B5A0B) : color::Rgb(0x30353B), 32);
+          const char initial[2] = {item.kind == Item::kProfile ? char(std::toupper(uint8_t(label[0]))) : '+', 0};
+          ImGui::PushFont(Heading());
+          const ImVec2 size = ImGui::CalcTextSize(initial);
+          draw->AddText(ImVec2(pic.x - size.x / 2, pic.y - size.y / 2), color::kText, initial);
+          ImGui::PopFont();
+        }
         text_x = pic.x + r + S(14);
       }
       ImGui::PushFont(Heading());

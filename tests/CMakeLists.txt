@@ -4,6 +4,12 @@ add_executable(test_hle hle/test_hle.cpp)
 target_link_libraries(test_hle PRIVATE x360_hle_test_objs)
 add_test(NAME hle COMMAND test_hle)
 
+# Avatars on a made-up avatar asset pack: descriptions, profile.json, the editor's rules.
+add_executable(test_avatar avatar/test_avatar.cpp)
+target_link_libraries(test_avatar PRIVATE x360_formats)
+target_compile_features(test_avatar PRIVATE cxx_std_20)
+add_test(NAME avatar COMMAND test_avatar)
+
 add_executable(test_dispatcher hle/test_dispatcher.cpp)
 target_link_libraries(test_dispatcher PRIVATE x360_hle_test_objs)
 add_test(NAME dispatcher COMMAND test_dispatcher)

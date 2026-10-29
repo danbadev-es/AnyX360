@@ -19,6 +19,8 @@
 #include "x360/profiles.h"
 #include "x360/settings.h"
 #include "../../runtime/src/input/input_internal.h"
+#include "../../runtime/src/hle/avatar_system.h"
+#include "avatar_look.h"
 #include "avatar_model.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -543,6 +545,50 @@ int main() {
     CHECK(be_float(v) == 1.0f && be_float(v + 4) == 0.0f && std::fabs(be_float(v + 8) - 1.7320508f) < 1e-5f);
     CHECK(v[12] == 0 && v[13] == 0 && v[14] == 0x01 && v[15] == 0x23);
     CHECK(v[28] == 0xAA && m.vertices[0] == 0xAA);  // UVs and other vertices untouched
+  }
+
+  // Each player's avatar (XamAvatarGetManifestLocalUser): the profile signed in on the slot's, if it
+  // has one; else the defaults by slot (male for players 1 and 3, female for 2 and 4); never the
+  // profiles' while ANYX360_AVATAR is set.
+  {
+    const std::filesystem::path root = std::filesystem::temp_directory_path() / "anyx360_test_manifest";
+    std::error_code ec;
+    std::filesystem::remove_all(root, ec);
+    auto make = [&](const char* name, uint8_t fill) {
+      x360::profiles::Result made = x360::profiles::Create(root, name);
+      std::vector<uint8_t> description(x360::avatar::kMetadataSize, fill);
+      made.profile.avatar = x360tool::base64_encode(description);
+      CHECK(made && x360::profiles::Save(root, made.profile));
+      return made.profile.xuid;
+    };
+    const uint64_t daniel = make("Daniel", 0x11), ana = make("Ana", 0x22);
+    const x360::profiles::Result leo = x360::profiles::Create(root, "Leo");  // no avatar yet
+    using x360::avatar::ChooseManifest;
+    using x360::avatar::Look;
+    const auto first = ChooseManifest(root, 0, daniel, false), second = ChooseManifest(root, 1, ana, false);
+    CHECK(first.description && first.description->size() == 1000 && (*first.description)[0] == 0x11);
+    CHECK(second.description && (*second.description)[999] == 0x22);
+    // Ana on slot 3: still hers.
+    const auto third = ChooseManifest(root, 2, ana, false);
+    CHECK(third.description && (*third.description)[0] == 0x22);
+    // Without an avatar, without a profile, or a profile that no longer exists: the slot's default.
+    const auto leos = ChooseManifest(root, 3, leo.profile.xuid, false);
+    CHECK(!leos.description && leos.look == Look::kFemale);
+    const auto nobody = ChooseManifest(root, 2, 0, false);
+    CHECK(!nobody.description && nobody.look == Look::kMale);
+    CHECK(!ChooseManifest(root, 0, 0xE000123412341234ull, false).description);
+    // ANYX360_AVATAR overrides them (testing).
+    const auto overridden = ChooseManifest(root, 0, daniel, true);
+    CHECK(!overridden.description && overridden.look == Look::kMale);
+    // A damaged value isn't a description.
+    x360::profiles::Profile damaged = *x360::profiles::Load(root, daniel);
+    damaged.avatar = "not base64!";
+    CHECK(x360::profiles::Save(root, damaged));
+    CHECK(!ChooseManifest(root, 0, daniel, false).description);
+    damaged.avatar = x360tool::base64_encode(std::vector<uint8_t>(10, 1));
+    CHECK(x360::profiles::Save(root, damaged));
+    CHECK(!ChooseManifest(root, 0, daniel, false).description);
+    std::filesystem::remove_all(root, ec);
   }
 
   // Achievements (xam.cpp): a made-up SPA's list enumerated as XACHIEVEMENT_DETAILS, an unlock
