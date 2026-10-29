@@ -28,8 +28,6 @@
     {"title": "Battlefield 4", "cover": "battlefield-4", "title_id": "454109BA",
      "owners": "Electronic Arts, DICE", "trademarks": ["Battlefield"]},
     {"title": "FIFA 19", "cover": "fifa-19", "title_id": "",
-     "owners": "Electronic Arts", "trademarks": ["FIFA"]},
-    {"title": "Mortal Kombat Komplete Edition", "cover": "mortal-kombat", "title_id": "",
-     "owners": "Warner Bros. Interactive Entertainment, NetherRealm Studios", "trademarks": ["Mortal Kombat"]}
+     "owners": "Electronic Arts", "trademarks": ["FIFA"]}
   ]
 }

@@ -8,6 +8,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **Mortal Kombat Komplete Edition** (in testing, [docs/MORTALKOMBAT.md](docs/MORTALKOMBAT.md)):
+  NetherRealm's fighting game from a Games on Demand copy with its 17 downloadable content
+  packages, at 60 FPS. The menus, the saves, the arcade ladder's fights and local versus with two
+  players (a whole match and the rematch) work, and a tag versus fight starts; Story mode, the
+  Challenge Tower and the Krypt aren't checked yet.
+
+### Changed
+
+- Mortal Kombat Komplete Edition leaves "Coming soon".
+
+### Fixed
+
+- Kernel objects (events, semaphores, mutants, timers) have the console's object header before
+  them, with their type: a title can find the object to wait on from it, as the XDK's own wait
+  functions do (Mortal Kombat's worker threads crashed at start).
+
 ## [0.26.0] - 2026-10-29
 
 The launcher's avatar moves: an idle, a wave hello and a nod.

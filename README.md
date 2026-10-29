@@ -20,7 +20,8 @@
 > **AnyX360 is an unofficial fan project.** It is not affiliated with, authorized, sponsored or
 > endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games, Harmonix, Good Science Studio,
 > Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay, Activision, Infinity Ward, Sledgehammer
-> Games, Treyarch, Capcom, Mojang, 4J Studios, Turn 10 Studios or any other rights holder.
+> Games, Treyarch, Capcom, Mojang, 4J Studios, Turn 10 Studios, Warner Bros. Interactive
+> Entertainment, NetherRealm Studios or any other rights holder.
 > It contains **no game code, assets or files**: you must own a legally acquired copy of the game,
 > and you provide its files yourself.
 
@@ -66,6 +67,10 @@ the sensor.
   second disc's car packs and its downloadable content; the introduction, the first race, the
   career menus and World Tour races work, and the game saves
   ([docs/FORZAMOTORSPORT4.md](docs/FORZAMOTORSPORT4.md)).
+- **Mortal Kombat Komplete Edition** (in testing): NetherRealm's fighting game from a Games on
+  Demand copy with its downloadable content, at 60 FPS: the arcade ladder's fights, local versus
+  with two players and tag versus; Story mode and the Challenge Tower are still to be checked
+  ([docs/MORTALKOMBAT.md](docs/MORTALKOMBAT.md)).
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
 carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for. Your
@@ -828,6 +833,7 @@ games/fnk/        Fruit Ninja Kinect: recompiler config, entry point, Kinect bin
 games/kp/         Kinect Party: recompiler config, entry point, Kinect bindings, notes
 games/minecraft/  Minecraft: Xbox 360 Edition: recompiler config, entry point, notes
 games/fm4/        Forza Motorsport 4: recompiler configs (the game and its two DLLs), entry point, notes
+games/mk/         Mortal Kombat Komplete Edition: recompiler config, entry point, fiber hooks, notes
 runtime/          Kernel and XAM reimplementation, input, settings, GPU and audio glue,
                   the virtual Kinect (runtime/src/nui) and its debug window (runtime/kinect_window)
 tools/x360tool/   Disc and XEX tooling
@@ -849,8 +855,8 @@ anyx/            Your .anyx backups (git-ignored)
   authorized, sponsored or endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games,
   Harmonix, Good Science Studio, Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay,
   Double Fine Productions, Activision, Infinity Ward, Sledgehammer Games, Treyarch, Capcom, Mojang,
-  4J Studios, Turn 10 Studios or any other rights holder, and it is
-  not an official product or port of any game.
+  4J Studios, Turn 10 Studios, Warner Bros. Interactive Entertainment, NetherRealm Studios or any
+  other rights holder, and it is not an official product or port of any game.
 - This repository contains **no game code, assets or console keys**, and never will. The
   third-party XenonRecomp submodule (like Xenia) embeds the publicly known XEX2 retail key in its
   source to load executables; AnyX360's own tools read the key from `keys/` instead.
@@ -865,7 +871,7 @@ anyx/            Your .anyx backups (git-ignored)
 - Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Kinect Sports, Kinect Joy
   Ride, Kinect Party, Double Fine, BigPark, Fruit Ninja, Halfbrick, Doritos, Rare, Call of Duty,
   Modern Warfare, Black Ops, Treyarch, Activision, Resident Evil, Capcom, Minecraft, Mojang, Forza
-  Motorsport, Turn 10, Xbox and Xbox 360 are trademarks of their
+  Motorsport, Turn 10, Mortal Kombat, NetherRealm, Warner Bros., Xbox and Xbox 360 are trademarks of their
   respective owners, used here only to identify the games
   AnyX360 is compatible with.
 - The box art in the release belongs to its publishers and is shown only to identify the games;
