@@ -1,0 +1,56 @@
+== XEX2 header ==
+module flags:     0x00000009 title dll
+PE data offset:   0x00002000
+base address:     0x88000000
+entry point:      0x880507E8
+image size:       0x002B0000 (2.69 MiB)
+page size:        0x10000
+encryption:       AES-128 (normal)
+compression:      basic (zero-fill blocks), 1 blocks
+region:           0x00FF0000
+allowed media:    0x00000004
+original PE name: XMediaFacade_default.dll
+
+== Execution info ==
+title id:         4D530910
+media id:         42C67824
+version:          0.0.0.15 (base 0.0.0.15)
+disc:             1 of 2
+savegame id:      00000000
+title workspace:  0x100000
+system flags:     0x00018400
+
+== Optional headers (16) ==
+  000003FF  FILE_FORMAT_INFO               value/offset 0x00000624
+  00004304  ?                              value/offset 0x00000634
+  00010100  ENTRY_POINT                    value/offset 0x880507E8
+  00010201  IMAGE_BASE_ADDRESS             value/offset 0x88000000
+  000103FF  IMPORT_LIBRARIES               value/offset 0x00001DA8
+  00018002  CHECKSUM_TIMESTAMP             value/offset 0x00000644
+  000183FF  ORIGINAL_PE_NAME               value/offset 0x0000064C
+  000200FF  STATIC_LIBRARIES               value/offset 0x0000066C
+  00030000  SYSTEM_FLAGS                   value/offset 0x00018400
+  00040006  EXECUTION_INFO                 value/offset 0x000006D0
+  00040201  TITLE_WORKSPACE_SIZE           value/offset 0x00100000
+  00040310  GAME_RATINGS                   value/offset 0x000006E8
+  00040404  LAN_KEY                        value/offset 0x00000728
+  000405FF  XBOX360_LOGO                   value/offset 0x00000738
+  000406FF  MULTIDISC_MEDIA_IDS            value/offset 0x00000E00
+  000407FF  ALTERNATE_TITLE_IDS            value/offset 0x00000E24
+
+== Import libraries (2) ==
+  xboxkrnl.exe     v2.0.20764.0    (min 2.0.14719.0)  119 import records
+  xam.xex          v2.0.20764.0    (min 2.0.14719.0)  2 import records
+
+== Statically linked SDK libraries (6) ==
+  LIBCMT   2.0.11886  (tail 0x0400)
+  XAPILIB  2.0.20764  (tail 0x4000)
+  XBOXKRNL 2.0.20764  (tail 0x4000)
+  LINK     10.0.11886  (tail 0x4400)
+  C2       16.0.11886  (tail 0x4400)
+  C1       16.0.11886  (tail 0x4400)
+
+== Page descriptors (43) ==
+  code       2.00 MiB
+  data       384.0 KiB
+  read-only  320.0 KiB

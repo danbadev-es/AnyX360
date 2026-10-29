@@ -1,0 +1,19 @@
+{
+  "id": "fm4",
+  "title": "Forza Motorsport 4",
+  "cover": "forza-motorsport-4",
+  "status": "testing",
+  "exe": "ForzaMotorsport4",
+  "user_dir": "ForzaMotorsport4",
+  "title_id": "4D530910",
+  "xex": {"version": "0.0.0.15", "media_id": "42C67824"},
+  "dev_game_dir": "extracted/fm4/game",
+  "launcher_name": "AnyX360 Forza Motorsport 4",
+  "size_gb": 8,
+  "archive_hint": "Forza Motorsport 4 (Games on Demand)",
+  "input": "keyboard_pad",
+  "required_files": ["Database.xmplr", "Media/UI.zip"],
+  "owners": "Microsoft Corporation, Xbox Game Studios, Turn 10 Studios",
+  "trademarks": ["Xbox", "Xbox 360", "Forza Motorsport"],
+  "components": []
+}

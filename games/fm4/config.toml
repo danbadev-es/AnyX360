@@ -1,0 +1,45 @@
+# Forza Motorsport 4 recompiler configuration (XenonRecomp format). Paths are relative to this file.
+# This file contains no game code or data; it only describes where things are.
+#
+# file_path is default.xex from the Games on Demand package (4D530910\00007000, x360tool
+# god-extract): version 0.0.0.15, disc 1 of 2, encrypted with the retail key, basic compression. The
+# second disc's content (the car packs and Autovista) comes as four content packages
+# (4d53091000000001-4), installed as downloadable content. See docs/FORZAMOTORSPORT4.md.
+
+[main]
+file_path = "../../extracted/fm4/game/default.xex"
+out_directory_path = "recomp"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py: each pattern
+# occurs exactly once).
+restgprlr_14_address = 0x82766060
+savegprlr_14_address = 0x82766010
+restfpr_14_address = 0x8276682C
+savefpr_14_address = 0x827667E0
+restvmx_14_address = 0x82765518
+savevmx_14_address = 0x82765280
+restvmx_64_address = 0x827655AC
+savevmx_64_address = 0x82765314
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: setjmp saves f14-f31 and
+# r13-r31 at r3 and returns 0; longjmp restores them through r7 and returns r4, or 1, as in Modern
+# Warfare 3 and Black Ops II). The other longjmp candidates (826F4EB0, 828D9EC8, 82C85370) are
+# ordinary functions.
+setjmp_address = 0x82768B30
+longjmp_address = 0x82768700
+
+# Functions the analyser misses (address + size), added as they are found.
+# functions = [
+#   { address = 0x0, size = 0x0 },
+# ]

@@ -1,0 +1,58 @@
+== XEX2 header ==
+module flags:     0x00000009 title dll
+PE data offset:   0x00002000
+base address:     0x89000000
+entry point:      0x890A0450
+image size:       0x00240000 (2.25 MiB)
+page size:        0x10000
+encryption:       AES-128 (normal)
+compression:      basic (zero-fill blocks), 3 blocks
+region:           0x00FF0000
+allowed media:    0x00000004
+original PE name: SpeechFacade_default.dll
+
+== Execution info ==
+title id:         4D530910
+media id:         42C67824
+version:          0.0.0.15 (base 0.0.0.15)
+disc:             1 of 2
+savegame id:      00000000
+title workspace:  0x100000
+system flags:     0x00018400
+
+== Optional headers (16) ==
+  000003FF  FILE_FORMAT_INFO               value/offset 0x0000057C
+  00004304  ?                              value/offset 0x0000059C
+  00010100  ENTRY_POINT                    value/offset 0x890A0450
+  00010201  IMAGE_BASE_ADDRESS             value/offset 0x89000000
+  000103FF  IMPORT_LIBRARIES               value/offset 0x00001BAC
+  00018002  CHECKSUM_TIMESTAMP             value/offset 0x000005AC
+  000183FF  ORIGINAL_PE_NAME               value/offset 0x000005B4
+  000200FF  STATIC_LIBRARIES               value/offset 0x000005D4
+  00030000  SYSTEM_FLAGS                   value/offset 0x00018400
+  00040006  EXECUTION_INFO                 value/offset 0x00000658
+  00040201  TITLE_WORKSPACE_SIZE           value/offset 0x00100000
+  00040310  GAME_RATINGS                   value/offset 0x00000670
+  00040404  LAN_KEY                        value/offset 0x000006B0
+  000405FF  XBOX360_LOGO                   value/offset 0x000006C0
+  000406FF  MULTIDISC_MEDIA_IDS            value/offset 0x00000D88
+  000407FF  ALTERNATE_TITLE_IDS            value/offset 0x00000DAC
+
+== Import libraries (2) ==
+  xboxkrnl.exe     v2.0.20764.0    (min 2.0.14719.0)  202 import records
+  xam.xex          v2.0.20764.0    (min 2.0.14719.0)  46 import records
+
+== Statically linked SDK libraries (8) ==
+  LIBCMT   2.0.11886  (tail 0x0400)
+  NUISP    2.0.20764  (tail 0x4003)
+  NUIAUD   2.0.20764  (tail 0x4000)
+  XAPILIB  2.0.20764  (tail 0x4000)
+  XBOXKRNL 2.0.20764  (tail 0x4000)
+  LINK     10.0.11886  (tail 0x4400)
+  C2       16.0.11886  (tail 0x4400)
+  C1       16.0.11886  (tail 0x4400)
+
+== Page descriptors (36) ==
+  code       1.44 MiB
+  data       192.0 KiB
+  read-only  640.0 KiB

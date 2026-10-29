@@ -1,0 +1,30 @@
+# Forza Motorsport 4's SpeechFacade_default.xex (a title DLL: Kinect voice recognition behind the
+# game's speech facade), recompiled into the game's executable and loaded by XexLoadImage. Base
+# 0x89000000, version 0.0.0.15, encrypted with the retail key. See docs/FORZAMOTORSPORT4.md.
+
+[main]
+file_path = "../../extracted/fm4/game/SpeechFacade_default.xex"
+out_directory_path = "recomp_speech"
+switch_table_file_path = "switch_tables_speech.toml"
+# Its own names for the entry point, the helpers and the function mappings
+# (speech_PPCFuncMappings), which link next to the game's (XenonRecomp anyx360-fm4).
+symbol_prefix = "speech_"
+
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# find_helpers.py on the DLL's image (--base 0x89000000). No setjmp/longjmp.
+restgprlr_14_address = 0x890A04B0
+savegprlr_14_address = 0x890A0460
+restfpr_14_address = 0x891F75BC
+savefpr_14_address = 0x891F7570
+restvmx_14_address = 0x891FA6F8
+savevmx_14_address = 0x891FA460
+restvmx_64_address = 0x891FA78C
+savevmx_64_address = 0x891FA4F4
