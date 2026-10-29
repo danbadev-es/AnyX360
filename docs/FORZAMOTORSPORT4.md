@@ -89,8 +89,12 @@ isn't loaded while the game is told there's no Kinect (below).
   zones), and no thread is stuck in an export: the game thread waits each frame for the frame
   event, the main thread runs its loop (much of it in the CRT's `pow`, from `8287AE48`), every
   worker waits. Not the downloadable content (the same without it), not Kinect, not a button
-  press. Next steps: find what the main loop's loading state waits for (`822DADD8` →
-  `822A7308` → `8243F330`), and whether a GPU fence or XMA state is involved.
+  press. The `pow` time is the loading screen's colour fade (`822A7308` → `8243F330`), which
+  completes. What waits is the screen itself: `IELoading::Update` (`825482D0`) asks its pending UI
+  object (`this+352`) with `826460F8`, a UI script query, every frame, and it never stops being
+  busy. The 21 table-driven `bctr` the analyser leaves are tail calls through member-function
+  tables (correct). Next: what that UI query asks (the name at `[0x82DDF1D8]`) and what should
+  end it (see PROGRESS.md).
 - Not reached yet: the menus after the first race, careers, Free Play, the garage, upgrades,
   tuning, the paint editor, the storefront, replays, Rivals, the downloadable cars and tracks.
 - **Kinect** (Autovista, head tracking, voice) and **split screen**: later.

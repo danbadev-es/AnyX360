@@ -1,29 +1,58 @@
 # Forza Motorsport 4: where the port stands (branch fm4)
 
-Remove this file when the port is finished. Status and technical notes: docs/FORZAMOTORSPORT4.md.
+Remove this file (and games/fm4/src/probe.cpp, and its line in games/fm4/CMakeLists.txt) when the
+port is finished. Status and technical notes: docs/FORZAMOTORSPORT4.md.
 
 ## Reached
 Logos, title ("Press A to start"), profile save, brightness, Top Gear intro video, then the first
-race's loading screen (Bernese Alps), where it stays forever (9 minutes tried). Nothing is read
-after the Alps audio zones; `Media\tracks\Alps\bin.zip` is never opened; no export is stuck.
+race's loading screen (ForzaUI::IELoading, "Bienvenido a Forza Motorsport 4", Bernese Alps), where
+it stays forever. Nothing is read after the Alps audio zones; the track's `bin.zip` and the car
+(`Media\cars\fer_f142_10.zip`, the 458 Italia) are never opened; no export is stuck.
 
-## Next
-1. Find what the loading state waits for: main thread loop `822DADD8` -> `822A7308` ->
-   `8243F330` -> `8287AE48` (pow-heavy, runs every iteration); game thread `823F6D60` waits each
-   frame on the event at `[82DE1AA0]` (set by `826D1938`). Ideas not tried: a GPU fence (the
-   command processor "waits for memory" ~45% on the loading screen), XMA state, the
-   `XamContent*`/`XamCache*` stubs, the 14 unresolved table-driven `bctr` of the analyser.
-2. Then: career/World Tour, Free Play, garage/upgrades/tuning, paint editor, storefront, replays,
-   Rivals offline, the disc-2 and DLC cars (scope from the user, in that order).
+## Findings (2026-10-29, after the rebase onto 0.24.1)
+- The 21 table-driven `bctr` the analyser leaves (scratchpad `bctr.py`) are all tail calls through
+  member-function-pointer tables (`this` adjusted, `lwzx` from a table, `bctr`): correct as indirect
+  calls. Ruled out.
+- `pow` dominating thread 17: the loading screen's colour fade, `822A7308` (start time at
+  `this+3792`, duration 2 s at `+3800`, timer `8236DA38`) → `8243F330` (gamma, `pow`). The fade
+  completes (now − start ≫ 2 s); it just keeps being recomputed every frame. Not the blocker.
+- **The blocker so far**: `IELoading::Update` = `825482D0` (`this` = 40D0FD80 in the probe run).
+  It holds a pending UI object at `this+352` (3E3E8990) and asks `826460F8(obj)` each frame; that
+  returns 1 (busy) forever, so the screen never notifies (virtual +64, message 94) nor clears
+  +352. `826460F8` calls the UI object at `obj+120` (`8299CB18`, with the name pointer stored at
+  `[0x82DDF1D8]`, set at run time) about `obj+132`, then a manager's virtual +200 and `824AB458`
+  (to bool): most likely a UI script/animation query ("is the clip still playing"). +352 is a
+  common field of every UI screen (stores at 824C1F94, 824EDEF0... `stw r3,352(r31)`).
+- Earlier ruled out: DLC (same without it), Kinect (same with/without the sensor), button presses,
+  slowness (9 minutes), unimplemented imports.
+
+## Next step (exact)
+1. Probe `826460F8` again to print the queried name (`[0x82DDF1D8]` string) and `obj+132`
+   (probe.cpp already does it; the last run p3 printed nothing: check its build log first,
+   `scratchpad\fm4\build9.log`).
+2. Find what makes that UI query true: the UI animation/clip system (8299CB18, 824AB458) — e.g. a
+   clip driven by a video (`Media\UI\videos\LoadingAnim*.wmv` never opened), or a timeline that
+   needs an event. Also look at `CContentInstaller` (`823CD428` starts `CContentInstaller::
+   InstallThreadFunc` = `823C7618` through the CThread helpers 82943F10/829434E8; never started in
+   these runs) and the DB functions `IsCarInstalled`, `IsEnvironmentOnDisc`, `IsCarOnDisc`.
+3. Then the single-player list: career/World Tour with saving, Free Play, garage/upgrades/tuning,
+   paint editor, storefront, replays, Rivals offline, disc-2 cars, DLC.
 
 ## Setting up again
-- XenonRecomp: branch `anyx360-fm4` (ef84908) is in the main checkout's submodule repository;
-  the fm4 commit pins it. Build it, regenerate `games/fm4/recomp`, `recomp_xmedia`,
-  `recomp_speech` (docs: Reproducing).
-- Test runs: `--user <sandbox>` with the content packages extracted to
-  `<user>\content\00000002\<package>` plus `<user>\content\Headers\00000002\<package>.header`
-  (display name, 128 big-endian UTF-16 characters), `[players] p1 = { device = "pad" }` in
-  `<user>\settings.toml`, `ANYX360_CAPTURE_DIR`/`ANYX360_CAPTURE_MS` for frames,
-  `ANYX360_INPUT=28:A,40:A,60:A~15x6`, a fresh `<user>\content\00000001` for the first-run path.
-- `tests/launcher` (test_launcher_core) had 2 failures here, in the `.anyx` tamper checks
-  (lines 1057, 1070), unrelated to these changes and not investigated.
+- Junctions: `thirdparty\xenia` and `thirdparty\XenosRecomp` → the main checkout's; and
+  `thirdparty\XenonRecomp` → `build\XenonRecomp-fm4` (a clone at branch `anyx360-fm4`, ef84908,
+  also in the main checkout's submodule repository), whose `thirdparty\{fmt,libmspack,simde,
+  tiny-AES-c,tomlplusplus,xxHash}` must be junctions to the main checkout's
+  `thirdparty\XenonRecomp\thirdparty\*` (removed at the end of the session: recreate them).
+- Game data: `extracted\fm4\game` (god-extract) and `extracted\fm4\default.bin` (xex-extract with
+  the retail key) are in this worktree; the sandbox `C:\axfm4\user` holds the 21 content packages
+  (`content\00000002\<pkg>` + `content\Headers\00000002\<pkg>.header`) and `settings.toml`
+  (`[players] p1 = { device = "pad" }`). Delete both when done.
+- Scripts in the session scratchpad (`...\scratchpad\fm4\`): `build.cmd`/`lowrun.ps1` (BelowNormal
+  builds, -DANYX360_GAMES=fm4), `run.ps1` (`-Seconds -Keys -Name -CaptureMs -Extra @{...}`,
+  frames via ANYX360_CAPTURE_DIR, stops only its own PID), `sheet.py` (contact sheets),
+  `xref.py`, `bctr.py`, `prepare.ps1` (re-extraction).
+- Route: fresh `C:\axfm4\user\content\00000001`, `ANYX360_INPUT=28:A,40:A,60:A~15x6`; loading
+  screen at about 125 s.
+- test_launcher_core passes again (FM4's required files moved to the copy's root: "Media/UI.zip"
+  collided in case with the test's "media/level.bin" when FM4 was the catalog's only game).
