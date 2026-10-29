@@ -58,6 +58,10 @@ struct GpuSample {
   double cp_work = 0;    // share of the interval the command processor executed commands
   double cp_wait = 0;    // share of the interval the command processor waited for the GPU
   double cp_wait_mem = 0;  // share it waited in WAIT_REG_MEM (for the title's CPU or a register)
+  // Occlusion queries per frame: reports, the ones with no passing samples, the guesses the real
+  // result contradicted; draws with a VIZ token; draws skipped while their pipeline was created.
+  double zpd = 0, zpd_zero = 0, zpd_misguessed = 0, viz_draws = 0, skipped = 0;
+  double pipeline_wait_ms = 0;  // per frame, waiting for pipelines (async_shader_compilation_wait_ms)
   bool timestamps = false;
 };
 
@@ -68,7 +72,8 @@ class GpuCounterSampler {
 
  private:
   uint64_t last_qpc_ = 0, swaps_ = 0, draws_ = 0, copies_ = 0, transfers_ = 0, submissions_ = 0,
-           busy_ns_ = 0, timed_ = 0, wait_ns_ = 0, cp_busy_ns_ = 0, cp_wait_mem_ns_ = 0;
+           busy_ns_ = 0, timed_ = 0, wait_ns_ = 0, cp_busy_ns_ = 0, cp_wait_mem_ns_ = 0, zpd_ = 0,
+           zpd_zero_ = 0, zpd_misguessed_ = 0, viz_draws_ = 0, skipped_ = 0, pipeline_wait_us_ = 0;
 };
 
 // The GPU's memory (DXGI: the process's video memory in the adapter's own memory and in shared

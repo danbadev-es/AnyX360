@@ -222,6 +222,11 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   info.display = settings::Get().display;
   gpu::SetVblanksPerFrame(game.vblanks_per_frame);
   gpu::SetFixedFps(game.fixed_fps);
+  {
+    std::vector<std::pair<std::string, std::string>> xenia_options;
+    for (const auto& [name, value] : game.xenia_options) xenia_options.emplace_back(name, value);
+    gpu::SetTitleXeniaOptions(xenia_options);
+  }
 
   const auto& d = info.display;
   std::printf("AnyX360 " ANYX360_VERSION_FULL " - %s\n  game: %s\n  user: %s\n", game.title_name,

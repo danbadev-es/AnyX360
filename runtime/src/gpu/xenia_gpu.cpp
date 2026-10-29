@@ -656,6 +656,10 @@ void SetVblanksPerFrame(uint32_t vblanks) { g_vblanks_per_frame = std::max(1u, v
 
 namespace {
 uint32_t g_fixed_fps = 0;
+std::vector<std::pair<std::string, std::string>> g_title_xenia_options;
+}  // namespace
+void SetTitleXeniaOptions(const std::vector<std::pair<std::string, std::string>>& options) {
+  g_title_xenia_options = options;
 }
 void SetFixedFps(uint32_t fps) { g_fixed_fps = fps; }
 uint32_t FixedFps() { return g_fixed_fps; }
@@ -668,8 +672,11 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
   cvars::draw_resolution_scale_y = int32_t(std::max(1u, config.render_scale));
   // ANYX360_XENIA_LOG_LEVEL: 0 error, 1 warning, 2 info (default), 3 debug (GPU details).
   if (const char* level = std::getenv("ANYX360_XENIA_LOG_LEVEL")) cvars::log_level = std::atoi(level);
-  // settings.toml's [xenia] options, before anything reads them.
-  for (const auto& [name, value] : settings::Get().xenia) {
+  // The title's Xenia options, then settings.toml's [xenia] options (which win), before anything
+  // reads them.
+  std::vector<std::pair<std::string, std::string>> xenia_options = g_title_xenia_options;
+  for (const auto& option : settings::Get().xenia) xenia_options.push_back(option);
+  for (const auto& [name, value] : xenia_options) {
     auto found = cvar::ConfigVars ? cvar::ConfigVars->find(name) : decltype(cvar::ConfigVars->end()){};
     if (!cvar::ConfigVars || found == cvar::ConfigVars->end()) {
       KLOG_W("settings: [xenia] %s: no such option", name.c_str());

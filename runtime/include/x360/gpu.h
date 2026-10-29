@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace x360::gpu {
@@ -35,6 +36,10 @@ void SetVblanksPerFrame(uint32_t vblanks);
 // without a choice. 0 (the default): 30 or 60 FPS.
 void SetFixedFps(uint32_t fps);
 uint32_t FixedFps();
+
+// Options of Xenia's GPU code the title needs (GameDescriptor::xenia_options): Initialize applies
+// them before settings.toml's [xenia] options. Call before Initialize.
+void SetTitleXeniaOptions(const std::vector<std::pair<std::string, std::string>>& options);
 
 // Creates the game window, the D3D12 graphics system and the vblank/interrupt thread. Must run on
 // the UI (main) thread after the guest memory exists. Returns false if D3D12 is unavailable.

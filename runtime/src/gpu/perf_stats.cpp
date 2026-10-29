@@ -114,6 +114,10 @@ GpuSample GpuCounterSampler::Sample(uint64_t swaps) {
                  submissions = c.submissions.load(), busy_ns = c.gpu_busy_ns.load(),
                  timed = c.gpu_timed_submissions.load(), wait_ns = c.gpu_wait_ns.load(),
                  cp_busy_ns = c.cp_busy_ns.load(), cp_wait_mem_ns = c.cp_wait_mem_ns.load();
+  const uint64_t zpd = c.zpd_reports.load(), zpd_zero = c.zpd_zero.load(),
+                 zpd_misguessed = c.zpd_guessed_visible_was_hidden.load() + c.zpd_guessed_hidden_was_visible.load(),
+                 viz_draws = c.viz_draws.load(), skipped = c.draws_skipped_pipeline.load(),
+                 pipeline_wait_us = c.pipeline_wait_us.load();
   GpuSample s;
   if (last_qpc_) {
     const double seconds = QpcSeconds(now - last_qpc_);
@@ -123,6 +127,12 @@ GpuSample GpuCounterSampler::Sample(uint64_t swaps) {
     s.copies = double(copies - copies_) * per;
     s.transfers = double(transfers - transfers_) * per;
     s.submissions = double(submissions - submissions_) * per;
+    s.zpd = double(zpd - zpd_) * per;
+    s.zpd_zero = double(zpd_zero - zpd_zero_) * per;
+    s.zpd_misguessed = double(zpd_misguessed - zpd_misguessed_) * per;
+    s.viz_draws = double(viz_draws - viz_draws_) * per;
+    s.skipped = double(skipped - skipped_) * per;
+    s.pipeline_wait_ms = double(pipeline_wait_us - pipeline_wait_us_) * 1e-3 * per;
     s.timestamps = timed > timed_;
     s.gpu_ms = double(busy_ns - busy_ns_) * 1e-6 * per;
     s.gpu_busy = seconds > 0 ? double(busy_ns - busy_ns_) * 1e-9 / seconds : 0;
@@ -135,6 +145,8 @@ GpuSample GpuCounterSampler::Sample(uint64_t swaps) {
   last_qpc_ = now, swaps_ = swaps, draws_ = draws, copies_ = copies, transfers_ = transfers,
   submissions_ = submissions, busy_ns_ = busy_ns, timed_ = timed, wait_ns_ = wait_ns, cp_busy_ns_ = cp_busy_ns,
   cp_wait_mem_ns_ = cp_wait_mem_ns;
+  zpd_ = zpd, zpd_zero_ = zpd_zero, zpd_misguessed_ = zpd_misguessed, viz_draws_ = viz_draws, skipped_ = skipped,
+  pipeline_wait_us_ = pipeline_wait_us;
   return s;
 }
 
@@ -158,7 +170,16 @@ std::string FormatGpu(const GpuSample& s) {
                 "%.0f draws, %.1f resolves, %.1f transfers, %.1f submissions",
                 gpu, s.cp_work * 100, s.cp_wait * 100, s.cp_wait_mem * 100, s.draws, s.copies, s.transfers,
                 s.submissions);
-  return text;
+  std::string out = text;
+  // Occlusion queries and draws skipped while pipelines were created, when there are any.
+  if (s.zpd > 0 || s.viz_draws > 0 || s.skipped > 0 || s.pipeline_wait_ms > 0) {
+    std::snprintf(text, sizeof(text),
+                  "; occlusion queries %.1f (%.1f hidden, %.1f guessed wrong), %.1f VIZ draws, %.1f draws "
+                  "skipped (pipelines not ready), %.1f ms waiting for pipelines",
+                  s.zpd, s.zpd_zero, s.zpd_misguessed, s.viz_draws, s.skipped, s.pipeline_wait_ms);
+    out += text;
+  }
+  return out;
 }
 
 VideoMemorySampler::VideoMemorySampler(xe::gpu::GraphicsSystem* graphics) {

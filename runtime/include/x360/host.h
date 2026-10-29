@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <utility>
 #include <vector>
 
 #include "x360/settings.h"
@@ -74,6 +75,10 @@ struct GameDescriptor {
   // 0xFFFF (every region). Resident Evil 6 takes 0xFFFF for a Japanese console and shows its
   // Japanese title, Biohazard 6. The other games were brought up and tested with 0xFFFF.
   bool game_region_from_country = false;
+  // Options of Xenia's GPU code the title needs, by name, each value as TOML text ({"occlusion_query",
+  // "\"strict\""}): set before the GPU starts, under the player's own [xenia] options in
+  // settings.toml (which win). Not written to settings.toml.
+  std::vector<std::pair<const char*, const char*>> xenia_options;
   // Game-specific default settings, applied before settings.toml is read.
   std::function<void(settings::Settings&)> defaults;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).
