@@ -458,6 +458,36 @@ uint32_t NtWaitForSingleObjectEx(uint32_t handle, uint32_t wait_mode, uint32_t a
   return WaitForObject(body, TimeoutPtr(timeout_ptr, timeout), alertable != 0);
 }
 
+// Signals one object (an event is set, a semaphore released once, a mutant released) and waits on
+// another (Forza Motorsport 4's video decoder hands frames between its threads with it).
+uint32_t NtSignalAndWaitForSingleObjectEx(uint32_t signal_handle, uint32_t wait_handle, uint32_t alertable,
+                                          uint32_t wait_mode, uint32_t timeout_ptr) {
+  (void)wait_mode;
+  const uint32_t signal = ObjectFromHandle(signal_handle);
+  const uint32_t wait = ObjectFromHandle(wait_handle);
+  if (!signal || !wait) return X_STATUS_INVALID_HANDLE;
+  switch (Ptr<DispatchHeader>(signal)->type) {
+    case kEventNotification:
+    case kEventSynchronization:
+      SetEvent(signal);
+      break;
+    case kSemaphore: {
+      int32_t previous = 0;
+      if (!ReleaseSemaphore(signal, 1, &previous)) return X_STATUS_SEMAPHORE_LIMIT_EXCEEDED;
+      break;
+    }
+    case kMutant: {
+      int32_t previous = 0;
+      if (!ReleaseMutant(signal, false, &previous)) return X_STATUS_MUTANT_NOT_OWNED;
+      break;
+    }
+    default:
+      return X_STATUS_OBJECT_TYPE_MISMATCH;
+  }
+  int64_t timeout;
+  return WaitForObject(wait, TimeoutPtr(timeout_ptr, timeout), alertable != 0);
+}
+
 uint32_t NtWaitForMultipleObjectsEx(uint32_t count, uint32_t handles_ptr, uint32_t wait_type, uint32_t wait_mode,
                                     uint32_t alertable, uint32_t timeout_ptr) {
   (void)wait_mode;
@@ -765,6 +795,7 @@ X360_EXPORT(NtCreateTimer, NtCreateTimer)
 X360_EXPORT(NtSetTimerEx, NtSetTimerEx)
 X360_EXPORT(NtCancelTimer, NtCancelTimer)
 X360_EXPORT(NtWaitForSingleObjectEx, NtWaitForSingleObjectEx)
+X360_EXPORT(NtSignalAndWaitForSingleObjectEx, NtSignalAndWaitForSingleObjectEx)
 X360_EXPORT(NtWaitForMultipleObjectsEx, NtWaitForMultipleObjectsEx)
 X360_EXPORT(KeWaitForSingleObject, KeWaitForSingleObject)
 X360_EXPORT(KeWaitForMultipleObjects, KeWaitForMultipleObjects)
