@@ -344,6 +344,12 @@ int SuspendThread(Thread& thread);
 void QueueUserApc(Thread& thread, uint32_t routine, uint32_t context, uint32_t argument1, uint32_t argument2);
 // Runs the calling thread's queued user APCs; true if there were any.
 bool DeliverUserApcs();
+// XAPI fibers (fibers.cpp): the title's SwitchToFiber is assembly that switches stacks, so a title that
+// uses fibers replaces it with SwitchToGuestFiber (each guest fiber runs on a host fiber), and calls
+// ForgetGuestFiber with each context block its CreateFiber or ConvertThreadToFiber returns and its
+// DeleteFiber frees.
+void SwitchToGuestFiber(PPCContext& ctx, uint32_t fiber);
+void ForgetGuestFiber(uint32_t fiber);
 
 // ---------------------------------------------------------------------------------------------
 // Title / loader

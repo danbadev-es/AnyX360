@@ -66,6 +66,26 @@ it stays forever. Nothing is read after the Alps audio zones; the track's `bin.z
   so the race load had several minutes in the 10- and 15-minute runs and still never asked for the
   track or the car. Add timestamps to the probe to know when.
 
+## Findings (2026-10-29, third session) - THE BLOCKER WAS FIBERS
+- The welcome video is on time: it starts at ~60.5 s and ends at ~129 s (69 s long, ASF header);
+  the earlier "late" end was the loading screen arriving later in those runs. Not a problem.
+- Kinect: ruled out again (forcing NuiInitialize to fail changes nothing). NuiInitialize at boot fails
+  (8301000D: XamContentOpenFile can't open game:\Database.xmplr, as in Xenia); the race's head-tracking
+  init (flags C0000820) succeeds. Harmless.
+- The race start: the game thread's loop (822F74A0) asks the resource manager [0x82DC3820] for
+  state 3 (v104/v108, state at +88; ready at 129.26 s), counts 82AABF00(..,1) down to 0, then posts
+  the job 826D5B38 to a cooperative scheduler (8294D940, queue at game manager+112). That
+  scheduler runs jobs on XAPI fibers: CreateFiber 82C82AD0, ConvertThreadToFiber 82C829F0,
+  ConvertFiberToThread 82C82A80, DeleteFiber 82C82BB0, SwitchToFiber 82C82C10 -> assembly 82C85380
+  (saves regs to the fiber block, loads the target's, ends in KeSetCurrentStackPointers). The
+  recompiler left SwitchToFiber EMPTY ("ERROR 82C85380"), so no job ever ran.
+- Fix: runtime/src/kernel/fibers.cpp (SwitchToGuestFiber/ForgetGuestFiber: each guest fiber on a
+  host fiber with its own PPCContext; first entry loads r1/r14..r31 from the block and calls its LR)
+  + games/fm4/src/fibers.cpp (hooks). With it the race start job runs, CGame::Init and
+  CGame::LoadingUpdate run, the car audio loads. First try crashed (a converted thread's host fiber
+  deleted when its block was reused): now host fibers are deleted only if created here and not running.
+- Tools in scratchpad fm4b\: rtti.py (class -> vtables), dis.sh (disassembly of a recompiled function).
+
 ## Next step (exact)
 1. Find the race setup that should follow the Alps audio: who requests the car and track loads
    after `826D5358` (the race-start job run on thread 21: Kinect manager `82A689F8`, `82A78F80`...)
