@@ -1,6 +1,7 @@
 // The sign-in picker (x360/gpu.h OpenSigninPicker): the console's sign-in screen over the game when
 // a title asks for its sign-in UI. It lists the profiles that aren't signed in (x360/profiles.h),
-// then "Create profile" (a gamertag typed on an on-screen keyboard, or the physical one) and Cancel.
+// then "Guest" (kernel::SignInGuest: "Daniel (1)", nothing of theirs kept), "Create profile" (a
+// gamertag typed on an on-screen keyboard, or the physical one) and Cancel.
 // Every controller drives it, each from its own slot: the profile a controller chooses signs in on
 // that controller's slot (or, chosen by player 1 or the keyboard, on the first free slot with a
 // controller). The game is paused behind it (xam.cpp's XamShowSigninUI) and reads neutral pads.
@@ -53,9 +54,12 @@ struct Strings {
   const char* choose_more;  // %u players
   const char* signed_in_as;  // %u player, %s gamertag
   const char* create;
+  const char* guest;
+  const char* guest_detail;  // %s: the guest's gamertag
   const char* cancel;
   const char* done;
   const char* none;
+  const char* none_no_guest;  // the title disallows guests
   const char* new_title;
   const char* new_hint;
   const char* space;
@@ -78,8 +82,11 @@ constexpr Strings kEnglish = {
     "Choose your profiles with the controllers you'll play with (%u more players).",
     "Player %u signed in as %s.",
     "Create profile",
+    "Guest",
+    "as %s, nothing is kept",
     "Cancel",
     "Done",
+    "Every profile is signed in. Create one for this player, or play as a guest.",
     "Every profile is signed in. Create one for this player.",
     "New profile",
     "Your gamertag: letters, digits and spaces, up to 15.",
@@ -103,8 +110,11 @@ constexpr Strings kSpanish = {
     "Elegid vuestros perfiles con los mandos con los que vais a jugar (%u jugadores más).",
     "El jugador %u ha iniciado sesión como %s.",
     "Crear perfil",
+    "Invitado",
+    "como %s, no se guarda nada",
     "Cancelar",
     "Hecho",
+    "Todos los perfiles tienen la sesión iniciada. Crea uno para este jugador o juega como invitado.",
     "Todos los perfiles tienen la sesión iniciada. Crea uno para este jugador.",
     "Perfil nuevo",
     "Tu gamertag: letras, números y espacios, hasta 15.",
@@ -226,14 +236,16 @@ class SigninPicker : public xe::ui::ImGuiDialog {
   explicit SigninPicker(xe::ui::ImGuiDrawer* drawer) : ImGuiDialog(drawer), rows_(KeyboardRows()) {}
 
   // UI thread.
-  void Open(uint32_t count) {
+  void Open(uint32_t count, bool allow_guest) {
     remaining_ = count;
+    allow_guest_ = allow_guest;
     page_ = Page::kList;
     selected_ = 0;
     message_.clear();
     note_.clear();
     Refresh();
-    KLOG_I("sign-in picker: open for %u player(s), %zu profile(s) to choose from", count, profiles_.size());
+    KLOG_I("sign-in picker: open for %u player(s), %zu profile(s) to choose from%s", count, profiles_.size(),
+           allow_guest ? ", or a guest" : "");
   }
 
  protected:
@@ -269,7 +281,7 @@ class SigninPicker : public xe::ui::ImGuiDialog {
   enum class Page { kList, kKeyboard };
 
   struct Item {
-    enum Kind { kProfile, kCreate, kCancel } kind;
+    enum Kind { kProfile, kGuest, kCreate, kCancel } kind;
     profiles::Profile profile;
   };
 
@@ -283,6 +295,8 @@ class SigninPicker : public xe::ui::ImGuiDialog {
         items_.push_back({Item::kProfile, std::move(p)});
     profiles_.clear();
     for (const Item& item : items_) profiles_.push_back(item.profile.gamertag);
+    // As on the console, a guest plays from a signed-in profile (player 1's: always signed in).
+    if (allow_guest_) items_.push_back({Item::kGuest});
     items_.push_back({Item::kCreate});
     items_.push_back({Item::kCancel});
     selected_ = std::clamp(selected_, 0, int(items_.size()) - 1);
@@ -319,6 +333,7 @@ class SigninPicker : public xe::ui::ImGuiDialog {
       return;
     }
     message_.clear();
+    if (item.kind == Item::kGuest) return SignInGuest(slot);
     if (item.kind == Item::kCreate) {
       page_ = Page::kKeyboard;
       typing_slot_ = slot;
@@ -339,6 +354,30 @@ class SigninPicker : public xe::ui::ImGuiDialog {
     if (remaining_ == 0 || SlotFor(-1) < 0) return Finish();
     page_ = Page::kList;
     Refresh();
+  }
+
+  void SignInGuest(int slot) {
+    if (!kernel::SignInGuest(uint32_t(slot))) return;
+    char text[160];
+    std::snprintf(text, sizeof(text), Tr().signed_in_as, unsigned(slot + 1), kernel::UserName(uint32_t(slot)).c_str());
+    note_ = text;
+    if (remaining_ > 0) --remaining_;
+    if (remaining_ == 0 || SlotFor(-1) < 0) return Finish();
+    Refresh();
+  }
+
+  // The gamertag a guest signed in now would have ("Daniel (1)").
+  static std::string NextGuestName() {
+    int sponsor = -1;
+    bool taken[profiles::kMaxGuests + 1] = {};
+    for (uint32_t i = 0; i < 4; ++i) {
+      if (!kernel::IsUserSignedIn(i)) continue;
+      if (const int n = profiles::GuestNumber(kernel::UserXuid(i))) taken[n] = true;
+      else if (sponsor < 0) sponsor = int(i);
+    }
+    int number = 1;
+    while (number < profiles::kMaxGuests && taken[number]) ++number;
+    return profiles::GuestGamertag(sponsor >= 0 ? kernel::UserName(uint32_t(sponsor)) : "", number);
   }
 
   void HandleKeyboard(const Event& e) {
@@ -486,7 +525,7 @@ class SigninPicker : public xe::ui::ImGuiDialog {
       ImGui::TextWrapped(Tr().choose_more, remaining_);
     else
       ImGui::TextWrapped("%s", Tr().choose);
-    if (profiles_.empty()) ImGui::TextDisabled("%s", Tr().none);
+    if (profiles_.empty()) ImGui::TextDisabled("%s", allow_guest_ ? Tr().none : Tr().none_no_guest);
     ImGui::Dummy(ImVec2(0, S(4)));
     ImDrawList* draw = ImGui::GetWindowDrawList();
     const float row_h = S(52), width = ImGui::GetContentRegionAvail().x;
@@ -504,6 +543,7 @@ class SigninPicker : public xe::ui::ImGuiDialog {
       const float r = S(16);
       const ImVec2 pic(at.x + S(14) + r, at.y + row_h / 2);
       const char* label = item.kind == Item::kProfile  ? item.profile.gamertag.c_str()
+                          : item.kind == Item::kGuest  ? Tr().guest
                           : item.kind == Item::kCreate ? Tr().create
                                                        : Tr().cancel;
       float text_x = at.x + S(16);
@@ -511,7 +551,7 @@ class SigninPicker : public xe::ui::ImGuiDialog {
         // The profile's gamerpic, else its initial.
         if (item.kind != Item::kProfile || !DrawGamerpic(draw, pic, r, item.profile.xuid)) {
           draw->AddCircleFilled(pic, r, selected ? color::Rgb(0x0B5A0B) : color::Rgb(0x30353B), 32);
-          const char initial[2] = {item.kind == Item::kProfile ? char(std::toupper(uint8_t(label[0]))) : '+', 0};
+          const char initial[2] = {item.kind == Item::kCreate ? '+' : char(std::toupper(uint8_t(label[0]))), 0};
           ImGui::PushFont(Heading());
           const ImVec2 size = ImGui::CalcTextSize(initial);
           draw->AddText(ImVec2(pic.x - size.x / 2, pic.y - size.y / 2), color::kText, initial);
@@ -522,7 +562,17 @@ class SigninPicker : public xe::ui::ImGuiDialog {
       ImGui::PushFont(Heading());
       const float text_h = ImGui::GetTextLineHeight();
       draw->AddText(ImVec2(text_x, at.y + (row_h - text_h) / 2), color::kText, label);
+      const float label_w = ImGui::CalcTextSize(label).x;
       ImGui::PopFont();
+      if (item.kind == Item::kGuest) {  // who they play as, after the label
+        char detail[96];
+        std::snprintf(detail, sizeof(detail), Tr().guest_detail, NextGuestName().c_str());
+        ImGui::PushFont(Small());
+        const float small_h = ImGui::GetTextLineHeight();
+        draw->AddText(ImVec2(text_x + label_w + S(12), at.y + (row_h - small_h) / 2),
+                      selected ? color::kText : color::kTextSecondary, detail);
+        ImGui::PopFont();
+      }
       ImGui::PopID();
       if (clicked) {
         selected_ = i;
@@ -637,6 +687,7 @@ class SigninPicker : public xe::ui::ImGuiDialog {
   std::vector<Item> items_;
   std::vector<std::string> profiles_;
   uint32_t remaining_ = 1;
+  bool allow_guest_ = true;
   Page page_ = Page::kList;
   int selected_ = 0;
   std::string message_, note_;
@@ -652,17 +703,17 @@ SigninPicker* g_picker = nullptr;  // lives until exit; registered with the draw
 
 }  // namespace
 
-bool OpenSigninPicker(uint32_t count) {
+bool OpenSigninPicker(uint32_t count, bool allow_guest) {
   if (!SharedImGuiDrawer() || !GameWindow()) return false;
   static std::once_flag started;
   std::call_once(started, [] { std::thread(PadThread).detach(); });
-  PostToUIThread([count] {
+  PostToUIThread([count, allow_guest] {
     xe::ui::ImGuiDrawer* drawer = SharedImGuiDrawer();
     if (!g_picker) {
       g_picker = new SigninPicker(drawer);  // registers itself
       drawer->RemoveDialog(g_picker);
     }
-    g_picker->Open(count);
+    g_picker->Open(count, allow_guest);
     input::SetGameInputEnabled(false);  // the keyboard is the picker's; the cursor is free
     g_open = true;
     drawer->AddDialog(g_picker);

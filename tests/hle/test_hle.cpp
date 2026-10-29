@@ -62,6 +62,8 @@ PPC_EXTERN_FUNC(__imp__XamUserCreateAchievementEnumerator);
 PPC_EXTERN_FUNC(__imp__XamEnumerate);
 PPC_EXTERN_FUNC(__imp__XMsgStartIORequest);
 PPC_EXTERN_FUNC(__imp__XamReadTileToTexture);
+PPC_EXTERN_FUNC(__imp__XamUserGetSigninInfo);
+PPC_EXTERN_FUNC(__imp__XamUserGetXUID);
 
 // The kernel's loader fills the function table from this generated array; tests have no game.
 PPCFuncMapping PPCFuncMappings[] = {{0, nullptr}};
@@ -424,6 +426,40 @@ int main() {
     const auto played = profiles::ReadTitle(folder, profiles::kLegacyXuid, 0x4D5308AB);
     CHECK(played && played->seconds == 121 && played->title == "Gears of War 3" && played->last_played.size() == 20);
     CHECK(!profiles::ReadTitle(folder, profiles::kLegacyXuid, 0x415608CB));
+
+    // Guests: the console's guest XUID (IsGuestXUID: 0x0009 in the top 16 bits, the number in bits
+    // 54-55, the sponsor's low 48 bits), never a profile, no time played, slots and saves of their own.
+    const uint64_t sponsor = 0xE0003A41C29F0B57ull;
+    const uint64_t guest1 = profiles::GuestXuid(sponsor, 1), guest3 = profiles::GuestXuid(sponsor, 3);
+    CHECK(guest1 == 0x00493A41C29F0B57ull && guest3 == 0x00C93A41C29F0B57ull);
+    CHECK(profiles::IsGuestXuid(guest1) && profiles::IsGuestXuid(guest3));
+    CHECK(!profiles::IsGuestXuid(sponsor) && !profiles::IsGuestXuid(profiles::kLegacyXuid));
+    CHECK(!profiles::IsGuestXuid(0x0009000012345678ull));  // an online XUID: no guest bits
+    CHECK(((guest1 >> 60) & 0xF) != 0xE);                    // not an offline profile's
+    CHECK(profiles::GuestNumber(guest1) == 1 && profiles::GuestNumber(guest3) == 3 && profiles::GuestNumber(sponsor) == 0);
+    CHECK(profiles::GuestXuid(profiles::kLegacyXuid, 2) != profiles::GuestXuid(sponsor, 2));
+    CHECK(profiles::GuestGamertag("Daniel", 1) == "Daniel (1)");
+    CHECK(profiles::GuestGamertag("ABCDEFGHIJKLMNO", 2) == "ABCDEFGHIJK (2)");  // 15 characters at most
+    CHECK(profiles::GuestGamertag("Daniel Barret o", 2) == "Daniel Barr (2)");
+    CHECK(profiles::GuestGamertag("", 1) == "Guest");
+    CHECK(!profiles::Load(folder, guest1));
+    CHECK(!profiles::AddPlayTime(folder, guest1, 0x4D5308AB, "Gears of War 3", 60));
+    CHECK(!fs::exists(profiles::ProfileFolder(folder, guest1)));
+    CHECK(!profiles::SetSlot(folder, 1, guest1) && profile::Read(profile::File(folder)).slots[1] != guest1);
+    CHECK(profiles::UserFolder(user, guest1) == user / "players" / "guest1");
+    CHECK(profiles::UserFolder(user, guest3) == user / "players" / "guest3");
+    // Cleared at the next start: only the guests' folders, never the root's or a profile's.
+    fs::create_directories(user / "players" / "guest1" / "content");
+    std::ofstream(user / "players" / "guest1" / "content" / "save.dat") << "guest";
+    fs::create_directories(user / "players" / "guest2");
+    fs::create_directories(user / "players" / "E0003A41C29F0B57" / "profile");
+    fs::create_directories(user / "players" / "guests");  // not one of theirs
+    fs::create_directories(user / "content");
+    CHECK(profiles::ClearGuestFolders(user));
+    CHECK(!fs::exists(user / "players" / "guest1") && !fs::exists(user / "players" / "guest2"));
+    CHECK(fs::exists(user / "players" / "E0003A41C29F0B57" / "profile") && fs::exists(user / "players" / "guests") &&
+          fs::exists(user / "content"));
+    CHECK(!profiles::ClearGuestFolders({}));  // no user folder: nothing
     fs::remove_all(folder);
 
     // A first start without profile.txt: a profile for the launcher's "Who's playing?", nobody signed in.
@@ -649,6 +685,44 @@ int main() {
     CHECK(mem.read<uint32_t>(buffer + 0x20) == 0x9 && mem.read<uint32_t>(buffer + 0x24 + 0x20) == (0xB | 0x20000));
     CHECK(mem.read<uint32_t>(buffer + 0x24 + 0x18) != 0);  // its time
     CHECK(mem.read<uint32_t>(buffer + 0x08) == 0 && text(mem.read<uint32_t>(buffer + 0x04)) == "First Step");
+    // A guest on player 2's slot, from player 1: "<player 1> (1)", a guest XUID, XUSER_INFO_FLAG_GUEST
+    // (2), guest number 1, sponsor 0.
+    CHECK(!kernel::SignInGuest(0));  // player 1 is always a profile
+    CHECK(kernel::SignInGuest(1) && kernel::IsUserGuest(1) && !kernel::IsUserGuest(0));
+    CHECK(!kernel::SignInGuest(1));  // signed in already
+    const uint64_t guest = kernel::UserXuid(1);
+    CHECK(profiles::IsGuestXuid(guest) && profiles::GuestNumber(guest) == 1);
+    CHECK(guest == profiles::GuestXuid(kernel::UserXuid(0), 1));
+    CHECK(kernel::UserName(1) == profiles::GuestGamertag(kernel::UserName(0), 1));
+    const guest_addr info = kArea + 0x80;
+    ctx.r3.u64 = 1, ctx.r4.u64 = 0, ctx.r5.u64 = info;
+    __imp__XamUserGetSigninInfo(ctx, base);
+    CHECK(ctx.r3.u32 == 0 && mem.read<uint64_t>(info) == guest);
+    CHECK(mem.read<uint32_t>(info + 0x08) == 2 && mem.read<uint32_t>(info + 0x0C) == 1);
+    CHECK(mem.read<uint32_t>(info + 0x10) == 1 && mem.read<uint32_t>(info + 0x14) == 0);
+    CHECK(std::string(mem.translate<char>(info + 0x18)) == kernel::UserName(1));
+    ctx.r3.u64 = 0, ctx.r4.u64 = 0, ctx.r5.u64 = info;
+    __imp__XamUserGetSigninInfo(ctx, base);
+    CHECK(ctx.r3.u32 == 0 && mem.read<uint32_t>(info + 0x08) == 0 && mem.read<uint32_t>(info + 0x10) == 0);
+    ctx.r3.u64 = 1, ctx.r4.u64 = 1, ctx.r5.u64 = info;
+    __imp__XamUserGetXUID(ctx, base);
+    CHECK(ctx.r3.u32 == 0 && mem.read<uint64_t>(info) == guest);
+    // A second guest is guest 2.
+    CHECK(kernel::SignInGuest(2) && profiles::GuestNumber(kernel::UserXuid(2)) == 2);
+    CHECK(kernel::UserName(2) == profiles::GuestGamertag(kernel::UserName(0), 2));
+    kernel::SignOutUser(2);
+    // The title unlocks achievement 1 for the guest: nothing, not even for the session.
+    mem.write<uint32_t>(request, 1);
+    mem.write<uint32_t>(list + 0, 1), mem.write<uint32_t>(list + 4, 1);
+    ctx.r3.u64 = 0xFB, ctx.r4.u64 = 0x000B0008, ctx.r5.u64 = 0, ctx.r6.u64 = request, ctx.r7.u64 = 8;
+    __imp__XMsgStartIORequest(ctx, base);
+    CHECK(ctx.r3.u32 == 0);
+    CHECK(create(1, 0, 1, 0, 4) == 0 && enumerate() == 0 && mem.read<uint32_t>(returned) == 3);
+    CHECK(mem.read<uint32_t>(buffer + 0x20) == 0x9 && mem.read<uint32_t>(buffer + 0x18) == 0);  // locked
+    CHECK(mem.read<uint32_t>(buffer + 0x24 + 0x20) == 0xB);                                      // 2 too
+    CHECK(create(0, guest, 1, 0, 4) == 0 && enumerate() == 0 && mem.read<uint32_t>(buffer + 0x20) == 0x9);
+    kernel::SignOutUser(1);
+    CHECK(!kernel::IsUserSignedIn(1) && !kernel::IsUserGuest(1));
     // Another title's: none.
     ctx.r3.u64 = 0x12345678, ctx.r4.u64 = 0, ctx.r5.u64 = 0, ctx.r6.u64 = 0, ctx.r7.u64 = 0;
     ctx.r8.u64 = 4, ctx.r9.u64 = size_ptr, ctx.r10.u64 = handle_ptr;

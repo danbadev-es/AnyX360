@@ -226,7 +226,7 @@ TitleUnlocks ReadUnlocks(const fs::path& folder, uint64_t xuid, uint32_t title_i
 
 Result Record(const fs::path& folder, uint64_t xuid, uint32_t title_id, std::string_view title, uint32_t id,
               uint32_t gamerscore, std::string_view date) {
-  if (!xuid) return Result::kFailed;
+  if (!xuid || profiles::IsGuestXuid(xuid)) return Result::kFailed;  // a guest keeps nothing
   std::lock_guard lock(g_unlock_mutex);
   TitleUnlocks unlocks = ReadUnlocks(folder, xuid, title_id);
   if (unlocks.Find(id)) return Result::kAlready;

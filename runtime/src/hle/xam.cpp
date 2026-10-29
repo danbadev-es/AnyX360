@@ -8,6 +8,8 @@
 // ("at_start") or from the settings panel, if their slot has a connected device. Each player's saves
 // and profile settings are in profiles::UserFolder: the game's root folder (<user>\profile,
 // <user>\content) for the profile with the first offline XUID, <user>\players\<XUID>\ for the others.
+// A guest (SignInGuest: "Daniel (1)", players 2-4) is no profile: a guest XUID, no achievements or
+// time played kept, the default avatar, and saves in <user>\players\guest<n>\, cleared at the next start.
 #include <atomic>
 #include <chrono>
 #include <deque>
@@ -185,6 +187,8 @@ struct User {
   std::string name;
   bool profile = false;         // a global profile (its time played is kept), not the slot's own name
   Clock::time_point counted{};  // time played: counted until then (SavePlayTime)
+  int guest = 0;                // a guest: their number (1-3, profiles::GuestXuid); 0: not one
+  uint32_t sponsor = 0;         // a guest's: the player whose profile signed them in
 };
 std::mutex g_user_mutex;
 User g_users[4];
@@ -211,6 +215,9 @@ void ForgetProfileBlobs(uint32_t user_index);
 
 void InitUsers() {
   const bool at_start = x360::settings::Get().sign_in == "at_start";
+  // The last session's guests' saves: a guest's last only while they play.
+  if (const fs::path& root = TitlePaths().user_root; !root.empty() && !x360::profiles::ClearGuestFolders(root))
+    KLOG_W("users: a guest's folder in %s could not be removed", (root / "players").string().c_str());
   std::lock_guard lock(g_user_mutex);
   for (uint32_t i = 0; i < 4; ++i) {
     g_users[i] = SlotUser(i);
@@ -282,7 +289,8 @@ uint32_t XamUserGetSigninState(uint32_t user_index) {
 }
 
 // XUSER_SIGNIN_INFO: xuid (0), flags (8), state (0xC), guest number (0x10), sponsor (0x14),
-// name (char[16], 0x18).
+// name (char[16], 0x18). A guest has XUSER_INFO_FLAG_GUEST, their number and their sponsor's index.
+constexpr uint32_t kUserInfoFlagGuest = 0x00000002;
 uint32_t XamUserGetSigninInfo(uint32_t user_index, uint32_t flags, uint32_t info) {
   (void)flags;
   std::memset(Ptr(info), 0, 0x28);
@@ -291,6 +299,11 @@ uint32_t XamUserGetSigninInfo(uint32_t user_index, uint32_t flags, uint32_t info
   if (!user) return X_ERROR_NO_SUCH_USER;
   Store<uint64_t>(info + 0x00, user->xuid);
   Store<uint32_t>(info + 0x0C, 1);
+  if (user->guest) {
+    Store<uint32_t>(info + 0x08, kUserInfoFlagGuest);
+    Store<uint32_t>(info + 0x10, uint32_t(user->guest));
+    Store<uint32_t>(info + 0x14, user->sponsor);
+  }
   std::strncpy(Ptr<char>(info + 0x18), user->name.c_str(), 15);
   return X_ERROR_SUCCESS;
 }
@@ -563,6 +576,10 @@ void UnlockAchievement(uint32_t user_index, uint32_t id) {
   const std::optional<User> user = GetUser(user_index);
   if (!user) {
     KLOG_W("achievements: %u unlocked for player %u, who isn't signed in", id, user_index + 1);
+    return;
+  }
+  if (user->guest) {  // as on the console: a guest earns nothing, not even for the session
+    KLOG_I("achievements: %u unlocked for player %u (%s), a guest: not kept", id, user_index + 1, user->name.c_str());
     return;
   }
   const x360::achievements::Achievement* achievement = g_achievements.Find(id);
@@ -1435,7 +1452,9 @@ uint32_t ShowSignin(uint32_t count, uint32_t flags, bool kinect) {
   if (kinect && mode == "picker") mode = "automatic";
   if (mode == "picker") {
     if (IsSystemUiOpen(SystemUi::kSigninPicker)) return X_ERROR_SUCCESS;  // already shown
-    if (ShowSigninPicker(count)) return X_ERROR_SUCCESS;
+    // XSSUI_FLAGS_DISALLOWGUEST: the title wants profiles only (Minecraft's "Connect to Xbox Live").
+    constexpr uint32_t kSigninDisallowGuest = 0x01000000;
+    if (ShowSigninPicker(count, !(flags & kSigninDisallowGuest))) return X_ERROR_SUCCESS;
     // No window to show it in (tests): the players sign in at once.
     Broadcast(kNotifySystemUi, 1);
   } else {
@@ -2128,10 +2147,10 @@ void SetKinectGuideOpen(bool open) {
   SetSystemUiOpen(SystemUi::kKinectGuide, open);
 }
 
-bool ShowSigninPicker(uint32_t count) {
+bool ShowSigninPicker(uint32_t count, bool allow_guest) {
   if (IsSystemUiOpen(SystemUi::kSigninPicker)) return false;
   SetSystemUiOpen(SystemUi::kSigninPicker, true);
-  if (x360::gpu::OpenSigninPicker(std::max<uint32_t>(count, 1))) return true;
+  if (x360::gpu::OpenSigninPicker(std::max<uint32_t>(count, 1), allow_guest)) return true;
   SetSystemUiOpen(SystemUi::kSigninPicker, false);  // no window (tests)
   return false;
 }
@@ -2159,6 +2178,53 @@ bool SignInProfile(uint32_t user_index, uint64_t xuid, const std::string& gamert
   Broadcast(kNotifySigninChanged, SignedInMask());  // the picker is still open: the system UI is
   SigninToast(user_index, gamertag, true);
   return true;
+}
+
+bool SignInGuest(uint32_t user_index) {
+  if (user_index == 0 || user_index >= 4) return false;
+  std::string name;
+  int number = 0;
+  {
+    std::lock_guard lock(g_user_mutex);
+    if (g_users[user_index].signed_in) return false;
+    // The sponsor: the first player signed in who isn't a guest (player 1, always signed in).
+    int sponsor = -1;
+    for (int i = 0; i < 4 && sponsor < 0; ++i)
+      if (g_users[i].signed_in && !g_users[i].guest) sponsor = i;
+    // The lowest guest number nobody signed in has.
+    for (int n = 1; n <= x360::profiles::kMaxGuests && !number; ++n) {
+      bool taken = false;
+      for (const User& other : g_users) taken = taken || (other.signed_in && other.guest == n);
+      if (!taken) number = n;
+    }
+    if (!number) return false;
+    User user;
+    user.signed_in = true;
+    user.guest = number;
+    user.sponsor = uint32_t(std::max(sponsor, 0));
+    user.xuid = x360::profiles::GuestXuid(sponsor >= 0 ? g_users[sponsor].xuid : 0, number);
+    name = user.name = x360::profiles::GuestGamertag(sponsor >= 0 ? g_users[sponsor].name : "", number);
+    user.counted = Clock::now();
+    g_users[user_index] = user;
+  }
+  // A new guest starts with nothing of the last one's.
+  if (!TitlePaths().user_root.empty() && !x360::profiles::ClearGuestFolder(TitlePaths().user_root, number))
+    KLOG_W("users: guest %d's folder could not be emptied", number);
+  ForgetProfileBlobs(user_index);
+  KLOG_I("users: player %u signed in as a guest, %s (%016llX)", user_index + 1, name.c_str(),
+         (unsigned long long)UserXuid(user_index));
+  // Not remembered in profile.txt: a guest lasts while the game runs.
+  const bool ui_open = g_in_signin_ui || AnySystemUiOpen();
+  if (!ui_open) Broadcast(kNotifySystemUi, 1);
+  Broadcast(kNotifySigninChanged, SignedInMask());
+  if (!ui_open) Broadcast(kNotifySystemUi, 0);
+  SigninToast(user_index, name, true);
+  return true;
+}
+
+bool IsUserGuest(uint32_t user_index) {
+  auto user = GetUser(user_index);
+  return user && user->guest;
 }
 
 void CloseSigninUi() {

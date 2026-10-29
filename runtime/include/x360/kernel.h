@@ -476,6 +476,13 @@ uint64_t UserXuid(uint32_t user_index);
 // signed in already or the profile plays on another slot. The title is told while the picker is
 // still open. Players 2-4; any thread.
 bool SignInProfile(uint32_t user_index, uint64_t xuid, const std::string& gamertag);
+// Signs a guest in on a free slot (players 2-4), as the console does from a signed-in profile: their
+// sponsor is the first player signed in who isn't a guest, their gamertag "<sponsor> (n)" and their
+// XUID a guest's (profiles::GuestXuid). Nothing of theirs is kept: no achievements, no time played,
+// not in profile.txt; their saves are in <user>\players\guest<n>, emptied now and at the next start.
+// False if the slot is signed in or three guests are. Any thread.
+bool SignInGuest(uint32_t user_index);
+bool IsUserGuest(uint32_t user_index);
 // The picker closed: the title sees the system UI close, and gets its controllers back.
 void CloseSigninUi();
 // Adds the time played since the last call to each signed-in profile's titles\<TitleID>.json
@@ -503,7 +510,7 @@ bool AnySystemUiOpen();
 // From the Guide: the sign-in picker for `count` players (whatever settings' sign_in is), and a
 // player's achievements list. False when it is open already or there is no window (or, for the
 // list, the player isn't signed in).
-bool ShowSigninPicker(uint32_t count);
+bool ShowSigninPicker(uint32_t count, bool allow_guest = true);
 bool ShowAchievements(uint32_t user_index);
 // Queues a system notification (XNotify ID) for every listener of its area. Any thread.
 constexpr uint32_t kNotifyNuiBindingChanged = 0x0006001D;  // a Kinect body bound to a profile

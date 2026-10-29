@@ -141,7 +141,45 @@ fs::path ProfileFolder(const fs::path& folder, uint64_t xuid) { return ProfilesF
 
 fs::path UserFolder(const fs::path& user_root, uint64_t xuid) {
   if (xuid == kLegacyXuid) return user_root;
+  if (const int guest = GuestNumber(xuid)) return GuestFolder(user_root, guest);
   return user_root / "players" / XuidText(xuid);
+}
+
+uint64_t GuestXuid(uint64_t sponsor_xuid, int number) {
+  return 0x0009000000000000ull | (uint64_t(number & 3) << 54) | (sponsor_xuid & 0x0000FFFFFFFFFFFFull);
+}
+
+bool IsGuestXuid(uint64_t xuid) {
+  const uint32_t high = uint32_t(xuid >> 48);
+  return (high & 0x000F) == 0x9 && (high & 0x00C0) != 0;
+}
+
+int GuestNumber(uint64_t xuid) { return IsGuestXuid(xuid) ? int((xuid >> 54) & 3) : 0; }
+
+std::string GuestGamertag(std::string_view sponsor_gamertag, int number) {
+  if (sponsor_gamertag.empty()) return "Guest";
+  const std::string suffix = " (" + std::to_string(number) + ")";
+  std::string name(sponsor_gamertag.substr(0, profile::kNameLength - suffix.size()));
+  while (!name.empty() && name.back() == ' ') name.pop_back();
+  return name + suffix;
+}
+
+fs::path GuestFolder(const fs::path& user_root, int number) {
+  return user_root / "players" / ("guest" + std::to_string(number));
+}
+
+bool ClearGuestFolder(const fs::path& user_root, int number) {
+  if (user_root.empty() || number < 1 || number > kMaxGuests) return false;
+  std::error_code ec;
+  const fs::path folder = GuestFolder(user_root, number);
+  fs::remove_all(folder, ec);
+  return !fs::exists(folder, ec);
+}
+
+bool ClearGuestFolders(const fs::path& user_root) {
+  bool cleared = true;
+  for (int n = 1; n <= kMaxGuests; ++n) cleared = ClearGuestFolder(user_root, n) && cleared;
+  return cleared;
 }
 
 bool WriteAtomic(const fs::path& file, std::string_view bytes) {
@@ -163,6 +201,7 @@ bool WriteAtomic(const fs::path& file, std::string_view bytes) {
 }
 
 std::optional<Profile> Load(const fs::path& folder, uint64_t xuid) {
+  if (IsGuestXuid(xuid)) return std::nullopt;  // a guest is never a profile
   const std::optional<std::string> text = ReadFile(JsonFile(folder, xuid));
   if (!text) return std::nullopt;
   std::optional<Profile> p = Parse(*text);
@@ -284,7 +323,7 @@ SignedIn Resolve(const fs::path& folder, const profile::SignIn& sign_in) {
 }
 
 bool SetSlot(const fs::path& folder, int slot, uint64_t xuid) {
-  if (slot < 0 || slot >= profile::kPlayers) return false;
+  if (slot < 0 || slot >= profile::kPlayers || IsGuestXuid(xuid)) return false;
   profile::SignIn sign_in = profile::Read(profile::File(folder));
   for (uint64_t& other : sign_in.slots)
     if (xuid && other == xuid) other = 0;
@@ -307,6 +346,7 @@ std::optional<TitleStats> ReadTitle(const fs::path& folder, uint64_t xuid, uint3
 }
 
 bool AddPlayTime(const fs::path& folder, uint64_t xuid, uint32_t title_id, std::string_view title, uint64_t seconds) {
+  if (IsGuestXuid(xuid)) return false;  // a guest's time isn't kept
   TitleStats stats = ReadTitle(folder, xuid, title_id).value_or(TitleStats{title_id});
   stats.seconds += seconds;
   if (!title.empty()) stats.title = title;

@@ -63,8 +63,9 @@ std::string ReplaceProcess(const std::filesystem::path& exe, const std::vector<s
 // signed in, "Create profile" with an on-screen keyboard, and Cancel, driven by every controller
 // and the keyboard. A profile chosen signs in on the slot whose controller chose it
 // (kernel::SignInProfile); after `count` players, or Cancel, it closes (kernel::CloseSigninUi).
-// False when there is no game window to show it in. Any thread.
-bool OpenSigninPicker(uint32_t count);
+// It offers "Guest" (kernel::SignInGuest) unless `allow_guest` is false (the title's sign-in UI
+// flags say XSSUI_FLAGS_DISALLOWGUEST). False when there is no game window to show it in. Any thread.
+bool OpenSigninPicker(uint32_t count, bool allow_guest = true);
 
 // The dashboard (x360/dashboard.h): the launcher started the game as part of its window. Set from
 // the command line before Initialize.

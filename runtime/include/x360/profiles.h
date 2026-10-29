@@ -58,9 +58,27 @@ std::string NowText();
 
 fs::path ProfilesFolder(const fs::path& folder);              // <folder>\profiles
 fs::path ProfileFolder(const fs::path& folder, uint64_t xuid);  // <folder>\profiles\<XUID>
-// Where a game keeps a profile's saves and settings: its root folder for kLegacyXuid, else
-// <user_root>\players\<XUID>.
+// Where a game keeps a profile's saves and settings: its root folder for kLegacyXuid, a guest's
+// <user_root>\players\guest<n> (cleared, ClearGuestFolders), else <user_root>\players\<XUID>.
 fs::path UserFolder(const fs::path& user_root, uint64_t xuid);
+
+// Guests, as on the console: a player signed in from another's profile on their own controller
+// ("Daniel (1)"), not a profile: nothing of theirs is kept (no achievements, no time played) and
+// their saves last until the game starts again. Their XUID follows the console's guest form: the
+// online form's 0x0009 in the top 16 bits with the guest number (1-3) in bits 54-55 (the XDK's
+// IsGuestXUID: (xuid >> 48) & 0x000F == 9 and (xuid >> 48) & 0x00C0 != 0), and the sponsor's low
+// 48 bits, so no two players share one.
+constexpr int kMaxGuests = 3;
+uint64_t GuestXuid(uint64_t sponsor_xuid, int number);  // number 1-3
+bool IsGuestXuid(uint64_t xuid);
+int GuestNumber(uint64_t xuid);  // 1-3; 0: not a guest's
+// "<sponsor> (n)", the sponsor's gamertag shortened to fit 15 characters; "Guest" without one.
+std::string GuestGamertag(std::string_view sponsor_gamertag, int number);
+// <user_root>\players\guest<n>: removed (the folder and everything in it) at the game's start and
+// when a guest signs in with that number. Nothing else is touched. False if one stays.
+fs::path GuestFolder(const fs::path& user_root, int number);
+bool ClearGuestFolder(const fs::path& user_root, int number);
+bool ClearGuestFolders(const fs::path& user_root);
 
 // Writes `bytes` to a temporary file next to `file`, flushed, then renames it over `file`.
 bool WriteAtomic(const fs::path& file, std::string_view bytes);

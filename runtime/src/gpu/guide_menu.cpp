@@ -62,6 +62,9 @@ struct Strings {
   const char* sign_in;
   const char* sign_out;
   const char* first_player;    // player 1 can't sign out here
+  const char* slot_title;      // %u: signing a free slot in
+  const char* choose_profile;
+  const char* guest;
   const char* back;
   const char* home_title;
   const char* home_text;
@@ -85,6 +88,9 @@ constexpr Strings kEnglish = {
     "Sign in",
     "Sign out",
     "Player 1 stays signed in",
+    "Sign in player %u",
+    "Choose a profile",
+    "Guest",
     "Back",
     "Go to Xbox Home?",
     "The game closes. Progress you haven't saved is lost.",
@@ -108,6 +114,9 @@ constexpr Strings kSpanish = {
     "Iniciar sesión",
     "Cerrar sesión",
     "El jugador 1 sigue con la sesión iniciada",
+    "Iniciar sesión del jugador %u",
+    "Elegir un perfil",
+    "Invitado",
     "Atrás",
     "¿Ir al Inicio de Xbox?",
     "El juego se cierra. Se pierde el progreso que no hayas guardado.",
@@ -313,7 +322,7 @@ class GuideMenu : public xe::ui::ImGuiDialog {
   }
 
  private:
-  enum class Page { kMain, kProfiles, kHome };
+  enum class Page { kMain, kProfiles, kSlot, kHome };
 
   struct Item {
     std::string label, detail;
@@ -341,16 +350,28 @@ class GuideMenu : public xe::ui::ImGuiDialog {
           const bool in = kernel::IsUserSignedIn(i);
           Item item{label, in ? kernel::UserName(i) : Tr().not_signed_in, i > 0};
           if (i == 0) item.detail += std::string("  \xC2\xB7  ") + Tr().first_player;
+          if (in && kernel::IsUserGuest(i)) item.detail += std::string("  \xC2\xB7  ") + Tr().guest;
           if (i > 0 && in) {
             item.detail += std::string("  \xC2\xB7  ") + Tr().sign_out;
             item.run = [i] { kernel::SignOutUser(i); };  // with its toast
           } else if (i > 0) {
             item.detail += std::string("  \xC2\xB7  ") + Tr().sign_in;
-            item.run = [] { kernel::ShowSigninPicker(1); };
+            item.run = [this, i] {  // a profile (the picker) or a guest
+              signing_slot_ = i;
+              Go(Page::kSlot);
+            };
           }
           items.push_back(std::move(item));
         }
         items.push_back({Tr().back, "", true, [this] { Go(Page::kMain); }});
+        break;
+      case Page::kSlot:
+        items.push_back({Tr().choose_profile, "", true, [] { kernel::ShowSigninPicker(1); }});
+        items.push_back({Tr().guest, "", true, [this] {
+                           kernel::SignInGuest(signing_slot_);  // with its toast
+                           Go(Page::kProfiles, int(signing_slot_));
+                         }});
+        items.push_back({Tr().back, "", true, [this] { Go(Page::kProfiles, int(signing_slot_)); }});
         break;
       case Page::kHome:
         items.push_back({Tr().home_confirm, "", true, [] {
@@ -382,6 +403,7 @@ class GuideMenu : public xe::ui::ImGuiDialog {
         break;
       case Press::kB:
         if (page_ == Page::kMain) Close();
+        else if (page_ == Page::kSlot) Go(Page::kProfiles, int(signing_slot_));
         else Go(Page::kMain, page_ == Page::kProfiles ? 2 : 4);
         break;
     }
@@ -420,6 +442,11 @@ class GuideMenu : public xe::ui::ImGuiDialog {
         ImGui::TextUnformatted(Tr().home_title);
         ImGui::PopFont();
         ImGui::TextWrapped("%s", Tr().home_text);
+        ImGui::Dummy(ImVec2(0, S(4)));
+      } else if (page_ == Page::kSlot) {
+        ImGui::PushFont(Title());
+        ImGui::Text(Tr().slot_title, signing_slot_ + 1);
+        ImGui::PopFont();
         ImGui::Dummy(ImVec2(0, S(4)));
       }
       DrawItems();
@@ -532,6 +559,7 @@ class GuideMenu : public xe::ui::ImGuiDialog {
   }
 
   int slot_ = 0;  // the player whose Guide it is
+  uint32_t signing_slot_ = 1;  // Profiles: the free slot being signed in (Page::kSlot)
   Page page_ = Page::kMain;
   int selected_ = 0;
   std::string message_;

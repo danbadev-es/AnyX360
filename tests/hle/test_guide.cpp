@@ -101,7 +101,23 @@ int main() {
   kernel::SignOutUser(1);
   CHECK(next(id, param) && id == 0x0000000A && !(param & 2));
   CHECK(!next(id, param) && active() == 1);
+  // A guest signed in on a free slot from the Guide's Profiles, then signed out: the same.
+  CHECK(kernel::SignInGuest(2) && kernel::IsUserGuest(2));
+  CHECK(next(id, param) && id == 0x0000000A && (param & 4));
+  CHECK(!next(id, param) && active() == 1);
+  kernel::SignOutUser(2);
+  CHECK(next(id, param) && id == 0x0000000A && !(param & 4));
+  CHECK(!next(id, param));
   kernel::SetSystemUiOpen(SystemUi::kGuide, false);
+  CHECK(next(id, param) && id == kSystemUi && param == 0);
+  // Outside a system UI it is told as the console's sign-in UI would: open, the change, closed.
+  CHECK(kernel::SignInGuest(1));
+  CHECK(next(id, param) && id == kSystemUi && param == 1);
+  CHECK(next(id, param) && id == 0x0000000A && (param & 2));
+  CHECK(next(id, param) && id == kSystemUi && param == 0);
+  kernel::SignOutUser(1);
+  CHECK(next(id, param) && id == kSystemUi && param == 1);
+  CHECK(next(id, param) && id == 0x0000000A && !(param & 2));
   CHECK(next(id, param) && id == kSystemUi && param == 0);
 
   // In a Kinect title the Guide is first the pause gesture of player 1, as the Kinect Guide.
