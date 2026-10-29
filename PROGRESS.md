@@ -26,6 +26,22 @@ it stays forever. Nothing is read after the Alps audio zones; the track's `bin.z
 - Earlier ruled out: DLC (same without it), Kinect (same with/without the sensor), button presses,
   slowness (9 minutes), unimplemented imports.
 
+## Findings (2026-10-29, second session)
+- The p3 probe crashed (it read the name pointer as a string); probe.cpp now reads guest memory
+  safely.
+- `826460F8`'s query is about **`GAME:\Media\UI\Videos\IE_Welcome_Video.wmv`**: a list of video
+  paths with a "playing" flag (entries of 32 bytes: a string, the flag at +28), kept by a listener
+  of event 13 (`824ABBE8`: 13/0 a video started, 13/1 it ended). `CWMVMovie` (vtable 82159DBC,
+  update = slot 7 `8298FB40`, started = slot 9 `8298FE60`) posts 13/1 when the facade's next-frame
+  call (`82985E78` → XMediaFacade export 6) returns `0x16660026` (end of stream; `0x166600E8` is
+  "not ready yet").
+- IELoading (the screen behind the welcome video) waits for that flag, and the end does come, but
+  late and at a varying time (145 s to 350 s into the run): the video decodes slower than real
+  time, the XMedia workers (threads starting at `881EE7A0`) being created and ended per frame.
+  Right after the end the race load starts: the NUI thread (`827C1338`), the worker `82A68968`,
+  CareerRaceModes.xml, the job thread `82CE1700`, the Alps audio zones. After that, nothing
+  more is opened (being checked with a ten-minute run).
+
 ## Next step (exact)
 1. Probe `826460F8` again to print the queried name (`[0x82DDF1D8]` string) and `obj+132`
    (probe.cpp already does it; the last run p3 printed nothing: check its build log first,
