@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-29
+
 The avatar editor ([docs/AVATARS.md](docs/AVATARS.md)).
 
 ### Added
@@ -29,6 +31,11 @@ The avatar editor ([docs/AVATARS.md](docs/AVATARS.md)).
   (its icon or its achievements' pictures). The launcher shows it wherever the profile appears, and
   the games' Guide and sign-in picker too. Saving a first avatar makes it the gamerpic of a profile
   without one.
+
+### Fixed
+
+- The launcher: the mouse wheel and a trackpad's sideways swipe scroll the compatible games' covers
+  (the row snapped back, ignored swipes and had no end); a trackpad's small steps also choose games.
 
 ## [0.22.0] - 2026-10-29
 
@@ -1014,7 +1021,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.19.0...v0.20.0
