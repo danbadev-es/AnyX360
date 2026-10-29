@@ -8,6 +8,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+Resident Evil 6, Modern Warfare 3 and Black Ops II with their title updates, and their
+downloadable content back in.
+
+### Changed
+
+- **Resident Evil 6 is played with its title update (0.0.6.3), Modern Warfare 3 with its own
+  (0.0.23.8) and Black Ops II with its own (0.0.18.14).** For the two Call of Duty games both
+  programs, campaign and multiplayer, are recompiled from the update: each patches its own
+  executable at start (`default_mp.xex` with the update's `default_mp.xexp`) and reads the update's
+  patch fast files (`update:\patch_mp.ff`, Black Ops II's `patch_all.ipak`, Resident Evil 6's
+  `mes_update_*.gmd`...). Without the update each program ends at once saying where it goes. The
+  launcher installs it from the same archive or the update package alone, and shows "Needs its
+  title update" until it is there. Remake these games' `.anyx` backups to include the update.
+- The launcher requires the update's patch for every executable of a game (`default.xexp` and
+  `default_mp.xexp`), each making the version game.json names; an update without one of them is
+  refused as damaged.
+- Every guest address in their hand-written code (setjmp/longjmp, the functions given to the
+  recompiler by hand, Black Ops II's host `memcpy`) was matched again in the updated executables
+  by instruction shape (`games/<id>/notes/tu_addresses.md`).
+
+### Added
+
+- **Modern Warfare 3's map packs**: Game Setup > Map > Bonus maps offers the 20 downloadable maps
+  (a split screen match on Piazza played).
+- **Black Ops II's map packs**: Change map > DLC offers Nuketown 2025 and the Revolution, Uprising,
+  Vengeance and Apocalypse maps (a split screen match on Magma played, without the old region
+  error), and the Zombies globe offers Die Rise, Mob of the Dead, Buried, Origins and Nuketown (Die
+  Rise played with two players).
+- **Resident Evil 6's Siege Game Mode and 3-Mode Pack** are installed with its other packs.
+
 ## [0.17.1] - 2026-10-29
 
 Xbox Avatars look as on the console: whole faces, clothes over the body, and face shapes.

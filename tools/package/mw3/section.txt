@@ -1,7 +1,8 @@
 CALL OF DUTY: MODERN WARFARE 3 (in testing)
 ==========================================================
 Your copy: the Games on Demand package (in an archive or a folder) or a folder with the disc's
-files. The campaign, Special Ops and multiplayer on one machine (split screen); Xbox LIVE is
+files, and its title update (the 000B0000 package in the same archive, or added alone afterwards):
+the game needs it (version 0.0.23.8). Its map packs are installed too. The campaign, Special Ops and multiplayer on one machine (split screen); Xbox LIVE is
 gone, so online play isn't available.
 Saved games and settings: %LOCALAPPDATA%\AnyX360\ModernWarfare3
 
@@ -15,6 +16,8 @@ keeps going to logs\mw3\last_run.log.
   F2 > Players), then everyone presses A to continue, and Start Match.
 - Special Ops: Split Screen in its menu plays Survival with a second player the same way (the
   missions haven't been tried yet).
+- The downloadable maps (Content Collections 1-4, Terminal, Overwatch...) are in Game Setup >
+  Map > Bonus maps.
 - Xbox LIVE says to sign in to Xbox LIVE; System Link finds no games.
 
 CONTROLS
@@ -42,8 +45,6 @@ KNOWN ISSUES
   is busy with other programs: close the game and start it again.
 - Split screen runs below 60 FPS in matches on slower machines.
 - In testing: the menus, the campaign's opening, split screen matches on Seatown (two and
-  three players) and Survival on Resistance have been played; four players haven't been
-  tried yet.
-- The downloadable maps aren't offered (they need the Title Update, which isn't supported), so
-  the launcher leaves the copy's map packs out.
+  three players), a two-player match on Piazza (a downloadable map) and Survival on Resistance
+  have been played; four players haven't been tried yet.
 - In the intro level the snowy trees may look flat white.

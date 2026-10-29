@@ -15,7 +15,7 @@ Call of Duty: Modern Warfare 3. Every value below comes from its `default.xex`, 
 | XDK | 2.0.20500; links D3D9LTCG, XGRAPHC, XAPILIB, XNET, XONLINE, XPARTY, X3DAUDL, LIBCMT and the older XAUD and XHV 2.0.8276; compiler 16.0.11886 |
 | Imports | `xboxkrnl.exe`: 160 functions and 13 variables; `xam.xex`: 98 functions ([list](../games/mw3/notes/imports.txt)) |
 | Multiplayer XEX | `default_mp.xex` (`iw5mp_ship.exe`): same title ID, key and compression; entry `0x824DBAE0`; 31.6 MiB image (4.9 MiB code); 38,186 functions; imports 161 + 13 from `xboxkrnl.exe`, 101 from `xam.xex` ([info](../games/mw3/notes/xex-info_mp.txt), [imports](../games/mw3/notes/imports_mp.txt)) |
-| Target version | Both executables of the base game; no Title Update |
+| Target version | Both executables patched with the Title Update (`tu00000008_00000000`): 0.0.0.8 to **0.0.23.8** (multiplayer shows 1.8.602); see [Title Update](#title-update) |
 
 The game folder holds two executables: `default.xex` (campaign and Special Ops) and
 `default_mp.xex` (multiplayer). Each is recompiled into its own program, `ModernWarfare3.exe` and
@@ -25,7 +25,44 @@ The game folder holds two executables: `default.xex` (campaign and Special Ops) 
 
 The package's other content: 26 DLC packs (content type 2: the Collections, Elite drops and the
 free maps, for multiplayer and Survival), 43 avatar items (content type `0x9000`) and a Title
-Update (`000B0000`). None of them is used yet.
+Update (`000B0000`). The avatar items aren't used; the Title Update and the DLC packs are (since
+0.18.0).
+
+## Title Update
+Since 0.18.0 both programs are recompiled from the Title Update's executables, as the Kinect games
+are ([ANYX.md](ANYX.md), [KINECTADVENTURES.md](KINECTADVENTURES.md) describe the mechanism). The
+update (`415608CB\000B0000\tu00000008_00000000`, 12 MB) holds `default.xexp` and `default_mp.xexp`
+(each 0.0.0.8 to 0.0.23.8), 41 patch fast files (`patch.ff`, `patch_mp.ff`, `patch_ui.ff`,
+`patch_ui_mp.ff`, one per level or map) and two packs (`imagefile5.pak`, `packfile26.pak`).
+
+- **Recompiling**: `patch_file_path`/`patched_file_path` in both configurations; new outputs
+  `recomp4` and `recomp_mp2`. XenonAnalyse: 129 jump tables in the campaign (10 table-driven `bctr`
+  left), 158 in multiplayer (15 left). No new instructions. The new imports are the runtime's or
+  its logged stubs (`XeKeysGetKey`, `XeKeysGetKeyProperties`).
+- **Addresses**: the register helpers from `find_helpers.py` on the patched images; setjmp/longjmp
+  (campaign `824CBB90`/`824CC5C0`, multiplayer `8255A250`/`8255AFF0`) are the base's pairs matched
+  by masked instruction shape over 24 instructions, and the same as `find_helpers.py`'s candidates.
+- **At start** each program patches its own executable with its `.xexp` (`default_mp.xexp` for
+  `default_mp.xex`, cached in `<user>\cache\patched`) and mounts the update as `update:`. The
+  campaign reads `update:\patch.ff`, `patch_ui.ff` and the level's patch (`patch_sp_intro.ff`);
+  multiplayer `update:\patch_mp.ff`, `patch_ui_mp.ff` and `imagefile5.pak`, and shows its version,
+  1.8.602. The launcher requires both patches (one `.xexp` per executable of game.json).
+- **The DLC**: with the update the 26 packs are mounted (`dlc1:` to `dlc26:`) and the maps are
+  offered: Game Setup > Map > **Bonus maps** lists Piazza, Liberation, Overwatch, Black Box,
+  Sanctuary, Foundation, Oasis, Lookout, Getaway, Erosion, Aground, Terminal, Vortex, U-Turn,
+  Intersection, Decommission, Off Shore, Gulch, Boardwalk and Parish. A two-player split screen
+  Team Deathmatch on **Piazza** was played (52-60 FPS). The launcher installs the packs again
+  (`"downloadable_content": false` removed).
+
+Split screen on a bonus map, from `ModernWarfare3MP.exe` with a user folder that has been through
+the first-time screens (`ANYX360_INPUT_CLOCK=frames:60`):
+
+```
+ANYX360_INPUT=15:DOWN,18:A,24:A,27:A@1,32:A,35:A@1,45:DOWN,50:A,58:A,66:UP,72:A,78:DOWN,82:A,90:B,98:UP,102:A,118:A,119:A@1,125:A,126:A@1,130:A@1,134:A@1
+```
+
+Split Screen, both join and continue; Game Setup, Map, UP to Bonus maps; DOWN past "Get more
+maps" to Piazza; back, Start Match; teams and classes for both.
 
 ## Recompiler configuration
 - **Register save/restore helpers** and **setjmp/longjmp** (`824C0AF0`, `824C1590`, the same CRT
@@ -191,11 +228,12 @@ start). Alone: `78:LEFT,81:A,88:A,98:DOWN,100:DOWN,105:A,112:A,118:A,124:A,130:A
   frames also prints the command processor's host stack.
 - Split screen matches run below 60 FPS when the machine is busy (35-57 with two players, 35-50
   with three).
-- The DLC maps aren't offered: the free Terminal pack, installed as the launcher installs DLC
-  (`<user>\content\00000002\<package>`), is enumerated and mounted (`dlc1:`, `dlc2:`), but the map
-  list keeps the 16 base maps. The packs probably need the Title Update (`update:\patch_mp.ff`),
-  which isn't supported. Since 0.14.0 the launcher leaves the 26 packs out, as it does Black Ops
-  II's (`"downloadable_content": false`); packs installed before stay, unused.
+- **The start hang** (a black screen from the start: the Database thread waits for a lock the
+  render thread holds while it waits for its workers) happened in 4 of about 14 multiplayer starts
+  on the updated build while the machine was very busy (other builds and games, under 1 GB of free
+  memory), and in none of 6 starts (3 of 0.17.0's base build, 3 of the updated one) once it was
+  quieter. Starting again works.
+- Fixed by the Title Update (0.18.0): the DLC maps weren't offered on the base executables.
 - Not tried: four players, a match played to its end, other modes, hosting a System Link game,
   the Special Ops missions.
 
@@ -205,11 +243,13 @@ From the Games on Demand package (`<package>` is the folder that holds `415608CB
 ```
 build.bat
 build\tools\x360tool\release\x360tool.exe god-extract "<package>\415608CB\00007000\<file>" extracted\mw3\game
-build\tools\x360tool\release\x360tool.exe xex-extract extracted\mw3\game\default.xex extracted\mw3\default.bin --key keys\xex2_retail.key
-python -I tools\scripts\find_helpers.py extracted\mw3\default.bin
+build\tools\x360tool\release\x360tool.exe stfs-extract "<package>\415608CB\000B0000\tu00000008_00000000" extracted\mw3\update
+build\tools\x360tool\release\x360tool.exe xex-patch extracted\mw3\game\default.xex extracted\mw3\update\default.xexp extracted\mw3\update\default_0.0.23.8.xex
+build\tools\x360tool\release\x360tool.exe xex-extract extracted\mw3\update\default_0.0.23.8.xex extracted\mw3\default_patched.bin --key keys\xex2_retail.key
+python -I tools\scripts\find_helpers.py extracted\mw3\default_patched.bin
 cd games\mw3
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\mw3\game\default.xex switch_tables.toml
-mkdir recomp3
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\mw3\update\default_0.0.23.8.xex switch_tables.toml
+mkdir recomp4
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 cd ..\..
 ```
@@ -217,18 +257,21 @@ cd ..\..
 The multiplayer executable the same way, with its own files:
 
 ```
-build\tools\x360tool\release\x360tool.exe xex-extract extracted\mw3\game\default_mp.xex extracted\mw3\default_mp.bin --key keys\xex2_retail.key
-python -I tools\scripts\find_helpers.py extracted\mw3\default_mp.bin
+build\tools\x360tool\release\x360tool.exe xex-patch extracted\mw3\game\default_mp.xex extracted\mw3\update\default_mp.xexp extracted\mw3\update\default_mp_0.0.23.8.xex
+build\tools\x360tool\release\x360tool.exe xex-extract extracted\mw3\update\default_mp_0.0.23.8.xex extracted\mw3\default_mp_patched.bin --key keys\xex2_retail.key
+python -I tools\scripts\find_helpers.py extracted\mw3\default_mp_patched.bin
 cd games\mw3
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\mw3\game\default_mp.xex switch_tables_mp.toml
-mkdir recomp_mp
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\mw3\update\default_mp_0.0.23.8.xex switch_tables_mp.toml
+mkdir recomp_mp2
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config_mp.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 cd ..\..
 build.bat release mw3
 ```
 
 `build.bat release mw3` builds both executables. XenonRecomp writes into `out_directory_path` from
-the configuration, and that folder must exist and be empty before it runs.
+the configuration, and that folder must exist and be empty before it runs. To play, the update's
+files must be in `<user>\content\000B0000\tu00000008_00000000` (where the launcher installs them);
+without them both programs stop at once and say so.
 
 **Scripted route** to the first level (a new user folder; times from the first input poll, with a
 warm shader cache):

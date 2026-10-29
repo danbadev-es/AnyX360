@@ -14,7 +14,7 @@ value below comes from its `default.xex`, read with `x360tool xex-info`. The ful
 | Functions | 35,246 (17,328 in `.pdata`) |
 | XDK | 2.0.21119; links D3D9, XGRAPHC, XAPILIB, XNET, XONLINE, XPARTY, XMP, XHV2, XAUDIO2, XAPOBA, XMCORE and LIBCPMT; compiler 16.0.11886 |
 | Imports | `xboxkrnl.exe`: 156 functions and 12 variables; `xam.xex`: 96 functions ([list](../games/bo2/notes/imports.txt)) |
-| Target version | Both executables of the base game (single-player, and multiplayer with Zombies); no Title Update |
+| Target version | Both executables (single-player, and multiplayer with Zombies) patched with the Title Update (`tu0000000e_00000000`): 0.0.0.14 to **0.0.18.14**; see [The DLC and the Title Update](#the-dlc-and-the-title-update) |
 
 ## The executables
 The game folder holds two executables with the same title ID, media ID and version:
@@ -371,33 +371,62 @@ From `BlackOps2MP.exe` started directly: `40:B,44:UP,47:A` switches to Zombies (
 route above as `ANYX360_INPUT_NEXT`), and `40:B,44:UP,46:UP,48:A` goes back to the campaign.
 
 ### The DLC and the Title Update
-The launcher leaves Black Ops II's content packages out (game.json `"downloadable_content":
-false`; its result says how many). Installed by hand as the launcher installs other games' DLC
-(`<user>\content\00000002\<package>`), the copy's six packages (the two licences aside) are
-mounted (`dlc1:`, `dlc2:`...), but the base executables can't use them:
+Since 0.18.0 both programs are recompiled from the Title Update's executables
+(`415608C3\000B0000\tu0000000e_00000000`, 90 MB: `default.xexp` and `default_mp.xexp`, each
+0.0.0.14 to **0.0.18.14**, the patch fast files of every mode and language, the sound banks
+`mpl_patch.all.sabs`/`zmb_patch.all.sabs` and `patch_all.ipak`), and the launcher installs the
+copy's eight content packages again (`"downloadable_content": false` removed). On the base
+executables the packs couldn't be used: version 0.0.0.14 never asked for Nuketown 2025's `dlc0.id`,
+and Uprising was rejected as "not from the correct region" (its sounds are `.sabs` banks, the
+format of the updated game).
 
-- At start each pack is asked for `dlc1.id` to `dlc5.id`. Nuketown 2025 (multiplayer) carries
-  `dlc0.id` and Nuketown Zombies `dlczm0.id`, which version 0.0.0.14 never asks for: the Local
-  map list keeps the 14 base maps.
-- Uprising (Magma, Encore, Studio, Vertigo and Mob of the Dead) carries `dlc2.id`; the game then
-  opens `snd_dlc2.<language>.pak`, which the pack doesn't have (its sounds are `.sabs` banks, the
-  format of later versions), and rejects it: "The content you are trying to load is not from the
-  correct region" when the multiplayer menu opens. A closes the box and the base game plays as
-  usual.
+- **Recompiling**: `patch_file_path`/`patched_file_path` in both configurations, new outputs
+  `recomp2` and `recomp_mp2`. XenonAnalyse: 228 jump tables in the campaign (11 table-driven `bctr`
+  left), 280 in multiplayer (15 left). No new instructions.
+- **Addresses**, each matched by masked instruction shape (immediates, displacements and branch
+  targets masked) and checked over 24 instructions or the whole function:
+  - setjmp/longjmp: campaign `826EC320`/`826EC7B0` (base `826CA660`/`826CAAF0`), multiplayer
+    `82918CA0`/`82919E50` (base `827D8600`/`827D9790`); the same as find_helpers.py's candidates
+    on the patched images.
+  - The `bdz` functions given by hand: campaign `8255AC00` (base `82539CB8`), multiplayer `826CE198`
+    (base `8261D1D8`), both 0x130 bytes: the same instructions, only their jump tables' addresses
+    moved.
+  - The multiplayer program's host `memcpy` (0.16.1): `82916330` (base `827D5D40`), all 48
+    instructions identical.
+- **Imports**: the multiplayer update links 52 more (the Kinect camera, biometric data, the
+  upload queue, `XamCacheOpenFile`, `EtxProducer*`, `ObCreateObject`...); those the runtime doesn't
+  implement are its logged stubs, and none was needed in the routes below.
+- **At start** each program patches its own executable (`default_mp.xexp` for `default_mp.xex`,
+  cached in `<user>\cache\patched`) and mounts the update as `update:`. The campaign reads
+  `update:\patch.ff`, `frontend_patch.ff` and `ms_patch_loc.ff` (the Latin American Spanish
+  strings); multiplayer `patch_mp.ff`, `common_patch_mp.ff`, `patch_ui_mp.ff`, `patch_all.ipak`,
+  `mpl_patch.all.sabs`/`.sabl` and the language's patches; Zombies `patch_zm.ff`,
+  `patch_ui_zm.ff`, `zmb_patch*.sabs` and the map's patch (`zm_highrise_patch.ff`). The launcher
+  requires both patches (one `.xexp` per executable of game.json).
+- **Multiplayer maps**: Local > Configurar partida (Game setup) > Cambiar mapa (Change map) > DDC
+  (DLC) lists Nuketown 2025, Downhill, Mirage, Hydro, Grind (Revolution), Encore, Magma, Vertigo,
+  Studio (Uprising), Uplink, Detour, Cove, Rush (Vengeance), Dig, Frost, Pod and Takeoff
+  (Apocalypse). A two-player split screen Team Deathmatch on **Magma** was played, without the
+  region error.
+- **Zombies maps**: the globe (RIGHT turns it) offers Green Run, Mob of the Dead, Nuketown,
+  Origins, Buried and Die Rise. **Die Rise** was played with two players in split screen, to the
+  first round.
 
-The packs were made for the game as updated. The Title Update (`000B0000`) holds
-`default.xexp`, `default_mp.xexp`, the patch fast files (the multiplayer program asks for
-`update:\patch_mp.ff` and `update:\patch_ui_mp.ff`; not found, harmlessly) and `patch_all.ipak`.
-Supporting it would take:
+Routes (`BlackOps2MP.exe` started directly, the user folder of the scripted routes):
 
-1. Recompiling the patched executables: XenonRecomp applies a `.xexp` (`patch_file_path`, and
-   `patched_file_path` writes the patched XEX), then new jump tables, helpers, setjmp/longjmp and
-   hand fixes for both (two new configurations).
-2. The runtime loading the patched image (the patched XEX) instead of the base one.
-3. Mounting `update:` on the Title Update's files.
-4. The launcher keeping the Title Update (it leaves title updates out now) and requiring it; a
-   copy without it would need the base executables. Then the DLC can be tried again, and
-   installed again (`"downloadable_content"` back to true).
+```
+Magma, two players:
+ANYX360_INPUT=40:DOWN,42:DOWN,44:A,62:DOWN,66:A,76:A,85:DOWN,89:A,95:DOWN,96:DOWN,97:DOWN,98:DOWN,99:DOWN,100:DOWN,103:A,110:B,114:UP,118:A@1,121:A@1,126:A,150:A,150:A@1,156:A,156:A@1
+
+Die Rise, two players (Zombies from the multiplayer menu, then the Zombies program):
+ANYX360_INPUT=40:B,44:UP,47:A
+ANYX360_INPUT_NEXT=14:DOWN,16:DOWN,18:A,44:RIGHT,48:RIGHT,52:RIGHT,56:RIGHT,60:RIGHT,66:A,76:A,86:A,100:A@1,104:A@1,110:A,116:A@1,120:A@1,126:A
+```
+
+Magma: Local; Game setup, Change map, DLC, six DOWNs from Nuketown 2025, A; back, UP to Start
+match, player 2 joins, A starts; A twice for each player takes the first class. Die Rise: Local,
+five RIGHTs on the globe, A for the map, its mode and the difficulty box; player 2 joins (twice:
+the tip box takes the first press), A starts. Round 1 begins at about 300 s.
 
 ### Controls
 As in Modern Warfare 3: player 1 on keyboard and mouse (or a controller: F2 > Players), players
@@ -409,8 +438,11 @@ on the arrows and 1-4 (D-pad); pause on Esc (Start), scores on Tab (Back). In me
 accepts and V or Backspace goes back.
 
 ### Known issues
-- The DLC isn't usable, so the launcher leaves it out (installed, Uprising shows a region error
-  box at start: above).
+- Under heavy load from other programs (the test machine was running other builds and games) two
+  players ran at 28-34 FPS on Magma and Die Rise with the GPU command thread near a full core; no
+  comparison with earlier versions was made under that load.
+- A Spanish mission text in player 2's view showed numbers in place of words once (Aftermath,
+  "ELIMINA 3 458 4368...").
 - Four players run at 37-51 FPS on the test machine, and two players at 45-60 in heavy moments
   (Zombies especially: see the split screen frame rate above).
 - Xbox LIVE and System Link aren't available (no network play).
@@ -424,23 +456,28 @@ From the Games on Demand package (`<package>` is the folder that holds `415608C3
 ```
 build.bat
 build\tools\x360tool\release\x360tool.exe god-extract "<package>\415608C3\00007000\<file>" extracted\bo2\game
-build\tools\x360tool\release\x360tool.exe xex-extract extracted\bo2\game\default.xex extracted\bo2\default.bin --key keys\xex2_retail.key
-python -I tools\scripts\find_helpers.py extracted\bo2\default.bin
+build\tools\x360tool\release\x360tool.exe stfs-extract "<package>\415608C3\000B0000\tu0000000e_00000000" extracted\bo2\update
+build\tools\x360tool\release\x360tool.exe xex-patch extracted\bo2\game\default.xex extracted\bo2\update\default.xexp extracted\bo2\update\default_0.0.18.14.xex
+build\tools\x360tool\release\x360tool.exe xex-patch extracted\bo2\game\default_mp.xex extracted\bo2\update\default_mp.xexp extracted\bo2\update\default_mp_0.0.18.14.xex
+build\tools\x360tool\release\x360tool.exe xex-extract extracted\bo2\update\default_0.0.18.14.xex extracted\bo2\default_patched.bin --key keys\xex2_retail.key
+python -I tools\scripts\find_helpers.py extracted\bo2\default_patched.bin
 cd games\bo2
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\bo2\game\default.xex switch_tables.toml
-mkdir recomp
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\bo2\update\default_0.0.18.14.xex switch_tables.toml
+mkdir recomp2
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\bo2\game\default_mp.xex switch_tables_mp.toml
-mkdir recomp_mp
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\bo2\update\default_mp_0.0.18.14.xex switch_tables_mp.toml
+mkdir recomp_mp2
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config_mp.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 cd ..\..
 build.bat release bo2
 ```
 
-XenonRecomp writes into `out_directory_path` from each configuration (`recomp`, `recomp_mp`), and
-that folder must exist and be empty before it runs. `build.bat release bo2` builds both programs
-(`BlackOps2.exe` and `BlackOps2MP.exe`); for the multiplayer helpers, run find_helpers.py on
-`default_mp.xex` extracted the same way.
+XenonRecomp writes into `out_directory_path` from each configuration (`recomp2`, `recomp_mp2`),
+and that folder must exist and be empty before it runs. `build.bat release bo2` builds both
+programs (`BlackOps2.exe` and `BlackOps2MP.exe`); for the multiplayer helpers, run find_helpers.py
+on the patched `default_mp` image extracted the same way. To play, the update's files must be in
+`<user>\content\000B0000\tu0000000e_00000000` (where the launcher installs them); without them
+both programs stop at once and say so.
 
 **Scripted route** to the first level (a new user folder; times from the first input poll, with a
 warm shader cache):

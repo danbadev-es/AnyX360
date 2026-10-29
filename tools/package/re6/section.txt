@@ -1,9 +1,10 @@
 RESIDENT EVIL 6 (in testing)
 ==========================================================
 Your copy: the Games on Demand package (in an archive or a folder) or a folder with the disc's
-files. Its downloadable content is installed too (the voice packs and the Mercenaries stages);
-Siege Game Mode and the 3-Mode Pack need the game's title update and are left out. One player:
-split screen and online play aren't available.
+files, and its title update (the TU_ file next to it, or added alone afterwards): the game needs
+it (version 0.0.6.3). Its downloadable content is installed too (the voice packs, the
+Mercenaries stages, Siege Game Mode and the 3-Mode Pack). One player: split screen and online
+play aren't available.
 Saved games and settings: %LOCALAPPDATA%\AnyX360\ResidentEvil6
 
 The first time, the game starts Leon and Helena's prologue straight from the title screen; the

@@ -14,19 +14,43 @@ below comes from its `default.xex`, read with `x360tool xex-info`. The full dump
 | Functions | 285,476 |
 | XDK | 2.0.21076; links D3D9, D3DX9, XGRAPHC, XAPILIB, XNET, XONLINE, XPARTY, XMP, XHV2, XHTTP, XAUDIO2, XAPOBA, XMCORE and LIBCPMT; compiler 16.0.11886 |
 | Imports | `xboxkrnl.exe` and `xam.xex`: 345 and 242 import records ([list](../games/re6/notes/imports.txt)) |
-| Target version | The base game's campaigns, one player; no Title Update |
+| Target version | The executable patched with the Title Update (`TU_11K620P_000000C000000.00000000001G3`): 0.0.0.3 to **0.0.6.3**; the campaigns, one player (see [Title Update](#title-update)) |
 
 The game's data are MT Framework archives (`nativeXenon\arc\X360\*.arc`), `nativeXenon\serial.srt`
 and videos. The scope agreed for the port is the campaign with one player: no split screen, no
-online play, no Title Update.
+online play.
+
+## Title Update
+Since 0.18.0 the game is recompiled from its Title Update's executable, as the Kinect games are
+([ANYX.md](ANYX.md), [KINECTADVENTURES.md](KINECTADVENTURES.md)). The update
+(`TU_11K620P_000000C000000.00000000001G3`, the console cache's form of a `000B0000` package,
+3.9 MB) holds `default.xexp` (0.0.0.3 to 0.0.6.3, an XEX of 30.96 MiB) and the update's message
+files, `nativeXenon\update\mes_update_<language>.gmd`.
+
+- **Recompiling**: `patch_file_path`/`patched_file_path` in config.toml, output `recomp3`.
+  XenonAnalyse: 1,208 jump tables (4 table-driven `bctr` left). No new instructions; the new
+  imports (`NetDll_XHttpStartup`/`Shutdown`, `XamGetToken`, `XamFreeToken`,
+  `XampXAuthStartup`...) are logged stubs.
+- **Addresses**: setjmp/longjmp `83AD6930`/`83AD6610` and the two functions given by hand,
+  `83797B20` (the same 151 instructions) and `82502938` (the update added five instructions of its
+  own at its start, so it is 0xB8 bytes now): [games/re6/notes/tu_addresses.md](../games/re6/notes/tu_addresses.md).
+- **At start** the game patches `default.xex` (cached in `<user>\cache\patched`), mounts the update
+  as `update:` and reads `UPDATE:\nativeXenon\update\mes_update_<language>.gmd` at the title
+  screen. On a new profile the title screen now comes before the downloadable content check
+  ("Comprobando descarga de contenido...") and the storage notice.
+- **The DLC**: the launcher installs all 11 packs now (`content_needs_update` removed). Siege Game
+  Mode (`11A6F0E4...`, `dlc001:`) and the 3-Mode Pack (`52B6C817...`, `dlc004:`) are mounted with
+  the others, and the game reads Siege's menu archive (`dlc001:\arc\X360\MenuDlc_spa.arc`) at start;
+  their modes are on the main menu (Extra Content), which opens after the prologue: not reached by
+  the scripted player yet.
 
 ## Recompiler configuration
 [config.toml](../games/re6/config.toml), [switch_tables.toml](../games/re6/switch_tables.toml):
-- **Register save/restore helpers** from find_helpers.py; **setjmp/longjmp** (`83A65250`,
-  `83A64F30`), checked by hand: word for word Black Ops II's, apart from the global setjmp reads and
+- **Register save/restore helpers** from find_helpers.py; **setjmp/longjmp** (`83AD6930`,
+  `83AD6610` in the update; `83A65250`, `83A64F30` on the disc), checked by hand: word for word Black Ops II's, apart from the global setjmp reads and
   the call longjmp makes. The other longjmp candidates are ordinary functions.
 - **Jump tables**: 1,171, from the analyser.
-- **Two functions given by hand** (`83726460`, `824DDB90`): leaf functions without `.pdata`
+- **Two functions given by hand** (`83797B20`, `82502938`; `83726460`, `824DDB90` on the disc): leaf functions without `.pdata`
   entries whose switch counts down CTR with `bdzf`; the last conditional branch targets the next
   instruction, which the analyser took for an empty block (as Black Ops II's `sub_82539CB8`).
 - No instruction was missing: no recompiler change was needed.
@@ -89,8 +113,8 @@ Pack A and B**), the single stages (`stshopa/b/c.bin`: **Rail Yard**, **High Sea
 **The Catacombs**) and the voice packs (`%s_v%s`: **German, French, Italian, Spanish**).
 Two packs add modes the base executable doesn't have (none of their files' names are in it):
 **Siege Game Mode** (`11A6F0E4...`) and the **3-Mode Pack** (Predator, Survivors, Onslaught:
-`52B6C817...`), which came with the title update. game.json names them in `content_needs_update`,
-so the launcher leaves them out; the other nine are installed. The Mercenaries stages themselves
+`52B6C817...`), which came with the title update. Until 0.18.0 game.json named them in
+`content_needs_update` and the launcher left them out; with the update (above) all 11 are installed. The Mercenaries stages themselves
 weren't tried (Mercenaries opens after the campaigns).
 
 ## Scripted route
@@ -120,7 +144,11 @@ carries Helena out, uses the herbs, heals her, fights the soldier (the RT dial a
 prompt are the driver's), goes through the building and, about 640 s in, runs the alley (LB turns
 the camera to the objective, then walk) to the railing (about 700 s). The street horde after it
 isn't scripted: the player dies there (about 790 s) and the game offers the last checkpoint.
-Checked end to end on 2026-10-24 with a new profile, at 30 FPS throughout.
+Checked end to end on 2026-10-24 with a new profile, at 30 FPS throughout. On the updated build
+(0.18.0, 2026-10-29) the same commands, on a profile made with step 1, played the opening
+cinematic, the first dial (X, at about 310 s), carrying Helena, the building and the soldier's RT
+dial (about 570 s) to the cinematic of Leon at about 640 s, at 30 FPS throughout (the screenshots
+after that weren't taken: the window was minimized).
 
 ## Controls
 Resident Evil 6 uses the standard keyboard and mouse defaults (the virtual controller of Gears of
@@ -146,7 +174,8 @@ coloured arc; the stick prompt wants the left stick turned (W A S D in turn).
 ## Known issues
 - The prologue hasn't been played to its end by the scripted player (see Status); the main menu,
   the campaigns after it, Mercenaries and Agent Hunt haven't been seen.
-- Siege Game Mode and the 3-Mode Pack need the title update and are left out.
+- Siege Game Mode and the 3-Mode Pack are installed and mounted, but their modes (on the main menu,
+  after the prologue) haven't been tried.
 - No split screen and no online play (Xbox LIVE is gone; the port's scope is one player).
   `NetDll_XNetGetSystemLinkPort` is still unimplemented.
 - Stutters (17-25 FPS for a moment) the first time an area or effect appears, until the shader
@@ -158,16 +187,20 @@ From the Games on Demand package (`<package>` is the folder that holds `43430819
 ```
 build.bat
 build\tools\x360tool\release\x360tool.exe god-extract "<package>\43430819\00007000\<file>" extracted\re6\game
-build\tools\x360tool\release\x360tool.exe xex-extract extracted\re6\game\default.xex extracted\re6\default.bin --key keys\xex2_retail.key
-python -I tools\scripts\find_helpers.py extracted\re6\default.bin
+build\tools\x360tool\release\x360tool.exe stfs-extract "<package>\TU_11K620P_000000C000000.00000000001G3" extracted\re6\update
+build\tools\x360tool\release\x360tool.exe xex-patch extracted\re6\game\default.xex extracted\re6\update\default.xexp extracted\re6\update\default_0.0.6.3.xex
+build\tools\x360tool\release\x360tool.exe xex-extract extracted\re6\update\default_0.0.6.3.xex extracted\re6\default_patched.bin --key keys\xex2_retail.key
+python -I tools\scripts\find_helpers.py extracted\re6\default_patched.bin
 cd games\re6
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\re6\game\default.xex switch_tables.toml
-mkdir recomp2
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\re6\update\default_0.0.6.3.xex switch_tables.toml
+mkdir recomp3
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 cd ..\..
 build.bat release re6
 ```
 
-XenonRecomp writes into `out_directory_path` (`recomp2`), which must exist and be empty before it
-runs. The two functions given by hand are in config.toml; XenonAnalyse's switch tables need no
+XenonRecomp writes into `out_directory_path` (`recomp3`), which must exist and be empty before it
+runs. To play, the update's files must be in
+`<user>\content\000B0000\TU_11K620P_000000C000000.00000000001G3` (where the launcher installs
+them); without them the game stops at once and says so. The two functions given by hand are in config.toml; XenonAnalyse's switch tables need no
 edits.

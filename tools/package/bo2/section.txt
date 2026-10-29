@@ -1,7 +1,8 @@
 CALL OF DUTY: BLACK OPS II (in testing)
 ==========================================================
 Your copy: the Games on Demand package (in an archive or a folder) or a folder with the disc's
-files. The campaign, multiplayer and Zombies on one machine (split screen); Xbox LIVE is gone,
+files, and its title update (the 000B0000 package in the same archive, or added alone afterwards):
+the game needs it (version 0.0.18.14). Its map packs are installed too. The campaign, multiplayer and Zombies on one machine (split screen); Xbox LIVE is gone,
 so online play isn't available.
 Saved games and settings: %LOCALAPPDATA%\AnyX360\BlackOps2
 
@@ -15,6 +16,9 @@ when the game switches; the log keeps going to logs\bo2\last_run.log.
 - Bots: Local > Adjust bots adds allied and enemy bots, the local version of Combat Training.
 - Zombies > Local: TranZit (Green Run, Bus Depot) alone or with friends; in Town, Grief (two
   players or more, team against team).
+- The downloadable maps: Local > Game setup > Change map > DLC (Nuketown 2025, Revolution's,
+  Uprising's, Vengeance's and Apocalypse's maps); in Zombies, the globe (RIGHT turns it) offers
+  Die Rise, Mob of the Dead, Buried, Origins and Nuketown besides Green Run.
 - Xbox LIVE needs Xbox LIVE; System Link asks for a network connection.
 
 CONTROLS
@@ -39,9 +43,7 @@ In menus: Space or Enter accepts, V or Backspace goes back. The game's text is i
 your copy carries (the launcher's Players and language chooses among them).
 
 KNOWN ISSUES
-- The downloadable maps aren't available: they need the Title Update, which isn't supported,
-  so the launcher leaves the copy's map packs out (without it, a pack such as Uprising makes
-  multiplayer report content "not from the correct region").
 - Four-player split screen runs at about 40-50 FPS on the test machine.
 - In testing: the campaign's first mission, split screen matches (two to four players, with
-  bots), TranZit and Grief with two players have been played; the rest hasn't been tried yet.
+  bots), Magma (Uprising) with two players, TranZit, Grief and Die Rise with two players have
+  been played; the rest hasn't been tried yet.

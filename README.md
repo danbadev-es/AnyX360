@@ -49,13 +49,16 @@ the sensor.
   the webcam, with Xbox Avatars at the wheel, two players in split screen, its Chevy Volt and
   Chevrolet Car Pack DLC and Title Update #3 (version 0.0.3.1).
 - **Call of Duty: Modern Warfare 3** (in testing): the campaign at 60 FPS, with keyboard and mouse
-  or a controller, and multiplayer and Special Ops in split screen on one machine.
+  or a controller, and multiplayer and Special Ops in split screen on one machine, with its title
+  update (version 0.0.23.8) and the downloadable maps.
 - **Call of Duty: Black Ops II** (in testing): the campaign at 60 FPS, and multiplayer (with bots)
-  and Zombies in split screen on one machine.
+  and Zombies in split screen on one machine, with its title update (version 0.0.18.14) and the
+  downloadable maps (Revolution, Uprising, Vengeance, Apocalypse, the Nuketowns).
 - **Kinect Party** (in testing): Double Fine's Xbox Live Arcade party game, the webcam's picture
   with you cut out of it in 36 channels of effects, with its Full Unlock.
 - **Resident Evil 6** (in testing): Capcom's campaign with one player, at 30 FPS as on the
-  console, with keyboard and mouse or a controller; the prologue is being played through.
+  console, with keyboard and mouse or a controller, with its title update (version 0.0.6.3) and its
+  downloadable content (Siege and the 3-Mode Pack included); the prologue is being played through.
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
 carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for.
@@ -87,19 +90,18 @@ carries: AnyX360 builds each avatar from it, with the clothes, hair and face the
 
    The launcher recognises the game by its content, its title ID and its version (the one AnyX360
    was recompiled from: an update or a re-release under the same title ID is refused) and checks the
-   copy is complete. The game's downloadable content in the copy is installed too (but Black Ops II's,
-   Modern Warfare 3's and two of Resident Evil 6's, which need their title update); other games'
+   copy is complete. The game's downloadable content in the copy is installed too; other games'
    content is left out. Add each game you have the same way: it appears with its box art.
 
    **Title updates.** A game AnyX360 plays with its title update (Kinect Adventures, Fruit Ninja
-   Kinect, Doritos Crash Course, Kinect Sports and Kinect Joy Ride) is
+   Kinect, Doritos Crash Course, Kinect Sports, Kinect Joy Ride, Resident Evil 6, Modern Warfare 3
+   and Black Ops II; for the two Call of Duty games, both programs) is
    recompiled from the updated executable: the launcher installs the update from the copy (the
    `TU_…` file, or a `<TitleID>\000B0000\` package) and the game is ready only with it. Its version
    must be the one AnyX360 plays; another is left out. A copy added without it shows "Needs its
    title update": add the update the same way (the same archive, or the `TU_…` file alone). The
    game patches its disc's executable with the update when it starts (cached after the first time)
-   and reads the update's files. The other games' updates (Resident Evil 6, Modern Warfare 3, Black
-   Ops II) are left out for now: they play their disc's version.
+   and reads the update's files.
 5. Choose a game and press **Play**. The launcher works with the mouse, the keyboard or an Xbox
    controller.
 
@@ -280,7 +282,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Campaign                         | 🧪 The opening missions played; the rest not tried yet |
 | Special Ops, Survival            | 🧪 Survival played alone and in split screen; the missions not tried yet |
 | Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; split screen matches on Seatown played (two and three players) |
-| Downloadable maps                | ❌ Not available: they need the Title Update, which isn't supported (the launcher leaves them out) |
+| Downloadable maps                | 🧪 Offered (Game Setup > Map > Bonus maps); a split screen match on Piazza played |
+| Title Update (0.0.23.8)          | ✅ Required: both programs are recompiled from it |
 | Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link finds no games |
 
 | Kinect Party                     | Status                                         |
@@ -299,7 +302,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Campaign                         | 🧪 The first mission played; the rest not tried yet |
 | Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; Local matches with two to four players and with bots played |
 | Zombies, split screen            | 🧪 TranZit alone and with two players, Grief with two played; three or four players not tried yet |
-| Downloadable maps                | ❌ Not available: they need the Title Update, which isn't supported (the launcher leaves them out) |
+| Downloadable maps                | 🧪 Offered; Magma (Uprising) in split screen and Die Rise (Zombies) with two players played |
+| Title Update (0.0.18.14)         | ✅ Required: both programs are recompiled from it |
 | Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link needs a network |
 
 | Resident Evil 6                  | Status                                         |
@@ -307,7 +311,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Start-up, title, saves           | ✅ Working (30 FPS, as on the console)         |
 | Leon's prologue                  | 🧪 Played to the street horde after the alley with the scripted player; its end not yet |
 | Main menu, campaigns, Mercenaries | 🧪 Not reached yet (the main menu opens after the prologue) |
-| Downloadable content             | ✅ Installed: the voice packs and Mercenaries stages; Siege and the 3-Mode Pack need the Title Update (left out) |
+| Downloadable content             | ✅ Installed, Siege and the 3-Mode Pack included (their modes are on the main menu, not reached yet) |
+| Title Update (0.0.6.3)           | ✅ Required: the game is recompiled from it    |
 | Split screen, online             | ❌ Not available (one player; Xbox LIVE is gone) |
 
 ## Controls
@@ -518,8 +523,6 @@ Call of Duty: Modern Warfare 3:
 - Multiplayer is a second program: switching between it and the campaign closes the window and
   opens another, and the launcher closes.
 - Split screen matches can run below 60 FPS.
-- The downloadable maps aren't offered (they need the Title Update, which isn't supported), so
-  the launcher leaves the copy's map packs out.
 - Only the campaign's opening, split screen matches and Survival have been played; in the intro
   level the snowy trees may look flat white.
 
@@ -527,22 +530,21 @@ Call of Duty: Black Ops II:
 
 - Multiplayer and Zombies are a second program: switching between them and the campaign closes
   the window and opens another, and the launcher closes.
-- The downloadable maps aren't available (they need the Title Update, which isn't supported), so
-  the launcher leaves the copy's map packs out.
 - Split screen can run below 60 FPS: two players at 45-60 in heavy moments of a scripted fight,
   four at about 40-50 on the test machine; in a real two-player Zombies match, with many zombies on
   screen, 25-45. Other programs using the processor or most of the memory lower it a lot (an
   editor's C++ indexer took Windows to 50 GB and the game to under 30 FPS, then out of memory: the
   game now says so in a message and in its log).
-- Only the first mission, Local matches, TranZit and Grief have been played.
+- Only the first mission, Local matches (Magma among the downloadable maps), TranZit, Grief and
+  Die Rise have been played.
 
 Resident Evil 6:
 
 - In testing: the start, the saves and Leon's prologue up to the street after the alley have been
   played with the test player; the end of the prologue, the main menu and everything after it
   haven't been seen yet.
-- Siege Game Mode and the 3-Mode Pack need the Title Update, which isn't supported: the launcher
-  leaves them out.
+- Siege Game Mode and the 3-Mode Pack are installed, but their modes (on the main menu) haven't
+  been tried.
 - It runs at 30 FPS, as on the console, with short stutters the first time an area appears.
 
 Found something else? Open an issue with the version (shown in the launcher) and the game's
@@ -608,16 +610,18 @@ environment with pinned, hash-checked packages.
   [docs/DORITOSCRASHCOURSE.md](docs/DORITOSCRASHCOURSE.md#reproducing)).
 - Kinect Sports: extract the Games on Demand package's disc files to `extracted/ks/game/` with
   `x360tool god-extract`, and its title update to `extracted/ks/update/` (see [docs/KINECTSPORTS.md](docs/KINECTSPORTS.md#reproducing)).
-- Call of Duty: Modern Warfare 3: the same, to `extracted/mw3/game/` (see
+- Call of Duty: Modern Warfare 3: the same, to `extracted/mw3/game/`, and its title update to
+  `extracted/mw3/update/` (see
   [docs/MODERNWARFARE3.md](docs/MODERNWARFARE3.md#reproducing)).
-- Call of Duty: Black Ops II: the same, to `extracted/bo2/game/` (see
+- Call of Duty: Black Ops II: the same, to `extracted/bo2/game/`, and its title update to
+  `extracted/bo2/update/` (see
   [docs/BLACKOPS2.md](docs/BLACKOPS2.md#reproducing)).
 - Kinect Joy Ride: the same, to `extracted/kjr/game/`, and its title update to `extracted/kjr/update/` (see
   [docs/KINECTJOYRIDE.md](docs/KINECTJOYRIDE.md#reproducing)).
 - Kinect Party: extract the Xbox Live Arcade package to `extracted/kp/game/` with
   `x360tool stfs-extract` (see [docs/KINECTPARTY.md](docs/KINECTPARTY.md#reproducing)).
 - Resident Evil 6: extract the Games on Demand package's disc files to `extracted/re6/game/` with
-  `x360tool god-extract` (see [docs/RESIDENTEVIL6.md](docs/RESIDENTEVIL6.md#reproducing)).
+  `x360tool god-extract`, and its title update to `extracted/re6/update/` (see [docs/RESIDENTEVIL6.md](docs/RESIDENTEVIL6.md#reproducing)).
 - Put the XEX2 retail key in `keys/xex2_retail.key` (see [keys/README.md](keys/README.md)).
 
 Both folders are git-ignored.
@@ -626,11 +630,12 @@ Both folders are git-ignored.
 > The targets are the base executables, patched with their title update for Kinect Adventures (title
 > `4D5308ED`, 0.0.0.3 to 0.0.1.3), Fruit Ninja Kinect (title `58410B79`, 0.0.0.3 to 0.0.1.3),
 > Doritos Crash Course (title `58410A71`, 0.0.0.2 to 0.0.2.2), Kinect Sports (title `4D5308C9`,
-> 0.0.0.2 to 0.0.4.2) and Kinect Joy Ride (title `4D53093B`, 0.0.0.1 to 0.0.3.1); without one for
-> Gears of War 3 (title `4D5308AB`), Dance Central 3 (title `373307D9`), Call of Duty: Modern
-> Warfare 3 (title `415608CB`), Call of Duty: Black Ops II (title `415608C3`) and Resident Evil 6 (title
-> `43430819`, version 0.0.0.3); for the two Call of Duty games, both the single-player `default.xex`
-> and the multiplayer `default_mp.xex`.
+> 0.0.0.2 to 0.0.4.2), Kinect Joy Ride (title `4D53093B`, 0.0.0.1 to 0.0.3.1), Resident Evil 6
+> (title `43430819`, 0.0.0.3 to 0.0.6.3), Call of Duty: Modern Warfare 3 (title `415608CB`, 0.0.0.8
+> to 0.0.23.8) and Call of Duty: Black Ops II (title `415608C3`, 0.0.0.14 to 0.0.18.14); for the two
+> Call of Duty games, both the single-player `default.xex` and the multiplayer `default_mp.xex`, each
+> with its own `.xexp`. Without one for Gears of War 3 (title `4D5308AB`) and Dance Central 3 (title
+> `373307D9`).
 
 ### 4. Recompile the Game
 
