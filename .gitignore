@@ -12,14 +12,17 @@
 /anyx/
 *.anyx
 *.anyx.partial
-# Box art (the publishers'): shipped in the release only, see covers/README.md
+
+# --- Publishers' art: shipped in the release only, NEVER commit ---
+# Box art, see covers/README.md
 /covers/*
 !/covers/README.md
-# Background art (the publishers'): shipped in the release only, see backgrounds/README.md
+# Background art, see backgrounds/README.md
 /backgrounds/*
 !/backgrounds/README.md
-# Shader caches collected while testing (tools/package/merge_shader_caches.py): shipped in the release only
-/shader_cache/
+# Reference pictures for the launcher's design
+/REF.*
+/ref/
 
 # --- Console keys: NEVER commit ---
 /keys/*
@@ -30,6 +33,8 @@
 /games/*/ppc/
 /games/*/recomp*/
 /games/*/shaders/
+# Shader caches collected while testing (tools/package/merge_shader_caches.py): shipped in the release only
+/shader_cache/
 
 # --- Build ---
 /build/
@@ -45,6 +50,12 @@ compile_commands.json
 *.exe
 *.dll
 *.lib
+*.log
+
+# --- Local tools ---
+# Claude Code: agents' worktrees and personal settings
+/.claude/worktrees/
+/.claude/settings.local.json
 
 # --- Editors / OS ---
 .vscode/*
