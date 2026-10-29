@@ -53,9 +53,8 @@ compile_commands.json
 *.log
 
 # --- Local tools ---
-# Claude Code: agents' worktrees and personal settings
-/.claude/worktrees/
-/.claude/settings.local.json
+# Claude Code: agents' worktrees, settings and everything else it keeps here
+/.claude/
 
 # --- Editors / OS ---
 .vscode/*
