@@ -164,7 +164,9 @@ UTF-8 JSON (it can be read with `7z e -so <file> manifest.json`):
 - **Title updates.** A game recompiled from its title update keeps `"xex"` as the disc's version
   (what the copy holds) and names the update: `"update": {"version": "0.0.1.3", "package":
   "<package>"}`. The update's version is checked when it is installed, from its `default.xexp`'s
-  delta patch descriptor, and in a backup's manifest.
+  delta patch descriptor, and in a backup's manifest. A game with several executables (game.json
+  `"executables"`: Modern Warfare 3, Black Ops II) needs the update's patch for each
+  (`default_mp.xexp` too), making the same version.
 - **Where it is checked.** The launcher refuses another version wherever it identifies a copy: a
   folder, an archive's probe (before the big extraction), a disc image, an `.anyx`'s manifest and its
   extracted `default.xex`. Other executables in the copy (multiplayer's `default_mp.xex`) must be the

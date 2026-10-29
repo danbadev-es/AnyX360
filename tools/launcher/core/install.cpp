@@ -188,13 +188,29 @@ fs::path TitleUpdateDir(const CatalogGame& game) {
 
 bool UsesTitleUpdate(const CatalogGame& game) { return game.update_package && *game.update_package; }
 
-bool TitleUpdateInstalled(const CatalogGame& game) {
-  return !UsesTitleUpdate(game) || Exists(TitleUpdateDir(game) / L"default.xexp");
+std::vector<std::wstring> TitleUpdatePatches(const CatalogGame& game) {
+  std::vector<std::wstring> patches;
+  const std::wstring_view list = game.update_patches ? game.update_patches : L"";
+  for (size_t start = 0; start < list.size();) {
+    size_t end = list.find(L'|', start);
+    if (end == std::wstring_view::npos) end = list.size();
+    if (end > start) patches.emplace_back(list.substr(start, end - start));
+    start = end + 1;
+  }
+  if (patches.empty()) patches.emplace_back(L"default.xexp");
+  return patches;
 }
 
-uint32_t TitleUpdateVersion(const fs::path& folder) {
+bool TitleUpdateInstalled(const CatalogGame& game) {
+  if (!UsesTitleUpdate(game)) return true;
+  for (const std::wstring& patch : TitleUpdatePatches(game))
+    if (!Exists(TitleUpdateDir(game) / patch)) return false;
+  return true;
+}
+
+uint32_t TitleUpdateVersion(const fs::path& folder, const wchar_t* patch) {
   // The headers are enough: the descriptor is one of them (the patch's data can be large).
-  std::ifstream in(folder / L"default.xexp", std::ios::binary);
+  std::ifstream in(folder / patch, std::ios::binary);
   std::vector<uint8_t> header(0x18);
   if (!in.read(reinterpret_cast<char*>(header.data()), std::streamsize(header.size()))) return 0;
   const uint32_t size = uint32_t(header[8]) << 24 | uint32_t(header[9]) << 16 | uint32_t(header[10]) << 8 | header[11];
@@ -230,6 +246,14 @@ UpdateResult InstallTitleUpdate(const CatalogGame& game, const fs::path& package
   if (!version || version != expected) {
     RemoveAll(staged);
     return version ? UpdateResult::kOtherVersion : UpdateResult::kDamaged;
+  }
+  // A game with two executables (Modern Warfare 3, Black Ops II) needs the update's patch for each,
+  // making the same version.
+  for (const std::wstring& patch : TitleUpdatePatches(game)) {
+    if (TitleUpdateVersion(staged, patch.c_str()) != expected) {
+      RemoveAll(staged);
+      return UpdateResult::kDamaged;
+    }
   }
   RemoveAll(destination);
   std::error_code ec;

@@ -122,10 +122,28 @@ function(anyx360_add_launcher)
         message(FATAL_ERROR "${json_path}: \"update\": {\"version\": \"a.b.c.d\", \"package\": \"<package file name>\"}")
       endif()
     endif()
+    # The update's patch for each executable of the game (game.json "executables", else default.xex):
+    # Modern Warfare 3's and Black Ops II's patch default_mp.xex too, with default_mp.xexp.
+    set(update_patches "")
+    if(NOT update_package STREQUAL "")
+      string(JSON count ERROR_VARIABLE single LENGTH "${json}" executables)
+      if(single)
+        set(update_patches "default.xexp")
+      else()
+        math(EXPR last "${count} - 1")
+        foreach(i RANGE ${last})
+          string(JSON entry_xex MEMBER "${json}" executables ${i})
+          if(i GREATER 0)
+            string(APPEND update_patches "|")
+          endif()
+          string(APPEND update_patches "${entry_xex}p")
+        endforeach()
+      endif()
+    endif()
     string(APPEND entries "    {L\"${id}\", L\"${title}\", L\"${exe}.exe\", L\"${user_dir}\", 0x${title_id}, ${size_gb}, ${webcam},\n"
                           "     L\"${required_files}\", L\"$<TARGET_FILE:${id}>\", L\"${cover}\", ${playable}, ${content},\n"
                           "     L\"${content_needs_update}\", L\"${xex_version}\", 0x${xex_media_id}, L\"${update_version}\",\n"
-                          "     L\"${update_package}\"},\n")
+                          "     L\"${update_package}\", L\"${update_patches}\"},\n")
     list(APPEND titles "${title}")
     # Rights holders, trademarks and extra components of every game, each named once.
     string(REPLACE ", " ";" game_owners "${owners}")
@@ -206,6 +224,9 @@ struct CatalogGame {
   // folder it is installed in (content\\000B0000\\<package>). Empty: none, the disc's version is played.
   const wchar_t* update_version = L\"\";
   const wchar_t* update_package = L\"\";
+  // The update's patches, one per executable ('|'-separated: default.xexp, default_mp.xexp for a
+  // game with two); each must be there and make update_version.
+  const wchar_t* update_patches = L\"\";
 };
 
 inline constexpr CatalogGame kCatalog[] = {

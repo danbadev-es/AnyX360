@@ -330,8 +330,10 @@ int main() {
   const fs::path seven_zip = SevenZip();  // before the root moves: the build's or an installed one
   SetRootForTesting(release);
   for (const CatalogGame& game : kCatalog) WriteFile(release / L"bin" / game.exe, "stand-in");
-  // The first game that takes its downloadable content (the tests add some).
-  const CatalogGame& game = *std::find_if(std::begin(kCatalog), std::end(kCatalog), [](const CatalogGame& g) { return g.content; });
+  // The first game that takes its downloadable content (the tests add some) and is played without a
+  // title update (the tests add copies without one).
+  const CatalogGame& game = *std::find_if(std::begin(kCatalog), std::end(kCatalog),
+                                          [](const CatalogGame& g) { return g.content && !UsesTitleUpdate(g); });
 
   {  // Text.
     SetLanguage(Language::kEnglish);
@@ -682,9 +684,11 @@ int main() {
     const CatalogGame& g = *updated;
     CHECK(ParseXexVersion(g.update_version, update_version) && update_version != Version(g));
     const std::wstring title = Hex32(g.title_id);
+    // Its patch for each executable (default.xexp; default_mp.xexp too for a game with two).
     const auto tu = [&](uint32_t makes) {
-      return MakeStfs(x360tool::content_type::kInstaller, g.title_id,
-                      {{"default.xexp", Xexp(Version(g), makes)}, {"GfxUI.int", "strings"}});
+      std::map<std::string, std::string> files{{"GfxUI.int", "strings"}};
+      for (const std::wstring& patch : TitleUpdatePatches(g)) files[Narrow(patch)] = Xexp(Version(g), makes);
+      return MakeStfs(x360tool::content_type::kInstaller, g.title_id, files);
     };
     const fs::path updates = player / L"Updates";
     WriteFile(updates / L"TU_16L627D_000000C000000.0000000000083", tu(update_version));
@@ -715,6 +719,25 @@ int main() {
     // Not a package that can be read.
     WriteFile(updates / L"Damaged" / L"TU_DAMAGED", MakeStfs(x360tool::content_type::kInstaller, g.title_id, {{"x.bin", "x"}}));
     CHECK(Add(updates / L"Damaged" / L"TU_DAMAGED").message.id == kTextErrorUpdateDamaged && TitleUpdateInstalled(g));
+    // A game with two executables: an update without the second one's patch (or of another version)
+    // isn't taken, and the one installed stays.
+    const std::vector<std::wstring> patches = TitleUpdatePatches(g);
+    if (patches.size() > 1) {
+      WriteFile(updates / L"Half" / L"TU_HALF", MakeStfs(x360tool::content_type::kInstaller, g.title_id,
+                                                          {{"default.xexp", Xexp(Version(g), update_version)}}));
+      CHECK(Add(updates / L"Half" / L"TU_HALF").message.id == kTextErrorUpdateDamaged);
+      std::map<std::string, std::string> mixed{{"default.xexp", Xexp(Version(g), update_version)}};
+      for (size_t i = 1; i < patches.size(); ++i) mixed[Narrow(patches[i])] = Xexp(Version(g), update_version + 1);
+      WriteFile(updates / L"Mixed" / L"TU_MIXED", MakeStfs(x360tool::content_type::kInstaller, g.title_id, mixed));
+      CHECK(Add(updates / L"Mixed" / L"TU_MIXED").message.id == kTextErrorUpdateDamaged);
+      CHECK(TitleUpdateInstalled(g) && TitleUpdateVersion(installed, patches[1].c_str()) == update_version);
+      // The second patch removed: the game needs its update again.
+      fs::remove(installed / patches[1]);
+      CHECK(!TitleUpdateInstalled(g) && Entry(g).needs_update);
+      CHECK(Add(updates / L"TU_16L627D_000000C000000.0000000000083").message.id == kTextAddedUpdate && TitleUpdateInstalled(g));
+    } else {
+      std::printf("SKIP two-executable update: %ls has one\n", g.title);
+    }
 
     // The game removed: its update alone is refused until the game is back.
     Remove(g);
@@ -1054,9 +1077,10 @@ int main() {
       WriteFile(staged / title / L"000D0000" / L"GAMEPACKAGE", MakeStfs(x360tool::content_type::kArcadeTitle, g.title_id, Copy(g)));
       WriteFile(staged / title / L"00000002" / L"DLCPACKAGE",
                 MakeStfs(x360tool::content_type::kMarketplace, g.title_id, {{"songs/song.bin", "song"}}));
+      std::map<std::string, std::string> tu_files{{"GfxUI.int", "strings"}};
+      for (const std::wstring& patch : TitleUpdatePatches(g)) tu_files[Narrow(patch)] = Xexp(Version(g), update_version);
       WriteFile(staged / L"TU_16L627D_000000C000000.0000000000083",
-                MakeStfs(x360tool::content_type::kInstaller, g.title_id,
-                         {{"default.xexp", Xexp(Version(g), update_version)}, {"GfxUI.int", "strings"}}));
+                MakeStfs(x360tool::content_type::kInstaller, g.title_id, tu_files));
       const fs::path with_update = sandbox / L"with-update.7z";
       CHECK(Run7z(L"a " + Quote(with_update) + L" " + Quote(staged / L"*")) == 0);
       Outcome outcome = Add(with_update);

@@ -56,10 +56,14 @@ bool NeedsTitleUpdate(const CatalogGame& game, const fs::path& package);
 // dir>\content\000B0000\<package> (where the runtime looks for it and mounts it as update:\).
 fs::path TitleUpdateDir(const CatalogGame& game);
 bool UsesTitleUpdate(const CatalogGame& game);
-// True for a game that doesn't use one.
+// The update's patch for each of the game's executables (default.xexp; default_mp.xexp too for
+// Modern Warfare 3 and Black Ops II).
+std::vector<std::wstring> TitleUpdatePatches(const CatalogGame& game);
+// True for a game that doesn't use one; else every patch of TitleUpdatePatches is installed.
 bool TitleUpdateInstalled(const CatalogGame& game);
-// The version an extracted update makes (its default.xexp's delta descriptor); 0 if it has none.
-uint32_t TitleUpdateVersion(const fs::path& folder);
+// The version an extracted update makes (the delta descriptor of its default.xexp, or of another
+// patch); 0 if it has none.
+uint32_t TitleUpdateVersion(const fs::path& folder, const wchar_t* patch = L"default.xexp");
 
 enum class UpdateResult {
   kInstalled,
