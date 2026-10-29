@@ -18,6 +18,7 @@
 #include <tuple>
 #include <vector>
 
+#include "core/avatar_motion.h"
 #include "core/jobs.h"
 #include "core/library.h"
 #include "x360/achievements.h"
@@ -79,6 +80,13 @@ class App : public JobObserver {
   void Paint(Canvas& canvas);
   // Something moves: paint again on the next frame.
   bool Animating() const;
+  // The avatar moves (Home or the editor shows it, no game runs, motion isn't reduced): seconds
+  // until its next picture is due (0: now), at most 30 a second (60 while it gestures); negative if
+  // it stands still. The window paints again then if it can be seen.
+  double AvatarFrameIn() const;
+  // Windows' animation effects are off (Settings > Accessibility > Visual effects): the avatar
+  // stands still.
+  void SetReducedMotion(bool reduced);
 
   void MouseMove(float x, float y);
   void MouseLeave();
@@ -127,6 +135,9 @@ class App : public JobObserver {
   // dashboard's pages (console-<page>, console-avatar too). `avatar`: the avatar edited
   // (x360tool::customize_avatar's syntax: entries, or random:<seed>) instead of the profile's.
   void SetScreenshotAvatar(std::string avatar) { screenshot_avatar_ = std::move(avatar); }
+  // Screenshots: the avatar (Home's, the editor's) posed `time` seconds into its idle, with `gesture`
+  // that far in (Home's only); at rest otherwise.
+  void SetScreenshotMotion(avatar::Gesture gesture, double time) { screenshot_motion_ = {gesture, time}; }
   void ShowState(std::wstring_view state);
 
   // JobObserver (the job's thread).
@@ -250,6 +261,11 @@ class App : public JobObserver {
   // saved one), its face on its colour, `size` pixels square.
   bool RenderAvatarPicture(uint64_t xuid, const std::vector<uint8_t>& description, uint32_t size, Image& out);
   bool SetGamerpic(uint64_t xuid, const Image* picture, const fs::path& file);
+  // The avatar may move now (motion not reduced, no game, not a screenshot).
+  bool AvatarMotionAllowed() const;
+  // The pose to draw `motion`'s avatar in now (the editor's: calm, without gestures; a screenshot's
+  // as --anim says), or false: at rest.
+  bool AvatarPoseNow(const avatar::Motion& motion, double now, bool editor, avatar::Pose& pose) const;
   void PushOverlay(Overlay overlay);
   void PopOverlay();
   void Finish(const Outcome& outcome);
@@ -367,6 +383,8 @@ class App : public JobObserver {
   bool avatar_pack_reading_ = false;
   std::unique_ptr<AvatarEdit> avatar_;
   std::string screenshot_avatar_;
+  std::optional<std::pair<avatar::Gesture, double>> screenshot_motion_;
+  bool reduced_motion_ = false;
 
   // Decoded pictures as Direct2D bitmaps, for the canvas generation they were made for.
   std::map<std::shared_ptr<const Image>, ComPtr<ID2D1Bitmap>> bitmaps_;

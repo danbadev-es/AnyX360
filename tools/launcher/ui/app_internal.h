@@ -135,6 +135,10 @@ inline Color ProfileColor(uint64_t xuid) {
 
 inline bool g_instant = false;  // screenshots: every animation at its end
 
+// Home's avatar is turned a little towards the games; the editor's moves less (and doesn't look away).
+inline constexpr float kHomeAvatarYaw = 0.32f;
+inline constexpr avatar::Style kEditorMotion{0.55f, false};
+
 inline double Now() {
   return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }

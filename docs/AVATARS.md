@@ -197,14 +197,12 @@ profile playing; in desktop mode, a profile's ⋯ menu in Profiles has **Edit av
   drag) turns it, up and down on the stick (or the wheel) zooms from the whole body to the face.
   Height and weight are the skeleton's work in the games; the viewer only scales the avatar (an
   eighth taller or shorter, a fifth wider or thinner below the neck) to show them.
-  **The pose:** there are no animations yet, so the viewer poses the bind pose itself
-  (`RelaxArms`): every avatar has the same 72-joint skeleton, numbered alike (each arm: upper arm 27
-  or 30, then 26/29, the forearm 32/35 and 31/34, the hand 33/36, the fingers 37-43, 51-55, 61-65 and
-  44-50, 56-60, 66-70), and every vertex says which four joints move it and how much (the blend
-  indices and weights, summing to 255). Each arm turns 74 degrees down and 7 forward about its
-  shoulder (where its upper arm's vertices start, at their middle height), each vertex by as much
-  of the turn as its weight on that arm's joints: the shoulder bends smoothly. The dashboard's Home
-  shows the profile's avatar the same way, standing beside the games.
+  **The pose:** the parts stay in the bind pose (a T) on the GPU with each vertex's four joints and
+  weights, and the vertex shader skins them with a pose of the skeleton ([below](#the-launchers-avatar-in-motion)).
+  At rest each arm is turned 74 degrees down and 7 forward about its shoulder (where its upper arm's
+  vertices start, at their middle height), as since 0.24.0: pictures and gamerpics keep that stance.
+  The dashboard's Home shows the profile's avatar the same way, standing beside the games, and both
+  move it.
 - **The editor** (`x360tool::AvatarEditor`): a row per thing to change, controller first (up and
   down choose a row, left and right change it at once; A the next choice; the mouse clicks the
   arrows): body (gender), skin colour, height, weight, hair, hair colour (the eyebrows and facial
@@ -231,13 +229,94 @@ profile playing; in desktop mode, a profile's ⋯ menu in Profiles has **Edit av
 **Command line** (testing): `AnyX360.exe --render-avatar <png> [--size WxH] [--yaw degrees]
 [--zoom 0-1] [--avatar <entries|random:N>]` writes the viewer's picture of the profile playing's
 avatar (or that one), transparent around it; `--screenshot <png> --state console-avatar|avatar|gamerpic
-[--avatar ...]` the editor and the picker.
+[--avatar ...]` the editor and the picker. Both take `--anim` ([below](#the-launchers-avatar-in-motion)).
 
 **Tests:** `tests/avatar/test_avatar.cpp` (on a made-up pack, `tests/avatar/test_pack.h`): the
 catalog, the format (asset IDs, colours, parts), the round trip through `profile.json`, the
 editor's rules (gender, outfits, optional categories, colourways, a new gender), 300 random
 avatars valid and read back the same, `ANYX360_AVATAR`'s syntax. `test_hle`: each slot's avatar
 (`ChooseManifest`: two profiles, a profile on another slot, none, a damaged one, the override).
+`test_launcher_core`: the motion (below).
+
+## The launcher's avatar in motion
+
+`tools/launcher/core/avatar_motion.cpp` (the skeleton, the poses, the idle and the gestures; tested
+by `test_launcher_core`), drawn by `ui/avatar_view.cpp`. Added after 0.25.0.
+
+**The console's clips or our own:** the pack has the console's animations (the 41 entries
+"Animation ...": "Generic Wave", "Generic Stand 0" to "7", "Male Idle Looks Around", "Female Idle
+Shifts Weight", ...; block 1, stored as they are). Each starts with a small header (a float 20.0,
+perhaps the frame rate; 71, perhaps the joints without the root; offsets), then a bit-packed stream
+nobody has decoded; and the skeleton they move is built by the avatar library linked into each game
+(Kinect Sports `82A84A00`; no pack entry has a skeleton, block 5). So the launcher moves the avatar
+its own way, on the skeleton the parts' skinning shows, with nothing taken from the console's
+clips. `XamAvatarLoadAnimation` for the games is still open.
+
+**The skeleton:** every part names the same 72 joints, and which joints share vertices gives the
+tree (+x is the avatar's left; left/right):
+
+| Joints | |
+|---|---|
+| 0 root, 4 pelvis, 10 spine (1 at the belly), 18 chest (5 at the upper back, 14 at jackets' collars), 24 neck, 19 head | the spine |
+| 7/9 thigh, 13/17 shin (6/8 in boots and wide trousers), 11/15 foot, 21/23 toes; 2/3 at the hips | the legs |
+| 12/16 collar, 27/30 upper arm, 26/29 its twist, 32/35 forearm from the elbow, 31/34 its twist by the wrist, 33/36 hand; fingers 37-51-61, 38-52-62, 39-53-63, 40-54-64 and the thumb 43-55-65 (44-56-66 ... 50-60-70 on the right) | the arms |
+
+A joint turns about its pivot, which the launcher finds on each avatar's body part: where the
+joint's vertices blend with its ancestors' (a ring at the elbow, the wrist, the neck), so male and
+female bodies (narrower shoulders) each get their own; the upper arms' as the relaxed pose of
+0.24.0. A pose is each joint's rotation in its parent's frame from the bind pose, plus a lean of the
+whole body about the ankles (the feet kept flat on the floor). The shader blends the joints' dual
+quaternions by the vertices' weights (normalized): a vertex shared by the chest and the arm turns
+about the shoulder by part of the arm's turn instead of collapsing towards it. Height and weight
+scale the posed avatar, each vertex wider by where it is at rest.
+
+**The idle** (24 s, then exactly again; every period divides it): breathing every 4 s (the chest and
+the shoulders rise, the head kept level); the weight from foot to foot every 12 s, resting a while
+on each, with a slower drift and a sway forward and back (the body leans half a degree about the
+ankles, the spine curves back so the shoulders and the head stay level); the arms hang straight
+down and swing a degree, each a slow pendulum of its own, the elbows soft; the head drifts slowly
+and looks around three times (to its left, which on Home is the games; to its right, a little up; a
+glance down), eased in and out; nine blinks (the eye texture's frames: 7 half closed, 4 closed, 0.16
+s), one before each look around. Nothing turns more than 16 degrees from standing or faster than
+40 degrees a second; the feet move less than 3 mm.
+
+**The wave** (3.2 s): the right arm rises out to the side and a little forward as the forearm folds
+up beside the head (the elbow leads, so the hand never hangs from a raised arm) and the palm turns
+to the front (the forearm's twist joint, so the twist spreads along it); three swings of the forearm
+from upright outwards (never towards the head), the hand following a little behind; then down
+again. The shoulder rises with the arm, the body leans a little away from it, the head tilts
+towards the hand, nods as it comes up and turns back towards the viewer (on Home the avatar is
+turned towards the games), and the avatar smiles (the mouth's frame 4). Each joint blends from the
+idle and back to it, on its own timing. **The nod** (0.9 s): the head 9 degrees down and back, a
+little past level.
+
+**Where and when:**
+- **Home:** the idle while Home is in front (no overlay over it); the wave when Home shows the
+  avatar to somebody: the launcher starting, the dashboard back after a game, another profile
+  signed in (0.4 s after it shows; it waits for Home if another page or an overlay is in front); a
+  nod when it gets the focus. A nod asked for during the wave is left out; a wave during a nod
+  follows it.
+- **The editor** (the Avatar page, desktop mode's overlay): a calmer idle (about half the motion, no
+  looking around, which would turn the face away while it is edited), no gestures.
+- Gamerpics and `--render-avatar` (without `--anim`) stay at rest.
+
+**Cost:** it moves only while it can be seen: Home or the editor in front, no game running, and the
+window not minimized, hidden, on another virtual desktop or covered by the window in front (one
+maximized over it); then the window is painted again for its next picture, 30 a second (60 during
+a gesture), from a high-resolution waitable timer the message loop waits on; otherwise the launcher
+paints on events as before. Each frame draws the avatar again (the same Direct3D buffers, only the
+72 joints' constants change), reads it back and copies it into the same Direct2D bitmap. With
+Windows' animation effects off (Settings > Accessibility > Visual effects), it stands still.
+
+**Pictures of it:** `--anim idle|wave|nod [--anim-time seconds]` poses the avatar that far into the
+idle (and the gesture) in `--screenshot` (Home's and the editor's avatar; without `--anim` it stands
+at rest) and `--render-avatar`; `--render-avatar <png> --anim wave --anim-sheet 12 [--anim-time t]
+[--anim-span s]` draws 12 frames side by side, over the gesture (or the idle's 24 s, or the span):
+
+```
+AnyX360.exe --render-avatar wave.png --size 240x400 --yaw 18.3 --anim wave --anim-sheet 12
+AnyX360.exe --screenshot home.png --state console-home --anim wave --anim-time 1.5
+```
 
 ## Checked (2026-10-29)
 
@@ -279,9 +358,8 @@ Left open; a capture of the frame (RenderDoc, or Xenia's trace) when it shows wo
 
 ## Open
 
-- **Animations** (`XamAvatarLoadAnimation`): 41 in the pack.
-- The viewer's pose is the bind pose with its arms lowered (above); the console's editor shows the
-  avatar standing and moving (an animation).
+- **Animations** (`XamAvatarLoadAnimation`): 41 in the pack, in a format not decoded yet (above);
+  the launcher's avatar moves with its own.
 - `XamAvatarGetManifestsByXuid` (other players' avatars by XUID) isn't implemented.
 - Unmapped avatar buffers: in Kinect Sports' menus Xenia refuses a few draws of avatar parts (index
   buffers the size of a head's or a body's) because their memory is no longer mapped ("Invalid

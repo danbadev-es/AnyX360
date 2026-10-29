@@ -284,6 +284,7 @@ constexpr char kTermsEsUtf8[] = R\"terms(@ANYX360_TERMS_es@)terms\";
   set(core ${PROJECT_SOURCE_DIR}/tools/launcher/core)
   add_library(launcher_core STATIC
     ${core}/anyx.cpp
+    ${core}/avatar_motion.cpp
     ${core}/catalog.cpp
     ${core}/hash.cpp
     ${core}/install.cpp

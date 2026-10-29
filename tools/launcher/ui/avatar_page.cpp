@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <thread>
 
 #include "avatar_look.h"
@@ -124,6 +125,8 @@ bool App::BeginAvatarEdit(uint64_t xuid) {
   if (!avatar_ || avatar_->xuid != xuid) {
     avatar_ = std::make_unique<AvatarEdit>();
     avatar_->xuid = xuid;
+    avatar_->motion.SetStyle(kEditorMotion);
+    avatar_->motion.Restart(Now());
   }
   const x360tool::AvatarCatalog* pack = AvatarPack();
   if (!pack || !pack->loaded()) return true;  // reading it, or there's none: the page says so
@@ -319,17 +322,30 @@ void App::DrawAvatarEditor(Canvas& c, const RectF& area, bool top, float fade) {
     edit.built_revision = edit.revision;
     edit.picture_revision = ~0u;
   }
-  if (edit.error.empty() && pw && ph &&
-      (edit.picture_revision != edit.revision || edit.picture_w != pw || edit.picture_h != ph || edit.picture_yaw != edit.yaw ||
-       edit.picture_zoom != edit.zoom)) {
+  // Drawn again when it changes, and while it moves (its calm idle, while the editor is in front:
+  // at most 60 pictures a second).
+  const double now = Now();
+  avatar::Pose pose;
+  const bool posed = top && AvatarPoseNow(edit.motion, now, true, pose);
+  const bool changed = edit.picture_revision != edit.revision || edit.picture_w != pw || edit.picture_h != ph ||
+                       edit.picture_yaw != edit.yaw || edit.picture_zoom != edit.zoom;
+  if (edit.error.empty() && pw && ph && (changed || (posed && (edit.posed_at < 0 || now - edit.posed_at >= 1.0 / 70)))) {
+    if (posed) edit.renderer.SetPose(pose);
+    else if (reduced_motion_) edit.renderer.SetRestPose();
     if (edit.renderer.Render(pw, ph, edit.yaw, edit.zoom, edit.picture)) {
       edit.picture_revision = edit.revision, edit.picture_w = pw, edit.picture_h = ph;
       edit.picture_yaw = edit.yaw, edit.picture_zoom = edit.zoom;
       edit.bitmap_stale = true;
+      edit.posed_at = posed ? now : -1;
     }
   }
   if (edit.bitmap_stale || edit.bitmap_generation != c.generation()) {
-    edit.bitmap = edit.picture.width ? c.CreateBitmap(edit.picture.width, edit.picture.height, edit.picture.bgra) : nullptr;
+    // The same bitmap while the size stays (a picture per frame), else a new one.
+    if (edit.bitmap && edit.picture.width && edit.bitmap_generation == c.generation() &&
+        edit.bitmap->GetPixelSize().width == edit.picture.width && edit.bitmap->GetPixelSize().height == edit.picture.height)
+      edit.bitmap->CopyFromMemory(nullptr, edit.picture.bgra.data(), edit.picture.width * 4);
+    else
+      edit.bitmap = edit.picture.width ? c.CreateBitmap(edit.picture.width, edit.picture.height, edit.picture.bgra) : nullptr;
     edit.bitmap_generation = c.generation();
     edit.bitmap_stale = false;
   }
@@ -572,6 +588,44 @@ void App::DrawAvatarEditor(Canvas& c, const RectF& area, bool top, float fade) {
   }
 }
 
+// ---- motion (core/avatar_motion.h) ------------------------------------------------------------------
+
+bool App::AvatarMotionAllowed() const { return !g_instant && !reduced_motion_ && !running_game_ && !game_starting_; }
+
+void App::SetReducedMotion(bool reduced) {
+  if (reduced == reduced_motion_) return;
+  reduced_motion_ = reduced;
+  host_.Invalidate();
+}
+
+bool App::AvatarPoseNow(const avatar::Motion& motion, double now, bool editor, avatar::Pose& pose) const {
+  if (screenshot_motion_) {
+    const auto& [gesture, time] = *screenshot_motion_;
+    avatar::SampleIdle(time, editor ? kEditorMotion : avatar::Style{}, pose);
+    if (!editor) avatar::ApplyGesture(gesture, time, pose, kHomeAvatarYaw);
+    return true;
+  }
+  if (!AvatarMotionAllowed()) return false;
+  motion.Sample(now, pose);
+  return true;
+}
+
+double App::AvatarFrameIn() const {
+  if (!AvatarMotionAllowed()) return -1;
+  const double now = Now();
+  double last = -1, interval = 1.0 / 30;
+  if (AvatarShown()) {
+    if (!avatar_ || !avatar_->editor || !avatar_->error.empty() || avatar_->posed_at < 0) return -1;
+    last = avatar_->posed_at;
+  } else if (console_ && page_ == Page::kHome && overlays_.empty() && home_avatar_ && home_avatar_->shown) {
+    last = home_avatar_->posed_at;
+    if (home_avatar_->motion.Gesturing(now)) interval = 1.0 / 60;
+  } else {
+    return -1;
+  }
+  return std::max(0.0, last + interval - now);
+}
+
 // ---- gamerpics ------------------------------------------------------------------------------------
 
 bool App::RenderAvatarPicture(uint64_t xuid, const std::vector<uint8_t>& description, uint32_t size, Image& out) {
@@ -726,7 +780,8 @@ void App::DrawGamerpicPicker(Canvas& c, Overlay& overlay, bool top) {
 
 // ---- the command line ----------------------------------------------------------------------------
 
-int RenderAvatarFile(const fs::path& out, int width, int height, float yaw, float zoom, const std::string& spec) {
+int RenderAvatarFile(const fs::path& out, int width, int height, float yaw, float zoom, const std::string& spec,
+                     const AvatarFrames& frames) {
   std::shared_ptr<x360tool::AvatarCatalog> pack = ReadPack();
   if (!pack->loaded()) return 2;
   x360tool::AvatarDescription d = x360tool::make_avatar_description(*pack, x360tool::AvatarLook::kMale);
@@ -738,10 +793,32 @@ int RenderAvatarFile(const fs::path& out, int width, int height, float yaw, floa
       x360tool::read_avatar_description(*pack, x360tool::base64_decode(profile->avatar), d);
   }
   AvatarRenderer renderer;
-  Image image;
   std::string error;
-  if (!renderer.SetAvatar(*pack, d, error) || !renderer.Render(uint32_t(width), uint32_t(height), yaw, zoom, image)) return 3;
-  return anyx360::ui::SavePng(image, out, error) ? 0 : 1;
+  if (width <= 0 || height <= 0 || !renderer.SetAvatar(*pack, d, error)) return 3;
+  // One picture, or frames side by side: the idle (and the gesture) from `time`, `span` seconds in all.
+  const int count = std::clamp(frames.count, 1, 64);
+  const double span = frames.span >= 0 ? frames.span
+                      : frames.gesture != avatar::Gesture::kNone ? avatar::GestureLength(frames.gesture)
+                                                                  : avatar::kIdleLoop;
+  Image sheet;
+  sheet.width = uint32_t(width) * uint32_t(count);
+  sheet.height = uint32_t(height);
+  sheet.bgra.assign(size_t(sheet.width) * sheet.height * 4, 0);
+  for (int i = 0; i < count; ++i) {
+    if (frames.posed) {
+      const double t = frames.time + (count > 1 ? span * i / (count - 1) : 0);
+      avatar::Pose pose;
+      avatar::SampleIdle(t, {}, pose);
+      avatar::ApplyGesture(frames.gesture, t, pose, yaw);
+      renderer.SetPose(pose);
+    }
+    Image image;
+    if (!renderer.Render(uint32_t(width), uint32_t(height), yaw, zoom, image)) return 3;
+    for (uint32_t y = 0; y < image.height; ++y)
+      std::memcpy(&sheet.bgra[(size_t(y) * sheet.width + size_t(i) * uint32_t(width)) * 4], &image.bgra[size_t(y) * image.width * 4],
+                  size_t(image.width) * 4);
+  }
+  return anyx360::ui::SavePng(sheet, out, error) ? 0 : 1;
 }
 
 }  // namespace anyx360::launcher::ui

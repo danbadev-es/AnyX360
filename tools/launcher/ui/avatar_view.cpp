@@ -5,12 +5,14 @@
 //     mask.a), mask = texture 2, then texture 3 laid over by its alpha;
 //   - the head: the skin (c13) under six layers, each its texture's red times its colour, green white
 //     and blue the skin, laid over by its alpha: face paint (c20, c21), facial hair (c19), the mouth
-//     (c15), the eyes (c16), eye shadow (c18), the eyebrows (c17); the face textures' first frame
-//     (the eyes open, the mouth closed);
+//     (c15), the eyes (c16), eye shadow (c18), the eyebrows (c17); the eyes' and the mouth's frame
+//     as the pose says (open and as it is at rest; closed for a blink, a smile);
 //   - lenses (material 3) over the rest, half transparent.
-// Textures are the pack's DXT1/DXT3/DXT5 blocks (8-in-16 endian) uploaded as BC1/BC2/BC3. Height
-// and weight are the skeleton's work in the games; here the avatar is scaled (taller, wider below
-// the neck) to show them.
+// Textures are the pack's DXT1/DXT3/DXT5 blocks (8-in-16 endian) uploaded as BC1/BC2/BC3. The parts
+// stay in the bind pose (the T) on the GPU with their joints and weights; the vertex shader skins
+// them with the pose's joints as dual quaternions (core/avatar_motion.h). Height and weight are the
+// skeleton's work in the games; here the posed avatar is scaled (taller, wider below the neck) to
+// show them.
 #include "ui/avatar_view.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -25,6 +27,7 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <map>
 #include <vector>
 
 namespace anyx360::launcher::ui {
@@ -36,13 +39,14 @@ namespace {
 
 constexpr int kUvSets = 6;
 constexpr int kSlots = 6;
+constexpr int kMouthSlot = 2, kEyesSlot = 3;
 constexpr DXGI_FORMAT kColorFormat = DXGI_FORMAT_B8G8R8A8_UNORM;
 
 const char kShader[] = R"(
 cbuffer Frame : register(b0) {
   float4x4 view_proj;
   float4 light;      // xyz: towards the light
-  float4 shape;      // x: height scale, y: weight scale, z: the neck's y, w: the feet's y
+  float4 shape;      // x: height scale, y: weight scale, w: the feet's y
   float4 turn;       // x: cos, y: sin of the yaw
 };
 cbuffer Mesh : register(b1) {
@@ -51,14 +55,21 @@ cbuffer Mesh : register(b1) {
   int4 wrap[2];       // per texture slot: 1 wrap, 0 clamp
   int4 mode;          // x: 0 body/clothes/hair, 1 head, 2 lens; y: alpha test
 };
+cbuffer Bones : register(b2) {
+  float4 bone_real[72];  // each joint's dual quaternion
+  float4 bone_dual[72];
+};
 Texture2D slots[6] : register(t0);
 SamplerState wrap_sampler : register(s0);
 SamplerState clamp_sampler : register(s1);
 
 struct VsIn {
-  float3 position : POSITION;
+  float3 position : POSITION;  // the bind pose
   float3 normal : NORMAL;
   float2 uv[6] : TEXCOORD0;
+  uint4 joints : BLENDINDICES;
+  float4 weights : BLENDWEIGHT;
+  float below : TEXCOORD6;     // how far below the neck it is at rest (0-1)
 };
 struct VsOut {
   float4 position : SV_Position;
@@ -68,16 +79,29 @@ struct VsOut {
 
 VsOut vs_main(VsIn i) {
   VsOut o;
-  float3 p = i.position;
+  // Posed: the joints' dual quaternions blended by weight, normalized.
+  float4 first = bone_real[min(i.joints.x, 71u)];
+  float4 r = 0, d = 0;
+  [unroll] for (int k = 0; k < 4; ++k) {
+    uint j = min(i.joints[k], 71u);
+    float w = dot(bone_real[j], first) < 0 ? -i.weights[k] : i.weights[k];
+    r += w * bone_real[j];
+    d += w * bone_dual[j];
+  }
+  float len = length(r);
+  if (len < 1e-5) { r = float4(0, 0, 0, 1); d = 0; len = 1; }
+  r /= len;
+  d /= len;
+  float3 p = i.position + 2 * cross(r.xyz, cross(r.xyz, i.position) + r.w * i.position) +
+             2 * (r.w * d.xyz - d.w * r.xyz + cross(r.xyz, d.xyz));
+  float3 n = i.normal + 2 * cross(r.xyz, cross(r.xyz, i.normal) + r.w * i.normal);
   // Weight: wider below the neck (smoothly), height: taller from the feet.
-  float below = saturate((shape.z - p.y) / 0.08);
-  p.xz *= 1.0 + (shape.y - 1.0) * below;
+  p.xz *= 1.0 + (shape.y - 1.0) * i.below;
   p.y = shape.w + (p.y - shape.w) * shape.x;
-  float3 r = float3(p.x * turn.x + p.z * turn.y, p.y, -p.x * turn.y + p.z * turn.x);
-  float3 n = float3(i.normal.x * turn.x + i.normal.z * turn.y, i.normal.y, -i.normal.x * turn.y + i.normal.z * turn.x);
-  o.position = mul(float4(r, 1), view_proj);
-  o.normal = n;
-  [unroll] for (int k = 0; k < 6; ++k) o.uv[k] = i.uv[k];
+  float3 t = float3(p.x * turn.x + p.z * turn.y, p.y, -p.x * turn.y + p.z * turn.x);
+  o.position = mul(float4(t, 1), view_proj);
+  o.normal = float3(n.x * turn.x + n.z * turn.y, n.y, -n.x * turn.y + n.z * turn.x);
+  [unroll] for (int s = 0; s < 6; ++s) o.uv[s] = i.uv[s];
   return o;
 }
 
@@ -129,6 +153,9 @@ struct Vertex {
   float position[3];
   float normal[3];
   float uv[kUvSets][2];
+  uint8_t joints[4];   // the four joints it follows
+  uint8_t weights[4];  // and how much (summing to 255)
+  float below;         // at rest, how far below the neck (the weight's widening)
 };
 
 struct FrameConstants {
@@ -145,20 +172,25 @@ struct MeshConstants {
   int32_t mode[4];
 };
 
+struct BoneConstants {
+  float real[avatar::kJoints][4];
+  float dual[avatar::kJoints][4];
+};
+
 struct Mesh {
   ComPtr<ID3D11Buffer> vertices, indices, constants;
   uint32_t index_count = 0;
   uint32_t material = 0;
   ComPtr<ID3D11ShaderResourceView> slots[kSlots];
+  // The head's eyes and mouth: their texture's frames (expressions), by number.
+  std::vector<ComPtr<ID3D11ShaderResourceView>> eye_frames, mouth_frames;
 };
 
-// A mesh read from a part, before it is posed and uploaded: its vertices and, per vertex, the four
-// joints it follows and their weights (the vertex stream's blend indices and weights).
+// A mesh read from a part, before it is uploaded.
 struct Staged {
   std::vector<Vertex> vertices;
-  std::vector<std::array<uint8_t, 4>> joints, weights;
   const std::vector<uint16_t>* indices = nullptr;
-  bool head = false;
+  bool head = false, body = false;
   Mesh gpu;
   MeshConstants constants{};
 };
@@ -183,60 +215,12 @@ float ParamFloat(uint32_t bits) {
   return f;
 }
 
-// Arms down: the bind pose's arms (a T) lowered by the shoulders into a relaxed stance. Every avatar
-// has the same 72-joint skeleton, numbered alike: each arm's joints (upper arm, forearm, hand,
-// fingers) turn down about the shoulder, by as much of the turn as the vertex's weight on them, so
-// the shoulder bends smoothly instead of folding; then a little forward.
-void RelaxArms(std::vector<Staged>& staged) {
-  // +1 the arm on +x, -1 the other; their upper arms (the joint at the shoulder).
-  std::array<int8_t, 256> side{};
-  for (int j : {26, 27, 31, 32, 33, 37, 38, 39, 40, 41, 42, 43, 51, 52, 53, 54, 55, 61, 62, 63, 64, 65}) side[size_t(j)] = 1;
-  for (int j : {29, 30, 34, 35, 36, 44, 45, 46, 47, 48, 49, 50, 56, 57, 58, 59, 60, 66, 67, 68, 69, 70}) side[size_t(j)] = -1;
-  constexpr int kUpperArm[2] = {27, 30};
-  // Each shoulder: where its upper arm starts (its vertices nearest the body), at the arm's middle.
-  float pivot[2][3] = {};
-  bool found[2] = {};
-  for (int s = 0; s < 2; ++s) {
-    double y = 0, z = 0, n = 0;
-    float inner = 1e9f;
-    for (const Staged& m : staged)
-      for (size_t i = 0; i < m.vertices.size(); ++i)
-        for (int k = 0; k < 4; ++k)
-          if (m.joints[i][size_t(k)] == kUpperArm[s] && m.weights[i][size_t(k)] > 128) {
-            const float* p = m.vertices[i].position;
-            inner = std::min(inner, std::abs(p[0]));
-            y += p[1], z += p[2], ++n;
-          }
-    if (n < 8) continue;
-    found[s] = true;
-    pivot[s][0] = (s == 0 ? 1 : -1) * inner;
-    pivot[s][1] = float(y / n);
-    pivot[s][2] = float(z / n);
-  }
-  const float down = 74.0f * 3.14159265f / 180, forward = 7.0f * 3.14159265f / 180;
-  for (Staged& m : staged) {
-    for (size_t i = 0; i < m.vertices.size(); ++i) {
-      float arm[2] = {};
-      for (int k = 0; k < 4; ++k) {
-        const int8_t s = side[m.joints[i][size_t(k)]];
-        if (s) arm[s > 0 ? 0 : 1] += m.weights[i][size_t(k)] / 255.0f;
-      }
-      for (int s = 0; s < 2; ++s) {
-        if (arm[s] <= 0 || !found[s]) continue;
-        // About z (down), then about x (forward), around the shoulder.
-        const float a = (s == 0 ? -down : down) * arm[s], b = -forward * arm[s];
-        const float ca = std::cos(a), sa = std::sin(a), cb = std::cos(b), sb = std::sin(b);
-        auto turn = [&](float* v, bool point) {
-          float x = v[0] - (point ? pivot[s][0] : 0), y = v[1] - (point ? pivot[s][1] : 0), z = v[2] - (point ? pivot[s][2] : 0);
-          const float x1 = x * ca - y * sa, y1 = x * sa + y * ca;
-          const float y2 = y1 * cb - z * sb, z2 = y1 * sb + z * cb;
-          v[0] = x1 + (point ? pivot[s][0] : 0), v[1] = y2 + (point ? pivot[s][1] : 0), v[2] = z2 + (point ? pivot[s][2] : 0);
-        };
-        turn(m.vertices[i].position, true);
-        turn(m.vertices[i].normal, false);
-      }
-    }
-  }
+avatar::SkinnedVertex Skinned(const Vertex& v) {
+  avatar::SkinnedVertex s;
+  s.position = {v.position[0], v.position[1], v.position[2]};
+  std::memcpy(s.joints, v.joints, 4);
+  std::memcpy(s.weights, v.weights, 4);
+  return s;
 }
 
 }  // namespace
@@ -247,7 +231,7 @@ struct AvatarRenderer::Impl {
   ComPtr<ID3D11VertexShader> vs;
   ComPtr<ID3D11PixelShader> ps;
   ComPtr<ID3D11InputLayout> layout;
-  ComPtr<ID3D11Buffer> frame;
+  ComPtr<ID3D11Buffer> frame, bones;
   ComPtr<ID3D11SamplerState> wrap, clamp;
   ComPtr<ID3D11RasterizerState> raster;
   ComPtr<ID3D11DepthStencilState> depth_on, depth_test_only;
@@ -261,10 +245,17 @@ struct AvatarRenderer::Impl {
   UINT samples = 1;
 
   std::vector<Mesh> meshes;
+  // At rest: the bounds the camera frames.
   float min[3] = {}, max[3] = {}, head_min[3] = {}, head_max[3] = {};
   bool has_head = false;
   float height_scale = 1, weight_scale = 1;
   bool failed = false;
+  // The skeleton, the pose (as each joint's dual quaternion, uploaded when it changes) and the face.
+  avatar::Skeleton skeleton = avatar::DefaultSkeleton();
+  avatar::Pose rest;
+  BoneConstants joints{};
+  bool joints_changed = true;
+  int eyes = 0, mouth = 0;
 
   bool Init(std::string& error) {
     if (device) return true;
@@ -304,10 +295,15 @@ struct AvatarRenderer::Impl {
     for (UINT k = 0; k < kUvSets; ++k)
       elements.push_back({"TEXCOORD", k, DXGI_FORMAT_R32G32_FLOAT, 0, UINT(offsetof(Vertex, uv) + 8 * k),
                           D3D11_INPUT_PER_VERTEX_DATA, 0});
+    elements.push_back({"BLENDINDICES", 0, DXGI_FORMAT_R8G8B8A8_UINT, 0, offsetof(Vertex, joints), D3D11_INPUT_PER_VERTEX_DATA, 0});
+    elements.push_back({"BLENDWEIGHT", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, offsetof(Vertex, weights), D3D11_INPUT_PER_VERTEX_DATA, 0});
+    elements.push_back({"TEXCOORD", kUvSets, DXGI_FORMAT_R32_FLOAT, 0, offsetof(Vertex, below), D3D11_INPUT_PER_VERTEX_DATA, 0});
     device->CreateInputLayout(elements.data(), UINT(elements.size()), vs_code->GetBufferPointer(), vs_code->GetBufferSize(),
                               &layout);
     D3D11_BUFFER_DESC cb{sizeof(FrameConstants), D3D11_USAGE_DEFAULT, D3D11_BIND_CONSTANT_BUFFER};
     device->CreateBuffer(&cb, nullptr, &frame);
+    cb.ByteWidth = sizeof(BoneConstants);
+    device->CreateBuffer(&cb, nullptr, &bones);
     D3D11_SAMPLER_DESC sampler{};
     sampler.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
     sampler.AddressU = sampler.AddressV = sampler.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
@@ -353,11 +349,12 @@ struct AvatarRenderer::Impl {
         break;
       }
     }
-    return vs && ps && layout && frame;
+    return vs && ps && layout && frame && bones;
   }
 
-  // A texture of the part (its first slice), as a BC texture.
-  ComPtr<ID3D11ShaderResourceView> Texture(const x360tool::AvatarTexture& t) {
+  // A texture of the part (one of its slices: the face's textures have a frame per expression), as
+  // a BC texture.
+  ComPtr<ID3D11ShaderResourceView> Texture(const x360tool::AvatarTexture& t, uint32_t slice = 0) {
     if (t.blank || t.data.empty() || !t.rows || !t.width || !t.height) return nullptr;
     DXGI_FORMAT format;
     uint32_t block_bytes;
@@ -367,11 +364,13 @@ struct AvatarRenderer::Impl {
       case 0x14: format = DXGI_FORMAT_BC3_UNORM, block_bytes = 16; break;
       default: return nullptr;
     }
+    const size_t slice_bytes = size_t(t.rows) * t.row_bytes;
+    if ((size_t(slice) + 1) * slice_bytes > t.data.size()) return nullptr;
     const uint32_t blocks_w = (t.width + 3) / 4, blocks_h = (t.height + 3) / 4;
     const uint32_t pitch = blocks_w * block_bytes;
     std::vector<uint8_t> blocks(size_t(pitch) * blocks_h, 0);
     for (uint32_t y = 0; y < blocks_h && y < t.rows; ++y) {
-      const uint8_t* src = t.data.data() + size_t(y) * t.row_bytes;
+      const uint8_t* src = t.data.data() + slice * slice_bytes + size_t(y) * t.row_bytes;
       uint8_t* dst = blocks.data() + size_t(y) * pitch;
       const uint32_t n = std::min(pitch, t.row_bytes) & ~1u;
       for (uint32_t i = 0; i < n; i += 2) dst[i] = src[i + 1], dst[i + 1] = src[i];  // 8-in-16
@@ -386,11 +385,19 @@ struct AvatarRenderer::Impl {
     return view;
   }
 
+  // Every frame of a texture (a face texture's expressions).
+  std::vector<ComPtr<ID3D11ShaderResourceView>> Frames(const x360tool::AvatarTexture& t) {
+    std::vector<ComPtr<ID3D11ShaderResourceView>> frames;
+    for (uint32_t s = 0; s < t.slice_count && s < 16; ++s) frames.push_back(Texture(t, s));
+    return frames;
+  }
+
   // Reads a built part's meshes (seams welded) into `out`, with their textures uploaded.
   void Stage(const x360tool::AvatarBuiltPart& built, std::vector<Staged>& out) {
     const x360tool::AvatarModel& model = built.model;
     std::vector<ComPtr<ID3D11ShaderResourceView>> textures;
     for (const auto& t : model.textures) textures.push_back(Texture(t));
+    std::map<uint32_t, std::vector<ComPtr<ID3D11ShaderResourceView>>> frames;  // by texture
     // Seams: each weld's destination vertex takes its source's position (as the system does when it
     // lays a part out). Offsets are in the part's vertex region.
     std::vector<std::vector<uint8_t>> vertices;
@@ -415,10 +422,9 @@ struct AvatarRenderer::Impl {
       if (mesh.indices.empty() || !mesh.vertex_count) continue;
       Staged staged;
       staged.head = head;
+      staged.body = built.part->slot == x360tool::kAvatarBody;
       staged.indices = &mesh.indices;
       staged.vertices.resize(mesh.vertex_count);
-      staged.joints.resize(mesh.vertex_count);
-      staged.weights.resize(mesh.vertex_count);
       for (uint32_t i = 0; i < mesh.vertex_count; ++i) {
         const uint8_t* v = vertices[m].data() + size_t(i) * mesh.stride;
         Vertex& o = staged.vertices[i];
@@ -428,7 +434,8 @@ struct AvatarRenderer::Impl {
         o.normal[1] = SignExtend((n >> 11) & 0x7FF, 11) / 1023.0f;
         o.normal[2] = SignExtend(n >> 22, 10) / 511.0f;
         // Blend weights (+16) and indices (+20), a byte per joint in the same order.
-        for (int k = 0; k < 4; ++k) staged.weights[i][size_t(k)] = v[16 + k], staged.joints[i][size_t(k)] = v[20 + k];
+        for (int k = 0; k < 4; ++k) o.weights[k] = v[16 + k], o.joints[k] = v[20 + k];
+        o.below = 0;
         for (uint32_t s = 0; s < kUvSets; ++s) {
           if (s < mesh.uv_sets) {
             o.uv[s][0] = Half(uint16_t(v[28 + 4 * s] << 8 | v[29 + 4 * s]));
@@ -455,8 +462,8 @@ struct AvatarRenderer::Impl {
           switch (p.id) {
             case 5: slot = 0; break;            // face paint
             case 6: slot = 1; break;            // facial hair
-            case 12: slot = 2; break;           // mouth
-            case 9: case 10: slot = 3; break;   // eyes
+            case 12: slot = kMouthSlot; break;  // mouth
+            case 9: case 10: slot = kEyesSlot; break;
             case 11: slot = 4; break;           // eye shadow
             case 7: case 8: slot = 5; break;    // eyebrows
           }
@@ -468,6 +475,11 @@ struct AvatarRenderer::Impl {
         gpu.slots[slot] = textures[p.values[0]];
         c.uv_set[slot] = int32_t(p.values[1]);
         c.wrap[slot] = (p.values[2] & 3) ? 1 : 0;
+        if (head && (slot == kEyesSlot || slot == kMouthSlot) && model.textures[p.values[0]].slice_count > 1) {
+          auto found = frames.find(p.values[0]);
+          if (found == frames.end()) found = frames.emplace(p.values[0], Frames(model.textures[p.values[0]])).first;
+          (slot == kEyesSlot ? gpu.eye_frames : gpu.mouth_frames) = found->second;
+        }
       }
       c.mode[0] = head ? 1 : mesh.material == 3 ? 2 : 0;
       c.mode[1] = mesh.material == 1 ? 1 : 0;  // hair: its strands' alpha
@@ -475,20 +487,40 @@ struct AvatarRenderer::Impl {
     }
   }
 
-  // The staged meshes' bounds and buffers.
+  // The skeleton, the bounds at rest (the camera's), each vertex's place below the neck, the buffers.
   bool Finish(std::vector<Staged>& staged, std::string& error) {
-    for (Staged& s : staged) {
-      for (const Vertex& o : s.vertices) {
+    std::vector<avatar::SkinnedVertex> body, all;
+    for (const Staged& s : staged)
+      for (const Vertex& v : s.vertices) {
+        all.push_back(Skinned(v));
+        if (s.body) body.push_back(all.back());
+      }
+    skeleton = avatar::EstimateSkeleton(body, all);
+    avatar::Transforms at_rest;
+    avatar::Solve(skeleton, rest, at_rest);
+    std::vector<std::vector<avatar::Vec3>> placed(staged.size());
+    for (size_t m = 0; m < staged.size(); ++m) {
+      Staged& s = staged[m];
+      for (const Vertex& v : s.vertices) {
+        const avatar::Vec3 p = avatar::Skin(at_rest, Skinned(v));
+        placed[m].push_back(p);
+        const float c[3] = {p.x, p.y, p.z};
         for (int k = 0; k < 3; ++k) {
-          min[k] = std::min(min[k], o.position[k]);
-          max[k] = std::max(max[k], o.position[k]);
+          min[k] = std::min(min[k], c[k]);
+          max[k] = std::max(max[k], c[k]);
           if (s.head) {
-            head_min[k] = std::min(head_min[k], o.position[k]);
-            head_max[k] = std::max(head_max[k], o.position[k]);
+            head_min[k] = std::min(head_min[k], c[k]);
+            head_max[k] = std::max(head_max[k], c[k]);
           }
         }
       }
       has_head |= s.head;
+    }
+    // Wider below the neck (the weight), smoothly, as it stands at rest.
+    const float neck = has_head ? head_min[1] + (head_max[1] - head_min[1]) * 0.05f : max[1];
+    for (size_t m = 0; m < staged.size(); ++m) {
+      Staged& s = staged[m];
+      for (size_t i = 0; i < s.vertices.size(); ++i) s.vertices[i].below = std::clamp((neck - placed[m][i].y) / 0.08f, 0.0f, 1.0f);
       Mesh& gpu = s.gpu;
       D3D11_BUFFER_DESC vb{UINT(s.vertices.size() * sizeof(Vertex)), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER};
       D3D11_SUBRESOURCE_DATA vd{s.vertices.data()};
@@ -503,8 +535,18 @@ struct AvatarRenderer::Impl {
       device->CreateBuffer(&cb, &cd, &gpu.constants);
       meshes.push_back(std::move(gpu));
     }
+    Apply(rest);
     return true;
   }
+
+  void Apply(const avatar::Pose& p) {
+    avatar::Transforms transforms;
+    avatar::Solve(skeleton, p, transforms);
+    for (int j = 0; j < avatar::kJoints; ++j) avatar::DualQuaternion(transforms[size_t(j)], joints.real[j], joints.dual[j]);
+    joints_changed = true;
+    eyes = p.eyes, mouth = p.mouth;
+  }
+
   bool Targets(uint32_t w, uint32_t h) {
     if (w == width && h == height && color) return true;
     color.Reset(), resolved.Reset(), staging.Reset(), depth.Reset(), rtv.Reset(), dsv.Reset();
@@ -541,9 +583,9 @@ bool AvatarRenderer::SetAvatar(const x360tool::AvatarCatalog& catalog, const x36
   r.meshes.clear();
   for (int k = 0; k < 3; ++k) r.min[k] = r.head_min[k] = 1e9f, r.max[k] = r.head_max[k] = -1e9f;
   r.has_head = false;
+  r.rest = relaxed_ ? avatar::RestPose() : avatar::Pose{};
   std::vector<Staged> staged;
   for (const auto& part : parts) r.Stage(part, staged);
-  if (relaxed_) RelaxArms(staged);
   if (!r.Finish(staged, error)) return false;
   // The skeleton's height and weight, roughly: up to an eighth taller or shorter, a fifth wider or
   // thinner.
@@ -551,6 +593,9 @@ bool AvatarRenderer::SetAvatar(const x360tool::AvatarCatalog& catalog, const x36
   r.weight_scale = 1.0f + 0.2f * description.weight;
   return true;
 }
+
+void AvatarRenderer::SetPose(const avatar::Pose& pose) { impl_->Apply(pose); }
+void AvatarRenderer::SetRestPose() { impl_->Apply(impl_->rest); }
 
 bool AvatarRenderer::Render(uint32_t width, uint32_t height, float yaw, float zoom, anyx360::ui::Image& out,
                             uint32_t background) {
@@ -566,7 +611,7 @@ bool AvatarRenderer::Render(uint32_t width, uint32_t height, float yaw, float zo
   D3D11_VIEWPORT viewport{0, 0, float(width), float(height), 0, 1};
   ctx->RSSetViewports(1, &viewport);
 
-  // The camera: the whole avatar (zoom 0) to its face (1), from the front.
+  // The camera: the whole avatar (zoom 0) to its face (1), from the front, as it stands at rest.
   const float feet = r.min[1];
   const float tall = (r.max[1] - r.min[1]) * r.height_scale;
   const float aspect = float(width) / float(height);
@@ -594,16 +639,18 @@ bool AvatarRenderer::Render(uint32_t width, uint32_t height, float yaw, float zo
   frame.light[0] = 0.45f, frame.light[1] = 0.6f, frame.light[2] = 0.75f;
   frame.shape[0] = r.height_scale;
   frame.shape[1] = r.weight_scale;
-  frame.shape[2] = r.has_head ? r.head_min[1] + (r.head_max[1] - r.head_min[1]) * 0.05f : r.max[1];
   frame.shape[3] = feet;
   frame.turn[0] = std::cos(yaw), frame.turn[1] = std::sin(yaw);
   ctx->UpdateSubresource(r.frame.Get(), 0, nullptr, &frame, 0, 0);
+  if (r.joints_changed) {
+    ctx->UpdateSubresource(r.bones.Get(), 0, nullptr, &r.joints, 0, 0);
+    r.joints_changed = false;
+  }
 
   ctx->IASetInputLayout(r.layout.Get());
   ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
   ctx->VSSetShader(r.vs.Get(), nullptr, 0);
   ctx->PSSetShader(r.ps.Get(), nullptr, 0);
-  ctx->VSSetConstantBuffers(0, 1, r.frame.GetAddressOf());
   ID3D11SamplerState* samplers[2] = {r.wrap.Get(), r.clamp.Get()};
   ctx->PSSetSamplers(0, 2, samplers);
   ctx->RSSetState(r.raster.Get());
@@ -616,11 +663,15 @@ bool AvatarRenderer::Render(uint32_t width, uint32_t height, float yaw, float zo
       const UINT stride = sizeof(Vertex), offset = 0;
       ctx->IASetVertexBuffers(0, 1, mesh.vertices.GetAddressOf(), &stride, &offset);
       ctx->IASetIndexBuffer(mesh.indices.Get(), DXGI_FORMAT_R16_UINT, 0);
-      ID3D11Buffer* constants[2] = {r.frame.Get(), mesh.constants.Get()};
-      ctx->VSSetConstantBuffers(0, 2, constants);
+      ID3D11Buffer* constants[3] = {r.frame.Get(), mesh.constants.Get(), r.bones.Get()};
+      ctx->VSSetConstantBuffers(0, 3, constants);
       ctx->PSSetConstantBuffers(0, 2, constants);
       ID3D11ShaderResourceView* views[kSlots];
       for (int k = 0; k < kSlots; ++k) views[k] = mesh.slots[k] ? mesh.slots[k].Get() : r.empty.Get();
+      // The face's expression: the eyes' and the mouth's frames.
+      if (size_t(r.eyes) < mesh.eye_frames.size() && mesh.eye_frames[size_t(r.eyes)]) views[kEyesSlot] = mesh.eye_frames[size_t(r.eyes)].Get();
+      if (size_t(r.mouth) < mesh.mouth_frames.size() && mesh.mouth_frames[size_t(r.mouth)])
+        views[kMouthSlot] = mesh.mouth_frames[size_t(r.mouth)].Get();
       ctx->PSSetShaderResources(0, kSlots, views);
       ctx->DrawIndexed(mesh.index_count, 0, 0);
     }

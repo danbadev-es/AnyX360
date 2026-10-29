@@ -104,8 +104,11 @@ Microsoft's):
   gamertag, the gamerscore with its "G": it opens Profiles), the controller (bright when one is
   connected, with how many if more than one) and the time.
 - **The row**, standing on a dark mirror floor that reflects it: the profile's **avatar** at the left,
-  full body, its arms down (drawn by the avatar viewer into a picture once, again only when the
-  avatar or its size changes); then the games, **newest played first**: the selected one's box art
+  full body, its arms down, alive: it breathes, shifts its weight, looks around and blinks (its
+  idle), **waves hello** when Home shows it to somebody (the launcher starting, back from a game,
+  another profile signed in) and nods when it gets the focus ([AVATARS.md](AVATARS.md#the-launchers-avatar-in-motion);
+  drawn by the avatar viewer, 30 pictures a second while Home is in front and the window can be
+  seen, still with Windows' animation effects off); then the games, **newest played first**: the selected one's box art
   large, in a green neon frame, with its title, time played and gamerscore (earned of the game's)
   under it; the one before it smaller, translucent and blurred, half behind the avatar; the next
   ones at the usual size, dimmer the further they are. Moving glides the row (0.3 s).
@@ -140,7 +143,8 @@ in desktop mode. The header of desktop mode has **Console mode**; the choice is 
 `%LOCALAPPDATA%\AnyX360\launcher_mode.txt` (`desktop`, `console` or `console fullscreen`).
 `AnyX360.exe --console` or `--desktop` starts in one this time only. Screenshots (`--screenshot`)
 have `--state console-home`, `console-home-avatar` (the avatar focused, also `home-avatar-focused`)
-and `console-home-panel`; `--select <id>` chooses Home's game.
+and `console-home-panel`; `--select <id>` chooses Home's game; the avatar stands at rest unless
+`--anim idle|wave|nod --anim-time <seconds>` poses it (a frame of its idle and that gesture).
 
 ## One window
 `tools/launcher/core/launch.cpp` (`StartGame`, `StartFollowed`), `runtime/src/gpu/xenia_gpu.cpp`,

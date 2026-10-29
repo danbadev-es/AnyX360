@@ -29,7 +29,6 @@ constexpr Color kNeon = Color::Hex(0x4CFF2E);
 constexpr Color kNeonCore = Color::Hex(0xC8FFB4);
 constexpr Color kBlack = Color::Hex(0x000000);
 constexpr Color kWhite = Color::Hex(0xFFFFFF);
-constexpr float kAvatarYaw = 0.32f;  // turned a little towards the games
 
 // Where everything goes for the window's size (DIPs); `u` scales the design from small windows to
 // 4K.
@@ -342,6 +341,7 @@ void App::DrawHomeAvatar(Canvas& c, float cx, float feet, float h, float u, bool
   const x360::profiles::Profile* player = Player();
   RectF body{cx - h * 0.22f, feet - h, h * 0.44f, h};
   bool drawn = false;
+  if (home_avatar_) home_avatar_->shown = false;
   // Lit from behind while it has the focus; a ring on the floor at its feet.
   const float glow = focused ? 1.0f : 0.0f;
   if (glow > 0) {
@@ -364,17 +364,35 @@ void App::DrawHomeAvatar(Canvas& c, float cx, float feet, float h, float u, bool
       }
       a.error.clear();
       a.built = a.renderer.SetAvatar(*pack, d, a.error);
+      if (a.xuid != player->xuid) a.wave = true;  // somebody new (or the launcher starting): hello
       a.xuid = player->xuid, a.avatar = key, a.pack = pack;
       a.picture = {};
       a.width = a.height = 0;
     }
-    // Drawn once for the size it shows at (to the pixel: the avatar's own height in the picture is
+    // It moves while Home is in front (no overlay over it): a wave when it shows to someone, a nod
+    // when it gets the focus.
+    const double now = Now();
+    if (!a.started) {
+      a.motion.SetViewerYaw(kHomeAvatarYaw);
+      a.motion.Restart(now);
+      a.started = true;
+    }
+    const bool in_front = overlays_.empty();
+    if (in_front && a.built && AvatarMotionAllowed()) {
+      if (a.wave) a.motion.Play(avatar::Gesture::kWave, now + 0.4);
+      a.wave = false;
+      if (focused && !a.focused) a.motion.Play(avatar::Gesture::kNod, now + 0.05);
+    }
+    a.focused = focused;
+    // At rest, once for the size it shows at (to the pixel: the avatar's own height in the picture is
     // measured, and the picture sized again once if it isn't the height asked).
     const float scale = dpi_ / 96;
     const uint32_t ph = uint32_t(std::lround(h * scale / std::max(0.5f, a.fill))), pw = uint32_t(std::lround(ph * 0.62f));
+    bool drew = false;
     if (a.built && ph >= 16 && (std::abs(int(ph) - int(a.height)) > 2 || !a.picture.width) && a.attempts < 4) {
       ++a.attempts;
-      if (a.renderer.Render(pw, ph, kAvatarYaw, 0, a.picture)) {
+      a.renderer.SetRestPose();
+      if (a.renderer.Render(pw, ph, kHomeAvatarYaw, 0, a.picture)) {
         a.width = pw, a.height = ph;
         a.left = pw, a.right = 0, a.top = ph, a.bottom = 0;
         for (uint32_t y = 0; y < ph; ++y)
@@ -384,13 +402,34 @@ void App::DrawHomeAvatar(Canvas& c, float cx, float feet, float h, float u, bool
               a.top = std::min(a.top, y), a.bottom = std::max(a.bottom, y + 1);
             }
         if (a.bottom > a.top) a.fill = float(a.bottom - a.top) / float(ph);
-        a.stale = true;
+        drew = true;
       }
     } else if (std::abs(int(ph) - int(a.height)) <= 2) {
       a.attempts = 0;
     }
+    // Moving: posed, in that same picture (the camera frames it at rest, so the feet stay put), at
+    // most 60 pictures a second; still again (at rest) when motion is reduced.
+    avatar::Pose pose;
+    a.shown = false;
+    if (a.built && a.width && in_front && AvatarPoseNow(a.motion, now, false, pose)) {
+      a.shown = true;
+      if (drew || a.posed_at < 0 || now - a.posed_at >= 1.0 / 70 || screenshot_motion_) {
+        a.renderer.SetPose(pose);
+        if (a.renderer.Render(a.width, a.height, kHomeAvatarYaw, 0, a.picture)) a.posed_at = now, drew = true;
+      }
+    } else if (a.built && a.width && reduced_motion_ && a.posed_at >= 0) {
+      a.renderer.SetRestPose();
+      if (a.renderer.Render(a.width, a.height, kHomeAvatarYaw, 0, a.picture)) a.posed_at = -1, drew = true;
+    }
+    a.stale = a.stale || drew;
     if (a.picture.width && (a.stale || a.generation != c.generation())) {
-      a.bitmap = c.CreateBitmap(a.picture.width, a.picture.height, a.picture.bgra);
+      // The same bitmap while the size stays (a picture per frame), else a new one.
+      if (a.bitmap && a.generation == c.generation() && a.bitmap_w == a.picture.width && a.bitmap_h == a.picture.height) {
+        a.bitmap->CopyFromMemory(nullptr, a.picture.bgra.data(), a.picture.width * 4);
+      } else {
+        a.bitmap = c.CreateBitmap(a.picture.width, a.picture.height, a.picture.bgra);
+        a.bitmap_w = a.picture.width, a.bitmap_h = a.picture.height;
+      }
       a.generation = c.generation();
       a.stale = false;
     }

@@ -23,6 +23,7 @@
 #include <windows.h>
 
 #include "core/anyx.h"
+#include "core/avatar_motion.h"
 #include "core/catalog.h"
 #include "core/hash.h"
 #include "core/install.h"
@@ -379,6 +380,198 @@ LibraryGame Entry(const CatalogGame& game) {
   return {};
 }
 
+// The avatar's motion (core/avatar_motion.h) on the default skeleton: the idle loops, stays small and
+// smooth and keeps the feet on the floor; the wave raises the right hand beside the head (clear of
+// it, the body and the left arm left alone) and gives the idle back; gestures follow each other.
+void TestAvatarMotion() {
+  namespace av = anyx360::launcher::avatar;
+  const float deg = 3.14159265f / 180;
+  auto at_point = [](av::Vec3 a, av::Vec3 b, float e) { return av::Length(a - b) < e; };
+  // Rotations.
+  CHECK(at_point(av::Rotate(av::AxisAngle({0, 0, 1}, 90 * deg), {1, 0, 0}), {0, 1, 0}, 1e-5f));
+  CHECK(at_point(av::Rotate(av::AxisAngle({0, 1, 0}, 90 * deg) * av::AxisAngle({0, 0, 1}, 90 * deg), {1, 0, 0}), {0, 1, 0}, 1e-5f));
+  const av::Quat q1 = av::AxisAngle({0, 1, 0}, 0.3f), q2 = av::AxisAngle({0, 1, 0}, 0.9f);
+  CHECK(std::abs(av::AngleBetween(q1, av::Slerp(q1, q2, 0.5f)) - 0.3f) < 1e-4f);
+  // The skeleton: one root, every other joint's parent a joint before it in some order.
+  int roots = 0;
+  bool acyclic = true;
+  for (int j = 0; j < av::kJoints; ++j) {
+    roots += av::Parents()[size_t(j)] < 0;
+    int steps = 0;
+    for (int p = j; p >= 0 && steps <= av::kJoints; p = av::Parents()[size_t(p)]) ++steps;
+    acyclic = acyclic && steps <= av::kJoints;
+  }
+  CHECK(roots == 1 && acyclic);
+
+  const av::Skeleton skeleton = av::DefaultSkeleton();
+  auto at = [&](const av::Transforms& t, int joint, av::Vec3 point) {
+    return av::Rotate(t[size_t(joint)].rotation, point) + t[size_t(joint)].translation;
+  };
+  auto joint_at = [&](const av::Transforms& t, int joint) { return at(t, joint, skeleton.pivot[size_t(joint)]); };
+  av::Transforms bind, rest;
+  av::Solve(skeleton, av::Pose{}, bind);
+  av::Solve(skeleton, av::RestPose(), rest);
+  CHECK(at_point(joint_at(bind, av::kHandL), skeleton.pivot[av::kHandL], 1e-5f));
+  // Standing relaxed: the hands down by the hips, the shoulders where they were.
+  const av::Vec3 hand_l = joint_at(rest, av::kHandL), hand_r = joint_at(rest, av::kHandR);
+  CHECK(hand_l.x > 0.15f && hand_r.x < -0.15f && hand_l.y < skeleton.pivot[av::kUpperArmL].y - 0.3f);
+  CHECK(at_point(joint_at(rest, av::kUpperArmL), skeleton.pivot[av::kUpperArmL], 1e-5f));
+  // Skinning: a vertex half on the chest, half on the upper arm turns about the shoulder by part of
+  // the arm's turn, keeping its distance from it (the shoulder doesn't collapse).
+  av::SkinnedVertex shoulder{{0.16f, 1.10f, -0.03f}, {av::kChest, av::kUpperArmL, 0, 0}, {128, 127, 0, 0}};
+  const av::Vec3 moved = av::Skin(rest, shoulder), pivot = skeleton.pivot[av::kUpperArmL];
+  CHECK(std::abs(av::Length(moved - pivot) - av::Length(shoulder.position - pivot)) < 1e-4f);
+  CHECK(moved.y < shoulder.position.y && moved.y > av::Skin(rest, {shoulder.position, {av::kUpperArmL}, {255}}).y);
+
+  // The idle: the same every 24 s; small, smooth; the feet planted and flat; blinks.
+  const av::Pose rest_pose = av::RestPose();
+  av::Pose a, b, previous;
+  av::SampleIdle(0, {}, previous);
+  bool loops = true;
+  float fastest = 0, furthest = 0, head_furthest = 0, slide = 0, tilt = 0;
+  int blinks = 0, last_eyes = av::kEyesOpen;
+  for (int i = 1; i <= int(av::kIdleLoop) * 240; ++i) {
+    const double t = (i + 0.5) / 240.0;  // between the blinks' edges
+    av::SampleIdle(t, {}, a);
+    av::SampleIdle(t + 3 * av::kIdleLoop, {}, b);
+    for (int j = 0; j < av::kJoints; ++j) {
+      loops = loops && av::AngleBetween(a.local[size_t(j)], b.local[size_t(j)]) < 1e-3f;
+      fastest = std::max(fastest, av::AngleBetween(a.local[size_t(j)], previous.local[size_t(j)]) * 240);
+      furthest = std::max(furthest, av::AngleBetween(a.local[size_t(j)], rest_pose.local[size_t(j)]));
+    }
+    loops = loops && av::AngleBetween(a.sway, b.sway) < 1e-3f && a.eyes == b.eyes;
+    head_furthest = std::max(head_furthest, av::AngleBetween(a.local[av::kHead], rest_pose.local[av::kHead]));
+    av::Transforms posed;
+    av::Solve(skeleton, a, posed);
+    for (int foot : {av::kFootL, av::kFootR}) {
+      slide = std::max(slide, av::Length(joint_at(posed, foot) - joint_at(rest, foot)));
+      tilt = std::max(tilt, av::Angle(posed[size_t(foot)].rotation));
+    }
+    blinks += a.eyes == av::kEyesClosed && last_eyes != av::kEyesClosed;
+    last_eyes = a.eyes;
+    previous = a;
+  }
+  std::printf("avatar idle: fastest %.1f deg/s, furthest %.1f deg, head %.1f deg, feet slide %.4f, blinks %d\n", fastest / deg,
+              furthest / deg, head_furthest / deg, slide, blinks);
+  CHECK(loops);
+  CHECK(fastest < 40 * deg);       // never faster than 40 degrees a second
+  CHECK(furthest < 16 * deg);      // nothing turns more than 16 degrees from standing
+  CHECK(head_furthest > 6 * deg);  // it does look around
+  CHECK(slide < 0.003f && tilt < 1e-4f);
+  CHECK(blinks >= 6);
+  // The editor's calmer idle: no looking away.
+  float calm_head = 0;
+  for (int i = 0; i < int(av::kIdleLoop) * 10; ++i) {
+    av::SampleIdle(i / 10.0, {0.55f, false}, a);
+    calm_head = std::max(calm_head, av::AngleBetween(a.local[av::kHead], rest_pose.local[av::kHead]));
+  }
+  CHECK(calm_head < 2.5f * deg);
+
+  // The wave's timing: nothing at its ends, all of it while waving, rising and falling smoothly.
+  CHECK(av::GestureWeight(av::Gesture::kWave, 0) == 0 && av::GestureWeight(av::Gesture::kWave, av::kWaveLength) == 0);
+  CHECK(av::GestureWeight(av::Gesture::kWave, 1.5) == 1);
+  float steepest = 0;
+  bool rises = true, falls = true;
+  for (int i = 1; i <= int(av::kWaveLength * 1000); ++i) {
+    const double t = i / 1000.0;
+    const float w = av::GestureWeight(av::Gesture::kWave, t), before = av::GestureWeight(av::Gesture::kWave, t - 0.001);
+    steepest = std::max(steepest, std::abs(w - before));
+    rises = rises && (t > 0.62 || w >= before);
+    falls = falls && (t < 2.49 || w <= before);
+  }
+  CHECK(steepest < 0.005f && rises && falls);
+  // The wave over the idle: the right hand up beside the head and clear of it (a sphere around the
+  // head and hair), outside the body all the way; the left arm and the legs left alone; the elbow
+  // and the shoulder within reach; smooth; then the idle again.
+  const av::Vec3 head_middle = skeleton.pivot[av::kHead] + av::Vec3{0, 0.19f, 0.04f};
+  const av::Vec3 tip = skeleton.pivot[66] + (skeleton.pivot[66] - skeleton.pivot[56]);
+  float clearance = 1e9f, outside = 1e9f, elbow = 0, shoulder_turn = 0, wave_fastest = 0, others = 0;
+  bool up_while_waving = true, smiles = false;
+  av::Pose waved, idle, last;
+  for (int i = 0; i <= int(av::kWaveLength * 200); ++i) {
+    const double t = i / 200.0;
+    av::SampleIdle(10 + t, {}, idle);
+    waved = idle;
+    av::ApplyGesture(av::Gesture::kWave, t, waved, 0.32f);
+    av::Transforms posed;
+    av::Solve(skeleton, waved, posed);
+    const av::Vec3 head = at(posed, av::kHead, head_middle);
+    // The wrist, a knuckle, a fingertip, the forearm.
+    const std::pair<int, av::Vec3> hand_points[] = {{av::kHandR, skeleton.pivot[av::kHandR]}, {56, skeleton.pivot[56]},
+                                                    {66, tip}, {av::kForearmR, skeleton.pivot[av::kForearmR]}};
+    for (const auto& [joint, point] : hand_points) {
+      const av::Vec3 p = at(posed, joint, point);
+      clearance = std::min(clearance, av::Length(p - head) - 0.2f);
+      outside = std::min(outside, -p.x);
+    }
+    const av::Vec3 wrist = joint_at(posed, av::kHandR);
+    if (t > 0.8 && t < 2.3) up_while_waving = up_while_waving && wrist.y > joint_at(posed, av::kUpperArmR).y + 0.02f;
+    elbow = std::max(elbow, av::Angle(waved.local[av::kElbowR]));
+    shoulder_turn = std::max(shoulder_turn, av::Angle(waved.local[av::kUpperArmR]));
+    for (int j : {int(av::kUpperArmL), int(av::kElbowL), int(av::kHandL), int(av::kThighL), int(av::kThighR)})
+      others = std::max(others, av::AngleBetween(waved.local[size_t(j)], idle.local[size_t(j)]));
+    if (i > 0)
+      for (int j = 0; j < av::kJoints; ++j)
+        wave_fastest = std::max(wave_fastest, av::AngleBetween(waved.local[size_t(j)], last.local[size_t(j)]) * 200);
+    smiles = smiles || waved.mouth == av::kMouthSmile;
+    last = waved;
+  }
+  std::printf("avatar wave: hand %.3f from the head, %.3f outside the middle; elbow %.0f, shoulder %.0f deg; fastest %.0f deg/s\n",
+              clearance, outside, elbow / deg, shoulder_turn / deg, wave_fastest / deg);
+  CHECK(clearance > 0.03f);
+  CHECK(outside > 0.15f);
+  CHECK(up_while_waving && smiles);
+  CHECK(elbow < 125 * deg && shoulder_turn < 80 * deg);
+  CHECK(others < 1e-5f);
+  CHECK(wave_fastest < 500 * deg);  // the elbow folding as the arm rises: 8 degrees a frame at 60 a second, no jumps
+  av::SampleIdle(10 + av::kWaveLength, {}, idle);
+  waved = idle;
+  av::ApplyGesture(av::Gesture::kWave, av::kWaveLength, waved);
+  bool same = waved.mouth == idle.mouth;
+  for (int j = 0; j < av::kJoints; ++j) same = same && av::AngleBetween(waved.local[size_t(j)], idle.local[size_t(j)]) < 1e-6f;
+  CHECK(same);
+  // The nod: the head forward at its height, then back.
+  CHECK(av::GestureWeight(av::Gesture::kNod, 0) == 0 && av::GestureWeight(av::Gesture::kNod, av::kNodLength) == 0);
+  av::SampleIdle(3, {}, idle);
+  waved = idle;
+  av::ApplyGesture(av::Gesture::kNod, 0.28, waved);
+  av::Transforms nodded, level;
+  av::Solve(skeleton, waved, nodded);
+  av::Solve(skeleton, idle, level);
+  CHECK(at(nodded, av::kHead, head_middle).z > at(level, av::kHead, head_middle).z + 0.01f);
+
+  // Gestures in turn: a nod asked for during a wave is dropped; a wave asked for during a nod follows
+  // it; the pose stays continuous through them.
+  av::Motion motion;
+  motion.Restart(100);
+  motion.Play(av::Gesture::kWave, 101);
+  CHECK(!motion.Gesturing(100.5) && motion.Gesturing(101) && motion.Gesturing(103.5));
+  motion.Play(av::Gesture::kNod, 102);
+  CHECK(!motion.Gesturing(101 + av::kWaveLength + 0.1));
+  motion.Play(av::Gesture::kNod, 110);
+  motion.Play(av::Gesture::kWave, 110.3);
+  CHECK(motion.Gesturing(110.5) && motion.Gesturing(110 + av::kNodLength + 1) &&
+        !motion.Gesturing(110 + av::kNodLength + av::kWaveLength + 0.1));
+  float jump = 0;
+  motion.Sample(109.9, previous);
+  for (int i = 1; i < 6 * 200; ++i) {
+    motion.Sample(109.9 + i / 200.0, a);
+    for (int j = 0; j < av::kJoints; ++j) jump = std::max(jump, av::AngleBetween(a.local[size_t(j)], previous.local[size_t(j)]));
+    previous = a;
+  }
+  CHECK(jump < 2.5f * deg);
+
+  // The pivots from a part's vertices: where a joint blends with its parent; the upper arm where the
+  // arm starts; a joint without vertices keeps the default's.
+  std::vector<av::SkinnedVertex> body;
+  for (int i = 0; i < 4; ++i) body.push_back({{0.35f + 0.01f * (i % 2), 1.0f, 0.01f * (i / 2)}, {32, 26, 0, 0}, {128, 127, 0, 0}});
+  for (int i = 0; i < 10; ++i) body.push_back({{0.14f + 0.01f * i, 1.06f, -0.02f}, {27, 0, 0, 0}, {255, 0, 0, 0}});
+  const av::Skeleton estimated = av::EstimateSkeleton(body, body);
+  CHECK(at_point(estimated.pivot[32], {0.355f, 1.0f, 0.005f}, 1e-4f));
+  CHECK(at_point(estimated.pivot[av::kUpperArmL], {0.14f, 1.06f, -0.02f}, 1e-4f));
+  CHECK(at_point(estimated.pivot[av::kHead], skeleton.pivot[av::kHead], 1e-6f));
+}
+
 }  // namespace
 
 int main() {
@@ -417,6 +610,8 @@ int main() {
     SaveLanguage(Language::kEnglish);
     CHECK(Hex32(0x4D5308ED) == L"4D5308ED");
   }
+
+  TestAvatarMotion();
 
   {  // Terms: accepted once per version.
     CHECK(!TermsAccepted());

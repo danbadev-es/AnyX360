@@ -8,6 +8,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **The launcher's avatar moves** ([docs/AVATARS.md](docs/AVATARS.md#the-launchers-avatar-in-motion)):
+  on Home it breathes, shifts its weight from foot to foot, looks around now and then and blinks;
+  it **waves hello** when Home shows it to somebody (the launcher starting, the dashboard back after
+  a game, another profile signed in) and nods when it gets the focus. The avatar editor's moves
+  more calmly. AnyX360's own animation on the avatar's skeleton (skinned on the GPU), only while the
+  avatar can be seen (30 pictures a second, 60 during a gesture); still with Windows' animation
+  effects off. Screenshots and `--render-avatar` take `--anim idle|wave|nod --anim-time <s>`, and
+  `--render-avatar` `--anim-sheet <frames>` for a contact sheet.
+
 ### Changed
 
 - Home's top bar no longer has the pill with a green dot next to the AnyX360 name; "Who's playing?"

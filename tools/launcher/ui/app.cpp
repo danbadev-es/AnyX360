@@ -1563,6 +1563,7 @@ void App::GameExited(uint32_t code) {
   running_game_ = nullptr;
   game_starting_ = false;
   leaving_at_ = 0;
+  if (home_avatar_) home_avatar_->wave = true;  // the dashboard is back: hello again
   host_.ShowWindow(true);
   // Closed normally, left with the Guide's Xbox Home, or restarted from the game's settings (then
   // followed to its end): the dashboard again.

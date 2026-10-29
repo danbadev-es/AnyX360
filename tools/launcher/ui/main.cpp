@@ -19,6 +19,12 @@
 //                                       the avatar of the profile playing (or that one) alone into a
 //                                       PNG, transparent around it (the viewer's picture)
 //   --avatar <entries|random:N>         screenshots: the avatar edited, instead of the profile's
+//   --anim idle|wave|nod [--anim-time seconds]
+//                                       screenshots and --render-avatar: the avatar posed that far into
+//                                       its idle and the gesture (at rest without --anim)
+//   --anim-sheet <frames> [--anim-span seconds]
+//                                       --render-avatar: that many frames side by side, from
+//                                       --anim-time over the gesture (or the idle's 24 s, or the span)
 //   --screenshot <png> [--size WxH] [--dpi N] [--lang en|es] [--state S] [--root <dir>]
 //                                       draw the window offscreen into a PNG: S is library, empty,
 //                                       compatible, add, progress, error, confirm, password, menu,
@@ -38,7 +44,9 @@
 #include <wincodec.h>
 #include <xinput.h>
 
+#include <algorithm>
 #include <cmath>
+#include <cwchar>
 #include <fstream>
 #include <mutex>
 #include <string>
@@ -179,6 +187,61 @@ App* g_app = nullptr;
 anyx360::ui::Canvas* g_canvas = nullptr;
 
 float Dips(HWND hwnd, int pixels) { return float(pixels) * 96.0f / float(GetDpiForWindow(hwnd)); }
+
+// ---- the avatar's frames ------------------------------------------------------------------------
+// While the avatar moves, the window is painted again when its next picture is due (App::AvatarFrameIn:
+// 30 a second, 60 while it gestures), from a high-resolution timer the message loop waits on; only
+// while it can be seen. Everything else stays painted on events.
+
+#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
+#endif
+HANDLE g_frame_timer = nullptr;
+
+void ArmFrameTimer(double seconds) {
+  LARGE_INTEGER due;
+  due.QuadPart = -std::max<LONGLONG>(1, LONGLONG(seconds * 1e7));  // relative, in 100 ns
+  SetWaitableTimer(g_frame_timer, &due, 0, nullptr, nullptr, FALSE);
+}
+
+// Windows' animation effects (Settings > Accessibility > Visual effects): off, the avatar stands still.
+bool AnimationEffects() {
+  BOOL on = TRUE;
+  return !SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &on, 0) || on;
+}
+
+// The window can't be seen: minimized, hidden (a game runs), on another virtual desktop, or under the
+// window in front, which covers it all (one maximized).
+bool Unseen(HWND hwnd) {
+  if (IsIconic(hwnd) || !IsWindowVisible(hwnd)) return true;
+  BOOL cloaked = FALSE;
+  if (SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked))) && cloaked) return true;
+  HWND front = GetForegroundWindow();
+  if (!front || front == hwnd || IsIconic(front) || GetAncestor(front, GA_ROOTOWNER) == hwnd) return false;
+  wchar_t name[32] = {};
+  GetClassNameW(front, name, 32);
+  if (!wcscmp(name, L"Progman") || !wcscmp(name, L"WorkerW") || !wcscmp(name, L"Shell_TrayWnd")) return false;  // the desktop
+  RECT mine{}, theirs{};
+  GetClientRect(hwnd, &mine);
+  MapWindowPoints(hwnd, nullptr, reinterpret_cast<POINT*>(&mine), 2);
+  if (FAILED(DwmGetWindowAttribute(front, DWMWA_EXTENDED_FRAME_BOUNDS, &theirs, sizeof(theirs)))) GetWindowRect(front, &theirs);
+  return theirs.left <= mine.left && theirs.top <= mine.top && theirs.right >= mine.right && theirs.bottom >= mine.bottom;
+}
+
+// After a paint: when to paint the avatar's next picture (the canvas couldn't draw: look again in a
+// while). Minimized or hidden, nothing: it is painted again when shown.
+void ScheduleAvatarFrame(HWND hwnd, bool painted) {
+  if (!g_app || !g_frame_timer || IsIconic(hwnd) || !IsWindowVisible(hwnd)) return;
+  const double in = g_app->AvatarFrameIn();
+  if (in >= 0) ArmFrameTimer(painted ? in : 0.5);
+}
+
+// The timer: paint if the avatar can be seen; else look again in half a second.
+void AvatarFrameDue(HWND hwnd) {
+  if (!g_app || g_app->AvatarFrameIn() < 0) return;
+  if (!Unseen(hwnd)) InvalidateRect(hwnd, nullptr, FALSE);
+  else if (!IsIconic(hwnd) && IsWindowVisible(hwnd)) ArmFrameTimer(0.5);
+}
 
 // The icon (launcher.rc) at the sizes for the window's DPI: the small one for the title bar, the big
 // one for the taskbar and Alt+Tab. The class's are at the system's DPI, which may be another monitor's.
@@ -390,14 +453,20 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
     case WM_PAINT: {
       PAINTSTRUCT paint;
       BeginPaint(hwnd, &paint);
+      bool painted = false;
       if (g_canvas && g_app && g_canvas->Begin()) {
         g_app->Paint(*g_canvas);
         g_canvas->End();
+        painted = true;
       }
       EndPaint(hwnd, &paint);
       if (g_app && g_app->Animating()) InvalidateRect(hwnd, nullptr, FALSE);
+      else ScheduleAvatarFrame(hwnd, painted);
       return 0;
     }
+    case WM_SETTINGCHANGE:
+      if (g_app) g_app->SetReducedMotion(!AnimationEffects());
+      break;
     case WM_ERASEBKGND: return 1;
     case WM_SIZE:
       if (g_canvas) g_canvas->Resize();
@@ -492,6 +561,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
         if (g_pad_script.empty()) KillTimer(hwnd, kPadTimer);
       } else {
         SetTimer(hwnd, kPadTimer, 16, nullptr);
+        if (g_app && g_app->AvatarFrameIn() >= 0) InvalidateRect(hwnd, nullptr, FALSE);  // in front again: it moves
       }
       break;
     case WM_TIMER:
@@ -518,13 +588,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
 
 // The window drawn into a PNG, without showing it.
 int Screenshot(const fs::path& out, int width, int height, float dpi, const std::wstring& state, const std::wstring& select,
-               const std::wstring& avatar) {
+               const std::wstring& avatar, const AvatarFrames& frames) {
   using anyx360::ui::ComPtr;
   OffscreenHost host;
   App app(host);
   app.images().SetSynchronous(true);
   app.Load(select);
   app.SetScreenshotAvatar(Narrow(avatar));
+  if (frames.posed) app.SetScreenshotMotion(frames.gesture, frames.time);
   ComPtr<IWICImagingFactory> wic;
   ComPtr<IWICBitmap> bitmap;
   ComPtr<ID2D1RenderTarget> target;
@@ -566,6 +637,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   std::wstring select, source, password, screenshot, state = L"library", language, export_id;
   std::wstring avatar, render_avatar;
   float yaw = 0, zoom = 0;
+  AvatarFrames frames;
   fs::path result, export_to;
   bool quit_when_done = false;
   int mode = -1;  // --desktop 0, --console 1; -1: the one saved
@@ -600,16 +672,26 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     else if (arg == L"--render-avatar") render_avatar = argv[++i];
     else if (arg == L"--yaw") yaw = float(_wtof(argv[++i])) * 3.14159265f / 180;
     else if (arg == L"--zoom") zoom = float(_wtof(argv[++i]));
+    else if (arg == L"--anim") {
+      const std::wstring gesture = argv[++i];
+      frames.posed = true;
+      frames.gesture = gesture == L"wave"  ? avatar::Gesture::kWave
+                       : gesture == L"nod" ? avatar::Gesture::kNod
+                                           : avatar::Gesture::kNone;
+    }
+    else if (arg == L"--anim-time") frames.posed = true, frames.time = _wtof(argv[++i]);
+    else if (arg == L"--anim-span") frames.span = _wtof(argv[++i]);
+    else if (arg == L"--anim-sheet") frames.posed = true, frames.count = _wtoi(argv[++i]);
   }
   LocalFree(argv);
   if (language == L"es" || language == L"en") SetLanguage(language == L"es" ? Language::kSpanish : Language::kEnglish);
   if (!render_avatar.empty()) {
-    const int code = RenderAvatarFile(render_avatar, shot_w, shot_h, yaw, zoom, Narrow(avatar));
+    const int code = RenderAvatarFile(render_avatar, shot_w, shot_h, yaw, zoom, Narrow(avatar), frames);
     OleUninitialize();
     return code;
   }
   if (!screenshot.empty()) {
-    const int code = Screenshot(screenshot, shot_w, shot_h, shot_dpi > 0 ? shot_dpi : 96, state, select, avatar);
+    const int code = Screenshot(screenshot, shot_w, shot_h, shot_dpi > 0 ? shot_dpi : 96, state, select, avatar, frames);
     OleUninitialize();
     return code;
   }
@@ -652,6 +734,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     App app(g_host);
     g_canvas = &canvas;
     g_app = &app;
+    g_frame_timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+    if (!g_frame_timer) g_frame_timer = CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);  // before Windows 10 1803
+    app.SetReducedMotion(!AnimationEffects());
     app.Load(select);
     // Console mode (the dashboard), as last chosen, or as the command line says (not remembered).
     bool console = false, fullscreen = false;
@@ -683,13 +768,25 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
       app.SaveAnyx(export_id, export_to);
     }
 
+    // Messages, and the avatar's frames when they are due.
     MSG msg;
-    while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
-      TranslateMessage(&msg);
-      DispatchMessageW(&msg);
+    for (bool running = true; running;) {
+      const DWORD woke = MsgWaitForMultipleObjectsEx(g_frame_timer ? 1 : 0, g_frame_timer ? &g_frame_timer : nullptr, INFINITE,
+                                                     QS_ALLINPUT, MWMO_INPUTAVAILABLE);
+      if (g_frame_timer && woke == WAIT_OBJECT_0) AvatarFrameDue(hwnd);
+      while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+        if (msg.message == WM_QUIT) {
+          running = false;
+          break;
+        }
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+      }
     }
     g_app = nullptr;
     g_canvas = nullptr;
+    if (g_frame_timer) CloseHandle(g_frame_timer);
+    g_frame_timer = nullptr;
   }
   OleUninitialize();
   return 0;
