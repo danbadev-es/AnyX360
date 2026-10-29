@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-29
+
+The launcher's avatar moves: an idle, a wave hello and a nod.
+
 ### Added
 
 - **The launcher's avatar moves** ([docs/AVATARS.md](docs/AVATARS.md#the-launchers-avatar-in-motion)):
@@ -23,6 +27,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 - Home's top bar no longer has the pill with a green dot next to the AnyX360 name; "Who's playing?"
   stays on the gamercard's Profiles page and in the Guide.
+- The shipped shader caches have more of Black Ops II (Zombies: 4,061 pipelines, from 2,108),
+  Modern Warfare 3, Dance Central 3, Gears of War 3 and Kinect Sports, so a first play stutters
+  less. `merge_shader_caches.py` now always merges what its output folder already has, so a merge
+  only adds.
 
 ## [0.25.0] - 2026-10-29
 
@@ -1109,7 +1117,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.23.0...v0.24.0
