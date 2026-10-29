@@ -188,7 +188,7 @@ random avatars; `XamAvatarGetManifestsByXuid` still fails (no title seen needs i
 profile playing; in desktop mode, a profile's ⋯ menu in Profiles has **Edit avatar…** (any profile)
 ([DASHBOARD.md](DASHBOARD.md)).
 
-- **The viewer:** the avatar drawn with Direct3D 11 in its bind pose (the T-pose), as the games draw
+- **The viewer:** the avatar drawn with Direct3D 11 standing with its arms down, as the games draw
   it: the parts `build_avatar` makes (the colour recipe above, the face textures' first frame, the
   hiding templates and face shapes), each mesh shaded as Kinect Sports' shaders do (the clothes'
   mask and overlay, the head's six layers over the skin), lenses half transparent over the rest,
@@ -197,6 +197,14 @@ profile playing; in desktop mode, a profile's ⋯ menu in Profiles has **Edit av
   drag) turns it, up and down on the stick (or the wheel) zooms from the whole body to the face.
   Height and weight are the skeleton's work in the games; the viewer only scales the avatar (an
   eighth taller or shorter, a fifth wider or thinner below the neck) to show them.
+  **The pose:** there are no animations yet, so the viewer poses the bind pose itself
+  (`RelaxArms`): every avatar has the same 72-joint skeleton, numbered alike (each arm: upper arm 27
+  or 30, then 26/29, the forearm 32/35 and 31/34, the hand 33/36, the fingers 37-43, 51-55, 61-65 and
+  44-50, 56-60, 66-70), and every vertex says which four joints move it and how much (the blend
+  indices and weights, summing to 255). Each arm turns 74 degrees down and 7 forward about its
+  shoulder (where its upper arm's vertices start, at their middle height), each vertex by as much
+  of the turn as its weight on that arm's joints: the shoulder bends smoothly. The dashboard's Home
+  shows the profile's avatar the same way, standing beside the games.
 - **The editor** (`x360tool::AvatarEditor`): a row per thing to change, controller first (up and
   down choose a row, left and right change it at once; A the next choice; the mouse clicks the
   arrows): body (gender), skin colour, height, weight, hair, hair colour (the eyebrows and facial
@@ -251,7 +259,8 @@ draws both lenses. Not investigated (the same parts are given to both games).
 ## Open
 
 - **Animations** (`XamAvatarLoadAnimation`): 41 in the pack.
-- The viewer's bind pose: the console's editor shows the avatar standing (an animation).
+- The viewer's pose is the bind pose with its arms lowered (above); the console's editor shows the
+  avatar standing and moving (an animation).
 - `XamAvatarGetManifestsByXuid` (other players' avatars by XUID) isn't implemented.
 - Unmapped avatar buffers: in Kinect Sports' menus Xenia refuses a few draws of avatar parts (index
   buffers the size of a head's or a body's) because their memory is no longer mapped ("Invalid

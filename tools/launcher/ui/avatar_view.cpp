@@ -152,6 +152,17 @@ struct Mesh {
   ComPtr<ID3D11ShaderResourceView> slots[kSlots];
 };
 
+// A mesh read from a part, before it is posed and uploaded: its vertices and, per vertex, the four
+// joints it follows and their weights (the vertex stream's blend indices and weights).
+struct Staged {
+  std::vector<Vertex> vertices;
+  std::vector<std::array<uint8_t, 4>> joints, weights;
+  const std::vector<uint16_t>* indices = nullptr;
+  bool head = false;
+  Mesh gpu;
+  MeshConstants constants{};
+};
+
 uint32_t Be32(const uint8_t* p) { return uint32_t(p[0]) << 24 | uint32_t(p[1]) << 16 | uint32_t(p[2]) << 8 | p[3]; }
 float BeFloat(const uint8_t* p) {
   const uint32_t bits = Be32(p);
@@ -170,6 +181,62 @@ float ParamFloat(uint32_t bits) {
   float f;
   std::memcpy(&f, &bits, 4);
   return f;
+}
+
+// Arms down: the bind pose's arms (a T) lowered by the shoulders into a relaxed stance. Every avatar
+// has the same 72-joint skeleton, numbered alike: each arm's joints (upper arm, forearm, hand,
+// fingers) turn down about the shoulder, by as much of the turn as the vertex's weight on them, so
+// the shoulder bends smoothly instead of folding; then a little forward.
+void RelaxArms(std::vector<Staged>& staged) {
+  // +1 the arm on +x, -1 the other; their upper arms (the joint at the shoulder).
+  std::array<int8_t, 256> side{};
+  for (int j : {26, 27, 31, 32, 33, 37, 38, 39, 40, 41, 42, 43, 51, 52, 53, 54, 55, 61, 62, 63, 64, 65}) side[size_t(j)] = 1;
+  for (int j : {29, 30, 34, 35, 36, 44, 45, 46, 47, 48, 49, 50, 56, 57, 58, 59, 60, 66, 67, 68, 69, 70}) side[size_t(j)] = -1;
+  constexpr int kUpperArm[2] = {27, 30};
+  // Each shoulder: where its upper arm starts (its vertices nearest the body), at the arm's middle.
+  float pivot[2][3] = {};
+  bool found[2] = {};
+  for (int s = 0; s < 2; ++s) {
+    double y = 0, z = 0, n = 0;
+    float inner = 1e9f;
+    for (const Staged& m : staged)
+      for (size_t i = 0; i < m.vertices.size(); ++i)
+        for (int k = 0; k < 4; ++k)
+          if (m.joints[i][size_t(k)] == kUpperArm[s] && m.weights[i][size_t(k)] > 128) {
+            const float* p = m.vertices[i].position;
+            inner = std::min(inner, std::abs(p[0]));
+            y += p[1], z += p[2], ++n;
+          }
+    if (n < 8) continue;
+    found[s] = true;
+    pivot[s][0] = (s == 0 ? 1 : -1) * inner;
+    pivot[s][1] = float(y / n);
+    pivot[s][2] = float(z / n);
+  }
+  const float down = 74.0f * 3.14159265f / 180, forward = 7.0f * 3.14159265f / 180;
+  for (Staged& m : staged) {
+    for (size_t i = 0; i < m.vertices.size(); ++i) {
+      float arm[2] = {};
+      for (int k = 0; k < 4; ++k) {
+        const int8_t s = side[m.joints[i][size_t(k)]];
+        if (s) arm[s > 0 ? 0 : 1] += m.weights[i][size_t(k)] / 255.0f;
+      }
+      for (int s = 0; s < 2; ++s) {
+        if (arm[s] <= 0 || !found[s]) continue;
+        // About z (down), then about x (forward), around the shoulder.
+        const float a = (s == 0 ? -down : down) * arm[s], b = -forward * arm[s];
+        const float ca = std::cos(a), sa = std::sin(a), cb = std::cos(b), sb = std::sin(b);
+        auto turn = [&](float* v, bool point) {
+          float x = v[0] - (point ? pivot[s][0] : 0), y = v[1] - (point ? pivot[s][1] : 0), z = v[2] - (point ? pivot[s][2] : 0);
+          const float x1 = x * ca - y * sa, y1 = x * sa + y * ca;
+          const float y2 = y1 * cb - z * sb, z2 = y1 * sb + z * cb;
+          v[0] = x1 + (point ? pivot[s][0] : 0), v[1] = y2 + (point ? pivot[s][1] : 0), v[2] = z2 + (point ? pivot[s][2] : 0);
+        };
+        turn(m.vertices[i].position, true);
+        turn(m.vertices[i].normal, false);
+      }
+    }
+  }
 }
 
 }  // namespace
@@ -319,7 +386,8 @@ struct AvatarRenderer::Impl {
     return view;
   }
 
-  bool Upload(const x360tool::AvatarBuiltPart& built, std::string& error) {
+  // Reads a built part's meshes (seams welded) into `out`, with their textures uploaded.
+  void Stage(const x360tool::AvatarBuiltPart& built, std::vector<Staged>& out) {
     const x360tool::AvatarModel& model = built.model;
     std::vector<ComPtr<ID3D11ShaderResourceView>> textures;
     for (const auto& t : model.textures) textures.push_back(Texture(t));
@@ -345,15 +413,22 @@ struct AvatarRenderer::Impl {
     for (size_t m = 0; m < model.meshes.size(); ++m) {
       const auto& mesh = model.meshes[m];
       if (mesh.indices.empty() || !mesh.vertex_count) continue;
-      std::vector<Vertex> out(mesh.vertex_count);
+      Staged staged;
+      staged.head = head;
+      staged.indices = &mesh.indices;
+      staged.vertices.resize(mesh.vertex_count);
+      staged.joints.resize(mesh.vertex_count);
+      staged.weights.resize(mesh.vertex_count);
       for (uint32_t i = 0; i < mesh.vertex_count; ++i) {
         const uint8_t* v = vertices[m].data() + size_t(i) * mesh.stride;
-        Vertex& o = out[i];
+        Vertex& o = staged.vertices[i];
         for (int k = 0; k < 3; ++k) o.position[k] = BeFloat(v + 4 * k);
         const uint32_t n = Be32(v + 12);
         o.normal[0] = SignExtend(n & 0x7FF, 11) / 1023.0f;
         o.normal[1] = SignExtend((n >> 11) & 0x7FF, 11) / 1023.0f;
         o.normal[2] = SignExtend(n >> 22, 10) / 511.0f;
+        // Blend weights (+16) and indices (+20), a byte per joint in the same order.
+        for (int k = 0; k < 4; ++k) staged.weights[i][size_t(k)] = v[16 + k], staged.joints[i][size_t(k)] = v[20 + k];
         for (uint32_t s = 0; s < kUvSets; ++s) {
           if (s < mesh.uv_sets) {
             o.uv[s][0] = Half(uint16_t(v[28 + 4 * s] << 8 | v[29 + 4 * s]));
@@ -362,29 +437,11 @@ struct AvatarRenderer::Impl {
             o.uv[s][0] = o.uv[s][1] = 0;
           }
         }
-        for (int k = 0; k < 3; ++k) {
-          min[k] = std::min(min[k], o.position[k]);
-          max[k] = std::max(max[k], o.position[k]);
-          if (head) {
-            head_min[k] = std::min(head_min[k], o.position[k]);
-            head_max[k] = std::max(head_max[k], o.position[k]);
-          }
-        }
       }
-      has_head |= head;
-      Mesh gpu;
+      Mesh& gpu = staged.gpu;
       gpu.material = mesh.material;
       gpu.index_count = uint32_t(mesh.indices.size());
-      D3D11_BUFFER_DESC vb{UINT(out.size() * sizeof(Vertex)), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER};
-      D3D11_SUBRESOURCE_DATA vd{out.data()};
-      D3D11_BUFFER_DESC ib{UINT(mesh.indices.size() * 2), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER};
-      D3D11_SUBRESOURCE_DATA id{mesh.indices.data()};
-      if (FAILED(device->CreateBuffer(&vb, &vd, &gpu.vertices)) || FAILED(device->CreateBuffer(&ib, &id, &gpu.indices))) {
-        error = "out of video memory";
-        return false;
-      }
-      MeshConstants c{};
-      for (int k = 0; k < 16; ++k) c.colors[k][0] = c.colors[k][1] = c.colors[k][2] = c.colors[k][3] = 0;
+      MeshConstants& c = staged.constants;
       for (int k = 0; k < 8; ++k) c.uv_set[k] = -1, c.wrap[k] = 0;
       for (const auto& p : mesh.params) {
         if (p.kind != 1) {
@@ -414,14 +471,40 @@ struct AvatarRenderer::Impl {
       }
       c.mode[0] = head ? 1 : mesh.material == 3 ? 2 : 0;
       c.mode[1] = mesh.material == 1 ? 1 : 0;  // hair: its strands' alpha
+      out.push_back(std::move(staged));
+    }
+  }
+
+  // The staged meshes' bounds and buffers.
+  bool Finish(std::vector<Staged>& staged, std::string& error) {
+    for (Staged& s : staged) {
+      for (const Vertex& o : s.vertices) {
+        for (int k = 0; k < 3; ++k) {
+          min[k] = std::min(min[k], o.position[k]);
+          max[k] = std::max(max[k], o.position[k]);
+          if (s.head) {
+            head_min[k] = std::min(head_min[k], o.position[k]);
+            head_max[k] = std::max(head_max[k], o.position[k]);
+          }
+        }
+      }
+      has_head |= s.head;
+      Mesh& gpu = s.gpu;
+      D3D11_BUFFER_DESC vb{UINT(s.vertices.size() * sizeof(Vertex)), D3D11_USAGE_IMMUTABLE, D3D11_BIND_VERTEX_BUFFER};
+      D3D11_SUBRESOURCE_DATA vd{s.vertices.data()};
+      D3D11_BUFFER_DESC ib{UINT(s.indices->size() * 2), D3D11_USAGE_IMMUTABLE, D3D11_BIND_INDEX_BUFFER};
+      D3D11_SUBRESOURCE_DATA id{s.indices->data()};
+      if (FAILED(device->CreateBuffer(&vb, &vd, &gpu.vertices)) || FAILED(device->CreateBuffer(&ib, &id, &gpu.indices))) {
+        error = "out of video memory";
+        return false;
+      }
       D3D11_BUFFER_DESC cb{sizeof(MeshConstants), D3D11_USAGE_IMMUTABLE, D3D11_BIND_CONSTANT_BUFFER};
-      D3D11_SUBRESOURCE_DATA cd{&c};
+      D3D11_SUBRESOURCE_DATA cd{&s.constants};
       device->CreateBuffer(&cb, &cd, &gpu.constants);
       meshes.push_back(std::move(gpu));
     }
     return true;
   }
-
   bool Targets(uint32_t w, uint32_t h) {
     if (w == width && h == height && color) return true;
     color.Reset(), resolved.Reset(), staging.Reset(), depth.Reset(), rtv.Reset(), dsv.Reset();
@@ -458,8 +541,10 @@ bool AvatarRenderer::SetAvatar(const x360tool::AvatarCatalog& catalog, const x36
   r.meshes.clear();
   for (int k = 0; k < 3; ++k) r.min[k] = r.head_min[k] = 1e9f, r.max[k] = r.head_max[k] = -1e9f;
   r.has_head = false;
-  for (const auto& part : parts)
-    if (!r.Upload(part, error)) return false;
+  std::vector<Staged> staged;
+  for (const auto& part : parts) r.Stage(part, staged);
+  if (relaxed_) RelaxArms(staged);
+  if (!r.Finish(staged, error)) return false;
   // The skeleton's height and weight, roughly: up to an eighth taller or shorter, a fifth wider or
   // thinner.
   r.height_scale = 1.0f + 0.12f * description.height;

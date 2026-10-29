@@ -1,4 +1,5 @@
-// The avatar viewer: an avatar drawn with Direct3D 11 in its bind pose, as the games draw it (the
+// The avatar viewer: an avatar drawn with Direct3D 11 standing (the bind pose with its arms lowered:
+// there are no animations yet), as the games draw it (the
 // parts x360tool::build_avatar makes: colours, face textures, hiding templates and face shapes; the
 // shading recipe of docs/AVATARS.md), into a picture the launcher's canvas shows (the dashboard's
 // Avatar page, the editor in desktop mode) or saves (a gamerpic). Offscreen, so the launcher's own
@@ -26,6 +27,8 @@ class AvatarRenderer {
   bool SetAvatar(const x360tool::AvatarCatalog& catalog, const x360tool::AvatarDescription& description,
                  std::string& error);
   bool HasAvatar() const;
+  // Arms down in a relaxed stance (the default), or the bind pose's T; for the next SetAvatar.
+  void SetRelaxed(bool relaxed) { relaxed_ = relaxed; }
 
   // Draws it `width` x `height` pixels into `out` (premultiplied BGRA, transparent around it):
   // turned `yaw` radians (0: facing the camera), from the whole body (`zoom` 0) to the face (1).
@@ -35,6 +38,7 @@ class AvatarRenderer {
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
+  bool relaxed_ = true;
 };
 
 }  // namespace anyx360::launcher::ui
