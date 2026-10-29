@@ -23,6 +23,10 @@
 //   cover       <picture> <out.jpg> [--size WxH] [--quality Q]
 //                                             A box picture's front cover, scaled to fit WxH
 //                                             (default 600x900), as a JPEG (quality 0-100, 85)
+//   background  <picture> <out.jpg> [--size WxH] [--quality Q]
+//                                             A game's background art cropped to its centre at
+//                                             16:9 and scaled up or down to WxH (default 1920x1080),
+//                                             as a JPEG (quality 0-100, 85)
 //   avatar-pack <AvatarAssetPack.toc> <out_dir>
 //                                             The avatar asset pack's entries (index.tsv) and
 //                                             each asset's STRB blocks, unpacked
@@ -81,7 +85,8 @@ int usage() {
       "  x360tool content-info <package>\n"
       "  x360tool god-extract <header> <out_dir> [path ...]\n"
       "  x360tool stfs-extract <package> <out_dir> [--verify]\n"
-      "  x360tool cover       <picture> <out.jpg> [--size WxH] [--quality 0-100]\n",
+      "  x360tool cover       <picture> <out.jpg> [--size WxH] [--quality 0-100]\n"
+      "  x360tool background  <picture> <out.jpg> [--size WxH] [--quality 0-100]\n",
       stderr);
   return 2;
 }
@@ -401,6 +406,32 @@ int cmd_cover(const fs::path& in, const fs::path& out, uint32_t width, uint32_t 
   return 0;
 }
 
+// A game's background art (backgrounds\README.md): its centre at 16:9, scaled up or down to WxH, for the launcher.
+int cmd_background(const fs::path& in, const fs::path& out, uint32_t width, uint32_t height, int quality) {
+  if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) throw Error("COM is not available");
+  anyx360::ui::Image whole, image;
+  std::string error;
+  // Its size upright first, then the crop at full resolution, scaled.
+  if (!anyx360::ui::DecodePicture(in, whole, error)) throw Error(in.string() + ": " + error);
+  anyx360::ui::Rect crop{0, 0, whole.width, whole.height};
+  if (uint64_t(whole.width) * 9 > uint64_t(whole.height) * 16) {
+    crop.width = uint32_t(uint64_t(whole.height) * 16 / 9);
+    crop.x = (whole.width - crop.width) / 2;
+  } else {
+    crop.height = uint32_t(uint64_t(whole.width) * 9 / 16);
+    crop.y = (whole.height - crop.height) / 2;
+  }
+  whole = {};
+  anyx360::ui::Image cropped;
+  if (!anyx360::ui::DecodePicture(in, cropped, error, 0, 0, &crop) || !anyx360::ui::Resize(cropped, width, height, image, error))
+    throw Error(in.string() + ": " + error);
+  if (!anyx360::ui::SaveJpeg(image, out, quality / 100.0f, error)) throw Error(out.string() + ": " + error);
+  std::printf("wrote %s (%ux%u, %s)\n", out.string().c_str(), image.width, image.height,
+              fmt_size(fs::file_size(out)).c_str());
+  CoUninitialize();
+  return 0;
+}
+
 // The avatar asset pack: index.tsv (entry, the two words describing it, name, size, its blocks) and
 // <entry>_<block>_<id>.bin for each block (unpacked when compressed), for studying the formats.
 int cmd_avatar_pack(const fs::path& toc, const fs::path& out) {
@@ -685,6 +716,16 @@ int main(int argc, char** argv) {
         if (option == "--quality") quality = std::clamp(std::atoi(argv[i + 1]), 1, 100);
       }
       return cmd_cover(argv[2], argv[3], width, height, quality);
+    }
+    if (cmd == "background" && argc >= 4) {
+      unsigned width = 1920, height = 1080;
+      int quality = 85;
+      for (int i = 4; i + 1 < argc; ++i) {
+        const std::string option = argv[i];
+        if (option == "--size" && std::sscanf(argv[i + 1], "%ux%u", &width, &height) != 2) return usage();
+        if (option == "--quality") quality = std::clamp(std::atoi(argv[i + 1]), 1, 100);
+      }
+      return cmd_background(argv[2], argv[3], width, height, quality);
     }
   } catch (const std::exception& e) {
     std::fprintf(stderr, "error: %s\n", e.what());

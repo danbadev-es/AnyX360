@@ -97,6 +97,27 @@ bool CopyOut(IWICBitmapSource* source, UINT width, UINT height, Image& out, std:
 
 }  // namespace
 
+bool Resize(const Image& image, uint32_t width, uint32_t height, Image& out, std::string& error) {
+  out = {};
+  if (!image.width || !image.height || !width || !height) {
+    error = "empty picture";
+    return false;
+  }
+  ComPtr<IWICImagingFactory> factory;
+  if (!Factory(factory, error)) return false;
+  ComPtr<IWICBitmap> bitmap;
+  ComPtr<IWICBitmapScaler> scaler;
+  HRESULT hr;
+  if (FAILED(hr = factory->CreateBitmapFromMemory(image.width, image.height, GUID_WICPixelFormat32bppPBGRA, image.width * 4,
+                                                  UINT(image.bgra.size()), const_cast<BYTE*>(image.bgra.data()), &bitmap)) ||
+      FAILED(hr = factory->CreateBitmapScaler(&scaler)) ||
+      FAILED(hr = scaler->Initialize(bitmap.Get(), width, height, WICBitmapInterpolationModeHighQualityCubic))) {
+    error = HrText("cannot scale the picture", hr);
+    return false;
+  }
+  return CopyOut(scaler.Get(), width, height, out, error);
+}
+
 Rect FrontCoverRect(uint32_t width, uint32_t height) {
   if (!width || !height) return {};
   const double aspect = double(width) / height;

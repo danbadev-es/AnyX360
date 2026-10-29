@@ -2,7 +2,7 @@
 # the build has (the games registered in the launcher's catalog, build\launcher\Release\
 # games_catalog.h): the launcher (AnyX360.exe), each recompiled executable (with its .pdb, so crash
 # reports name functions; a game can have several: game.json's "executables"), 7-Zip, the XEX key, each game's shader cache, the pose bridge when a game
-# is played with a webcam, the games' front covers (from covers\, which git doesn't keep), the README,
+# is played with a webcam, the games' front covers and background art (from covers\ and backgrounds\, which git doesn't keep), the README,
 # the terms of use (TERMS.txt; the launcher shows them in English or Spanish), the changelog and the
 # third-party licenses - no game data: the launcher extracts or writes out the player's own copies
 # (archives of any kind, disc images, packages) next to itself, or uses the folders of their copies.
@@ -134,6 +134,16 @@ foreach ($slug in $slugs) {
   if (-not $source) { Write-Warning "No cover for $slug (covers\$slug.jpg): its tile will be a placeholder"; continue }
   & $x360tool cover $source "$dist\covers\$slug.jpg" | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "x360tool cover failed for $source" }
+}
+# Background art (backgrounds\, not in git): each catalog game's, its centre at 16:9 scaled up or down
+# to exactly 1920x1080 (x360tool background); without one the launcher blurs the game's cover.
+$backgroundSlugs = @($games | ForEach-Object { $_.cover } | Where-Object { $_ } | Select-Object -Unique)
+foreach ($slug in $backgroundSlugs) {
+  $source = @("$root\backgrounds\$slug.jpg", "$root\backgrounds\$slug.png") | Where-Object { Test-Path $_ } | Select-Object -First 1
+  if (-not $source) { continue }
+  if (-not (Test-Path "$dist\backgrounds")) { New-Item -ItemType Directory "$dist\backgrounds" | Out-Null }
+  & $x360tool background $source "$dist\backgrounds\$slug.jpg" --size 1920x1080 | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "x360tool background failed for $source" }
 }
 foreach ($game in $games) {
   foreach ($exe in $game.exes) { Copy-Item "$($game.release)\$exe.exe", "$($game.release)\$exe.pdb" "$dist\bin" }

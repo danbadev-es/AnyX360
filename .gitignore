@@ -15,6 +15,9 @@
 # Box art (the publishers'): shipped in the release only, see covers/README.md
 /covers/*
 !/covers/README.md
+# Background art (the publishers'): shipped in the release only, see backgrounds/README.md
+/backgrounds/*
+!/backgrounds/README.md
 # Shader caches collected while testing (tools/package/merge_shader_caches.py): shipped in the release only
 /shader_cache/
 

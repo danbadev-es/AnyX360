@@ -38,6 +38,9 @@ bool DecodePicture(const std::filesystem::path& path, Image& out, std::string& e
 bool DecodePictureData(std::span<const uint8_t> data, Image& out, std::string& error, uint32_t max_width = 0,
                        uint32_t max_height = 0);
 
+// `image` scaled (up or down, high-quality cubic) to exactly width x height.
+bool Resize(const Image& image, uint32_t width, uint32_t height, Image& out, std::string& error);
+
 // The front cover of a box picture (FrontCoverRect), scaled to fit width x height.
 bool LoadFrontCover(const std::filesystem::path& path, uint32_t width, uint32_t height, Image& out,
                     std::string& error);
