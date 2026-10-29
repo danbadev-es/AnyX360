@@ -1,12 +1,13 @@
 # Profiles
 
-**Status:** implemented in 0.20.0 (profile format version 1). The first stage of the console
+**Status:** implemented in 0.20.0 (profile format version 1); the avatar and the gamerpic are
+filled since 0.23.0 (the same version: the fields were there). The first stage of the console
 experience (profiles, then achievements, the Guide and the dashboard, then the avatar editor):
 later stages add their files next to these.
 
 ## The idea
 Like the console's, a profile belongs to a player, not to a game: one gamertag, its saves in every
-game, its time played (later: its achievements and its avatar). The launcher asks "Who's playing?"
+game, its time played, its achievements, its avatar and its gamerpic. The launcher asks "Who's playing?"
 and signs that profile in as player 1; in a game, the sign-in screen the game asks for is a real
 picker, so players 2-4 sign in as their own profiles with their own controllers and get their own
 saves.
@@ -19,6 +20,7 @@ and the launcher both link.
 
 ```
 profiles\<XUID>\profile.json          the profile
+profiles\<XUID>\gamerpic.png          its gamerpic, if it has one (0.23.0)
 profiles\<XUID>\titles\<TitleID>.json  its time played in a title
 profile.txt                            who is signed in on each slot, and the language
 profile.txt.before-0.20.0              the file from before profiles, kept (the migration)
@@ -45,11 +47,13 @@ half of one.
   profile.
 - **gamertag:** letters, digits and single spaces, at most 15 (`CleanName`); no two profiles share
   one in any letter case.
-- **gamerpic:** a picture's file name in the profile's folder. Empty for now: the launcher and the
-  picker draw the gamertag's initial on a colour from the XUID.
-- **avatar:** the avatar description (the console's 1000-byte blob, `avatar_system.cpp`'s
-  `WriteDescription`) in base64. Empty for now: games get the default avatars. The avatar editor
-  fills it (stage 4).
+- **gamerpic:** a picture's file name in the profile's folder: `gamerpic.png` (since 0.23.0, a
+  picture of its avatar or of one of the player's games, chosen in the launcher), or empty: the
+  launcher and the games' Guide and picker draw the gamertag's initial on a colour from the XUID.
+- **avatar:** the avatar description (the console's 1000-byte `XAVATAR_METADATA`, as
+  `x360tool::write_avatar_description` writes it) in base64 (1336 characters), filled by the
+  launcher's avatar editor (0.23.0). Empty: the games give the player the default avatars. A game
+  gives each player the avatar of the profile signed in on their slot ([AVATARS.md](AVATARS.md)).
 - **language:** `auto` (Windows' display language) or a tag of `profile::Languages()` (`en`, `es`,
   `ja`...). The games are told player 1's profile's language; `auto` falls back to profile.txt's.
 - **created:** ISO 8601, UTC. The profiles are listed in this order.
@@ -149,8 +153,13 @@ in, so "Who's playing?" shows it. A game started without the launcher (a develop
   "Create profile". The header shows the gamertag playing (its gamerpic, then "Switch profile",
   which opens it again).
 - **Profiles** (the gamertag in the header): every profile with the slot it is signed in on; a
-  profile's menu has "Play as", "Rename…" and "Delete profile…" (asked first; nothing is erased),
-  then "Create profile" and the games' language for the profile playing.
+  profile's menu has "Play as", "Rename…", "Edit avatar…", "Change gamerpic…" and "Delete
+  profile…" (asked first; nothing is erased), then "Create profile" and the games' language for the
+  profile playing. The avatar editor and the gamerpic picker are in [AVATARS.md](AVATARS.md); the
+  dashboard's Avatar page edits the profile playing's.
+- **Gamerpics** show wherever a profile does (the header, the gamercard, the rows, "Who's
+  playing?"), round; and in the games, in the Guide's header and the sign-in picker's rows (read
+  again when the file changes). Without one, the initial.
 - A gamertag is typed with the keyboard or the on-screen keyboard (the controller's d-pad and A; B
   deletes, X a space, Y Shift, Start done).
 - Screenshots: `--screenshot <png> --state who|profiles|newprofile` (made-up profiles, nothing
@@ -162,6 +171,8 @@ in, so "Who's playing?" shows it. A game started without the launcher (a develop
 - `test_launcher_core`: the migration of a user folder with saves (nothing moved), create, rename and
   delete (taken and empty gamertags, a deleted profile's saves kept), moving a profile between
   slots, damaged and copied profile files, atomic writes, the time played as shown.
+- `test_avatar`: an avatar description through `profile.json` (base64) and back, byte for byte.
+  `test_hle`: each slot's avatar from the profile signed in on it.
 
 ## Checked (2026-10-29)
 - **Migration with saves:** a sandbox user folder (LOCALAPPDATA redirected) with a profile.txt from

@@ -8,6 +8,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+The avatar editor ([docs/AVATARS.md](docs/AVATARS.md)).
+
+### Added
+
+- **The avatar editor**: the dashboard's new **Avatar** page (and, in desktop mode, **Edit
+  avatar…** in a profile's menu) edits the profile's Xbox Avatar with the controller: body, skin,
+  height and weight, hair and its colour, eyes and their colour, eyebrows, mouth and lip colour,
+  facial hair, nose, chin and ears, top, bottom, shoes, hat, glasses and accessories, each garment
+  in its colourways, or a random avatar. Only what fits the avatar's gender is offered, and an
+  outfit takes the top's and the bottom's place, as on the console. The parts' names are the
+  console's, in English or Spanish.
+- **The viewer**: the avatar beside the editor, drawn with Direct3D 11 as the games draw it (its
+  clothes' colours, face, hiding templates and face shapes); the right stick or the mouse turns it
+  and zooms to its face.
+- **Your avatar in the games**: Doritos Crash Course, Kinect Sports and Kinect Joy Ride give each
+  player the avatar of the profile signed in on their slot (saved in the profile, in the console's
+  format); players without one keep the default avatars.
+- **Gamerpics**: a profile's picture can be its avatar's face or a picture from one of your games
+  (its icon or its achievements' pictures). The launcher shows it wherever the profile appears, and
+  the games' Guide and sign-in picker too. Saving a first avatar makes it the gamerpic of a profile
+  without one.
+
 ## [0.22.0] - 2026-10-29
 
 The Guide button and the dashboard, in one window ([docs/DASHBOARD.md](docs/DASHBOARD.md)).

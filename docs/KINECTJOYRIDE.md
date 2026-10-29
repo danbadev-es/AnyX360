@@ -52,7 +52,7 @@ skeleton builder (`82CC8C30`, Kinect Sports' `82A84A00`) and `XAvatarGetAssets` 
 word for word, so the game runs with the avatar system (`GameDescriptor::avatar_system`) and gets
 its avatars from the console's avatar asset pack ([AVATARS.md](AVATARS.md)), which its own disc
 carries: on the first run it is copied to `%LOCALAPPDATA%\AnyX360\system`. The player is the
-default avatar (the profile has none of its own); the game's rivals keep their looks (hats, gloves,
+profile's avatar (the default without one: [AVATARS.md](AVATARS.md)); the game's rivals keep their looks (hats, gloves,
 glasses, monocle, earrings). The avatars appear in the garage, the lobby, in the car and in the
 photos' scenes.
 

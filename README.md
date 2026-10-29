@@ -64,7 +64,8 @@ the sensor.
   and its downloadable content (skins, texture packs, mash-ups).
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
-carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for.
+carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for. Your
+own avatar is made in the launcher's avatar editor and plays in every avatar game.
 
 <img width="1280" height="800" alt="The AnyX360 launcher with three games added" src="docs/images/launcher.png" />
 
@@ -173,7 +174,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   gamertag, its own saves in every game and its time played. The launcher asks "Who's playing?"
   and manages them (create, rename, delete, the language the games use); in a game the sign-in
   screen is a picker driven by each player's controller, with an on-screen keyboard for a new
-  gamertag. The names set before 0.20.0 become profiles with their saves.
+  gamertag. The names set before 0.20.0 become profiles with their saves. Each profile has its
+  avatar and its gamerpic (a picture of the avatar, or one from your games).
 - **Achievements** - Each game's achievements, from its own data (its title update's when it has
   one), unlock for the profile playing, once and with their date
   ([docs/ACHIEVEMENTS.md](docs/ACHIEVEMENTS.md)): a toast at the bottom of the screen with a chime
@@ -187,8 +189,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   signs in.
 - **Console mode** - The launcher as a dashboard, borderless in its window or full screen, driven
   by the controller: Home (the game played last, the gamercard), Games, Achievements, Profiles,
-  Settings and Add a game, changed with LB and RB. Games open in the same place and the dashboard
-  comes back when they end, as one window; **Desktop mode** keeps the usual window.
+  Avatar, Settings and Add a game, changed with LB and RB. Games open in the same place and the
+  dashboard comes back when they end, as one window; **Desktop mode** keeps the usual window.
 - **Shader Cache** - Shaders and pipelines are cached between runs, so stutter fades after the
   first play.
 - **Saves** - Stored in `%LOCALAPPDATA%\AnyX360\<game>` (each profile's in its own folder),
@@ -231,6 +233,10 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   height and weight, its clothes in their colours, its hairstyle, eyes, eyebrows and mouth.
 - **Shared** - Adding Kinect Sports installs the pack for every avatar game: Doritos Crash Course,
   which doesn't carry one, gets its avatars from it.
+- **Your Avatar** - The launcher's avatar editor (the dashboard's Avatar page, or a profile's menu)
+  dresses each profile's avatar with the console's parts, colours and shapes, with the controller,
+  beside a 3D view of it; the games then give each player the avatar of the profile signed in on
+  their controller ([docs/AVATARS.md](docs/AVATARS.md)).
 
 ### What Works
 
@@ -281,7 +287,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Kinect Sports                    | Status                                         |
 | -------------------------------- | ---------------------------------------------- |
 | Menus, picking the main player   | ✅ Working (hand cursor), with the update's new menus |
-| Avatars                          | ✅ The game's guests with their looks; you play as the default avatar |
+| Avatars                          | ✅ The game's guests with their looks; you play as your profile's avatar |
 | Bowling                          | 🧪 Starts and follows the body; not played through yet |
 | Football                         | 🧪 Loads; not played through yet               |
 | Other sports, two players        | 🧪 Not tried yet                               |
@@ -295,7 +301,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Battle Race                      | 🧪 Starts; items not tried yet                 |
 | Two players (split screen)       | 🧪 A race played to the finish with two scripted players |
 | Stunt, Sprint, Smash, Trick      | 🧪 Offered; not tried yet                      |
-| Avatars                          | ✅ The drivers; you drive as the default avatar |
+| Avatars                          | ✅ The drivers; you drive as your profile's avatar |
 | Downloadable content             | ✅ The Chevy Volt and the Chevrolet Car Pack (Camaro, Corvette, Cruze) |
 | Title Update #3 (0.0.3.1)        | ✅ Required: the game is recompiled from it    |
 | Online, avatar awards            | ❌ Not available: they need Xbox Live          |
@@ -555,7 +561,7 @@ Kinect Sports:
 
 - In testing: only the menus, the start of Bowling (before its update) and Football's loading have
   been tried, with the test player.
-- You play as the default avatar.
+- You play as your profile's avatar (the default one until you make one in the launcher).
 - Same webcam limits as Dance Central 3.
 
 Kinect Joy Ride:
@@ -564,7 +570,8 @@ Kinect Joy Ride:
   the test player; the other activities and a person with a webcam haven't.
 - It runs at 30 FPS, as on the console: its clock counts the screen's refreshes, so it can't simply
   run at 60.
-- You drive as the default avatar, whose eyes look half closed in the garage.
+- You drive as your profile's avatar (the default one until you make one), whose eyes look half
+  closed in the garage.
 - Same webcam limits as Dance Central 3.
 
 Call of Duty: Modern Warfare 3:

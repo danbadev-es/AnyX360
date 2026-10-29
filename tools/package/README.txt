@@ -52,6 +52,14 @@ another player joins, the game's sign-in screen lists the profiles: each player 
 creates one, with their own controller. The names you set before this version became profiles,
 with their saves.
 
+YOUR AVATAR: the dashboard's Avatar page (or "Edit avatar..." in a profile's menu, in Profiles)
+dresses the profile's Xbox Avatar: body, skin, height, hair, face, clothes and their colours,
+glasses, hats... Up and down choose what to change, left and right change it, the right stick turns
+the avatar, Y makes a random one, Start saves it. Doritos Crash Course, Kinect Sports and Kinect
+Joy Ride then give each player the avatar of their profile. "Gamerpic..." chooses the profile's
+picture: its avatar, or a picture from one of your games. The avatar parts come with the avatar
+games (Kinect Sports, Kinect Joy Ride): add one of them first.
+
 THE GUIDE: in a game, the Xbox button opens the console's menu and pauses the game: Resume,
 Achievements, Profiles (sign players in or out), Settings and "Xbox Home" (back to the launcher; the
 progress you haven't saved is lost). Holding Back and Start for a second, or Home on the keyboard,
@@ -61,10 +69,10 @@ Game Bar > "Open Xbox Game Bar using this button on a controller").
 
 CONSOLE MODE: "Console mode", at the top right, makes the launcher a dashboard for the controller,
 in its window without borders or full screen (Settings page): Home (the game you played last, your
-gamercard), Games, Achievements, Profiles, Settings and Add a game, changed with LB and RB. A game
-opens in the same place and the dashboard comes back when you leave it, as one window. "Desktop
-mode", in its Settings page, brings back the usual window. In both modes the launcher stays open
-while you play and comes back when the game ends.
+gamercard), Games, Achievements, Profiles, Avatar, Settings and Add a game, changed with LB and RB.
+A game opens in the same place and the dashboard comes back when you leave it, as one window.
+"Desktop mode", in its Settings page, brings back the usual window. In both modes the launcher
+stays open while you play and comes back when the game ends.
 
 
 PROGRAM KEYS (every game)

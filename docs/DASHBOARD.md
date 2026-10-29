@@ -95,7 +95,8 @@ the time; under it the pages, changed with **LB** and **RB** (Tab and Shift+Tab)
 | **Home** | The game played last by the profile playing, large, with its time played, its gamerscore and **Play**; the others played recently, smaller; the gamercard (gamerpic, gamertag, gamerscore, games played and the time), **Switch profile** and **Manage profiles**. |
 | **Games** | Every game in the library as box art, then **Add a game**. **A** or **Start** plays one, **Y** opens its ⋯ menu (cover, logs, .anyx backup, remove). |
 | **Achievements** | A row per game: unlocked of all, the gamerscore earned of the game's; **A** opens its list. |
-| **Profiles** | Each profile (its gamerpic, gamertag, gamerscore; the one playing marked): **A** plays as it. **Create profile**, and **Manage profiles** (rename, delete, the language). |
+| **Profiles** | Each profile (its gamerpic, gamertag, gamerscore; the one playing marked): **A** plays as it. **Create profile**, and **Manage profiles** (rename, delete, its avatar and gamerpic, the language). |
+| **Avatar** | The avatar editor for the profile playing (0.23.0, [AVATARS.md](AVATARS.md)): the avatar at the left (the right stick turns it and zooms to the face), the rows at the right (up and down choose one, left and right change it at once), **Y** a random avatar, **Start** or **Save** saves it in the profile, **Gamerpic…** its picture. Leaving the page (B, LB, RB, the Guide button) with changes asks first. |
 | **Settings** | The display (in the window or full screen), the launcher's language, **Desktop mode**, the terms. |
 | **Add a game** | From a file or a folder, as desktop mode's **Add game**; a file dropped on the window too. |
 

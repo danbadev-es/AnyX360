@@ -102,7 +102,8 @@ pause notification; Dance Central 3 answers it by showing the Kinect Guide.
   cursor.
 - **Avatars**: the players and the game's guests are Xbox Avatars made from the avatar asset pack
   on this disc ([AVATARS.md](AVATARS.md)): the guests keep the looks the game gives them (their
-  clothes, hair, skin and faces); the player gets the default avatar. Their skeletons are shaped
+  clothes, hair, skin and faces); each player gets their profile's avatar (the default without
+  one; two profiles signed in show both in "Pick the main player"). Their skeletons are shaped
   to each avatar's height and weight by the skeleton builder linked into the game (`82A84A00`).
   The crowds are the game's own.
 - **Sports**: picking the player leads to the stadium, "Play", the sport menu and "Who is

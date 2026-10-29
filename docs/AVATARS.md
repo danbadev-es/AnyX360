@@ -151,11 +151,108 @@ The region sizes say which model a template fits (MaleBody 13584/45568 bytes, Fe
 **Testing**: `ANYX360_AVATAR` dresses the players' avatars (not the random ones titles ask for):
 a comma-separated list of pack entries (`x360tool avatar-pack`'s `index.tsv`), each taking its
 slots' place (a body sets the gender; a face texture or face shape its place in the face), or
-`random:<seed>`. `ANYX360_AVATAR_SHAPES=0` builds the parts without shape overrides, to compare.
+`random:<seed>`. It overrides the profiles' avatars below. `ANYX360_AVATAR_SHAPES=0` builds the
+parts without shape overrides, to compare.
+
+## The code
+
+`tools/x360tool/src/avatar_look.h` (in `x360_formats`, shared by the games, the launcher and the
+tests) has what the system does: the pack's usable parts (`AvatarCatalog`: components with a model
+that parses, face textures, face shapes; hairstyles linked to their versions for hats), the
+descriptions in the console's format (`read_avatar_description`, `write_avatar_description`), the
+default and random avatars, `ANYX360_AVATAR`'s syntax, and the parts built for drawing
+(`build_avatar`: colours, face textures with their own headers, hiding templates and face shapes).
+`runtime/src/hle/avatar_system.cpp` lays them out in guest memory for `XamAvatarGetAssets`.
+`avatar_editor.h` is the editor's model (below).
+
+**Names:** each pack entry has 13 names (+0xBC): the pack's own (English, internal: "Male Colorful
+Polo Shirt"), then one per XLanguage (1 English "Striped Polo Shirt", 2 Japanese, 3 German, 4
+French, 5 Spanish "Camiseta polo a rayas"...; some only spaces). The editor shows the launcher's
+language's (`AvatarCatalog::display_name`).
+
+## Profiles' avatars
+
+A profile's avatar is a description in the console's format, saved base64 in its `profile.json`
+(`avatar`, 1000 bytes; [PROFILES.md](PROFILES.md)). `XamAvatarGetManifestLocalUser(player)` gives
+each player the avatar of the profile signed in on their slot (`x360::avatar::ChooseManifest`): a
+profile signed in on slot 2 gets its avatar as player 2, whichever slot it played on before. A
+player without a profile (a development run's name), a profile without an avatar, or a description
+that names no part of this pack gets the defaults, as before: the male avatar for players 1 and 3,
+the female for 2 and 4. `ANYX360_AVATAR` (testing) overrides the profiles' avatars.
+`XamAvatarGetMetadataSignedOutProfile` and `XamAvatarGetMetadataRandom` keep the defaults and the
+random avatars; `XamAvatarGetManifestsByXuid` still fails (no title seen needs it).
+
+## The avatar editor (the launcher)
+
+`tools/launcher/ui/avatar_page.cpp`, `avatar_view.cpp`. The dashboard's **Avatar** page edits the
+profile playing; in desktop mode, a profile's ⋯ menu in Profiles has **Edit avatar…** (any profile)
+([DASHBOARD.md](DASHBOARD.md)).
+
+- **The viewer:** the avatar drawn with Direct3D 11 in its bind pose (the T-pose), as the games draw
+  it: the parts `build_avatar` makes (the colour recipe above, the face textures' first frame, the
+  hiding templates and face shapes), each mesh shaded as Kinect Sports' shaders do (the clothes'
+  mask and overlay, the head's six layers over the skin), lenses half transparent over the rest,
+  4x-8x multisampled. It is drawn offscreen and shown by the launcher's canvas (so its overlays go
+  over it and screenshots have it; a child window would hide them). The right stick (or a mouse
+  drag) turns it, up and down on the stick (or the wheel) zooms from the whole body to the face.
+  Height and weight are the skeleton's work in the games; the viewer only scales the avatar (an
+  eighth taller or shorter, a fifth wider or thinner below the neck) to show them.
+- **The editor** (`x360tool::AvatarEditor`): a row per thing to change, controller first (up and
+  down choose a row, left and right change it at once; A the next choice; the mouse clicks the
+  arrows): body (gender), skin colour, height, weight, hair, hair colour (the eyebrows and facial
+  hair follow it), eyes, eye colour, eyebrows, mouth, lip colour, facial hair, nose, chin, ears
+  (each face shape, or the head's own), top, bottom, shoes, hat, glasses, accessories (gloves,
+  wristwear, earrings, rings), each garment's colourways (block 7) under it, then **Random avatar**
+  (also Y) and **Gamerpic…**. **Save** (also Start) and **Cancel** (back to what was saved, then
+  **Close**). Leaving with changes asks (save, discard or stay).
+- **The rules** (as the console's): only parts for the avatar's gender (both genders' too;
+  hairstyles by their style group), never a hairstyle's version for hats (a hat brings it when
+  the avatar is built); a part replaces whatever covers its slots (a dress is the top and the
+  bottom; a bottom put on instead brings the default top back); the body, head, hair, top, bottom,
+  shoes, eyes, eyebrows and mouth are never empty; a new gender changes the body and makes
+  whatever doesn't fit the default, keeping the colours and what fits both.
+- **Saving** writes the description (`AvatarEditor::bytes`, `write_avatar_description`) to the
+  profile's `profile.json`. A profile without a gamerpic gets a picture of its avatar then.
+- **Gamerpics:** **Gamerpic…** (or the profile's ⋯ menu: **Change gamerpic…**) chooses the profile's
+  picture: its avatar (its face, turned a little, on the profile's colour, rendered by the viewer
+  at 256x256), its initial (as before), or a picture of an installed game: its icon and its
+  achievements' pictures (from its SPA, `titles\<TitleID>\*.png`). It is saved as
+  `profiles\<XUID>\gamerpic.png`; the launcher (header, gamercard, profile rows, "Who's playing?")
+  and the games' Guide and sign-in picker show it.
+
+**Command line** (testing): `AnyX360.exe --render-avatar <png> [--size WxH] [--yaw degrees]
+[--zoom 0-1] [--avatar <entries|random:N>]` writes the viewer's picture of the profile playing's
+avatar (or that one), transparent around it; `--screenshot <png> --state console-avatar|avatar|gamerpic
+[--avatar ...]` the editor and the picker.
+
+**Tests:** `tests/avatar/test_avatar.cpp` (on a made-up pack, `tests/avatar/test_pack.h`): the
+catalog, the format (asset IDs, colours, parts), the round trip through `profile.json`, the
+editor's rules (gender, outfits, optional categories, colourways, a new gender), 300 random
+avatars valid and read back the same, `ANYX360_AVATAR`'s syntax. `test_hle`: each slot's avatar
+(`ChooseManifest`: two profiles, a profile on another slot, none, a damaged one, the override).
+
+## Checked (2026-10-29)
+
+In a sandbox (`LOCALAPPDATA` redirected; the games added from their `.anyx` backups with their
+updates), two profiles, Daniel and Ana, were dressed in console mode with a scripted controller
+(the Avatar page: skin, height, weight, a long hairstyle in red, blue eyes, a goatee, a nose,
+a tee, chinos, shades; Ana female, pigtails in grey, a hoodie, jogging pants) and saved with Start;
+Daniel's first save made his gamerpic. Then, with the same build:
+
+- **Kinect Sports** (Daniel on slot 1, Ana on slot 2, `sign_in = "at_start"`): "Pick the main
+  player" shows both, each with their own avatar (as the viewer draws them, shades included).
+- **Doritos Crash Course**: Daniel runs level 1 as his avatar; the Guide's header has his gamerpic.
+- **Kinect Joy Ride**: Daniel stands by the car in the garage as his avatar.
+
+The viewer and the games match (hair, colours, clothes, beard, nose). In Kinect Joy Ride the
+shades looked like an eye patch (one lens dark, the other eye showing) in the garage; Kinect Sports
+draws both lenses. Not investigated (the same parts are given to both games).
 
 ## Open
 
 - **Animations** (`XamAvatarLoadAnimation`): 41 in the pack.
+- The viewer's bind pose: the console's editor shows the avatar standing (an animation).
+- `XamAvatarGetManifestsByXuid` (other players' avatars by XUID) isn't implemented.
 - Unmapped avatar buffers: in Kinect Sports' menus Xenia refuses a few draws of avatar parts (index
   buffers the size of a head's or a body's) because their memory is no longer mapped ("Invalid
   upload range", about three frames each, as in 0.16.1); probably avatars drawn once more after
