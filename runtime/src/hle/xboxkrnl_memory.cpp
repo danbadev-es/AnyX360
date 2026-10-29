@@ -1,6 +1,7 @@
 // xboxkrnl memory exports on top of xe::Memory's heaps (semantics follow Xenia's
 // xboxkrnl_memory.cc, BSD licensed).
 #include <algorithm>
+#include <bit>
 #include <cstring>
 
 #include "x360/kernel.h"
@@ -181,7 +182,13 @@ uint32_t MmQueryAddressProtect(uint32_t address) {
   return ToXdkProtect(protect);
 }
 
+// The protection must name exactly one access (no access, read-only, read/write, or their execute
+// forms); anything else is refused and changes nothing, as in Xenia. Black Ops III's hunk allocator
+// asks for protection 0 for every block it hands out: taken as "no access", its first write faulted.
 void MmSetAddressProtect(uint32_t address, uint32_t size, uint32_t protect_bits) {
+  constexpr uint32_t kAccess =
+      X_PAGE_NOACCESS | X_PAGE_READONLY | X_PAGE_READWRITE | X_PAGE_EXECUTE_READ | X_PAGE_EXECUTE_READWRITE;
+  if (std::popcount(protect_bits & kAccess) != 1) return;
   xe::BaseHeap* heap = XeMemory()->LookupHeap(address);
   if (heap) heap->Protect(address, size, FromXdkProtect(protect_bits));
 }
