@@ -11,5 +11,9 @@ int main(int argc, char** argv) {
   game.user_dir = game_info::kUserDir;
   game.dev_game_dir = game_info::kDevGameDir;
   game.title_id = game_info::kTitleId;
+  // Mortal Kombat runs at 60 FPS on the console: it presents every vblank. Its fights count frames,
+  // so it only runs at 60 (at 30 the game would run at half speed).
+  game.vblanks_per_frame = 1;
+  game.fixed_fps = 60;
   return x360::host::RunHost(argc, argv, game);
 }

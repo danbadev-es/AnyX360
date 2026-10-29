@@ -36,8 +36,13 @@ const int64_t* TimeoutPtr(uint32_t timeout_ptr, int64_t& storage) {
   return &storage;
 }
 
-// Creates (or opens, for named objects) a dispatcher object with a guest body of `body_size`.
-uint32_t CreateDispatcher(uint32_t handle_ptr, uint32_t object_attributes, uint32_t body_size,
+// Creates (or opens, for named objects) a dispatcher object with a guest body of `body_size`, after
+// an X_OBJECT_HEADER as the console's object manager makes it: {pointer count, handle count, type,
+// flags}, the body at +0x10. `type` names the kernel's object type variable (ExEventObjectType...).
+// Mortal Kombat waits on a semaphore it got from ObReferenceObjectByHandle as the XDK's
+// WaitForSingleObject does: the type at body-8 gives the offset of the object to wait on
+// (X_OBJECT_TYPE+0x14, 0 for these types, whose dispatcher header starts the body).
+uint32_t CreateDispatcher(uint32_t handle_ptr, uint32_t object_attributes, uint32_t body_size, const char* type,
                           const std::function<void(uint32_t)>& init) {
   std::string name = ObjectName(object_attributes);
   if (!name.empty()) {
@@ -46,8 +51,14 @@ uint32_t CreateDispatcher(uint32_t handle_ptr, uint32_t object_attributes, uint3
       return X_STATUS_OBJECT_NAME_EXISTS;
     }
   }
-  uint32_t body = SystemAlloc(body_size);
-  if (!body) return X_STATUS_NO_MEMORY;
+  constexpr uint32_t kObjectHeaderSize = 0x10;
+  const uint32_t memory = SystemAlloc(kObjectHeaderSize + body_size);
+  if (!memory) return X_STATUS_NO_MEMORY;
+  Store<int32_t>(memory + 0x0, 1);
+  Store<int32_t>(memory + 0x4, 1);
+  Store<uint32_t>(memory + 0x8, KernelVariable(type));
+  Store<uint32_t>(memory + 0xC, 0);
+  const uint32_t body = memory + kObjectHeaderSize;
   init(body);
   auto object = std::make_shared<DispatcherObject>(body);
   object->name = name;
@@ -284,7 +295,7 @@ uint32_t KeTryToAcquireSpinLockAtRaisedIrql(uint32_t lock) {
 // ---- events / semaphores / mutants / timers ----------------------------------------------------
 
 uint32_t NtCreateEvent(uint32_t handle_ptr, uint32_t object_attributes, uint32_t event_type, uint32_t initial_state) {
-  return CreateDispatcher(handle_ptr, object_attributes, 0x10, [&](uint32_t body) {
+  return CreateDispatcher(handle_ptr, object_attributes, 0x10, "ExEventObjectType", [&](uint32_t body) {
     InitializeDispatcher(body, event_type == 0 ? kEventNotification : kEventSynchronization, initial_state ? 1 : 0);
   });
 }
@@ -321,7 +332,7 @@ int32_t KeSetEvent(uint32_t event, uint32_t increment, uint32_t wait) {
 int32_t KeResetEvent(uint32_t event) { return ResetEvent(event); }
 
 uint32_t NtCreateSemaphore(uint32_t handle_ptr, uint32_t object_attributes, int32_t initial, int32_t maximum) {
-  return CreateDispatcher(handle_ptr, object_attributes, 0x14, [&](uint32_t body) {
+  return CreateDispatcher(handle_ptr, object_attributes, 0x14, "ExSemaphoreObjectType", [&](uint32_t body) {
     InitializeDispatcher(body, kSemaphore, initial);
     Store<int32_t>(body + 0x10, maximum);
   });
@@ -352,7 +363,7 @@ int32_t KeReleaseSemaphore(uint32_t semaphore, uint32_t increment, int32_t count
 }
 
 uint32_t NtCreateMutant(uint32_t handle_ptr, uint32_t object_attributes, uint32_t initial_owner) {
-  return CreateDispatcher(handle_ptr, object_attributes, 0x20, [&](uint32_t body) {
+  return CreateDispatcher(handle_ptr, object_attributes, 0x20, "ExMutantObjectType", [&](uint32_t body) {
     InitializeDispatcher(body, kMutant, initial_owner ? 0 : 1);
     Store<uint32_t>(body + 0x10, body + 0x10);
     Store<uint32_t>(body + 0x14, body + 0x10);
@@ -407,7 +418,7 @@ void TimerThread() {
 }
 
 uint32_t NtCreateTimer(uint32_t handle_ptr, uint32_t object_attributes, uint32_t timer_type) {
-  return CreateDispatcher(handle_ptr, object_attributes, 0x28, [&](uint32_t body) {
+  return CreateDispatcher(handle_ptr, object_attributes, 0x28, "ExTimerObjectType", [&](uint32_t body) {
     InitializeDispatcher(body, timer_type == 0 ? kTimerNotification : kTimerSynchronization, 0);
   });
 }
