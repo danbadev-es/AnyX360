@@ -1,6 +1,7 @@
 // Title loader: maps the decrypted XEX image, fills the recompiled function table, resolves
 // variable imports and prepares the structures XAPI expects (module handle, XEX header copy).
 #include <array>
+#include <mutex>
 #include <optional>
 #include <unordered_map>
 
@@ -161,6 +162,19 @@ void ResolveImports(const x360tool::Xex& xex) {
   (void)base;
 }
 
+// An X_LDR_DATA_TABLE_ENTRY for a loaded image (the module handle titles are given).
+uint32_t MakeLoaderEntry(uint32_t image_base, uint32_t image_size, uint32_t entry_point, uint32_t xex_header) {
+  uint32_t ldr = SystemAlloc(0x80);
+  Store<uint32_t>(ldr + 0x00, ldr);  // list links point to themselves
+  Store<uint32_t>(ldr + 0x04, ldr);
+  Store<uint32_t>(ldr + 0x18, image_base);
+  Store<uint32_t>(ldr + 0x1C, image_base);
+  Store<uint32_t>(ldr + 0x20, image_size);
+  Store<uint32_t>(ldr + 0x3C, entry_point);
+  Store<uint32_t>(ldr + 0x58, xex_header);
+  return ldr;
+}
+
 std::optional<std::array<uint8_t, 16>> LoadKey(const std::filesystem::path& path) {
   std::error_code ec;
   if (path.empty() || !std::filesystem::exists(path, ec)) return std::nullopt;
@@ -218,6 +232,137 @@ uint32_t GuestAddressOf(PPCFunc* host) {
     return next_taken;
   }
   return 0;
+}
+
+// ---- the title's own DLLs ----------------------------------------------------------------------
+// A DLL is recompiled with the title's function table layout (its sources are compiled with the
+// title's ppc_config.h, games/<id>/CMakeLists.txt), so every indirect call, the title's or the
+// DLL's, finds a DLL function at PPC_LOOKUP_FUNC(address): the table simply goes on past the
+// title's code, to the DLL's addresses (0x88000000 and above: its slots are at 0x8E... and 0x90...,
+// in the XEX heaps where nothing else is allocated).
+namespace {
+
+struct TitleDll {
+  std::string name;  // file name, lower case
+  uint32_t handle = 0;
+  uint32_t image_base = 0, image_size = 0;
+  uint32_t export_table = 0;  // xex2_export_table in the image, or 0
+  uint32_t references = 0;
+};
+std::recursive_mutex g_dll_mutex;
+std::vector<TitleDll> g_dlls;
+
+std::string ModuleFileName(const std::string& path) {
+  std::string name = path.substr(path.find_last_of("\\/:") == std::string::npos ? 0 : path.find_last_of("\\/:") + 1);
+  for (char& c : name) c = char(std::tolower(uint8_t(c)));
+  return name;
+}
+
+}  // namespace
+
+uint32_t TitleModuleHandle(const std::string& path) {
+  std::lock_guard lock(g_dll_mutex);
+  const std::string name = ModuleFileName(path);
+  for (const TitleDll& dll : g_dlls)
+    if (dll.name == name) return dll.handle;
+  return 0;
+}
+
+bool IsTitleModule(uint32_t handle) {
+  std::lock_guard lock(g_dll_mutex);
+  for (const TitleDll& dll : g_dlls)
+    if (dll.handle == handle) return true;
+  return false;
+}
+
+// xex2_export_table: {magic[3], module number[2], version[3], image base >> 16, count, base ordinal,
+// offsets[count]}; an export is its offset + (image base << 16).
+uint32_t TitleModuleExport(uint32_t handle, uint32_t ordinal) {
+  std::lock_guard lock(g_dll_mutex);
+  for (const TitleDll& dll : g_dlls) {
+    if (dll.handle != handle || !dll.export_table) continue;
+    const uint32_t table = dll.export_table;
+    const uint32_t index = ordinal - Load<uint32_t>(table + 0x28);
+    if (index >= Load<uint32_t>(table + 0x24)) return 0;
+    const uint32_t offset = Load<uint32_t>(table + 0x2C + index * 4);
+    return offset ? offset + (Load<uint32_t>(table + 0x20) << 16) : 0;
+  }
+  return 0;
+}
+
+uint32_t LoadTitleModule(const std::string& path) {
+  std::lock_guard lock(g_dll_mutex);
+  const std::string name = ModuleFileName(path);
+  for (TitleDll& dll : g_dlls) {
+    if (dll.name != name) continue;
+    ++dll.references;
+    return dll.handle;
+  }
+  const PPCFuncMapping* mappings = nullptr;
+  for (const auto& [module, functions] : g_paths.modules)
+    if (module == name) mappings = functions;
+  if (!mappings) return 0;
+
+  const std::filesystem::path file = g_paths.game_root / name;
+  std::unique_ptr<x360tool::Xex> xex;
+  std::vector<uint8_t> image;
+  try {
+    xex = std::make_unique<x360tool::Xex>(x360tool::read_file(file));
+    image = xex->extract_image(LoadKey(g_paths.key_path), nullptr);
+  } catch (const std::exception& e) {
+    KLOG_E("title DLL %s: cannot load: %s", file.string().c_str(), e.what());
+    return 0;
+  }
+  TitleDll dll;
+  dll.name = name;
+  dll.image_base = xex->base_address();
+  dll.image_size = uint32_t(image.size());
+  // Its function table slots, where the title's table layout puts them.
+  const uint64_t table = uint64_t(reinterpret_cast<uint8_t*>(&PPC_LOOKUP_FUNC(g_base, dll.image_base)) - g_base);
+  const uint64_t table_size = uint64_t(dll.image_size) * 2;
+  if (dll.image_base < PPC_CODE_BASE + PPC_CODE_SIZE || table + table_size > 0xA0000000ull) {
+    KLOG_E("title DLL %s at %08X+%X can't share the title's function table", name.c_str(), dll.image_base,
+           dll.image_size);
+    return 0;
+  }
+  if (!ReserveImage(dll.image_base, dll.image_size) || !ReserveImage(uint32_t(table), uint32_t(table_size))) {
+    KLOG_E("title DLL %s: could not reserve %08X+%X or its function table at %08llX", name.c_str(), dll.image_base,
+           dll.image_size, (unsigned long long)table);
+    return 0;
+  }
+  std::memcpy(Ptr(dll.image_base), image.data(), image.size());
+  for (uint32_t address = dll.image_base; address < dll.image_base + dll.image_size; address += 4)
+    PPC_LOOKUP_FUNC(g_base, address) = UnknownIndirectCall;
+  size_t count = 0;
+  for (const PPCFuncMapping* m = mappings; m->guest != 0; ++m) {
+    if (m->host && m->guest >= dll.image_base && m->guest < dll.image_base + dll.image_size) {
+      PPC_LOOKUP_FUNC(g_base, uint32_t(m->guest)) = m->host;
+      ++count;
+    }
+  }
+
+  const uint32_t header_size = xex->pe_offset();
+  const uint32_t header = SystemAlloc(header_size);
+  std::memcpy(Ptr(header), xex->data().data(), header_size);
+  const uint32_t entry = xex->entry_point().value_or(0);
+  dll.handle = MakeLoaderEntry(dll.image_base, dll.image_size, entry, header);
+  // The security info (its offset at 0x10 of the header) gives the export table's address.
+  const uint32_t security = Load<uint32_t>(header + 0x10);
+  if (security + 0x164 <= header_size) dll.export_table = Load<uint32_t>(header + security + 0x160);
+  ResolveImports(*xex);
+  dll.references = 1;
+  g_dlls.push_back(dll);
+  KLOG_I("title DLL %s: %08X+%X, %zu recompiled functions, entry %08X, exports at %08X", name.c_str(), dll.image_base,
+         dll.image_size, count, entry, dll.export_table);
+  if (entry) {
+    const uint64_t result = CallGuest(entry, {dll.handle, 1 /* DLL_PROCESS_ATTACH */, 0});
+    KLOG_I("title DLL %s: DllMain returned %u", name.c_str(), uint32_t(result));
+    if (!uint32_t(result)) {
+      std::erase_if(g_dlls, [&](const TitleDll& d) { return d.handle == dll.handle; });
+      return 0;
+    }
+  }
+  return dll.handle;
 }
 
 // Windows' default timer resolution (15.6 ms) makes every short sleep and timed wait (the title's
@@ -299,15 +444,7 @@ bool LoadTitle(const TitleInfo& info) {
   uint32_t header_size = xex->pe_offset();
   g_title.xex_header = SystemAlloc(header_size);
   std::memcpy(Ptr(g_title.xex_header), xex->data().data(), header_size);
-  g_title.ldr_entry = SystemAlloc(0x80);
-  uint32_t ldr = g_title.ldr_entry;
-  Store<uint32_t>(ldr + 0x00, ldr);  // list links point to themselves
-  Store<uint32_t>(ldr + 0x04, ldr);
-  Store<uint32_t>(ldr + 0x18, g_title.image_base);
-  Store<uint32_t>(ldr + 0x1C, g_title.image_base);
-  Store<uint32_t>(ldr + 0x20, g_title.image_size);
-  Store<uint32_t>(ldr + 0x3C, g_title.entry_point);
-  Store<uint32_t>(ldr + 0x58, g_title.xex_header);
+  g_title.ldr_entry = MakeLoaderEntry(g_title.image_base, g_title.image_size, g_title.entry_point, g_title.xex_header);
 
   FillFunctionTable();
   InstallHooks(std::make_integer_sequence<int, 8>());

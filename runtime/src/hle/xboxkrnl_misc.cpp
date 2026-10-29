@@ -55,6 +55,7 @@ uint32_t XexGetModuleHandle(uint32_t name_ptr, uint32_t handle_ptr) {
     if (name == "xboxkrnl.exe") handle = kKernelModuleHandle;
     else if (name == "xam.xex") handle = kXamModuleHandle;
     else if (name == title) handle = Title().ldr_entry;
+    else handle = TitleModuleHandle(name);
   }
   if (handle_ptr) Store<uint32_t>(handle_ptr, handle);
   return handle ? X_STATUS_SUCCESS : X_STATUS_NO_SUCH_FILE;
@@ -94,6 +95,12 @@ const ProcedureExport kProcedureExports[] = {
 
 uint32_t XexGetProcedureAddress(uint32_t module, uint32_t ordinal, uint32_t out_ptr) {
   uint32_t address = 0;
+  if (IsTitleModule(module)) {
+    address = TitleModuleExport(module, ordinal);
+    if (!address) KLOG_W("XexGetProcedureAddress(%08X, %u): the title DLL has no such export", module, ordinal);
+    if (out_ptr) Store<uint32_t>(out_ptr, address);
+    return address ? X_STATUS_SUCCESS : kStatusDriverEntrypointNotFound;
+  }
   for (const ProcedureExport& e : kProcedureExports) {
     if (e.module == module && e.ordinal == ordinal) address = GuestAddressOf(e.function);
   }
@@ -103,7 +110,8 @@ uint32_t XexGetProcedureAddress(uint32_t module, uint32_t ordinal, uint32_t out_
 }
 
 // xam.xex and xboxkrnl.exe are always loaded: "loading" them gives their handle, as XexGetModuleHandle
-// does (the XDK's party library loads xam.xex to look up its exports by ordinal). Other modules aren't
+// does (the XDK's party library loads xam.xex to look up its exports by ordinal). The title's own
+// DLLs recompiled into the executable (GameDescriptor::modules) are loaded; other modules aren't
 // supported.
 uint32_t XexLoadImage(uint32_t name_ptr, uint32_t flags, uint32_t min_version, uint32_t handle_ptr) {
   (void)flags;
@@ -111,6 +119,7 @@ uint32_t XexLoadImage(uint32_t name_ptr, uint32_t flags, uint32_t min_version, u
   std::string name = name_ptr ? Ptr<const char>(name_ptr) : "";
   for (char& c : name) c = char(std::tolower(uint8_t(c)));
   uint32_t handle = name == "xam.xex" ? kXamModuleHandle : name == "xboxkrnl.exe" ? kKernelModuleHandle : 0;
+  if (!handle) handle = LoadTitleModule(name);
   if (!handle) KLOG_W("XexLoadImage(%s) not supported", name.c_str());
   if (handle_ptr) Store<uint32_t>(handle_ptr, handle);
   return handle ? X_STATUS_SUCCESS : X_STATUS_NO_SUCH_FILE;

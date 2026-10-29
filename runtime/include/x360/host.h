@@ -23,12 +23,23 @@
 
 #include "x360/settings.h"
 
+struct PPCFuncMapping;  // ppc_context.h: {guest address, recompiled function}
+
 namespace x360::host {
 
 // One of a title's executables: a XEX in the game folder and the host executable recompiled from it.
 struct TitleExecutable {
   const char* xex = "";  // "default_mp.xex"
   const char* exe = "";  // "ModernWarfare3MP": next to this executable, without .exe
+};
+
+// A DLL of the title's own (a XEX in the game folder it loads with XexLoadImage, like Forza
+// Motorsport 4's XMediaFacade_default.xex), recompiled into this executable with its own
+// symbol_prefix: games/<id>/CMakeLists.txt adds it (anyx360_add_title_module) and the host passes
+// its <prefix>PPCFuncMappings.
+struct TitleModule {
+  const char* xex = "";                         // "XMediaFacade_default.xex"
+  const ::PPCFuncMapping* mappings = nullptr;  // xmedia_PPCFuncMappings
 };
 
 struct GameDescriptor {
@@ -40,6 +51,9 @@ struct GameDescriptor {
   // Every executable of the title (game.json "executables"), which XamLoaderLaunchTitle can start;
   // empty for a title with one: launching another XEX then ends the process.
   std::vector<TitleExecutable> executables;
+  // The title's own DLLs recompiled into this executable (empty for most titles): XexLoadImage
+  // loads them from the game folder. Another DLL can't be loaded.
+  std::vector<TitleModule> modules;
   // Title ID of the XEX this executable was recompiled from; another XEX is refused before
   // anything starts (the recompiled code only matches its own executable). 0 skips the check.
   uint32_t title_id = 0;

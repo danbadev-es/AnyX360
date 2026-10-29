@@ -370,6 +370,9 @@ struct TitleInfo {
   // The title's executables XamLoaderLaunchTitle can start: {XEX name in lower case, host
   // executable} (GameDescriptor::executables).
   std::vector<std::pair<std::string, std::filesystem::path>> executables;
+  // The title's own DLLs recompiled into this executable: {XEX name in lower case, its function
+  // mappings} (GameDescriptor::modules). XexLoadImage loads them.
+  std::vector<std::pair<std::string, const PPCFuncMapping*>> modules;
   // Started by another process of the game (--restarted-from): a title switching executables or the
   // settings panel's restart. Only then is there launch data to take.
   bool restarted = false;
@@ -414,6 +417,18 @@ uint32_t KernelVariable(const char* name);
 // A guest address whose indirect calls run `host`, for an export a title looks up by ordinal
 // (XexGetProcedureAddress) instead of importing it. 0 if no free address is left.
 uint32_t GuestAddressOf(PPCFunc* host);
+
+// The title's own DLLs (TitleInfo::modules). LoadTitleModule loads one by its path ("game:\x.xex"):
+// its image goes to its base address, its recompiled functions into the function table (at the
+// slots the title's indirect calls use for those addresses), its imports are resolved and its entry
+// point runs (DLL_PROCESS_ATTACH). Loading it again counts a reference. Returns its handle (its
+// loader entry), or 0 if it isn't one of the title's recompiled DLLs.
+uint32_t LoadTitleModule(const std::string& path);
+// The handle of a title DLL already loaded, by its path or file name; 0 if none.
+uint32_t TitleModuleHandle(const std::string& path);
+// Whether `handle` is a loaded title DLL, and its export by ordinal (0 if it has none).
+bool IsTitleModule(uint32_t handle);
+uint32_t TitleModuleExport(uint32_t handle, uint32_t ordinal);
 
 // Entry point used by game executables: loads the title and runs its main thread.
 int Run(const TitleInfo& info);

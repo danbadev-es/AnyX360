@@ -169,6 +169,11 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
     for (char& c : xex) c = char(std::tolower(uint8_t(c)));
     info.executables.emplace_back(xex, exe_dir / (std::string(executable.exe) + ".exe"));
   }
+  for (const TitleModule& module : game.modules) {
+    std::string xex = module.xex;
+    for (char& c : xex) c = char(std::tolower(uint8_t(c)));
+    info.modules.emplace_back(xex, module.mappings);
+  }
   // Who is signed in, next to the games' user folders (the launcher writes it), and their profiles.
   // A profile.txt from before 0.20.0 becomes profiles first.
   info.profiles_root = info.user_root.parent_path();

@@ -42,6 +42,65 @@ function(anyx360_add_game_executable id target)
   endif()
 endfunction()
 
+# anyx360_add_title_module(<target> <name> CONFIG <config.toml>)
+# A DLL of the title's own that it loads with XexLoadImage (Forza Motorsport 4's
+# XMediaFacade_default.xex), recompiled with XenonRecomp's symbol_prefix (its entry point, helpers
+# and <prefix>PPCFuncMappings get their own names) and linked into <target>, whose host passes the
+# mappings (GameDescriptor::modules). Its sources are compiled with the title's ppc_config.h, so
+# indirect calls in either find the other's functions in the one function table (runtime
+# LoadTitleModule). The output folder is out_directory_path in the config, or
+# -D<TARGET>_<NAME>_PPC_DIR=<folder>. Call it after anyx360_add_game.
+function(anyx360_add_title_module target name)
+  cmake_parse_arguments(MODULE "" "CONFIG" "" ${ARGN})
+  if(NOT TARGET ${target})
+    return()
+  endif()
+  set(config_path ${CMAKE_CURRENT_SOURCE_DIR}/${MODULE_CONFIG})
+  string(TOUPPER "${target}_${name}" upper)
+  if(DEFINED ${upper}_PPC_DIR)
+    set(ppc_dir ${${upper}_PPC_DIR})
+  else()
+    file(STRINGS ${config_path} out_line REGEX "^out_directory_path *=")
+    string(REGEX REPLACE "^out_directory_path *= *\"([^\"]*)\".*" "\\1" out_dir "${out_line}")
+    set(ppc_dir ${CMAKE_CURRENT_SOURCE_DIR}/${out_dir})
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${config_path})
+  endif()
+  if(NOT EXISTS ${ppc_dir}/ppc_config.h)
+    message(WARNING "${target}: its DLL ${name} (${ppc_dir}) isn't generated yet: the game can't load it")
+    return()
+  endif()
+  get_target_property(title_ppc_dir ${target} ANYX360_PPC_DIR)
+  _anyx360_add_ppc_library(${target}_${name}_ppc ${ppc_dir} PRIVATE)
+  # The title's layout (PPC_IMAGE_BASE, PPC_CODE_BASE...) instead of the DLL's own ppc_config.h,
+  # which shares its include guard and is then skipped.
+  target_compile_options(${target}_${name}_ppc PRIVATE /FI${title_ppc_dir}/ppc_config.h)
+  target_link_libraries(${target} PRIVATE ${target}_${name}_ppc)
+endfunction()
+
+# Recompiled code: flags follow UnleashedRecomp (Clang only, the code relies on its builtins).
+# The game's headers are PUBLIC (the host sources see them), a DLL's PRIVATE.
+function(_anyx360_add_ppc_library library ppc_dir visibility)
+  file(GLOB ppc_sources CONFIGURE_DEPENDS ${ppc_dir}/*.cpp)
+  add_library(${library} OBJECT ${ppc_sources})
+  target_include_directories(${library} ${visibility}
+    ${ppc_dir}
+    ${ANYX360_THIRDPARTY}/XenonRecomp/XenonUtils
+    ${ANYX360_THIRDPARTY}/XenonRecomp/thirdparty/simde)
+  target_compile_options(${library} PRIVATE
+    -msse4.1
+    -fno-strict-aliasing
+    -Wno-unused-label
+    -Wno-unused-variable
+    -Wno-unused-but-set-variable
+    -Wno-switch
+    -Wno-null-arithmetic
+    -Wno-constant-conversion
+    -Wno-tautological-constant-out-of-range-compare)
+  target_compile_features(${library} PRIVATE cxx_std_20)
+  # Line tables only: enough to name the recompiled function in crash reports.
+  target_compile_options(${library} PRIVATE -gline-tables-only)
+endfunction()
+
 # Reads games/<id>/game.json into `out_var`.
 function(_anyx360_read_game_json out_var)
   set(json_path ${CMAKE_CURRENT_SOURCE_DIR}/game.json)
@@ -80,26 +139,7 @@ function(_anyx360_add_game_target target id xex exe config_path)
     return()
   endif()
 
-  # Recompiled code: flags follow UnleashedRecomp (Clang only, the code relies on its builtins).
-  file(GLOB ppc_sources CONFIGURE_DEPENDS ${ppc_dir}/*.cpp)
-  add_library(${target}_ppc OBJECT ${ppc_sources})
-  target_include_directories(${target}_ppc PUBLIC
-    ${ppc_dir}
-    ${ANYX360_THIRDPARTY}/XenonRecomp/XenonUtils
-    ${ANYX360_THIRDPARTY}/XenonRecomp/thirdparty/simde)
-  target_compile_options(${target}_ppc PRIVATE
-    -msse4.1
-    -fno-strict-aliasing
-    -Wno-unused-label
-    -Wno-unused-variable
-    -Wno-unused-but-set-variable
-    -Wno-switch
-    -Wno-null-arithmetic
-    -Wno-constant-conversion
-    -Wno-tautological-constant-out-of-range-compare)
-  target_compile_features(${target}_ppc PRIVATE cxx_std_20)
-  # Line tables only: enough to name the recompiled function in crash reports.
-  target_compile_options(${target}_ppc PRIVATE -gline-tables-only)
+  _anyx360_add_ppc_library(${target}_ppc ${ppc_dir} PUBLIC)
 
   anyx360_add_hle(${target}_hle ${ppc_dir})
   target_compile_options(${target}_hle PRIVATE -gline-tables-only)
@@ -147,6 +187,8 @@ inline constexpr char kUpdatePackage[] = \"${update_package}\";
   set_source_files_properties(${PROJECT_SOURCE_DIR}/runtime/game.rc PROPERTIES OBJECT_DEPENDS
     ${PROJECT_SOURCE_DIR}/tools/launcher/ui/launcher.ico)
   target_link_libraries(${target} PRIVATE ${target}_ppc ${target}_hle)
+  # For anyx360_add_title_module.
+  set_target_properties(${target} PROPERTIES ANYX360_PPC_DIR ${ppc_dir})
   target_include_directories(${target} PRIVATE ${generated} ${ANYX360_GENERATED_DIR})
   target_compile_options(${target} PRIVATE -msse4.1 -gline-tables-only)
   # A .pdb next to the executable, so crash reports name the recompiled function.
