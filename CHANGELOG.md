@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Changed
+
+- Mortal Kombat Komplete Edition joins the launcher's "Coming soon" games, with its cover.
+
 ## [0.23.0] - 2026-10-29
 
 The avatar editor ([docs/AVATARS.md](docs/AVATARS.md)).
