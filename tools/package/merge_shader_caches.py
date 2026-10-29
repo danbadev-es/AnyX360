@@ -7,7 +7,8 @@ Xenia's background compilation, briefly draw effects black.
 
 usage: python -I merge_shader_caches.py <output folder (shader_cache)> <folder>...
 Every <title>.xsh and <title>.*.xpso found under the folders (a game's cache\\shaders\\shareable,
-anywhere below) is merged into <output>\\<game id>\\shareable\\, the game id taken from games\\*\\game.json
+anywhere below) and already in <output> is merged into <output>\\<game id>\\shareable\\, so nothing
+the output had is lost; the game id is taken from games\\*\\game.json
 by title ID. Shaders (.xsh) are kept once per hash and only whole (a file cut off mid-write ends
 with a partial entry, where Xenia stops reading too); pipelines
 (.xpso) once per description hash, whole records only, and only with the same header (format
@@ -64,7 +65,8 @@ def main(argv):
     root = pathlib.Path(__file__).resolve().parents[2]
     games = games_by_title(root)
     files = {}  # (title, suffix) -> [paths], newest first
-    for folder in argv[2:]:
+    # The output's own caches are inputs too, so merging adds to what the release already ships.
+    for folder in [out] + argv[2:]:
         for path in pathlib.Path(folder).rglob("*"):
             if path.parent.name != "shareable" or not path.is_file():
                 continue
