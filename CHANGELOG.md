@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-29
+
 Achievements, as on the console ([docs/ACHIEVEMENTS.md](docs/ACHIEVEMENTS.md)).
 
 ### Added
@@ -957,7 +959,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.17.1...v0.18.0
