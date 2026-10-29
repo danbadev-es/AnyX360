@@ -76,6 +76,55 @@ enum : int {
 };
 inline constexpr int kPages = 7;
 
+// The logos in launcher.rc: the mark, and the mark over the "anyX360" wordmark.
+inline constexpr int kLogoMark = 2;
+inline constexpr int kLogoFull = 3;
+
+// The dashboard's Home (ui/home_page.cpp): its targets besides the games (kIdConsoleRecent + game).
+inline constexpr int kIdHomeAdd = kIdConsoleAction + 60;    // "Add a game", when there are none
+inline constexpr int kIdHomePanel = kIdConsoleAction + 70;  // + entry: My games, Settings, Add games
+inline constexpr int kIdHomeAvatar = kIdConsoleAction + 80;
+inline constexpr int kIdHomePill = kIdConsoleAction + 85;  // who's signed in: "Who's playing?"
+inline constexpr int kIdHomeCard = kIdConsoleAction + 90;  // the gamercard (as on the other pages)
+
+// The release's box art (covers\<slug>.jpg, the front only), or the repository's (a whole scan)
+// when the launcher runs from the build folder.
+inline fs::path BoxArt(const wchar_t* slug) {
+  if (!slug || !*slug) return {};
+  const fs::path name = fs::path(slug) += L".jpg";
+  if (Exists(Root() / L"covers" / name)) return Root() / L"covers" / name;
+  return FindUpwards(Root(), fs::path(L"covers") / name);
+}
+
+// The game's background art (backgrounds\<slug>.jpg or .png, backgrounds/README.md): the release's,
+// or the repository's when the launcher runs from the build folder. Empty if it has none.
+inline fs::path BackgroundArt(const wchar_t* slug) {
+  if (!slug || !*slug) return {};
+  for (const wchar_t* extension : {L".jpg", L".png"}) {
+    const fs::path name = fs::path(slug) += extension;
+    if (Exists(Root() / L"backgrounds" / name)) return Root() / L"backgrounds" / name;
+    if (fs::path found = FindUpwards(Root(), fs::path(L"backgrounds") / name); !found.empty()) return found;
+  }
+  return {};
+}
+
+// A tile's color when it has no picture: the icon's colorful pixels, kept dark for white text.
+inline Color AverageColor(const anyx360::ui::Image& image) {
+  double sum[3] = {}, weight = 0;
+  for (size_t i = 0; i + 3 < image.bgra.size(); i += 4) {
+    if (image.bgra[i + 3] < 128) continue;
+    const double b = image.bgra[i] / 255.0, g = image.bgra[i + 1] / 255.0, r = image.bgra[i + 2] / 255.0;
+    const double high = std::max({r, g, b}), low = std::min({r, g, b});
+    const double saturation = high > 0 ? (high - low) / high : 0;
+    const double w = saturation * saturation * high + 0.01;
+    sum[0] += r * w, sum[1] += g * w, sum[2] += b * w, weight += w;
+  }
+  if (weight <= 0) return Color::Hex(0x2B2B2B);
+  const double r = sum[0] / weight, g = sum[1] / weight, b = sum[2] / weight;
+  const double scale = 0.5 / std::max({r, g, b, 0.01});
+  return {float(std::min(1.0, r * scale)), float(std::min(1.0, g * scale)), float(std::min(1.0, b * scale)), 1};
+}
+
 // AnyX360's folder of %LOCALAPPDATA%: profile.txt and the profiles (next to the games' own folders).
 inline fs::path ProfilesRoot() { return LocalAppData() / L"AnyX360"; }
 

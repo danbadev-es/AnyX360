@@ -104,6 +104,9 @@ class Canvas {
   void StrokeCircle(float cx, float cy, float radius, const Color& color, float width = 1);
   // A vertical gradient from `top` to `bottom`.
   void FillGradient(const RectF& r, const Color& top, const Color& bottom);
+  // An ellipse filled with a radial gradient from `center` to `edge` (transparent outside it).
+  void FillRadial(float cx, float cy, float rx, float ry, const Color& center, const Color& edge);
+  void StrokeEllipse(float cx, float cy, float rx, float ry, const Color& color, float width = 1);
   // A polyline through `points` (x, y pairs).
   void Polyline(std::span<const D2D1_POINT_2F> points, const Color& color, float width = 1);
   // The polygon `points` encloses, filled.
@@ -124,6 +127,11 @@ class Canvas {
   // Clips drawing to `r` (rounded with `radius`) until PopClip.
   void PushClip(const RectF& r, float radius = 0);
   void PopClip();
+  // Fades what is drawn in `r` from `top` opacity at its top to `bottom` at its bottom, until PopClip.
+  void PushFade(const RectF& r, float top, float bottom);
+  // Draws mirrored upside down about the line y = `y` (a reflection), until PopMirror.
+  void PushMirror(float y);
+  void PopMirror();
 
  private:
   bool EnsureTarget();
@@ -135,6 +143,7 @@ class Canvas {
   ComPtr<ID2D1HwndRenderTarget> hwnd_target_;
   ComPtr<ID2D1SolidColorBrush> brush_;
   std::vector<bool> clip_is_layer_;
+  std::vector<D2D1_MATRIX_3X2_F> transforms_;
   uint64_t generation_ = 0;
 };
 

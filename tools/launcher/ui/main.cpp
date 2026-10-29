@@ -101,10 +101,14 @@ class WindowHost : public Host {
   void SetBorderless(bool borderless, bool fullscreen) override {
     const LONG_PTR visible = GetWindowLongPtrW(hwnd, GWL_STYLE) & WS_VISIBLE;
     if (borderless) {
-      // The window's place as it looks (without the invisible resize borders), or its monitor.
-      if (!borderless_ && FAILED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &desktop_rect_,
-                                                       sizeof(desktop_rect_))))
-        GetWindowRect(hwnd, &desktop_rect_);
+      // The window's place as it looks (without the invisible resize borders), or its monitor. A
+      // maximized window (as the launcher starts) is maximized again afterwards.
+      if (!borderless_) {
+        was_maximized_ = IsZoomed(hwnd) || !visible;
+        if (IsZoomed(hwnd)) ::ShowWindow(hwnd, SW_RESTORE);
+        if (FAILED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &desktop_rect_, sizeof(desktop_rect_))))
+          GetWindowRect(hwnd, &desktop_rect_);
+      }
       RECT r = desktop_rect_;
       if (fullscreen) {
         MONITORINFO monitor{sizeof(monitor)};
@@ -127,12 +131,24 @@ class WindowHost : public Host {
       SetWindowPos(hwnd, nullptr, desktop_rect_.left - border, desktop_rect_.top,
                    desktop_rect_.right - desktop_rect_.left + 2 * border,
                    desktop_rect_.bottom - desktop_rect_.top + border, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+      if (was_maximized_ && visible) ::ShowWindow(hwnd, SW_MAXIMIZE);
     }
     borderless_ = borderless;
     InvalidateRect(hwnd, nullptr, FALSE);  // WM_SIZE resized the canvas
   }
 
   bool ScreenRect(RECT& rect) override {
+    // In a window with its title bar (maximized, as it starts), the whole window as it looks: the
+    // borderless game covers the title bar too, so nothing of the desktop shows above it.
+    if (!borderless_ && SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &rect, sizeof(rect)))) {
+      if (IsZoomed(hwnd)) {
+        // Maximized, the frame overhangs the monitor's work area: within it.
+        MONITORINFO monitor{sizeof(monitor)};
+        GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &monitor);
+        IntersectRect(&rect, &rect, &monitor.rcWork);
+      }
+      return true;
+    }
     if (!GetClientRect(hwnd, &rect)) return false;
     POINT origin{0, 0};
     ClientToScreen(hwnd, &origin);
@@ -142,6 +158,7 @@ class WindowHost : public Host {
 
  private:
   bool borderless_ = false;
+  bool was_maximized_ = false;
   RECT desktop_rect_{};
   std::mutex mutex_;
   std::vector<std::function<void()>> queue_;
@@ -294,6 +311,9 @@ void PollPads() {
       pad.repeat_at = now + 110;
     }
   }
+  int connected = 0;
+  for (const Pad& pad : g_pads) connected += pad.connected ? 1 : 0;
+  g_app->SetPads(connected);
 }
 
 // ---- files dropped on the window -----------------------------------------------------------------
@@ -478,8 +498,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpara
       // Only while the launcher is in front, so a controller used in another program doesn't move it
       // (a scripted test reads it anyway: started from a background program, it can't come in front).
       if (wparam == kPadTimer && g_app && IsWindowVisible(hwnd) &&
-          (GetForegroundWindow() == hwnd || !g_pad_script.empty()))
+          (GetForegroundWindow() == hwnd || !g_pad_script.empty())) {
         PollPads();
+        if (g_pad_tick % 60 == 0) g_app->Tick();
+      }
       return 0;
     case kMsgRun:
       g_host.RunPosted();
@@ -639,7 +661,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     app.CheckTerms();
     if (!password.empty()) app.SetPassword(password);
     if (quit_when_done && !result.empty()) app.QuitWhenDone(result);
-    ShowWindow(hwnd, show);
+    // Maximized, with its title bar and the taskbar in view (console mode's full screen, if chosen in
+    // Settings, is borderless over the monitor instead).
+    (void)show;
+    if (!(console && fullscreen)) ShowWindow(hwnd, SW_SHOWMAXIMIZED);
+    else ShowWindow(hwnd, SW_SHOW);
     // In front, and the controller read from the start: activation alone may not come (a launcher
     // started from another program's window), and the pad would do nothing until a click.
     SetForegroundWindow(hwnd);

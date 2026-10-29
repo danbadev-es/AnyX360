@@ -30,9 +30,6 @@ using anyx360::ui::TextStyle;
 
 namespace {
 
-// The logos in launcher.rc: the mark, and the mark over the "anyX360" wordmark.
-constexpr int kLogoMark = 2;
-constexpr int kLogoFull = 3;
 
 // The on-screen keyboard for a gamertag: letters and digits, then Shift, Space and Delete.
 constexpr const wchar_t* kKeyRows[] = {L"1234567890", L"QWERTYUIOP", L"ASDFGHJKL", L"ZXCVBNM"};
@@ -60,32 +57,6 @@ std::span<const uint8_t> Embedded(int resource) {
   const HGLOBAL loaded = found ? LoadResource(module, found) : nullptr;
   if (!loaded) return {};
   return {static_cast<const uint8_t*>(LockResource(loaded)), SizeofResource(module, found)};
-}
-
-// The release's box art (covers\<slug>.jpg, the front only), or the repository's (a whole scan)
-// when the launcher runs from the build folder.
-fs::path BoxArt(const wchar_t* slug) {
-  if (!slug || !*slug) return {};
-  const fs::path name = fs::path(slug) += L".jpg";
-  if (Exists(Root() / L"covers" / name)) return Root() / L"covers" / name;
-  return FindUpwards(Root(), fs::path(L"covers") / name);
-}
-
-// A tile's color when it has no picture: the icon's colorful pixels, kept dark for white text.
-Color AverageColor(const Image& image) {
-  double sum[3] = {}, weight = 0;
-  for (size_t i = 0; i + 3 < image.bgra.size(); i += 4) {
-    if (image.bgra[i + 3] < 128) continue;
-    const double b = image.bgra[i] / 255.0, g = image.bgra[i + 1] / 255.0, r = image.bgra[i + 2] / 255.0;
-    const double high = std::max({r, g, b}), low = std::min({r, g, b});
-    const double saturation = high > 0 ? (high - low) / high : 0;
-    const double w = saturation * saturation * high + 0.01;
-    sum[0] += r * w, sum[1] += g * w, sum[2] += b * w, weight += w;
-  }
-  if (weight <= 0) return Color::Hex(0x2B2B2B);
-  const double r = sum[0] / weight, g = sum[1] / weight, b = sum[2] / weight;
-  const double scale = 0.5 / std::max({r, g, b, 0.01});
-  return {float(std::min(1.0, r * scale)), float(std::min(1.0, g * scale)), float(std::min(1.0, b * scale)), 1};
 }
 
 fs::path ChooseFile(HWND owner, const std::wstring& title,
@@ -211,7 +182,7 @@ void App::Load(std::wstring select) {
   tiles_.push_back(-1);
   selected_ = 0;
   for (size_t t = 0; t < tiles_.size(); ++t)
-    if (tiles_[t] >= 0 && games_[size_t(tiles_[t])].info->id == select) selected_ = int(t);
+    if (tiles_[t] >= 0 && games_[size_t(tiles_[t])].info->id == select) selected_ = int(t), home_game_ = tiles_[t];
 
   compatible_.clear();
   for (const LibraryGame& game : games_)
@@ -356,7 +327,7 @@ bool App::Animating() const {
   const bool indeterminate = working_ && percent_ < 0;
   return row_scroll_.Running(now) || drawer_.Running(now) || drawer_scroll_.Running(now) ||
          selection_.Running(now) || background_fade_.Running(now) || indeterminate || game_starting_ ||
-         (running_game_ && leaving_at_ > 0) || page_fade_.Running(now) || (avatar_ && avatar_->turning_until > now);
+         (running_game_ && leaving_at_ > 0) || page_fade_.Running(now) || home_scroll_.Running(now) || (avatar_ && avatar_->turning_until > now);
 }
 
 void App::DrawBackground(Canvas& c) {
@@ -1098,6 +1069,9 @@ void App::FocusFirst() {
       case OverlayKind::kGamerpic: preferred = {kIdGamerpic}; break;
       default: preferred = {kIdButton}; break;
     }
+  } else if (console_ && page_ == Page::kHome) {
+    // Home: the selected game, or the avatar.
+    preferred = {home_on_avatar_ ? kIdHomeAvatar : home_game_ >= 0 ? kIdConsoleRecent + home_game_ : kIdHomeAdd, kIdHomeAvatar};
   } else if (console_) {
     // The page's first item (what it drew first), else its tab.
     for (const Target& target : targets_)
@@ -1236,6 +1210,12 @@ void App::Wheel(float x, float y, float notches, bool horizontal) {
       overlay.scroll -= notches * 60, host_.Invalidate();
     return;
   }
+  // The dashboard's Home: the wheel, or a trackpad's sideways swipe, moves along the games.
+  if (console_ && page_ == Page::kHome) {
+    HomeWheel(horizontal ? -notches : notches);
+    return host_.Invalidate();
+  }
+  if (console_) return;
   const float drawer_top = height_ - kDrawerBar - (std::clamp(height_ * 0.42f, 230.0f, 330.0f) - kDrawerBar) * drawer_.to;
   if (compatible_open_ && y > drawer_top + kDrawerBar) {
     // A tilt or a trackpad's sideways swipe scrolls the covers the other way round from a wheel.
@@ -1281,9 +1261,12 @@ void App::KeyPressed(Key key, bool from_pad) {
   // The dashboard: LB and RB (Tab) change pages, Start plays the game with the focus, Y is its ⋯
   // menu, B and the Guide button go Home.
   if (console_ && overlays_.empty() && !game_starting_) {
+    if (HomeKey(key)) return host_.Invalidate();
     int game = -1;
     if (focus_ >= kIdConsoleGame && focus_ < kIdConsoleEnd && focus_ < kIdConsoleProfile)
       game = (focus_ - kIdConsoleGame) % 100;
+    // Home: Start plays the selected game wherever the focus is (but on the avatar).
+    if (game < 0 && key == Key::kPlay && page_ == Page::kHome && !home_on_avatar_) game = home_game_;
     if (game >= int(games_.size()) || (game >= 0 && !games_[size_t(game)].installed)) game = -1;
     switch (key) {
       case Key::kNext:
@@ -2170,7 +2153,8 @@ void App::Finish(const Outcome& outcome) {
 
 void App::SavedMode(bool& console, bool& fullscreen) {
   const std::wstring mode = ReadSetting(SettingsFile(L"launcher_mode.txt"));
-  console = mode.rfind(L"console", 0) == 0;
+  // The dashboard unless desktop mode was chosen (a first start shows it).
+  console = mode.empty() || mode.rfind(L"console", 0) == 0;
   fullscreen = mode == L"console fullscreen";
 }
 
@@ -2178,7 +2162,8 @@ void App::SetConsoleMode(bool console, bool remember) {
   bool saved_console = false;
   SavedMode(saved_console, fullscreen_);  // full screen or in the window, as last chosen
   console_ = console;
-  host_.SetBorderless(console_, fullscreen_);
+  // Full screen (chosen in Settings) is borderless over the monitor; otherwise the usual window.
+  host_.SetBorderless(console_ && fullscreen_, true);
   if (remember)
     WriteSetting(SettingsFile(L"launcher_mode.txt"),
                  console_ ? (fullscreen_ ? L"console fullscreen" : L"console") : L"desktop");
@@ -2189,7 +2174,7 @@ void App::SetConsoleMode(bool console, bool remember) {
 
 void App::ToggleFullscreen() {
   fullscreen_ = !fullscreen_;
-  host_.SetBorderless(console_, fullscreen_);
+  host_.SetBorderless(console_ && fullscreen_, true);
   WriteSetting(SettingsFile(L"launcher_mode.txt"), fullscreen_ ? L"console fullscreen" : L"console");
   host_.Invalidate();
 }
@@ -2251,6 +2236,7 @@ void App::DrawCover(Canvas& c, const RectF& r, int game, int id, std::function<v
 }
 
 void App::DrawConsole(Canvas& c) {
+  if (page_ == Page::kHome) return DrawHome(c);
   // The game with the focus is the selected one: its box art is the background.
   if (focus_ >= kIdConsoleGame && focus_ < kIdConsoleProfile) {
     const int game = (focus_ - kIdConsoleGame) % 100;
@@ -2262,7 +2248,7 @@ void App::DrawConsole(Canvas& c) {
   const float fade = page_fade_.Value(Now());
   const RectF area{kMargin, 150 + (1 - fade) * 12, width_ - 2 * kMargin, height_ - 150 - 70};
   switch (page_) {
-    case Page::kHome: DrawHomePage(c, area); break;
+    case Page::kHome: break;  // DrawHome, above
     case Page::kGames: DrawGamesPage(c, area); break;
     case Page::kAchievements: DrawAchievementsPage(c, area); break;
     case Page::kProfiles: DrawProfilesPage(c, area); break;
@@ -2357,85 +2343,6 @@ void App::DrawConsoleHints(Canvas& c) {
     style.vertical = Align::kCenter;
     c.Text(message_.Render(), {x, cy - 10, width_ - kMargin - x, 20}, style);
   }
-}
-
-// Home: the game played last, big, with Play; the others played recently; the gamercard.
-void App::DrawHomePage(Canvas& c, const RectF& area) {
-  const std::vector<int> recent = RecentlyPlayed();
-  const x360::profiles::Profile* player = Player();
-  const float card_w = std::clamp(area.w * 0.28f, 260.0f, 360.0f);
-  const RectF left{area.x, area.y, area.w - card_w - 32, area.h};
-  if (recent.empty()) {
-    c.Text(Tr(kTextNoGamesYet), {left.x, left.y, left.w, 40}, Style(26, DWRITE_FONT_WEIGHT_LIGHT, kText));
-    Button(c, {left.x, left.y + 64, 220, 50}, Tr(kTextPageAdd), kIdConsoleAction, [this] { ShowPage(Page::kAdd); }, true,
-           !working_);
-  } else {
-    const int last = recent[0];
-    const LibraryGame& lib = games_[size_t(last)];
-    const auto& stats = player ? TitleStats(player->xuid, lib.info->title_id) : std::optional<x360::profiles::TitleStats>{};
-    const bool played = stats && !stats->last_played.empty();
-    c.Text(Tr(played ? kTextLastPlayed : kTextYourGames), {left.x, left.y, left.w, 24},
-           Style(15, DWRITE_FONT_WEIGHT_SEMI_BOLD, kTextSecondary));
-    const float big_h = std::clamp(left.h * 0.62f, 220.0f, 420.0f), big_w = std::round(big_h * 2 / 3);
-    const RectF big{left.x, left.y + 34, big_w, big_h};
-    DrawCover(c, big, last, kIdConsoleRecent + last, [this, last] { PlayGame(last); }, false);
-    // Its title, the time played and Play.
-    const float tx = big.right() + 28, tw = std::max(120.0f, left.right() - tx);
-    c.Text(lib.info->title, {tx, big.y + 4, tw, 92}, Style(34, DWRITE_FONT_WEIGHT_LIGHT, kText, Align::kStart, true));
-    std::wstring line = Tr(lib.info->webcam ? kTextWebcam : kTextKeyboardPad);
-    if (player)
-      line = played ? Tr(kTextPlayed, {Widen(player->gamertag), PlayTime(stats->seconds), ShortDate(stats->last_played)})
-                    : Tr(kTextNotPlayed, {Widen(player->gamertag)});
-    c.Text(line, {tx, big.y + 100, tw, 44}, Style(14, DWRITE_FONT_WEIGHT_NORMAL, kTextSecondary, Align::kStart, true));
-    if (const x360::achievements::TitleList* list = Achievements(lib); list && !list->achievements.empty()) {
-      const uint32_t earned = player ? Unlocks(player->xuid, lib.info->title_id).Gamerscore() : 0;
-      c.Text(Tr(kTextGamerscoreOf, {std::to_wstring(earned), std::to_wstring(list->TotalGamerscore())}),
-             {tx, big.y + 146, tw, 20}, Style(14, DWRITE_FONT_WEIGHT_SEMI_BOLD, kGreenText));
-    }
-    Button(c, {tx, big.y + 180, 184, 50}, Tr(kTextPlay), kIdConsoleAction, [this, last] { PlayGame(last); }, true,
-           !lib.location_gone && !working_);
-    Button(c, {tx, big.y + 240, 184, 44}, Tr(kTextAchievements), kIdConsoleAction + 1,
-           [this, last] { OpenAchievements(games_[size_t(last)]); });
-    // The others, smaller, under it.
-    const float row_y = big.bottom() + 44;
-    const float small_h = std::max(0.0f, std::min(area.bottom() - row_y - 30, 180.0f)), small_w = std::round(small_h * 2 / 3);
-    if (recent.size() > 1 && small_h >= 90) {
-      c.Text(Tr(kTextRecentlyPlayed), {left.x, row_y - 30, left.w, 22}, Style(15, DWRITE_FONT_WEIGHT_SEMI_BOLD, kTextSecondary));
-      float x = left.x;
-      for (size_t i = 1; i < recent.size() && x + small_w <= left.right(); ++i) {
-        const int game = recent[i];
-        DrawCover(c, {x, row_y, small_w, small_h}, game, kIdConsoleRecent + game, [this, game] { PlayGame(game); }, false);
-        x += small_w + 18;
-      }
-    }
-  }
-  // The gamercard.
-  const RectF card{area.right() - card_w, area.y + 34, card_w, std::min(area.h - 34, 360.0f)};
-  c.FillRect(card, kPanel.Alpha(0.85f));
-  c.FillRect({card.x, card.y, card.w, 4}, player ? ProfileColor(player->xuid) : kPanelHover);
-  DrawGamerpic(c, card.x + 60, card.y + 70, 40, player);
-  c.Text(player ? Widen(player->gamertag) : Tr(kTextNobodyPlaying), {card.x + 116, card.y + 44, card.w - 130, 30},
-         Style(22, DWRITE_FONT_WEIGHT_SEMI_LIGHT, kText));
-  if (player) {
-    c.Text(Tr(kTextGamerscore, {std::to_wstring(Gamerscore(player->xuid))}), {card.x + 116, card.y + 76, card.w - 130, 22},
-           Style(15, DWRITE_FONT_WEIGHT_SEMI_BOLD, kGreenText));
-    // The games played and the time, over every game in the library.
-    uint64_t seconds = 0;
-    int games = 0;
-    for (int t : tiles_) {
-      if (t < 0) continue;
-      if (const auto& stats = TitleStats(player->xuid, games_[size_t(t)].info->title_id); stats && stats->seconds) {
-        seconds += stats->seconds;
-        ++games;
-      }
-    }
-    c.Text(Tr(kTextGamesPlayed, {std::to_wstring(games), PlayTime(seconds)}), {card.x + 24, card.y + 130, card.w - 48, 40},
-           Style(14, DWRITE_FONT_WEIGHT_NORMAL, kTextSecondary, Align::kStart, true));
-  }
-  Button(c, {card.x + 24, card.bottom() - 120, card.w - 48, 44}, Tr(kTextSwitchProfile), kIdConsoleAction + 2,
-         [this] { ShowWhoIsPlaying(false); });
-  Button(c, {card.x + 24, card.bottom() - 66, card.w - 48, 44}, Tr(kTextManageProfiles), kIdConsoleAction + 3,
-         [this] { OpenProfiles(); });
 }
 
 // Games: every game in the library as box art, in rows, then "Add a game".
@@ -2613,8 +2520,10 @@ void App::DrawStarting(Canvas& c) {
 
 void App::ShowState(std::wstring_view state) {
   g_instant = true;
+  if (state == L"home-avatar-focused") state = L"console-home-avatar";
   // The dashboard's pages: console-home, console-games, console-achievements, console-profiles,
-  // console-settings, console-add (console: Home).
+  // console-settings, console-add (console: Home); Home with the avatar focused (console-home-avatar)
+  // or the panel's first entry (console-home-panel). --select chooses Home's game.
   if (state.rfind(L"console", 0) == 0) {
     console_ = true;
     const std::wstring_view page = state.size() > 8 ? state.substr(8) : L"home";
@@ -2627,6 +2536,10 @@ void App::ShowState(std::wstring_view state) {
     page_fade_ = {};
     focus_ = -1;
     focus_visible_ = true;
+    pads_ = 1;
+    if (page == L"home-avatar" || page == L"home-panel") page_ = Page::kHome;
+    if (page == L"home-avatar") home_on_avatar_ = true;
+    if (page == L"home-panel") focus_ = kIdHomePanel;
     // The avatar page: the profile playing's (a made-up one without one), the hair row focused.
     if (page_ == Page::kAvatar) {
       ShowState(L"player");

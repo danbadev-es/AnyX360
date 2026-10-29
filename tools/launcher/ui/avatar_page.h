@@ -45,6 +45,26 @@ struct AvatarEdit {
   std::map<std::pair<int, uint32_t>, std::vector<x360tool::AvatarOption>> options;
 };
 
+// Home's avatar (ui/home_page.cpp): the profile playing's, standing, drawn again only when it or
+// its size changes.
+struct HomeAvatar {
+  uint64_t xuid = 0;
+  std::string avatar;  // what it was built from (the profile's description, base64)
+  const x360tool::AvatarCatalog* pack = nullptr;
+  AvatarRenderer renderer;
+  bool built = false;
+  std::string error;
+  anyx360::ui::Image picture;
+  uint32_t width = 0, height = 0;
+  int attempts = 0;  // pictures drawn for one size (to fit the avatar's height to the pixel)
+  float fill = 0.9f;  // the avatar's height in the picture, as a share of it
+  // Where the avatar is in the picture: its columns [left, right) and rows [top, bottom).
+  uint32_t left = 0, right = 0, top = 0, bottom = 0;
+  anyx360::ui::ComPtr<ID2D1Bitmap> bitmap;
+  uint64_t generation = 0;
+  bool stale = true;
+};
+
 // AnyX360.exe --render-avatar: the avatar of the profile playing (or `spec`, x360tool::customize_avatar's
 // syntax) alone, `width` x `height` pixels, transparent around it, into a PNG. 0 on success.
 int RenderAvatarFile(const std::filesystem::path& out, int width, int height, float yaw, float zoom, const std::string& spec);

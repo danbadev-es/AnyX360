@@ -15,6 +15,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "core/jobs.h"
@@ -31,6 +32,7 @@ class AvatarCatalog;
 namespace anyx360::launcher::ui {
 
 struct AvatarEdit;  // ui/avatar_page.h
+struct HomeAvatar;  // ui/avatar_page.h
 
 using anyx360::ui::Canvas;
 using anyx360::ui::Color;
@@ -92,6 +94,10 @@ class App : public JobObserver {
   void Stick(float x, float y);
   // A controller is connected: its button hints show.
   void PadConnected();
+  // How many controllers are connected (the dashboard's top bar shows it).
+  void SetPads(int count);
+  // About once a second: the dashboard's clock is painted again when the minute changes.
+  void Tick();
   void Character(wchar_t c);
   void Paste(const std::wstring& text);
   bool WantsText() const;
@@ -256,7 +262,24 @@ class App : public JobObserver {
   void DrawConsole(Canvas& c);
   void DrawTabs(Canvas& c);
   void DrawConsoleHints(Canvas& c);
-  void DrawHomePage(Canvas& c, const RectF& area);
+  // Home (ui/home_page.cpp): the art, the avatar and the games in a row, the glass panel.
+  void DrawHome(Canvas& c);
+  void DrawHomeBackground(Canvas& c);
+  void DrawHomeTopBar(Canvas& c, float u, float m, float cy);
+  void DrawHomeAvatar(Canvas& c, float cx, float feet, float h, float u, bool focused);
+  void DrawHomeCover(Canvas& c, const RectF& r, int game, float opacity, float dim, float blur, float radius, bool hover);
+  void DrawHomeReflection(Canvas& c, const RectF& r, int game, float opacity, float dim, float blur, float radius);
+  void DrawHomePanel(Canvas& c, const RectF& panel, float u);
+  void DrawHomeHints(Canvas& c, const RectF& panel, float u, float m, bool on_game);
+  // The selected game's art (backgrounds\<slug>.jpg), else its cover, softened for the window.
+  std::shared_ptr<const Image> HomeBackdrop(const LibraryGame& lib);
+  std::vector<int> HomeOrder();  // the games in the row: newest played first
+  bool HomeKey(Key key);         // left, right, up and down on Home; true if it took it
+  void HomeWheel(float notches);
+  void HomeFocusGame(int game);  // -1: "Add a game" (no games yet)
+  void HomeFocusAvatar();
+  void HomeFocusCarousel();      // back to the selected game or the avatar
+  void OpenHomeAvatar();         // the Avatar page (or "Who's playing?" with nobody signed in)
   void DrawGamesPage(Canvas& c, const RectF& area);
   void DrawAchievementsPage(Canvas& c, const RectF& area);
   void DrawProfilesPage(Canvas& c, const RectF& area);
@@ -322,6 +345,17 @@ class App : public JobObserver {
   bool console_ = false, fullscreen_ = false;
   Page page_ = Page::kHome;
   Animation page_fade_;
+  // Home: the selected game (index into games_; -1: the first in the row), or the avatar.
+  int home_game_ = -1;
+  bool home_on_avatar_ = false;
+  Animation home_scroll_;
+  float home_scroll_target_ = -1;
+  float home_cover_h_ = 0;
+  std::unique_ptr<HomeAvatar> home_avatar_;
+  std::map<std::tuple<std::shared_ptr<const Image>, uint32_t, uint32_t>, std::shared_ptr<const Image>> home_blurred_;
+  std::map<std::shared_ptr<const Image>, std::shared_ptr<const Image>> home_blurred_covers_;
+  int pads_ = 0;
+  int painted_minute_ = -1;
   Message message_;
   std::vector<Message> notes_;
   std::wstring command_line_password_;

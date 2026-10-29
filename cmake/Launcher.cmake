@@ -316,6 +316,7 @@ constexpr char kTermsEsUtf8[] = R\"terms(@ANYX360_TERMS_es@)terms\";
     ${ui}/images.cpp
     ${ui}/avatar_view.cpp
     ${ui}/avatar_page.cpp
+    ${ui}/home_page.cpp
     ${ui}/launcher.rc
     ${PROJECT_SOURCE_DIR}/tools/launcher/launcher.manifest)
   # The icon and the logos it embeds (the build doesn't see what a .rc names on its own).

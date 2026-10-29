@@ -272,6 +272,18 @@ enum Text {
   kTextErrorAvatarWrite,  // {0} folder
   kTextHintTurn,
   kTextHintChange,
+  // The dashboard's Home.
+  kTextHomeMyGames,
+  kTextHomeSettings,
+  kTextHomeAddGames,
+  kTextHomeSelect,
+  kTextHomeMore,
+  kTextHomePages,
+  kTextHomeEditAvatar,
+  kTextHomeSignIn,
+  kTextHomePlayed,  // {0} time
+  kTextHomeNewGame,
+  kTextHomeWhoHint,
   kTextCount
 };
 

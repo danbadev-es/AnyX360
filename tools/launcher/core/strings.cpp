@@ -284,6 +284,17 @@ const wchar_t* const kEnglish[] = {
     L"The avatar or the gamerpic can't be saved in {0}.",
     L"Turn",
     L"Change",
+    L"My games",
+    L"Settings",
+    L"Add games",
+    L"Select",
+    L"More",
+    L"Pages",
+    L"Edit avatar",
+    L"Choose who's playing",
+    L"{0} played",
+    L"Not played yet",
+    L"Who's playing?",
 };
 
 const wchar_t* const kSpanish[] = {
@@ -556,6 +567,17 @@ const wchar_t* const kSpanish[] = {
     L"No se puede guardar el avatar o la imagen de jugador en {0}.",
     L"Girar",
     L"Cambiar",
+    L"Mis juegos",
+    L"Configuración",
+    L"Añadir juegos",
+    L"Seleccionar",
+    L"Más",
+    L"Páginas",
+    L"Editar avatar",
+    L"Elige quién juega",
+    L"{0} jugado",
+    L"Aún sin jugar",
+    L"¿Quién juega?",
 };
 static_assert(std::size(kEnglish) == kTextCount && std::size(kSpanish) == kTextCount);
 

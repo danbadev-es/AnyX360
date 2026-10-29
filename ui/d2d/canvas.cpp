@@ -183,6 +183,22 @@ void Canvas::FillGradient(const RectF& r, const Color& top, const Color& bottom)
   target_->FillRectangle(ToD2D(r), brush.Get());
 }
 
+void Canvas::FillRadial(float cx, float cy, float rx, float ry, const Color& center, const Color& edge) {
+  if (rx <= 0 || ry <= 0) return;
+  D2D1_GRADIENT_STOP stops[] = {{0, ToD2D(center)}, {1, ToD2D(edge)}};
+  ComPtr<ID2D1GradientStopCollection> collection;
+  ComPtr<ID2D1RadialGradientBrush> brush;
+  if (FAILED(target_->CreateGradientStopCollection(stops, 2, &collection)) ||
+      FAILED(target_->CreateRadialGradientBrush(D2D1::RadialGradientBrushProperties({cx, cy}, {0, 0}, rx, ry),
+                                                collection.Get(), &brush)))
+    return;
+  target_->FillEllipse(D2D1::Ellipse({cx, cy}, rx, ry), brush.Get());
+}
+
+void Canvas::StrokeEllipse(float cx, float cy, float rx, float ry, const Color& color, float width) {
+  target_->DrawEllipse(D2D1::Ellipse({cx, cy}, rx, ry), Brush(color), width);
+}
+
 void Canvas::Polyline(std::span<const D2D1_POINT_2F> points, const Color& color, float width) {
   if (points.size() < 2) return;
   ComPtr<ID2D1PathGeometry> path;
@@ -307,6 +323,35 @@ void Canvas::PushClip(const RectF& r, float radius) {
   target_->CreateLayer(&layer);
   target_->PushLayer(D2D1::LayerParameters(D2D1::InfiniteRect(), shape.Get()), layer.Get());
   clip_is_layer_.push_back(true);
+}
+
+void Canvas::PushFade(const RectF& r, float top, float bottom) {
+  D2D1_GRADIENT_STOP stops[] = {{0, D2D1::ColorF(1, 1, 1, top)}, {1, D2D1::ColorF(1, 1, 1, bottom)}};
+  ComPtr<ID2D1GradientStopCollection> collection;
+  ComPtr<ID2D1LinearGradientBrush> brush;
+  ComPtr<ID2D1Layer> layer;
+  target_->CreateGradientStopCollection(stops, 2, &collection);
+  if (collection)
+    target_->CreateLinearGradientBrush(D2D1::LinearGradientBrushProperties({r.x, r.y}, {r.x, r.bottom()}), collection.Get(),
+                                       &brush);
+  target_->CreateLayer(&layer);
+  target_->PushLayer(D2D1::LayerParameters(ToD2D(r), nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1::IdentityMatrix(), 1.0f,
+                                           brush.Get()),
+                     layer.Get());
+  clip_is_layer_.push_back(true);
+}
+
+void Canvas::PushMirror(float y) {
+  D2D1_MATRIX_3X2_F current;
+  target_->GetTransform(&current);
+  transforms_.push_back(current);
+  target_->SetTransform(D2D1::Matrix3x2F::Scale(1, -1, D2D1::Point2F(0, y)) * D2D1::Matrix3x2F::ReinterpretBaseType(&current)[0]);
+}
+
+void Canvas::PopMirror() {
+  if (transforms_.empty()) return;
+  target_->SetTransform(transforms_.back());
+  transforms_.pop_back();
 }
 
 void Canvas::PopClip() {
