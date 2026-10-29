@@ -151,7 +151,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 ### Multiplayer
 
 - **Local Split Screen** - Up to four players. Player 2 joins from the main menu, as a guest or
-  with their own profile, and gets their own saves.
+  with their own profile, and gets their own saves: the game's sign-in screen lists the profiles,
+  and each player chooses theirs (or creates one) with their own controller.
 
 ### General
 
@@ -167,11 +168,15 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   of every file and its SHA-256; no saves or keys): **Add game** takes it back, on this PC or another of yours, checked file by
   file and without converting anything. It is a backup of your own copy, not a way to give games to
   others ([docs/ANYX.md](docs/ANYX.md)).
-- **Players and Language** - From the launcher: the four players' names, which every game shows,
-  and the language the games use (Windows' by default; a game without it uses its own).
+- **Profiles** - Global profiles, as on the console ([docs/PROFILES.md](docs/PROFILES.md)): a
+  gamertag, its own saves in every game and its time played. The launcher asks "Who's playing?"
+  and manages them (create, rename, delete, the language the games use); in a game the sign-in
+  screen is a picker driven by each player's controller, with an on-screen keyboard for a new
+  gamertag. The names set before 0.20.0 become profiles with their saves.
 - **Shader Cache** - Shaders and pipelines are cached between runs, so stutter fades after the
   first play.
-- **Saves and Profiles** - Stored in `%LOCALAPPDATA%\AnyX360\<game>`, kept across versions.
+- **Saves** - Stored in `%LOCALAPPDATA%\AnyX360\<game>` (each profile's in its own folder),
+  kept across versions.
 
 ### Kinect (Dance Central 3, Kinect Adventures, Fruit Ninja Kinect, Kinect Sports, Kinect Joy Ride, Kinect Party)
 

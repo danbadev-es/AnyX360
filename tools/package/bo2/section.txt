@@ -12,7 +12,8 @@ choosing Multiplayer or Zombies in the main menu closes the game and opens it ag
 mode. In their menus, B (Main menu) offers the campaign and the other mode. The launcher closes
 when the game switches; the log keeps going to logs\bo2\last_run.log.
 - Local: split screen for up to four players. Players 2-4 use controllers: each presses A in
-  the lobby to join (with their profile: F2 > Players), then Start match.
+  the lobby to join (the game asks them to sign in: they choose or create their profile), then
+  Start match.
 - Bots: Local > Adjust bots adds allied and enemy bots, the local version of Combat Training.
 - Zombies > Local: TranZit (Green Run, Bus Depot) alone or with friends; in Town, Grief (two
   players or more, team against team).

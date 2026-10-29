@@ -171,7 +171,8 @@ descriptor as the campaign: one vblank per frame (60 FPS), main thread on hardwa
 - **Local split screen, multiplayer**: the Local lobby (Start match, Game setup, Adjust bots,
   Create a class, Scorestreaks) on Aftermath, Team Deathmatch. Player 2 presses A to join: with
   `sign_in = "at_start"` they are already signed in; with `"on_demand"` (the default) the game
-  shows the sign-in screen and the runtime signs them in with their profile. Start match, each
+  shows the sign-in screen: the sign-in picker (0.20.0, docs/PROFILES.md), where player 2 chooses
+  or creates their profile (scripted runs sign them in at once). Start match, each
   player picks a class, and both move, aim and fire, each with their own HUD and minimap: 55-60
   FPS. Four players (`@2`, `@3`) play the same way in four views at 37-51 FPS on the test
   machine.

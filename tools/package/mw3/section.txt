@@ -12,8 +12,8 @@ Multiplayer in the main menu closes the game and opens it again in multiplayer, 
 Menu entry goes back to the campaign. The launcher closes when the game switches; the log
 keeps going to logs\mw3\last_run.log.
 - Split Screen: up to four players on one screen. Players 2-4 use controllers: each presses A
-  in their corner to join (as a guest, or with their profile if they are signed in:
-  F2 > Players), then everyone presses A to continue, and Start Match.
+  in their corner to join (as a guest; X then signs them in: they choose or create their
+  profile), then everyone presses A to continue, and Start Match.
 - Special Ops: Split Screen in its menu plays Survival with a second player the same way (the
   missions haven't been tried yet).
 - The downloadable maps (Content Collections 1-4, Terminal, Overwatch...) are in Game Setup >

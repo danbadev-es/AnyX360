@@ -177,7 +177,9 @@ On the console, `XamLoaderLaunchTitle` ends the title and boots the XEX it names
 - **Online**: Xbox LIVE shows "you have to sign in to Xbox LIVE" and returns to the menu; System
   Link opens an empty game list (sockets are local; nothing else is on the network).
 - **Split screen**: in the sign-in screen each player presses A in their quadrant; player 2
-  joins as a guest ("Guest 2") or with their profile if signed in (F2 > Players), and each
+  joins as a guest ("Guest 2"), or presses X (sign-in profile) and chooses or creates their
+  profile in the sign-in picker (0.20.0; checked on 2026-10-29: "Ana" made on the on-screen
+  keyboard, her saves in `players\<her XUID>`), and each
   continues with A. The lobby (Start Match, Game Setup, Create a Class, Barracks) starts a Team
   Deathmatch on Seatown in about ten seconds. Each player picks a team (auto-assign) and a class
   and plays: both move, aim, fire and reload, each with their own HUD, compass and score. 35-57

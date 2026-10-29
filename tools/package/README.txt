@@ -44,9 +44,13 @@ library. "Compatible
 games", at the bottom, shows every game this version plays and the ones coming. The first time
 each screen of a game appears it may stutter a little while its graphics are prepared.
 
-PLAYERS AND LANGUAGE: the link at the top right with player 1's name ("Players" until you choose
-one) sets the four players' names, which every game shows, and the language the games use:
-Windows' by default. A game whose copy doesn't have that language uses its own.
+PROFILES: as on the console, each player has a profile with their gamertag and their own saves in
+every game. The launcher asks "Who's playing?" (Switch profile, at the top right, asks again); the
+gamertag next to it opens Profiles: create, rename, delete (the saves stay) and the language the
+games use, Windows' by default (a game whose copy doesn't have it uses its own). In a game, when
+another player joins, the game's sign-in screen lists the profiles: each player chooses theirs, or
+creates one, with their own controller. The names you set before this version became profiles,
+with their saves.
 
 
 PROGRAM KEYS (every game)

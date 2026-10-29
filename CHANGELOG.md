@@ -8,6 +8,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+Global profiles, as on the console ([docs/PROFILES.md](docs/PROFILES.md)).
+
+### Added
+
+- **Profiles**: `%LOCALAPPDATA%\AnyX360\profiles\<XUID>\profile.json`, one per player and shared by
+  every game: a gamertag, an offline XUID (random for a new profile), and slots for the gamerpic
+  and the avatar that later versions fill. Each profile keeps its own saves in every game (the
+  game's root folder for the first offline XUID, `players\<XUID>` for the others, as before).
+- **"Who's playing?"** in the launcher at start, until a profile is chosen (then remembered;
+  **Switch profile** at the top right asks again), and **Profiles** from the gamertag in the
+  header: create, rename, delete (asked first; the saves and the time played stay) and the
+  language the games use, for the profile playing. A gamertag is typed with the keyboard or an
+  on-screen keyboard driven by the controller.
+- **The games' sign-in screen is a picker**: when a game asks a player to sign in (split screen in
+  Minecraft, Modern Warfare 3 and Black Ops II), it pauses behind a list
+  of the profiles not signed in, "Create profile" (the on-screen keyboard) and Cancel. Each player
+  chooses with their own controller and signs in on that controller's slot; the choice is
+  remembered in profile.txt. F2 > Players > Signing in keeps the old behaviour ("When the game
+  asks: at once", `players.sign_in = "automatic"`); scripted runs (`ANYX360_INPUT`) sign in at once
+  unless `ANYX360_SIGNIN_PICKER=1`.
+- **Time played** per profile and game (`profiles\<XUID>\titles\<TitleID>.json`), saved every
+  minute and when the game exits, and shown under the selected game in the launcher.
+
+### Changed
+
+- **profile.txt** says which profile is signed in on each slot instead of four names. On the first
+  start the names become profiles with the XUIDs they played with, so every save keeps loading:
+  the old file is kept as `profile.txt.before-0.20.0` and nothing is moved or deleted. Players 2-4
+  without a name who have saves get a profile "Player 2"... The launcher's Players dialog is
+  replaced by Profiles.
+
 ## [0.19.0] - 2026-10-29
 
 Minecraft: Xbox 360 Edition, in testing: new and saved worlds, up to four players in split screen,
