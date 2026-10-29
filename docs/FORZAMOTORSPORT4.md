@@ -102,8 +102,9 @@ would (r1 and r14..r31 from its context block, then a call to its saved LR, the 
   Ferrari 458 Italia, with the driving tutorial's prompts, the assisted steering and braking of the
   first race (holding RT drives it), the other cars, the race end and the post-race menu with the
   replay behind it. 60 FPS, music and voices (XMA).
-- **Stops after the first race**: "Continue" on the post-race menu hides the menu and the replay
-  goes on; nothing more is loaded (see PROGRESS.md).
+- After the race, **Continue** unloads it and loads the garage (`Homespace03`) for the career's
+  first car ("Mi primer coche": the 2011 Ford Ka and its colours). The post-race menu hides itself
+  after 16 s to show the replay; a press shows it again, a second one selects.
 - Not reached yet: the menus after the first race, careers, Free Play, the garage, upgrades,
   tuning, the paint editor, the storefront, replays, Rivals, the downloadable cars and tracks.
 - **Kinect** (Autovista, head tracking, voice) and **split screen**: later. The race initialises
@@ -116,7 +117,9 @@ On a new profile (an empty `<user>\content\00000001`), with `[players] p1 = { de
 the logos), accepts the brightness screen, and the introduction plays by itself; the welcome
 loading screen and its video come at about 60 s and the race at about 145 s. Holding RT drives it
 (the first race steers and brakes for the player): `155:RT/165` finishes it at about 320 s, and the
-post-race menu comes then (`335:A` is Continue).
+post-race menu comes then (two presses a few seconds apart select Continue: the first shows the
+menu if it has hidden itself). The assisted steering sometimes leaves the car against a barrier;
+Y then rewinds (A continues from there), and the pause menu restarts the race.
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `4D530910`):
