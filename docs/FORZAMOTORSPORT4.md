@@ -103,10 +103,20 @@ would (r1 and r14..r31 from its context block, then a call to its saved LR, the 
   first race (holding RT drives it), the other cars, the race end and the post-race menu with the
   replay behind it. 60 FPS, music and voices (XMA).
 - After the race, **Continue** unloads it and loads the garage (`Homespace03`) for the career's
-  first car ("Mi primer coche": the 2011 Ford Ka and its colours). The post-race menu hides itself
-  after 16 s to show the replay; a press shows it again, a second one selects.
-- Not reached yet: the menus after the first race, careers, Free Play, the garage, upgrades,
-  tuning, the paint editor, the storefront, replays, Rivals, the downloadable cars and tracks.
+  first car ("Mi primer coche": the 2011 Ford Ka, its colours, the confirmation), and the game
+  saves (`ForzaProfile`, `PlayerDatabase`). The post-race menu hides itself after 16 s to show the
+  replay; a press shows it again, a second one selects. Then the Porsche Expansion's welcome (the
+  downloadable content is found), the career menu ("Jugar carrera": go racing, cars, upgrade,
+  paint, my profile), the World Tour (the map, Amateur division, the first event at the Ladera
+  Test Track with its pre-race menus and the difficulty screen: easy, assisted braking and
+  steering), the race with seven AI cars that finish it, the pause menu, leaving the race, the
+  post-race and back to the event.
+- Rivals says "the game can't connect to Xbox LIVE", as a console offline does.
+- **Not verified yet**: finishing a career race (from the second race on, assisted steering only
+  helps: the car needs steering, which blind scripted input can't do; the AI cars run fine), the
+  race rewards and the season, Free Play, the garage, upgrades, tuning, the paint editor, the
+  storefront, watching replays, the second disc's cars and the other downloadable packs in the car
+  lists.
 - **Kinect** (Autovista, head tracking, voice) and **split screen**: later. The race initialises
   head tracking (`NuiInitialize` succeeds: the NUI library's thread then looks for the camera every
   30 ms); with no sensor nothing comes of it.
