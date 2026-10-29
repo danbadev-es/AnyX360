@@ -7,7 +7,10 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <string>
 #include <thread>
+#include <tuple>
+#include <vector>
 
 #include "x360/hle.h"
 #include "x360/kernel.h"
@@ -53,9 +56,94 @@ PPC_EXTERN_FUNC(__imp__XamLoaderGetLaunchDataSize);
 PPC_EXTERN_FUNC(__imp__XamLoaderGetLaunchData);
 PPC_EXTERN_FUNC(__imp__KeBlowFuses);  // not implemented: must resolve to the weak stub
 PPC_EXTERN_FUNC(__imp__XamShowRecentMessageUI);
+PPC_EXTERN_FUNC(__imp__XamUserCreateAchievementEnumerator);
+PPC_EXTERN_FUNC(__imp__XamEnumerate);
+PPC_EXTERN_FUNC(__imp__XMsgStartIORequest);
+PPC_EXTERN_FUNC(__imp__XamReadTileToTexture);
 
 // The kernel's loader fills the function table from this generated array; tests have no game.
 PPCFuncMapping PPCFuncMappings[] = {{0, nullptr}};
+
+namespace {
+
+void Be(std::vector<uint8_t>& b, uint64_t v, int bytes) {
+  for (int i = bytes - 1; i >= 0; --i) b.push_back(uint8_t(v >> (8 * i)));
+}
+
+// A 2x1 RGBA PNG: red, then blue at half opacity (zlib with one stored block).
+std::vector<uint8_t> TinyPng() {
+  auto crc = [](const uint8_t* p, size_t n) {
+    uint32_t c = 0xFFFFFFFF;
+    for (size_t i = 0; i < n; ++i) {
+      c ^= p[i];
+      for (int k = 0; k < 8; ++k) c = (c >> 1) ^ (0xEDB88320u & (0u - (c & 1)));
+    }
+    return ~c;
+  };
+  std::vector<uint8_t> png = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
+  auto chunk = [&](const char* type, const std::vector<uint8_t>& data) {
+    Be(png, data.size(), 4);
+    std::vector<uint8_t> body(type, type + 4);
+    body.insert(body.end(), data.begin(), data.end());
+    png.insert(png.end(), body.begin(), body.end());
+    Be(png, crc(body.data(), body.size()), 4);
+  };
+  std::vector<uint8_t> ihdr;
+  Be(ihdr, 2, 4), Be(ihdr, 1, 4), ihdr.insert(ihdr.end(), {8, 6, 0, 0, 0});
+  chunk("IHDR", ihdr);
+  const std::vector<uint8_t> raw = {0, 255, 0, 0, 255, 0, 0, 255, 128};  // filter 0, two pixels
+  uint32_t a = 1, b = 0;
+  for (uint8_t x : raw) a = (a + x) % 65521, b = (b + a) % 65521;
+  std::vector<uint8_t> z = {0x78, 0x01, 0x01, uint8_t(raw.size()), 0, uint8_t(~raw.size()), 0xFF};
+  z.insert(z.end(), raw.begin(), raw.end());
+  Be(z, (b << 16) | a, 4);
+  chunk("IDAT", z);
+  chunk("IEND", {});
+  return png;
+}
+
+// A made-up SPA (XDBF): three achievements (XACH), an English string table (XSTR) and the picture
+// of the first.
+std::vector<uint8_t> MadeUpSpa() {
+  auto tagged = [](uint32_t tag, uint16_t count, const std::vector<uint8_t>& body) {
+    std::vector<uint8_t> out;
+    Be(out, tag, 4), Be(out, 1, 4), Be(out, body.size() + 2, 4), Be(out, count, 2);
+    out.insert(out.end(), body.begin(), body.end());
+    return out;
+  };
+  std::vector<uint8_t> xach, xstr;
+  const struct {
+    uint16_t id, name;
+    uint32_t image;
+    uint16_t score;
+    uint32_t flags;
+  } items[] = {{1, 10, 0x100, 10, 0x9}, {2, 20, 0x200, 20, 0xB}, {3, 30, 0x300, 50, 0x2}};
+  for (const auto& a : items) {
+    Be(xach, a.id, 2), Be(xach, a.name, 2), Be(xach, a.name + 1, 2), Be(xach, a.name + 2, 2);
+    Be(xach, a.image, 4), Be(xach, a.score, 2), Be(xach, 0, 2), Be(xach, a.flags, 4);
+    xach.insert(xach.end(), 16, 0);
+  }
+  const std::pair<uint16_t, std::string> strings[] = {{10, "First Step"}, {11, "You started"}, {12, "Start"},
+                                                      {20, "Collector"},  {21, "Collected"},   {22, "Collect"},
+                                                      {30, "Hidden"},     {31, "Found"},       {32, "?"}};
+  for (const auto& [id, text] : strings) {
+    Be(xstr, id, 2), Be(xstr, text.size(), 2);
+    xstr.insert(xstr.end(), text.begin(), text.end());
+  }
+  const std::vector<std::tuple<uint16_t, uint64_t, std::vector<uint8_t>>> entries = {
+      {1, 0x58414348, tagged(0x58414348, 3, xach)}, {3, 1, tagged(0x58535452, 9, xstr)}, {2, 0x100, TinyPng()}};
+  std::vector<uint8_t> out, data;
+  Be(out, 0x58444246, 4), Be(out, 0x10000, 4), Be(out, entries.size(), 4), Be(out, entries.size(), 4);
+  Be(out, 0, 4), Be(out, 0, 4);
+  for (const auto& [section, id, bytes] : entries) {
+    Be(out, section, 2), Be(out, id, 8), Be(out, data.size(), 4), Be(out, bytes.size(), 4);
+    data.insert(data.end(), bytes.begin(), bytes.end());
+  }
+  out.insert(out.end(), data.begin(), data.end());
+  return out;
+}
+
+}  // namespace
 
 static int failures = 0;
 #define CHECK(cond)                                                    \
@@ -455,6 +543,83 @@ int main() {
     CHECK(be_float(v) == 1.0f && be_float(v + 4) == 0.0f && std::fabs(be_float(v + 8) - 1.7320508f) < 1e-5f);
     CHECK(v[12] == 0 && v[13] == 0 && v[14] == 0x01 && v[15] == 0x23);
     CHECK(v[28] == 0xAA && m.vertices[0] == 0xAA);  // UVs and other vertices untouched
+  }
+
+  // Achievements (xam.cpp): a made-up SPA's list enumerated as XACHIEVEMENT_DETAILS, an unlock
+  // through XUserWriteAchievements (player 1 plays without a profile here: kept for the session,
+  // once) and an achievement's picture as ARGB.
+  {
+    constexpr guest_addr kArea = 0x41000000;
+    CHECK(mem.commit(kArea, 0x10000));
+    kernel::LoadAchievements(MadeUpSpa(), false);
+    const guest_addr size_ptr = kArea, handle_ptr = kArea + 4, returned = kArea + 8, buffer = kArea + 0x100;
+    auto create = [&](uint32_t user, uint64_t xuid, uint32_t flags, uint32_t offset, uint32_t count) {
+      ctx.r3.u64 = 0, ctx.r4.u64 = user, ctx.r5.u64 = xuid, ctx.r6.u64 = flags, ctx.r7.u64 = offset;
+      ctx.r8.u64 = count, ctx.r9.u64 = size_ptr, ctx.r10.u64 = handle_ptr;
+      __imp__XamUserCreateAchievementEnumerator(ctx, base);
+      return ctx.r3.u32;
+    };
+    auto enumerate = [&]() {
+      std::memset(mem.translate(buffer), 0xCC, 0x2000);
+      ctx.r3.u64 = mem.read<uint32_t>(handle_ptr), ctx.r4.u64 = 0, ctx.r5.u64 = buffer;
+      ctx.r6.u64 = mem.read<uint32_t>(size_ptr), ctx.r7.u64 = returned, ctx.r8.u64 = 0;
+      __imp__XamEnumerate(ctx, base);
+      return ctx.r3.u32;
+    };
+    auto text = [&](guest_addr at) {
+      std::string out;
+      for (; at && mem.read<uint16_t>(at); at += 2) out += char(mem.read<uint16_t>(at));
+      return out;
+    };
+    // Someone else's (not a local player): nothing unlocked. Two per call, with every string.
+    const uint64_t stranger = 0xE000FFFF00000001ull;
+    CHECK(create(0, stranger, 7, 0, 2) == 0 && mem.read<uint32_t>(size_ptr) == 2 * (0x24 + 464));
+    CHECK(enumerate() == 0 && mem.read<uint32_t>(returned) == 2);
+    CHECK(mem.read<uint32_t>(buffer + 0x00) == 1 && mem.read<uint32_t>(buffer + 0x14) == 10);
+    CHECK(text(mem.read<uint32_t>(buffer + 0x04)) == "First Step" && text(mem.read<uint32_t>(buffer + 0x08)) == "You started");
+    CHECK(text(mem.read<uint32_t>(buffer + 0x0C)) == "Start" && mem.read<uint32_t>(buffer + 0x10) == 0x100);
+    CHECK(mem.read<uint32_t>(buffer + 0x20) == 0x9 && mem.read<uint32_t>(buffer + 0x18) == 0);  // locked
+    CHECK(mem.read<uint32_t>(buffer + 0x24) == 2 && text(mem.read<uint32_t>(buffer + 0x28)) == "Collector");
+    const guest_addr strings = mem.read<uint32_t>(buffer + 0x04);
+    CHECK(strings >= buffer + 2 * 0x24 && strings < buffer + 2 * (0x24 + 464));  // after the array
+    CHECK(enumerate() == 0 && mem.read<uint32_t>(returned) == 1 && mem.read<uint32_t>(buffer) == 3);
+    CHECK(enumerate() == 0x12);  // ERROR_NO_MORE_FILES
+    // Without strings (flags 0): no pointers, 0x24 bytes an item; from the second (offset 1).
+    CHECK(create(0, stranger, 0, 1, 8) == 0 && mem.read<uint32_t>(size_ptr) == 8 * 0x24);
+    CHECK(enumerate() == 0 && mem.read<uint32_t>(returned) == 2 && mem.read<uint32_t>(buffer) == 2);
+    CHECK(mem.read<uint32_t>(buffer + 0x04) == 0 && mem.read<uint32_t>(buffer + 0x24) == 3);
+    // Player 1 isn't signed in yet in this test: their own list needs them.
+    CHECK(create(0, 0, 7, 0, 4) != 0);
+    kernel::SignInUser(0);
+    // XUserWriteAchievements: {count, XUSER_ACHIEVEMENT[]}, the same one twice.
+    const guest_addr request = kArea + 0x40, list = kArea + 0x50;
+    mem.write<uint32_t>(request, 2), mem.write<uint32_t>(request + 4, list);
+    mem.write<uint32_t>(list + 0, 0), mem.write<uint32_t>(list + 4, 2);
+    mem.write<uint32_t>(list + 8, 0), mem.write<uint32_t>(list + 12, 2);
+    ctx.r3.u64 = 0xFB, ctx.r4.u64 = 0x000B0008, ctx.r5.u64 = 0, ctx.r6.u64 = request, ctx.r7.u64 = 8;
+    __imp__XMsgStartIORequest(ctx, base);
+    CHECK(ctx.r3.u32 == 0);
+    CHECK(create(0, 0, 1, 0, 4) == 0 && enumerate() == 0 && mem.read<uint32_t>(returned) == 3);
+    CHECK(mem.read<uint32_t>(buffer + 0x20) == 0x9 && mem.read<uint32_t>(buffer + 0x24 + 0x20) == (0xB | 0x20000));
+    CHECK(mem.read<uint32_t>(buffer + 0x24 + 0x18) != 0);  // its time
+    CHECK(mem.read<uint32_t>(buffer + 0x08) == 0 && text(mem.read<uint32_t>(buffer + 0x04)) == "First Step");
+    // Another title's: none.
+    ctx.r3.u64 = 0x12345678, ctx.r4.u64 = 0, ctx.r5.u64 = 0, ctx.r6.u64 = 0, ctx.r7.u64 = 0;
+    ctx.r8.u64 = 4, ctx.r9.u64 = size_ptr, ctx.r10.u64 = handle_ptr;
+    __imp__XamUserCreateAchievementEnumerator(ctx, base);
+    CHECK(ctx.r3.u32 == 0 && enumerate() == 0x12);
+    // The picture of achievement 1 (a 2x1 PNG): ARGB rows of `pitch` bytes.
+    std::memset(mem.translate(buffer), 0, 64);
+    ctx.r3.u64 = 0, ctx.r4.u64 = 0, ctx.r5.u64 = 0x100, ctx.r6.u64 = 0, ctx.r7.u64 = buffer;
+    ctx.r8.u64 = 16, ctx.r9.u64 = 1, ctx.r10.u64 = 0;
+    __imp__XamReadTileToTexture(ctx, base);
+    const uint8_t* argb = mem.translate<uint8_t>(buffer);
+    CHECK(ctx.r3.u32 == 0 && argb[0] == 0xFF && argb[1] == 0xFF && argb[2] == 0 && argb[3] == 0);  // red
+    CHECK(argb[4] == 0x80 && argb[5] == 0 && argb[6] == 0 && argb[7] == 0xFF && argb[8] == 0);       // blue, half
+    ctx.r3.u64 = 0, ctx.r4.u64 = 0, ctx.r5.u64 = 0x300, ctx.r6.u64 = 0, ctx.r7.u64 = buffer;
+    __imp__XamReadTileToTexture(ctx, base);
+    CHECK(ctx.r3.u32 != 0);  // achievement 3 has no picture
+    kernel::LoadAchievements({}, false);
   }
 
   // Weak stubs: link, log once, return 0

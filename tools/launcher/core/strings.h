@@ -184,6 +184,16 @@ enum Text {
   kTextHintShift,
   kTextHintSpace,
   kTextHintDone,
+  kTextAchievements,
+  kTextAchievementsButton,   // {0} gamerscore earned, {1} the game's
+  kTextAchievementsSummary,  // {0} gamertag, {1} unlocked, {2} achievements, {3} gamerscore earned, {4} the game's
+  kTextAchievementsNobody,   // {0} achievements, {1} gamerscore
+  kTextAchievementsReading,
+  kTextAchievementsNone,
+  kTextAchievementSecret,
+  kTextAchievementSecretHint,
+  kTextUnlockedOn,  // {0} date
+  kTextGamerscore,  // {0} gamerscore
   kTextCount
 };
 

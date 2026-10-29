@@ -14,8 +14,9 @@
 //   --select <id>                       the game selected at start
 //   --screenshot <png> [--size WxH] [--dpi N] [--lang en|es] [--state S] [--root <dir>]
 //                                       draw the window offscreen into a PNG: S is library, empty,
-//                                       compatible, add, progress, error, confirm, password, menu
-//                                       or terms; --root uses another release folder
+//                                       compatible, add, progress, error, confirm, password, menu,
+//                                       terms, who, profiles, newprofile, achievements or
+//                                       gameachievements; --root uses another release folder
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>

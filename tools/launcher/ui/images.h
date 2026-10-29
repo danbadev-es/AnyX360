@@ -30,6 +30,7 @@ class ImageCache {
 
   // Screenshots: decode on the caller's thread right away.
   void SetSynchronous(bool synchronous) { synchronous_ = synchronous; }
+  bool Synchronous() const { return synchronous_; }
 
   // The front cover in the picture at `path` (a wraparound's front, a front kept whole), fitted to
   // width x height pixels; null while it is being decoded, or if it can't be.

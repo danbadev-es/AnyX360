@@ -197,6 +197,16 @@ const wchar_t* const kEnglish[] = {
     L"Shift",
     L"Space",
     L"Done",
+    L"Achievements",
+    L"Achievements  {0}/{1} G",
+    L"{0}: {1} of {2} unlocked · {3} of {4} G",
+    L"{0} achievements, {1} G. Choose who's playing to see what their profile has unlocked.",
+    L"Reading the game's achievements…",
+    L"This game has no achievements.",
+    L"Secret achievement",
+    L"Keep playing to unlock it.",
+    L"Unlocked on {0}",
+    L"{0} G",
 };
 
 const wchar_t* const kSpanish[] = {
@@ -382,6 +392,16 @@ const wchar_t* const kSpanish[] = {
     L"Mayús",
     L"Espacio",
     L"Hecho",
+    L"Logros",
+    L"Logros  {0}/{1} G",
+    L"{0}: {1} de {2} desbloqueados · {3} de {4} G",
+    L"{0} logros, {1} G. Elige quién juega para ver lo que ha desbloqueado su perfil.",
+    L"Leyendo los logros del juego…",
+    L"Este juego no tiene logros.",
+    L"Logro secreto",
+    L"Sigue jugando para desbloquearlo.",
+    L"Desbloqueado el {0}",
+    L"{0} G",
 };
 static_assert(std::size(kEnglish) == kTextCount && std::size(kSpanish) == kTextCount);
 

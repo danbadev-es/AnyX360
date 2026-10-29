@@ -74,6 +74,9 @@ struct Settings {
   int version = 3;
   gpu::DisplayConfig display;
   bool show_stats = false;
+  // An unlocked achievement shows a toast, with a chime (achievement_sound).
+  bool achievement_toasts = true;
+  bool achievement_sound = true;
   // The Kinect debug window (F3): open, and where it was ("left,top,right,bottom,maximized" in
   // screen pixels; empty: not placed yet).
   bool kinect_window = false;

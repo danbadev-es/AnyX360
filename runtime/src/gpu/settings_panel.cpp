@@ -445,6 +445,12 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
       bool stats = IsStatsOverlayVisible();
       Row("Performance overlay", "Frame rate, frame times, memory: F1 in game.");
       if (Toggle("##stats", &stats)) PostToUIThread([stats] { ShowStats(stats); });
+      bool toasts = s.achievement_toasts;
+      Row("Achievement notifications", "A toast at the bottom when an achievement unlocks.");
+      if (Toggle("##toasts", &toasts)) settings::Update([toasts](Settings& st) { st.achievement_toasts = toasts; });
+      bool sound = s.achievement_sound;
+      Row("Achievement sound", "A short chime with the toast.");
+      if (Toggle("##toast_sound", &sound)) settings::Update([sound](Settings& st) { st.achievement_sound = sound; });
       ImGui::EndTable();
     }
     EndCard();

@@ -19,6 +19,7 @@
 
 #include "core/jobs.h"
 #include "core/library.h"
+#include "x360/achievements.h"
 #include "x360/profiles.h"
 #include "d2d/canvas.h"
 #include "ui/images.h"
@@ -88,7 +89,8 @@ class App : public JobObserver {
 
   ImageCache& images() { return images_; }
   // Screenshots: library, empty, compatible, add, progress, error, confirm, password, menu, terms,
-  // who, profiles (or profile), newprofile.
+  // who, profiles (or profile), newprofile, achievements (made up), gameachievements (the selected
+  // game's, from the files).
   void ShowState(std::wstring_view state);
 
   // JobObserver (the job's thread).
@@ -174,6 +176,15 @@ class App : public JobObserver {
   void TypeGamertag(wchar_t ch);
   void SignInAs(uint64_t xuid);
   void DrawWho(Canvas& c, Overlay& overlay, bool top);
+  // Achievements (x360/achievements.h): a game's list, read once off the UI thread (null until it
+  // is; then empty for a game without any), and a profile's unlocks and gamerscore, read again when
+  // a game exits or the profiles change.
+  const x360::achievements::TitleList* Achievements(const LibraryGame& game);
+  const x360::achievements::TitleUnlocks& Unlocks(uint64_t xuid, uint32_t title_id);
+  uint32_t Gamerscore(uint64_t xuid);
+  void ForgetUnlocks();
+  void OpenAchievements(const LibraryGame& game);
+  void DrawAchievements(Canvas& c, Overlay& overlay, bool top);
   void DrawGamerpic(Canvas& c, float cx, float cy, float radius, const x360::profiles::Profile* profile, float opacity = 1);
   void PushOverlay(Overlay overlay);
   void PopOverlay();
@@ -194,6 +205,9 @@ class App : public JobObserver {
   // library or the profiles are read again and when a game exits.
   std::map<std::pair<uint64_t, uint32_t>, std::optional<x360::profiles::TitleStats>> title_stats_;
   const std::optional<x360::profiles::TitleStats>& TitleStats(uint64_t xuid, uint32_t title_id);
+  std::map<uint32_t, std::optional<x360::achievements::TitleList>> achievement_lists_;  // by title; none: reading
+  std::map<std::pair<uint64_t, uint32_t>, x360::achievements::TitleUnlocks> unlocks_;
+  std::map<uint64_t, uint32_t> gamerscores_;
 
   // The layout of the last Paint.
   std::vector<Target> targets_;

@@ -66,6 +66,8 @@ enum : int {
   kIdProfileLanguage,
   kIdSwitchProfile,
   kIdGamertagField,
+  kIdAchievements,
+  kIdAchievementList,
   kIdTile = 1000,
   kIdCompatible = 2000,
   kIdButton = 3000,
@@ -264,7 +266,7 @@ struct App::Target {
   bool focusable = true;
 };
 
-enum class OverlayKind { kAdd, kProgress, kMessage, kPassword, kMenu, kTerms, kWho, kProfiles, kGamertag };
+enum class OverlayKind { kAdd, kProgress, kMessage, kPassword, kMenu, kTerms, kWho, kProfiles, kGamertag, kAchievements };
 
 struct App::Overlay {
   struct Action {
@@ -289,8 +291,9 @@ struct App::Overlay {
   // "Who's playing?" at start: it can't be left without choosing.
   bool required = false;
   // A gamertag typed (in `typed`): the profile renamed (0: a new one), the on-screen keyboard's
-  // Shift.
+  // Shift. Achievements: the profile whose they are (0: nobody playing) and the title's.
   uint64_t xuid = 0;
+  uint32_t title_id = 0;
   bool shift = true;
   // The terms.
   bool require_acceptance = false, checked = false;
@@ -323,6 +326,7 @@ App::~App() {
 
 void App::Load(std::wstring select) {
   title_stats_.clear();
+  ForgetUnlocks();
   if (select.empty() && SelectedGame() >= 0) select = games_[size_t(SelectedGame())].info->id;
   games_ = ReadLibrary();
   tiles_.clear();
@@ -444,6 +448,7 @@ void App::Paint(Canvas& c) {
     if (overlay.kind == OverlayKind::kTerms) DrawTerms(c, overlay, true);
     else if (overlay.kind == OverlayKind::kMenu) DrawMenu(c, overlay, true);
     else if (overlay.kind == OverlayKind::kWho) DrawWho(c, overlay, true);
+    else if (overlay.kind == OverlayKind::kAchievements) DrawAchievements(c, overlay, true);
     else DrawOverlay(c, overlay, true);
   }
   if (drop_hover_) {
@@ -535,9 +540,14 @@ void App::DrawHeader(Canvas& c) {
     const std::wstring text = player ? Widen(player->gamertag) : Tr(kTextProfileLink);
     const float w = c.MeasureText(text, style).width;
     const float pic = player ? 30 : 0;
-    const RectF r{x - w - pic, 21, w + pic, 30};
+    // Its gamerscore after the gamertag, as the console's gamercard has it.
+    TextStyle score_style = Style(13, DWRITE_FONT_WEIGHT_NORMAL, kTextSecondary);
+    const std::wstring score = player ? Tr(kTextGamerscore, {std::to_wstring(Gamerscore(player->xuid))}) : L"";
+    const float score_w = player ? c.MeasureText(score, score_style).width + 10 : 0;
+    const RectF r{x - w - pic - score_w, 21, w + pic + score_w, 30};
     if (player) DrawGamerpic(c, r.x + 13, r.cy(), 13, player);
-    c.Text(text, {r.right() - w, 26, w + 2, 20}, style);
+    c.Text(text, {r.x + pic, 26, w + 2, 20}, style);
+    if (player) c.Text(score, {r.right() - score_w + 10, 27, score_w, 20}, score_style);
     if (focus_ == kIdProfile && focus_visible_) DrawFocus(c, r);
     AddTarget(r, kIdProfile, [this] { OpenProfiles(); });
     x -= r.w + 22;
@@ -687,6 +697,15 @@ void App::DrawDetails(Canvas& c) {
     for (int i = -1; i <= 1; ++i) c.FillCircle(more_button_.cx() + i * 9.0f, more_button_.cy(), 2.4f, kText);
     if (focus_ == kIdMore && focus_visible_) DrawFocus(c, more_button_);
     AddTarget(more_button_, kIdMore, [this] { OpenMore(more_button_); });
+    // Its achievements, with the gamerscore the profile playing has earned in it.
+    std::wstring label = Tr(kTextAchievements);
+    if (const x360::achievements::TitleList* list = Achievements(lib); list && !list->achievements.empty()) {
+      const uint32_t earned = Player() ? Unlocks(Player()->xuid, lib.info->title_id).Gamerscore() : 0;
+      label = Tr(kTextAchievementsButton, {std::to_wstring(earned), std::to_wstring(list->TotalGamerscore())});
+    }
+    const float label_w = c.MeasureText(label, Style(16, DWRITE_FONT_WEIGHT_SEMI_BOLD, kText)).width + 44;
+    Button(c, {more_button_.right() + 10, play.y, std::max(150.0f, label_w), 50}, label, kIdAchievements,
+           [this, game] { OpenAchievements(games_[size_t(game)]); });
   } else {
     const bool first = tiles_.size() == 1;
     c.Text(first ? Tr(kTextAddFirst) : Tr(kTextAddTile), {kMargin, y, w, 46}, Style(34, DWRITE_FONT_WEIGHT_LIGHT, kText));
@@ -955,7 +974,12 @@ void App::DrawOverlay(Canvas& c, Overlay& overlay, bool top) {
       if (i < profiles_.size()) {
         const x360::profiles::Profile& p = profiles_[i];
         DrawGamerpic(c, r.x + 30, r.cy(), 17, &p, fade);
-        c.Text(Widen(p.gamertag), {r.x + 60, r.y, r.w - 260, r.h}, name);
+        const std::wstring gamertag = Widen(p.gamertag);
+        c.Text(gamertag, {r.x + 60, r.y, r.w - 260, r.h}, name);
+        TextStyle score = Style(13, DWRITE_FONT_WEIGHT_NORMAL, kTextTertiary.Alpha(fade));
+        score.vertical = Align::kCenter;
+        c.Text(Tr(kTextGamerscore, {std::to_wstring(Gamerscore(p.xuid))}),
+               {r.x + 60 + c.MeasureText(gamertag, name).width + 14, r.y + 1, 120, r.h}, score);
         std::wstring signed_in;
         for (int slot = 0; slot < x360::profile::kPlayers; ++slot)
           if (sign_in_.slots[slot] == p.xuid)
@@ -1185,6 +1209,7 @@ void App::FocusFirst() {
         for (int i = 0; i < 8; ++i) preferred.push_back(kIdMenuItem + i);
         break;
       case OverlayKind::kTerms: preferred = {kIdTermsCheck, kIdButton}; break;
+      case OverlayKind::kAchievements: preferred = {kIdAchievementList, kIdButton}; break;
       default: preferred = {kIdButton}; break;
     }
   } else {
@@ -1215,7 +1240,8 @@ void App::Move(Key direction) {
     focus_ = kIdPlay;
     return host_.Invalidate();
   }
-  if ((focus_ == kIdPlay || focus_ == kIdMore) && direction == Key::kUp && exists(kIdTile + selected_)) {
+  if ((focus_ == kIdPlay || focus_ == kIdMore || focus_ == kIdAchievements) && direction == Key::kUp &&
+      exists(kIdTile + selected_)) {
     focus_ = kIdTile + selected_;
     return host_.Invalidate();
   }
@@ -1299,7 +1325,8 @@ void App::MouseUp(float x, float y) {
 void App::Wheel(float x, float y, float notches) {
   if (!overlays_.empty()) {
     Overlay& overlay = overlays_.back();
-    if (overlay.kind == OverlayKind::kTerms) overlay.scroll -= notches * 60, host_.Invalidate();
+    if (overlay.kind == OverlayKind::kTerms || overlay.kind == OverlayKind::kAchievements)
+      overlay.scroll -= notches * 60, host_.Invalidate();
     return;
   }
   const float drawer_top = height_ - kDrawerBar - (std::clamp(height_ * 0.42f, 230.0f, 330.0f) - kDrawerBar) * drawer_.to;
@@ -1330,7 +1357,8 @@ void App::KeyPressed(Key key, bool from_pad) {
   focus_visible_ = true;
   pad_used_ = from_pad;
   // The terms' text scrolls with up and down while it has the focus.
-  if (focus_ == kIdTermsText && !overlays_.empty() && (key == Key::kUp || key == Key::kDown)) {
+  if ((focus_ == kIdTermsText || focus_ == kIdAchievementList) && !overlays_.empty() &&
+      (key == Key::kUp || key == Key::kDown)) {
     overlays_.back().scroll += key == Key::kDown ? 60.0f : -60.0f;
     host_.Invalidate();
     return;
@@ -1561,6 +1589,8 @@ void App::Play() {
 
 void App::GameExited(uint32_t code) {
   title_stats_.clear();  // the game added its time
+  ForgetUnlocks();       // and its achievements
+  if (running_game_) achievement_lists_.erase(running_game_->title_id);  // its update's list, now
   const CatalogGame* game = running_game_;
   running_game_ = nullptr;
   if (code == 0) return host_.Close();  // closed normally (or restarted from the game's settings)
@@ -1585,6 +1615,10 @@ void App::OpenMore(const RectF& anchor) {
                              Load();
                            },
                            !lib.cover.empty()});
+  overlay.items.push_back({Tr(kTextAchievements), [this, game] {
+                             PopOverlay();
+                             OpenAchievements(games_[size_t(game)]);
+                           }});
   overlay.items.push_back({Tr(kTextMenuLogs), [this, info] { PopOverlay(); OpenLogs(info); }, Exists(LogDir(*info))});
   overlay.items.push_back({Tr(kTextMenuPrepareAgain), [this] { PopOverlay(); OpenAdd(); }});
   overlay.items.push_back({Tr(kTextMenuSaveAnyx), [this, info] { PopOverlay(); SaveAnyx(info->id, {}); },
@@ -1616,6 +1650,7 @@ const std::optional<x360::profiles::TitleStats>& App::TitleStats(uint64_t xuid, 
 
 void App::ReloadProfiles() {
   title_stats_.clear();
+  ForgetUnlocks();
   sign_in_ = x360::profile::Read(x360::profile::File(ProfilesRoot()));
   profiles_ = x360::profiles::List(ProfilesRoot());
   host_.Invalidate();
@@ -1822,6 +1857,186 @@ void App::SubmitGamertag() {
   if (created && !overlays_.empty() && overlays_.back().kind == OverlayKind::kWho) SignInAs(result.profile.xuid);
 }
 
+// ---- achievements (x360/achievements.h) ------------------------------------------------------------
+
+const x360::achievements::TitleList* App::Achievements(const LibraryGame& game) {
+  const uint32_t title_id = game.info->title_id;
+  auto [found, added] = achievement_lists_.try_emplace(title_id);
+  if (added) {
+    if (images_.Synchronous()) {
+      // Screenshots: what the games wrote, nothing read from an executable or written.
+      found->second = x360::achievements::ReadTitleList(ProfilesRoot(), title_id);
+    } else {
+      std::thread([this, game, root = ProfilesRoot()] {
+        std::optional<x360::achievements::TitleList> list = ReadAchievements(game, root);
+        if (!list) list = x360::achievements::TitleList{game.info->title_id};  // shown as none
+        host_.Post([this, list = std::move(*list)]() mutable {
+          const uint32_t id = list.title_id;
+          achievement_lists_[id] = std::move(list);
+          host_.Invalidate();
+        });
+      }).detach();
+    }
+  }
+  return found->second ? &*found->second : nullptr;
+}
+
+const x360::achievements::TitleUnlocks& App::Unlocks(uint64_t xuid, uint32_t title_id) {
+  auto [found, added] = unlocks_.try_emplace({xuid, title_id});
+  if (added) found->second = x360::achievements::ReadUnlocks(ProfilesRoot(), xuid, title_id);
+  return found->second;
+}
+
+uint32_t App::Gamerscore(uint64_t xuid) {
+  auto [found, added] = gamerscores_.try_emplace(xuid);
+  if (added) found->second = x360::achievements::ProfileTotals(ProfilesRoot(), xuid).gamerscore;
+  return found->second;
+}
+
+void App::ForgetUnlocks() {
+  unlocks_.clear();
+  gamerscores_.clear();
+}
+
+void App::OpenAchievements(const LibraryGame& game) {
+  Achievements(game);  // read, if it isn't yet
+  Overlay overlay;
+  overlay.kind = OverlayKind::kAchievements;
+  overlay.title = game.info->title;
+  overlay.title_id = game.info->title_id;
+  overlay.xuid = Player() ? Player()->xuid : 0;
+  overlay.buttons.push_back({Tr(kTextTermsClose), [this] { PopOverlay(); }});
+  overlay.back = [this] { PopOverlay(); };
+  PushOverlay(std::move(overlay));
+}
+
+void App::DrawAchievements(Canvas& c, Overlay& overlay, bool top) {
+  namespace ach = x360::achievements;
+  const float fade = overlay.fade.Value(Now());
+  c.FillRect({0, 0, width_, height_}, Color::Hex(0x000000, 0.7f * fade));
+  const float column_w = std::min(900.0f, width_ - 2 * kMargin);
+  const float x = (width_ - column_w) / 2;
+  const RectF band{0, 36, width_, height_ - 72};
+  c.FillRect(band, kPanel.Alpha(fade));
+  float y = band.y + 30;
+  c.FillRect({x - 18, y + 8, 4, 32}, kGreen.Alpha(fade));
+  c.Text(Tr(kTextAchievements), {x, y, column_w, 48}, Style(34, DWRITE_FONT_WEIGHT_LIGHT, kText.Alpha(fade)));
+  if (std::shared_ptr<const Image> mark = Logo(kLogoMark, 40))
+    DrawLogo(c, mark, x + column_w - mark->width * 96 / dpi_, y + 4, fade);
+  y += 54;
+  c.Text(overlay.title, {x, y, column_w, 28}, Style(20, DWRITE_FONT_WEIGHT_SEMI_LIGHT, kText.Alpha(fade)));
+  y += 32;
+
+  auto found = achievement_lists_.find(overlay.title_id);
+  const ach::TitleList* list = found != achievement_lists_.end() && found->second ? &*found->second : nullptr;
+  const x360::profiles::Profile* owner = nullptr;
+  for (const auto& p : profiles_)
+    if (p.xuid == overlay.xuid) owner = &p;
+  static const ach::TitleUnlocks kNoUnlocks;
+  const ach::TitleUnlocks& unlocks = owner ? Unlocks(owner->xuid, overlay.title_id) : kNoUnlocks;
+
+  // The summary and the share of the gamerscore earned.
+  TextStyle summary = Body();
+  summary.color = kTextSecondary.Alpha(fade);
+  std::wstring text;
+  uint32_t earned = 0, unlocked = 0;
+  if (list) {
+    for (const ach::Achievement& a : list->achievements)
+      if (unlocks.Find(a.id)) earned += a.gamerscore, ++unlocked;
+  }
+  if (!list) text = Tr(kTextAchievementsReading);
+  else if (list->achievements.empty()) text = Tr(kTextAchievementsNone);
+  else if (owner)
+    text = Tr(kTextAchievementsSummary, {Widen(owner->gamertag), std::to_wstring(unlocked), std::to_wstring(list->achievements.size()),
+                                         std::to_wstring(earned), std::to_wstring(list->TotalGamerscore())});
+  else
+    text = Tr(kTextAchievementsNobody, {std::to_wstring(list->achievements.size()), std::to_wstring(list->TotalGamerscore())});
+  c.Text(text, {x, y, column_w, 22}, summary);
+  y += 28;
+  if (list && !list->achievements.empty()) {
+    const RectF bar{x, y, column_w, 4};
+    c.FillRect(bar, Color::Hex(0x3A3A3A, fade));
+    const uint32_t total = std::max<uint32_t>(1, list->TotalGamerscore());
+    c.FillRect({bar.x, bar.y, bar.w * std::min(1.0f, float(earned) / float(total)), bar.h}, kGreen.Alpha(fade));
+  }
+  y += 18;
+
+  // The list: unlocked first (the latest first), then the others in the game's order.
+  std::vector<const ach::Achievement*> order;
+  if (list) {
+    for (const ach::Achievement& a : list->achievements)
+      if (unlocks.Find(a.id)) order.push_back(&a);
+    std::stable_sort(order.begin(), order.end(), [&](const ach::Achievement* a, const ach::Achievement* b) {
+      return unlocks.Find(a->id)->date > unlocks.Find(b->id)->date;
+    });
+    for (const ach::Achievement& a : list->achievements)
+      if (!unlocks.Find(a.id)) order.push_back(&a);
+  }
+  const float footer = 30 + 42 + 24;
+  const RectF view{x, y, column_w, band.bottom() - footer - y};
+  const float row_h = 84;
+  overlay.content = order.size() * row_h;
+  overlay.view = view.h;
+  overlay.scroll = std::clamp(overlay.scroll, 0.0f, std::max(0.0f, overlay.content - view.h));
+  const std::string language = CurrentLanguage() == Language::kSpanish ? "es" : "en";
+  const float scale = dpi_ / 96;
+  c.PushClip(view);
+  for (size_t i = 0; i < order.size(); ++i) {
+    const float ry = view.y - overlay.scroll + i * row_h;
+    if (ry + row_h < view.y || ry > view.bottom()) continue;
+    const ach::Achievement& a = *order[i];
+    const ach::Unlock* u = unlocks.Find(a.id);
+    const bool secret = !u && a.Secret();
+    const ach::Strings& s = a.In(language);
+    const RectF r{x, ry, column_w - 18, row_h - 8};
+    c.FillRect(r, (u ? kPanelHigh : Color::Hex(0x242424)).Alpha(fade));
+    const RectF icon{r.x + 10, r.y + (r.h - 56) / 2, 56, 56};
+    std::shared_ptr<const Image> picture =
+        images_.Picture(ach::ImageFile(ProfilesRoot(), overlay.title_id, a.image_id), uint32_t(56 * scale), uint32_t(56 * scale));
+    if (ID2D1Bitmap* bitmap = secret ? nullptr : Bitmap(c, picture)) {
+      c.DrawBitmap(bitmap, icon, (u ? 1.0f : 0.28f) * fade);
+    } else {
+      c.FillRect(icon, kPanel.Alpha(fade));
+    }
+    if (!u) {  // locked: a padlock over it
+      TextStyle lock = Style(22, DWRITE_FONT_WEIGHT_NORMAL, kTextSecondary.Alpha(fade), Align::kCenter);
+      lock.family = L"Segoe MDL2 Assets";
+      lock.vertical = Align::kCenter;
+      c.Text(L"\xE72E", icon, lock);
+    }
+    const float tx = icon.right() + 16, right_w = 210;
+    const float tw = r.right() - right_w - tx;
+    TextStyle name = Style(17, DWRITE_FONT_WEIGHT_SEMI_BOLD, (u ? kText : kTextSecondary).Alpha(fade));
+    c.Text(secret ? Tr(kTextAchievementSecret) : Widen(s.name), {tx, r.y + 12, tw, 24}, name);
+    TextStyle description = Style(14, DWRITE_FONT_WEIGHT_NORMAL, kTextTertiary.Alpha(fade), Align::kStart, true);
+    if (u) description.color = kTextSecondary.Alpha(fade);
+    const std::wstring how = secret ? Tr(kTextAchievementSecretHint) : Widen(u ? s.unlocked : s.locked);
+    c.Text(how, {tx, r.y + 38, tw, 36}, description);
+    TextStyle score = Style(17, DWRITE_FONT_WEIGHT_SEMI_BOLD, (u ? kGreenText : kTextSecondary).Alpha(fade), Align::kEnd);
+    c.Text(Tr(kTextGamerscore, {std::to_wstring(a.gamerscore)}), {r.right() - right_w, r.y + 12, right_w - 16, 24}, score);
+    if (u) {
+      TextStyle date = Style(12, DWRITE_FONT_WEIGHT_NORMAL, kTextTertiary.Alpha(fade), Align::kEnd);
+      c.Text(Tr(kTextUnlockedOn, {ShortDate(u->date)}), {r.right() - right_w, r.y + 40, right_w - 16, 20}, date);
+    }
+  }
+  c.PopClip();
+  if (overlay.content > view.h) {  // the scroll bar
+    const float thumb = std::max(30.0f, view.h * view.h / overlay.content);
+    const float ty = view.y + (view.h - thumb) * overlay.scroll / (overlay.content - view.h);
+    c.FillRect({view.right() - 4, view.y, 4, view.h}, Color::Hex(0x2E2E2E));
+    c.FillRect({view.right() - 4, ty, 4, thumb}, Color::Hex(0x777777));
+  }
+  if (focus_ == kIdAchievementList && focus_visible_) DrawFocus(c, view);
+  if (top) AddTarget(view, kIdAchievementList, [] {});
+  float bx = x + column_w;
+  for (int i = int(overlay.buttons.size()) - 1; i >= 0; --i) {
+    const Overlay::Action& action = overlay.buttons[size_t(i)];
+    const float w = std::max(132.0f, c.MeasureText(action.label, Style(16, DWRITE_FONT_WEIGHT_SEMI_BOLD, kText)).width + 44);
+    if (top) Button(c, {bx - w, band.bottom() - 24 - 42, w, 42}, action.label, kIdButton + i, action.run, false, action.enabled);
+    bx -= w + 10;
+  }
+}
+
 void App::ChangeCover(const CatalogGame& game) {
   const fs::path image = ChooseFile(host_.Window(), Tr(kTextCoverTitle, {game.title}),
                                     {{Tr(kTextFilterImages), L"*.png;*.jpg;*.jpeg;*.bmp;*.webp;*.heic"},
@@ -1988,7 +2203,13 @@ void App::ShowState(std::wstring_view state) {
     focus_visible_ = true;
   } else if (state == L"terms") {
     ShowTerms(true);
-  } else if (state == L"who" || state == L"profiles" || state == L"profile" || state == L"newprofile") {
+  } else if (state == L"gameachievements") {
+    // The selected game's page with the real files (the list a game wrote, the profile's unlocks).
+    if (SelectedGame() >= 0) OpenAchievements(games_[size_t(SelectedGame())]);
+    focus_ = kIdAchievementList;
+    focus_visible_ = true;
+  } else if (state == L"who" || state == L"profiles" || state == L"profile" || state == L"newprofile" ||
+             state == L"achievements") {
     // Made-up profiles (nothing is written): Daniel playing, Ana on player 2's slot.
     const char* names[] = {"Daniel", "Ana", "Leo", "Marta"};
     const uint64_t xuids[] = {x360::profiles::kLegacyXuid, x360::profiles::kLegacyXuid + 1, 0xE0003A41C29F0B57ull,
@@ -2003,7 +2224,48 @@ void App::ShowState(std::wstring_view state) {
     }
     sign_in_ = {};
     if (state != L"who") sign_in_.slots[0] = xuids[0], sign_in_.slots[1] = xuids[1];
-    if (state == L"who") {
+    // Their gamerscores, made up too (the real profiles' files aren't read).
+    const uint32_t scores[] = {1250, 340, 0, 95};
+    for (int i = 0; i < 4; ++i) gamerscores_[xuids[i]] = scores[i];
+    if (state == L"achievements") {
+      // A made-up list of nine for the selected game (or the catalog's first), three unlocked.
+      const int game = SelectedGame();
+      const CatalogGame& info = game >= 0 ? *games_[size_t(game)].info : kCatalog[0];
+      LibraryGame shown;
+      shown.info = &info;
+      x360::achievements::TitleList list;
+      list.title_id = info.title_id;
+      const struct {
+        const char *en, *es, *how_en, *how_es;
+        uint32_t score, flags;
+      } items[] = {
+          {"First Steps", "Primeros pasos", "Finish the first chapter.", "Termina el primer capítulo.", 10, 0x8},
+          {"Collector", "Coleccionista", "Find 10 hidden items.", "Encuentra 10 objetos ocultos.", 20, 0x8},
+          {"Teamwork", "Trabajo en equipo", "Win a match in split screen.", "Gana una partida a pantalla dividida.", 15, 0x8},
+          {"Sharpshooter", "Tirador", "Hit 50 targets in a row.", "Acierta 50 blancos seguidos.", 25, 0x8},
+          {"The Long Road", "El camino largo", "Finish the story on any difficulty.", "Termina la historia en cualquier dificultad.", 50, 0x8},
+          {"Untouchable", "Intocable", "Finish a chapter without being hit.", "Termina un capítulo sin recibir daño.", 30, 0x8},
+          {"Hidden Truth", "La verdad oculta", "Discover the secret ending.", "Descubre el final secreto.", 40, 0x0},
+          {"Marathon", "Maratón", "Play for 10 hours.", "Juega durante 10 horas.", 20, 0x8},
+          {"Completionist", "Completista", "Unlock every other achievement.", "Desbloquea todos los demás logros.", 100, 0x8},
+      };
+      for (uint32_t i = 0; i < std::size(items); ++i) {
+        x360::achievements::Achievement a;
+        a.id = i + 1;
+        a.gamerscore = items[i].score;
+        a.image_id = i + 1;
+        a.flags = items[i].flags;
+        a.strings["en"] = {items[i].en, items[i].how_en, std::string("Done: ") + items[i].how_en};
+        a.strings["es"] = {items[i].es, items[i].how_es, std::string("Hecho: ") + items[i].how_es};
+        list.achievements.push_back(std::move(a));
+      }
+      achievement_lists_[info.title_id] = list;
+      x360::achievements::TitleUnlocks& unlocks = unlocks_[{xuids[0], info.title_id}];
+      unlocks = {info.title_id, Narrow(info.title)};
+      unlocks.unlocks = {{1, 10, "2026-10-21T18:30:00Z"}, {3, 15, "2026-10-25T20:05:00Z"}, {2, 20, "2026-10-28T21:40:00Z"}};
+      OpenAchievements(shown);
+      focus_ = kIdAchievementList;
+    } else if (state == L"who") {
       Overlay overlay;
       overlay.kind = OverlayKind::kWho;
       overlay.required = true;

@@ -14,6 +14,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <thread>
 #include <vector>
@@ -480,6 +481,13 @@ void CloseSigninUi();
 // Adds the time played since the last call to each signed-in profile's titles\<TitleID>.json
 // (x360/profiles.h). The runtime calls it every minute and when the game exits. Any thread.
 void SavePlayTime();
+// The title's achievements (xam.cpp, x360/achievements.h) from its SPA: at startup the loaded
+// image's, and written to <profiles root>\titles\<TitleID>\ if `write_list` and the list there came
+// from another SPA. Tests give a made-up one.
+void LoadAchievements(std::span<const uint8_t> xdbf, bool write_list);
+// The achievements list (gpu::OpenAchievementsUi) closed: the title sees the system UI close, and gets
+// its controllers back.
+void CloseAchievementsUi();
 // The Kinect Guide opens (the virtual Kinect recognised the guide gesture) or closes (the player
 // lowered their arm): the title sees the system UI open while it is, and pauses as it would on the
 // console. There is no overlay. Any thread.

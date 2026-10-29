@@ -66,6 +66,34 @@ std::string ReplaceProcess(const std::filesystem::path& exe, const std::vector<s
 // False when there is no game window to show it in. Any thread.
 bool OpenSigninPicker(uint32_t count);
 
+// An achievement unlocked, for its toast (achievement_toast.cpp): bottom centre, a few seconds, with
+// a chime, one after another. `gamertag` is shown when given (several players signed in). False when
+// toasts are off (settings.toml achievement_toasts) or there is no game window. Any thread.
+struct AchievementToast {
+  std::string name;          // UTF-8, the game's language
+  uint32_t gamerscore = 0;
+  std::string gamertag;
+  std::vector<uint8_t> png;  // its picture; empty: none
+};
+bool ShowAchievementToast(const AchievementToast& toast);
+
+// The system's list of a player's achievements in this game over it (achievements_ui.cpp), for a
+// title's XamShowAchievementsUI: unlocked first, scrolled with the d-pad, closed with B (then
+// kernel::CloseAchievementsUi). False when there is no game window. Any thread.
+struct AchievementsView {
+  std::string title;     // the game's name
+  std::string gamertag;  // whose
+  struct Item {
+    std::string name, description;  // the game's language; the description as unlocked or how to
+    uint32_t gamerscore = 0;
+    bool unlocked = false, secret = false;  // secret: locked and hidden (its name isn't shown)
+    std::string date;                       // ISO 8601 UTC; empty: locked (or this session)
+    std::vector<uint8_t> png;
+  };
+  std::vector<Item> items;
+};
+bool OpenAchievementsUi(AchievementsView view);
+
 // Records a guest frame (VdSwap) for the performance overlay.
 void NotifySwap(uint32_t frontbuffer_width, uint32_t frontbuffer_height);
 

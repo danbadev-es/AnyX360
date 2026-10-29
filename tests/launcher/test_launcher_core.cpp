@@ -15,6 +15,7 @@
 #include <mutex>
 #include <set>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #define WIN32_LEAN_AND_MEAN
@@ -32,7 +33,9 @@
 #include "core/sevenzip.h"
 #include "core/strings.h"
 #include "core/terms.h"
+#include "x360/achievements.h"
 #include "x360/profiles.h"
+#include "xdbf.h"
 
 using namespace anyx360::launcher;
 
@@ -59,6 +62,64 @@ void PutBe(std::string& b, size_t at, uint32_t v, int bytes = 4) {
 }
 void PutLe(std::string& b, size_t at, uint32_t v, int bytes) {
   for (int i = 0; i < bytes; ++i) b[at + i] = char(v >> (8 * i));
+}
+
+// A made-up SPA (XDBF): three achievements (XACH), English and Spanish string tables (XSTR, the
+// second without some strings), the default language (XSTC) and two of the three pictures.
+std::vector<uint8_t> MadeUpSpa() {
+  auto be = [](std::vector<uint8_t>& b, uint64_t v, int bytes) {
+    for (int i = bytes - 1; i >= 0; --i) b.push_back(uint8_t(v >> (8 * i)));
+  };
+  auto tagged = [&](uint32_t tag, uint16_t count, const std::vector<uint8_t>& body, bool with_count = true) {
+    std::vector<uint8_t> out;
+    be(out, tag, 4), be(out, 1, 4), be(out, body.size() + (with_count ? 2 : 0), 4);
+    if (with_count) be(out, count, 2);
+    out.insert(out.end(), body.begin(), body.end());
+    return out;
+  };
+  auto strings = [&](std::vector<std::pair<uint16_t, std::string>> list) {
+    std::vector<uint8_t> body;
+    for (const auto& [id, text] : list) {
+      be(body, id, 2), be(body, text.size(), 2);
+      body.insert(body.end(), text.begin(), text.end());
+    }
+    return tagged(0x58535452, uint16_t(list.size()), body);
+  };
+  std::vector<uint8_t> xach;
+  const struct {
+    uint16_t id, name;
+    uint32_t image;
+    uint16_t score;
+    uint32_t flags;
+  } items[] = {{1, 10, 0x100, 10, 0x9}, {2, 20, 0x200, 20, 0xB}, {3, 30, 0x300, 50, 0x2}};
+  for (const auto& a : items) {
+    be(xach, a.id, 2), be(xach, a.name, 2), be(xach, a.name + 1, 2), be(xach, a.name + 2, 2);
+    be(xach, a.image, 4), be(xach, a.score, 2), be(xach, 0, 2), be(xach, a.flags, 4);
+    xach.insert(xach.end(), 16, 0);
+  }
+  std::vector<uint8_t> xstc;
+  be(xstc, 1, 4);
+  const std::vector<std::tuple<uint16_t, uint64_t, std::vector<uint8_t>>> entries = {
+      {1, 0x58414348, tagged(0x58414348, 3, xach)},
+      {1, 0x58535443, tagged(0x58535443, 0, xstc, false)},
+      {3, 1, strings({{0x8000, "Made-up Game"}, {10, "First Step"}, {11, "You started"}, {12, "Start"},
+                      {20, "Collector"}, {21, "Collected"}, {22, "Collect"}, {30, "Hidden"}, {31, "Found"}, {32, "?"}})},
+      {3, 5, strings({{10, "Primer paso"}, {11, "Has empezado"}, {12, "Empieza"}})},
+      {2, 0x100, {'A', 'A', 'A', 'A'}},
+      {2, 0x200, {'B', 'B', 'B', 'B', 'B', 'B'}},
+  };
+  // Header, the entry table (one spare slot), a free table of one, then the data.
+  std::vector<uint8_t> out, data;
+  const uint32_t table = uint32_t(entries.size()) + 1;
+  be(out, 0x58444246, 4), be(out, 0x10000, 4), be(out, table, 4), be(out, entries.size(), 4), be(out, 1, 4), be(out, 0, 4);
+  for (const auto& [section, id, bytes] : entries) {
+    be(out, section, 2), be(out, id, 8), be(out, data.size(), 4), be(out, bytes.size(), 4);
+    data.insert(data.end(), bytes.begin(), bytes.end());
+  }
+  out.insert(out.end(), 18, 0);  // the spare entry
+  out.insert(out.end(), 8, 0);   // the free table
+  out.insert(out.end(), data.begin(), data.end());
+  return out;
 }
 
 // A default.xex header: 'XEX2', one optional header (execution info, 0x00040006) whose record holds
@@ -1263,6 +1324,82 @@ int main() {
     SetLanguage(Language::kEnglish);
     fs::remove_all(root / L"profiles", ec);
     fs::remove(root / L"profile.txt", ec);
+  }
+
+  {  // Achievements (x360/achievements.h): a made-up SPA's list, the cache, unlocks and gamerscore.
+    namespace ach = x360::achievements;
+    std::error_code ec;
+    const fs::path root = LocalAppData() / L"AnyX360";
+    const std::vector<uint8_t> xdbf = MadeUpSpa();
+    // XACH, with every language's strings and the pictures.
+    const auto raw = x360tool::xdbf_achievements(xdbf);
+    CHECK(raw.size() == 3 && raw[0].id == 1 && raw[0].name_id == 10 && raw[0].unlocked_id == 11 && raw[0].locked_id == 12);
+    CHECK(raw[1].gamerscore == 20 && raw[1].image_id == 0x200 && raw[2].flags == 2);
+    CHECK(x360tool::xdbf_default_language(xdbf) == 1);
+    CHECK(x360tool::xdbf_string(xdbf, 5, 10) == "Primer paso" && !x360tool::xdbf_string(xdbf, 5, 99));
+    std::map<uint32_t, std::vector<uint8_t>> images;
+    const ach::TitleList list = x360tool::xdbf_title_list(xdbf, 0x4D5308AB, &images);
+    CHECK(list.title == "Made-up Game" && list.achievements.size() == 3 && list.TotalGamerscore() == 80);
+    CHECK(list.achievements[0].In("es").name == "Primer paso" && list.achievements[0].In("es").locked == "Empieza");
+    CHECK(list.achievements[0].In("en").unlocked == "You started");
+    CHECK(list.achievements[1].In("es").name == "Collector");  // no Spanish string: English
+    CHECK(list.achievements[1].In("ja").name == "Collector");  // no such table: English
+    CHECK(!list.achievements[0].Secret() && list.achievements[2].Secret());
+    CHECK(images.size() == 2 && images[0x100].size() == 4 && images[0x200][0] == 'B');  // 0x300 has none
+    CHECK(list.source.size() == 16 && x360tool::xdbf_title_list(xdbf, 1).source == list.source);
+    CHECK(x360tool::xdbf_title_list({}, 1).achievements.empty());
+    std::vector<uint8_t> broken = xdbf;
+    broken.resize(40);
+    CHECK(x360tool::xdbf_achievements(broken).empty());
+
+    // The cache, as a game writes it and the launcher reads it.
+    CHECK(!ach::ReadTitleList(root, 0x4D5308AB));
+    CHECK(ach::WriteTitleList(root, list, images));
+    const auto cached = ach::ReadTitleList(root, 0x4D5308AB);
+    CHECK(cached && cached->source == list.source && cached->achievements.size() == 3);
+    CHECK(cached->achievements[2].In("en").name == "Hidden" && cached->achievements[2].flags == 2);
+    CHECK(cached->achievements[1].image_id == 0x200 && cached->achievements[0].strings.size() == 2);
+    CHECK(Exists(ach::ImageFile(root, 0x4D5308AB, 0x100)) && Exists(root / L"titles" / L"4D5308AB" / L"00000200.png"));
+    LibraryGame library_game;
+    library_game.info = &game;
+    CHECK(!ReadAchievements(library_game, root));  // no copy to read, no list written for it
+    // The launcher reads the list a game wrote (its title update's) before its executable.
+    ach::TitleList for_game = list;
+    for_game.title_id = game.title_id;
+    CHECK(ach::WriteTitleList(root, for_game, {}));
+    const auto read = ReadAchievements(library_game, root);
+    CHECK(read && read->title_id == game.title_id && read->achievements.size() == 3);
+
+    // Unlocks: each once, with its first date; totals over every title.
+    const uint64_t xuid = 0xE0003A41C29F0B57ull;
+    CHECK(ach::ReadUnlocks(root, xuid, 0x4D5308AB).unlocks.empty());
+    CHECK(ach::Record(root, xuid, 0x4D5308AB, "Made-up Game", 1, 10, "2026-10-29T10:00:00Z") == ach::Result::kUnlocked);
+    CHECK(ach::Record(root, xuid, 0x4D5308AB, "Made-up Game", 1, 10) == ach::Result::kAlready);
+    CHECK(ach::Record(root, xuid, 0x4D5308AB, "", 2, 20) == ach::Result::kUnlocked);
+    CHECK(ach::Record(root, xuid, game.title_id, "Other", 3, 50) == ach::Result::kUnlocked);
+    CHECK(ach::Record(root, 0, game.title_id, "Nobody", 3, 50) == ach::Result::kFailed);
+    const ach::TitleUnlocks unlocks = ach::ReadUnlocks(root, xuid, 0x4D5308AB);
+    CHECK(unlocks.unlocks.size() == 2 && unlocks.title == "Made-up Game" && unlocks.Gamerscore() == 30);
+    CHECK(unlocks.Find(1) && unlocks.Find(1)->date == "2026-10-29T10:00:00Z" && unlocks.Find(2)->date.size() == 20);
+    CHECK(!unlocks.Find(3));
+    const ach::Totals totals = ach::ProfileTotals(root, xuid);
+    CHECK(totals.gamerscore == 80 && totals.unlocked == 3 && totals.titles == 2);
+    CHECK(ach::ProfileTotals(root, xuid + 1).gamerscore == 0);
+    // A damaged file reads as nothing unlocked; the next unlock rewrites it.
+    WriteFile(ach::UnlocksFile(root, xuid, game.title_id), "{ not json");
+    CHECK(ach::ReadUnlocks(root, xuid, game.title_id).unlocks.empty());
+    CHECK(ach::ProfileTotals(root, xuid).gamerscore == 30);
+    CHECK(ach::FileTime("2026-10-29T10:00:00Z") == 134377416000000000ull && ach::FileTime("soon") == 0);
+    CHECK(ach::LanguageTag(5) == "es" && ach::LanguageTag(10) == "zh-hans" && ach::XdbfLanguage("ru") == 12);
+
+    // As the launcher shows them.
+    SetLanguage(Language::kEnglish);
+    CHECK(Tr(kTextAchievementsButton, {L"30", L"80"}) == L"Achievements  30/80 G");
+    SetLanguage(Language::kSpanish);
+    CHECK(Tr(kTextAchievementsSummary, {L"Ana", L"2", L"3", L"30", L"80"}) == L"Ana: 2 de 3 desbloqueados · 30 de 80 G");
+    SetLanguage(Language::kEnglish);
+    fs::remove_all(root / L"titles", ec);
+    fs::remove_all(root / L"profiles", ec);
   }
 
   fs::remove_all(sandbox, ec);

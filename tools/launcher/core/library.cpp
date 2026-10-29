@@ -53,6 +53,25 @@ bool SaveIcon(const CatalogGame& game, const fs::path& game_dir) {
   }
 }
 
+std::optional<x360::achievements::TitleList> ReadAchievements(const LibraryGame& game, const fs::path& folder) {
+  const uint32_t title_id = game.info->title_id;
+  if (auto cached = x360::achievements::ReadTitleList(folder, title_id)) return cached;
+  if (!game.installed || game.location_gone) return std::nullopt;
+  try {
+    x360tool::Xex xex(x360tool::read_file(game.dir / L"default.xex"));
+    fs::path key = KeyFile();
+    auto image = xex.extract_image(key.empty() ? std::nullopt : x360tool::load_key(key, false));
+    x360::achievements::TitleList list;
+    list.title_id = title_id;
+    std::map<uint32_t, std::vector<uint8_t>> images;
+    if (auto xdbf = x360tool::xex_title_xdbf(xex, image)) list = x360tool::xdbf_title_list(*xdbf, title_id, &images);
+    if (!list.achievements.empty()) x360::achievements::WriteTitleList(folder, list, images);
+    return list;
+  } catch (const std::exception&) {
+    return std::nullopt;
+  }
+}
+
 bool SetPlayerCover(const CatalogGame& game, const fs::path& image) {
   std::wstring extension = image.extension().wstring();
   std::transform(extension.begin(), extension.end(), extension.begin(), ::towlower);

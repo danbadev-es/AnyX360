@@ -19,12 +19,20 @@
 #include <thread>
 #include <tuple>
 
+#include <bit>
+#include <functional>
+#include <map>
+#include <span>
+
 #include "avatar_system.h"
+#include "third_party/stb/stb_image.h"  // its implementation is compiled into Xenia's ImGui drawer
+#include "x360/achievements.h"
 #include "x360/gpu.h"
 #include "x360/input.h"
 #include "x360/kernel.h"
 #include "x360/profiles.h"
 #include "x360/settings.h"
+#include "xdbf.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -98,6 +106,11 @@ struct Enumerator : Object {
   // A content aggregate enumerator: the XDK reads its kernel structure (XamGetPrivateEnumStructure-
   // FromHandle), made in guest memory on the first request.
   bool aggregate = false;
+  // Items laid out by the enumerator itself (achievements: their strings follow the array in the
+  // caller's buffer): writes the next ones into (buffer, size) and returns how many; `items` is then
+  // unused and `left` counts the items not written yet.
+  std::function<uint32_t(uint32_t buffer, uint32_t size)> write;
+  size_t left = 0;
 };
 
 uint32_t XamEnumerate(uint32_t handle, uint32_t flags, uint32_t buffer, uint32_t buffer_size,
@@ -106,7 +119,8 @@ uint32_t XamEnumerate(uint32_t handle, uint32_t flags, uint32_t buffer, uint32_t
   auto e = LookupHandleAs<Enumerator>(handle);
   if (!e) return X_ERROR_INVALID_HANDLE;
   uint32_t count = 0, offset = 0;
-  while (e->next < e->items.size() && count < e->items_per_enumerate) {
+  if (e->write) count = e->write(buffer, buffer_size);
+  while (!e->write && e->next < e->items.size() && count < e->items_per_enumerate) {
     const auto& item = e->items[e->next];
     if (offset + item.size() > buffer_size) break;
     std::memcpy(Ptr(buffer + offset), item.data(), item.size());
@@ -116,7 +130,7 @@ uint32_t XamEnumerate(uint32_t handle, uint32_t flags, uint32_t buffer, uint32_t
   }
   if (items_returned_ptr) Store<uint32_t>(items_returned_ptr, count);
   uint32_t result = count ? X_ERROR_SUCCESS : X_ERROR_NO_MORE_FILES;
-  KLOG_T("XamEnumerate(%08X): %u items, %zu left", handle, count, e->items.size() - e->next);
+  KLOG_T("XamEnumerate(%08X): %u items, %zu left", handle, count, e->write ? e->left : e->items.size() - e->next);
   if (overlapped) return Complete(overlapped, result, count);
   return result;
 }
@@ -491,12 +505,307 @@ uint32_t XamUserWriteProfileSettings(uint32_t title_id, uint32_t user_index, uin
   return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
 }
 
-uint32_t XamUserCreateAchievementEnumerator(uint32_t title_id, uint32_t user_index, uint32_t xuid, uint32_t flags,
+// ---- achievements -----------------------------------------------------------------------------
+// x360/achievements.h, docs/ACHIEVEMENTS.md. The title's list is read at startup from its SPA (the
+// XDBF resource named after the title ID) in the loaded image, a title update's when the game runs
+// from one, and written to <profiles root>\titles\<TitleID>\ when it differs from what is there, for
+// the launcher. An unlock (XUserWriteAchievements) is kept once, with its date, in the signed-in
+// profile's achievements\<TitleID>.json and shows a toast (gpu::ShowAchievementToast); a player
+// without a profile (a development run) gets the toast once a session, nothing kept.
+
+x360::achievements::TitleList g_achievements;                   // read at startup, then only read
+std::map<uint32_t, std::vector<uint8_t>> g_achievement_images;  // PNGs by image ID, likewise
+std::mutex g_achievement_mutex;
+std::set<std::pair<uint64_t, uint32_t>> g_session_unlocks;  // (XUID, ID) of players without a profile
+
+// The title's SPA in guest memory (empty if it has none).
+std::span<const uint8_t> TitleXdbf() {
+  char name[9];
+  std::snprintf(name, sizeof(name), "%08X", Title().title_id);
+  uint32_t address = 0, size = 0;
+  if (!FindXexResource(name, address, size) || !address || !size) return {};
+  return {Ptr<const uint8_t>(address), size};
+}
+
+// The game's language as an achievements language tag ("en", "es"...).
+std::string GameLanguageTag() {
+  for (const auto& language : x360::profile::Languages())
+    if (language.xbox == TitlePaths().language) return language.tag;
+  return "en";
+}
+
+// Before the title runs (or in tests): the list is only read once the title runs.
+void ReadAchievementList(std::span<const uint8_t> xdbf, bool write_list) {
+  g_achievement_images.clear();
+  g_achievements = x360tool::xdbf_title_list(xdbf, Title().title_id, &g_achievement_images);
+  if (xdbf.empty()) return;
+  if (g_achievements.title.empty()) g_achievements.title = TitlePaths().title_name;
+  KLOG_I("achievements: %zu (%u gamerscore), %zu pictures", g_achievements.achievements.size(),
+         g_achievements.TotalGamerscore(), g_achievement_images.size());
+  const fs::path root = TitlePaths().profiles_root;
+  if (!write_list || root.empty() || g_achievements.achievements.empty()) return;
+  std::optional<x360::achievements::TitleList> cached = x360::achievements::ReadTitleList(root, Title().title_id);
+  if (cached && cached->source == g_achievements.source) return;
+  // Written off the title's way (both are only read from now on).
+  std::thread([root] {
+    SetThreadDescription(GetCurrentThread(), L"Achievement list");
+    if (x360::achievements::WriteTitleList(root, g_achievements, g_achievement_images))
+      KLOG_I("achievements: the list was written to %s", x360::achievements::TitleFolder(root, Title().title_id).string().c_str());
+    else
+      KLOG_W("achievements: the list could not be written to %s", root.string().c_str());
+  }).detach();
+}
+
+void InitAchievements() { ReadAchievementList(TitleXdbf(), true); }
+
+// An achievement the title unlocks for a player: kept once, and its toast.
+void UnlockAchievement(uint32_t user_index, uint32_t id) {
+  const std::optional<User> user = GetUser(user_index);
+  if (!user) {
+    KLOG_W("achievements: %u unlocked for player %u, who isn't signed in", id, user_index + 1);
+    return;
+  }
+  const x360::achievements::Achievement* achievement = g_achievements.Find(id);
+  const uint32_t gamerscore = achievement ? achievement->gamerscore : 0;
+  const fs::path root = TitlePaths().profiles_root;
+  bool fresh = false;
+  if (user->profile && !root.empty()) {
+    const x360::achievements::Result result = x360::achievements::Record(
+        root, user->xuid, Title().title_id, TitlePaths().title_name, id, gamerscore);
+    fresh = result == x360::achievements::Result::kUnlocked;
+    if (result == x360::achievements::Result::kFailed)
+      KLOG_W("achievements: %u of %s could not be saved", id, user->name.c_str());
+  } else {
+    std::lock_guard lock(g_achievement_mutex);
+    fresh = g_session_unlocks.insert({user->xuid, id}).second;
+  }
+  if (!fresh) return;
+  const std::string name = achievement ? achievement->In(GameLanguageTag()).name : "";
+  KLOG_I("achievements: player %u (%s) unlocked %u \"%s\" (%uG)", user_index + 1, user->name.c_str(), id, name.c_str(),
+         gamerscore);
+  x360::gpu::AchievementToast toast;
+  toast.name = name.empty() ? "#" + std::to_string(id) : name;
+  toast.gamerscore = gamerscore;
+  if (std::popcount(SignedInMask()) > 1) toast.gamertag = user->name;
+  if (achievement) {
+    auto image = g_achievement_images.find(achievement->image_id);
+    if (image != g_achievement_images.end()) toast.png = image->second;
+  }
+  x360::gpu::ShowAchievementToast(toast);
+}
+
+// XUserWriteAchievements (XGI 0x000B0008): {be32 count, XUSER_ACHIEVEMENT* (be32 user index, be32
+// achievement ID)}.
+void WriteAchievements(uint32_t buffer) {
+  if (!buffer) return;
+  const uint32_t count = Load<uint32_t>(buffer), list = Load<uint32_t>(buffer + 4);
+  if (!list || count > 256) return;
+  for (uint32_t i = 0; i < count; ++i) UnlockAchievement(Load<uint32_t>(list + i * 8), Load<uint32_t>(list + i * 8 + 4));
+}
+
+// XACHIEVEMENT_DETAILS (0x24 bytes): be32 ID, label, description and unachieved description
+// pointers (UTF-16, big-endian; 0 unless flags 1, 2, 4 asked for them), image ID, gamerscore,
+// FILETIME unlocked (be32 high, be32 low), flags (the XACH flags, 0x20000 once unlocked). With strings,
+// each item has 464 more bytes in the buffer, after the array (Xenia's xenumerator.cc).
+constexpr uint32_t kAchievementDetails = 0x24, kAchievementStrings = 464;
+
+struct AchievementItem {
+  uint32_t id, image_id, gamerscore, flags;
+  uint64_t unlocked;  // FILETIME; 0: locked
+  std::u16string label, description, unachieved;
+};
+
+std::u16string Utf16(const std::string& text, size_t max_chars) {
+  std::u16string out;
+  if (text.empty()) return out;
+  const int n = MultiByteToWideChar(CP_UTF8, 0, text.data(), int(text.size()), nullptr, 0);
+  out.resize(size_t(std::max(n, 0)));
+  if (n > 0) MultiByteToWideChar(CP_UTF8, 0, text.data(), int(text.size()), reinterpret_cast<wchar_t*>(out.data()), n);
+  if (out.size() > max_chars) out.resize(max_chars);
+  return out;
+}
+
+uint32_t XamUserCreateAchievementEnumerator(uint32_t title_id, uint32_t user_index, uint64_t xuid, uint32_t flags,
                                             uint32_t offset, uint32_t count, uint32_t buffer_size_ptr,
                                             uint32_t handle_ptr) {
-  (void)title_id, (void)user_index, (void)xuid, (void)flags, (void)offset;
-  if (buffer_size_ptr) Store<uint32_t>(buffer_size_ptr, count * 0x1C);
-  return CreateEnumerator(handle_ptr, count, {});
+  if (!count || !buffer_size_ptr || !handle_ptr || user_index >= 4) return X_ERROR_INVALID_PARAMETER;
+  const uint32_t item_size = kAchievementDetails + ((flags & 7) ? kAchievementStrings : 0);
+  Store<uint32_t>(buffer_size_ptr, item_size * count);
+  // Whose: the XUID given (a local player's: anyone else has unlocked nothing here), else the player's.
+  uint64_t owner = xuid;
+  if (!owner) {
+    const std::optional<User> user = GetUser(user_index);
+    if (!user) return X_ERROR_INVALID_PARAMETER;
+    owner = user->xuid;
+  }
+  const int local = UserFromXuid(owner);
+  const std::optional<User> player = local >= 0 ? GetUser(uint32_t(local)) : std::nullopt;
+  auto items = std::make_shared<std::vector<AchievementItem>>();
+  if (!title_id || title_id == Title().title_id) {
+    x360::achievements::TitleUnlocks unlocks;
+    if (player && player->profile && !TitlePaths().profiles_root.empty())
+      unlocks = x360::achievements::ReadUnlocks(TitlePaths().profiles_root, owner, Title().title_id);
+    std::set<uint32_t> session;
+    {
+      std::lock_guard lock(g_achievement_mutex);
+      for (const auto& [x, id] : g_session_unlocks)
+        if (x == owner) session.insert(id);
+    }
+    const std::string language = GameLanguageTag();
+    for (size_t i = offset; i < g_achievements.achievements.size(); ++i) {
+      const x360::achievements::Achievement& a = g_achievements.achievements[i];
+      const x360::achievements::Strings& s = a.In(language);
+      AchievementItem item{a.id, a.image_id, a.gamerscore, a.flags & ~(x360::achievements::kAchieved | x360::achievements::kAchievedOnline), 0};
+      if (const x360::achievements::Unlock* u = unlocks.Find(a.id)) {
+        item.unlocked = x360::achievements::FileTime(u->date);
+        item.flags |= x360::achievements::kAchieved;
+      } else if (session.count(a.id)) {
+        FILETIME now;
+        GetSystemTimeAsFileTime(&now);
+        item.unlocked = uint64_t(now.dwHighDateTime) << 32 | now.dwLowDateTime;
+        item.flags |= x360::achievements::kAchieved;
+      }
+      // At most 31, 99 and 99 characters: with their terminators, the 464 bytes an item has.
+      item.label = Utf16(s.name, 31);
+      item.description = Utf16(s.unlocked, 99);
+      item.unachieved = Utf16(s.locked, 99);
+      items->push_back(std::move(item));
+    }
+  }
+  auto e = std::make_shared<Enumerator>();
+  e->items_per_enumerate = count;
+  e->left = items->size();
+  Enumerator* self = e.get();
+  e->write = [self, items, flags, per = count](uint32_t buffer, uint32_t size) -> uint32_t {
+    const size_t first = items->size() - self->left;
+    uint32_t n = uint32_t(std::min<size_t>(self->left, per));
+    const uint32_t with_strings = kAchievementDetails + ((flags & 7) ? kAchievementStrings : 0);
+    n = std::min(n, size / with_strings);
+    if (!n) return 0;
+    // The strings after the whole array, as the console lays it out, or after the items written
+    // when the buffer is only as large as those.
+    uint32_t strings = buffer + per * kAchievementDetails;
+    if (per * kAchievementDetails + n * ((flags & 7) ? kAchievementStrings : 0) > size) strings = buffer + n * kAchievementDetails;
+    const uint32_t end = buffer + size;
+    auto put = [&](const std::u16string& text) -> uint32_t {
+      const uint32_t bytes = uint32_t(text.size() + 1) * 2;
+      if (strings + bytes > end) return 0;
+      const uint32_t at = strings;
+      for (size_t c = 0; c < text.size(); ++c) Store<uint16_t>(at + uint32_t(c) * 2, uint16_t(text[c]));
+      Store<uint16_t>(at + uint32_t(text.size()) * 2, 0);
+      strings += bytes;
+      return at;
+    };
+    for (uint32_t i = 0; i < n; ++i) {
+      const AchievementItem& item = (*items)[first + i];
+      const uint32_t d = buffer + i * kAchievementDetails;
+      Store<uint32_t>(d + 0x00, item.id);
+      Store<uint32_t>(d + 0x04, (flags & 1) ? put(item.label) : 0);
+      Store<uint32_t>(d + 0x08, (flags & 2) ? put(item.description) : 0);
+      Store<uint32_t>(d + 0x0C, (flags & 4) ? put(item.unachieved) : 0);
+      Store<uint32_t>(d + 0x10, item.image_id);
+      Store<uint32_t>(d + 0x14, item.gamerscore);
+      Store<uint32_t>(d + 0x18, uint32_t(item.unlocked >> 32));
+      Store<uint32_t>(d + 0x1C, uint32_t(item.unlocked));
+      Store<uint32_t>(d + 0x20, item.flags);
+    }
+    self->left -= n;
+    return n;
+  };
+  KLOG_I("XamUserCreateAchievementEnumerator(title %08X, player %u, flags %X, offset %u, count %u): %zu achievements",
+         title_id, user_index + 1, flags, offset, count, items->size());
+  Store<uint32_t>(handle_ptr, CreateHandle(e));
+  return X_ERROR_SUCCESS;
+}
+
+// XamReadTileToTexture(type, title ID, tile ID (be64), user, buffer, pitch, height, overlapped): a
+// picture of the title's SPA as ARGB pixels (bytes A, R, G, B) into the title's buffer, `pitch` bytes
+// a row. Achievements' (type 0, the tile is the image ID) and the title's icon (type 1).
+uint32_t XamReadTileToTexture(uint32_t tile_type, uint32_t title_id, uint64_t tile_id, uint32_t user_index,
+                              uint32_t buffer, uint32_t pitch, uint32_t height, uint32_t overlapped) {
+  (void)user_index;
+  std::optional<std::span<const uint8_t>> png;
+  if (title_id && title_id != Title().title_id) {
+  } else if (tile_type == 0) {
+    auto found = g_achievement_images.find(uint32_t(tile_id));
+    if (found != g_achievement_images.end()) png = std::span<const uint8_t>(found->second);
+  } else if (tile_type == 1) {
+    png = x360tool::xdbf_entry(TitleXdbf(), x360tool::kXdbfImageSection, x360tool::kXdbfTitleImage);
+  }
+  uint32_t result = X_ERROR_NOT_FOUND;
+  int w = 0, h = 0, channels = 0;
+  stbi_uc* pixels = png && buffer ? stbi_load_from_memory(png->data(), int(png->size()), &w, &h, &channels, 4) : nullptr;
+  if (pixels) {
+    const uint32_t columns = std::min<uint32_t>(uint32_t(w), pitch / 4), rows = std::min<uint32_t>(uint32_t(h), height);
+    for (uint32_t y = 0; y < rows; ++y) {
+      uint8_t* out = Ptr<uint8_t>(buffer + y * pitch);
+      const uint8_t* in = pixels + size_t(y) * w * 4;
+      for (uint32_t x = 0; x < columns; ++x, in += 4, out += 4) out[0] = in[3], out[1] = in[0], out[2] = in[1], out[3] = in[2];
+    }
+    stbi_image_free(pixels);
+    result = X_ERROR_SUCCESS;
+  }
+  KLOG_T("XamReadTileToTexture(type %u, tile %llX, %ux%u): %s", tile_type, (unsigned long long)tile_id, pitch / 4,
+         height, result ? "none" : "read");
+  if (overlapped) return Complete(overlapped, result);
+  return result;
+}
+
+std::atomic<bool> g_achievements_ui_open{false};  // the list (gpu::OpenAchievementsUi) is shown
+
+// The system's achievements list for a player (a title's menu asks for it): as the sign-in picker,
+// it opens and this returns at once; the title sees the system UI open and pauses until it closes.
+uint32_t XamShowAchievementsUI(uint32_t user_index, uint32_t flags) {
+  (void)flags;
+  const std::optional<User> user = GetUser(user_index < 4 ? user_index : 0);
+  if (!user || g_achievements_ui_open.exchange(true)) {
+    if (!user) g_achievements_ui_open = false;
+    return X_ERROR_SUCCESS;
+  }
+  x360::gpu::AchievementsView view;
+  view.title = g_achievements.title.empty() ? TitlePaths().title_name : g_achievements.title;
+  view.gamertag = user->name;
+  x360::achievements::TitleUnlocks unlocks;
+  if (user->profile && !TitlePaths().profiles_root.empty())
+    unlocks = x360::achievements::ReadUnlocks(TitlePaths().profiles_root, user->xuid, Title().title_id);
+  std::set<uint32_t> session;
+  {
+    std::lock_guard lock(g_achievement_mutex);
+    for (const auto& [x, id] : g_session_unlocks)
+      if (x == user->xuid) session.insert(id);
+  }
+  const std::string language = GameLanguageTag();
+  std::vector<x360::gpu::AchievementsView::Item> locked;
+  std::vector<std::pair<std::string, x360::gpu::AchievementsView::Item>> unlocked;
+  for (const x360::achievements::Achievement& a : g_achievements.achievements) {
+    const x360::achievements::Strings& s = a.In(language);
+    x360::gpu::AchievementsView::Item item;
+    item.name = s.name;
+    item.gamerscore = a.gamerscore;
+    const x360::achievements::Unlock* u = unlocks.Find(a.id);
+    item.unlocked = u || session.count(a.id);
+    item.description = item.unlocked ? s.unlocked : s.locked;
+    item.secret = !item.unlocked && a.Secret();
+    if (u) item.date = u->date;
+    auto image = g_achievement_images.find(a.image_id);
+    if (image != g_achievement_images.end()) item.png = image->second;
+    if (item.unlocked) unlocked.push_back({item.date, std::move(item)});
+    else locked.push_back(std::move(item));
+  }
+  // The latest unlocked first, then the others in the title's order.
+  std::stable_sort(unlocked.begin(), unlocked.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+  for (auto& [date, item] : unlocked) view.items.push_back(std::move(item));
+  for (auto& item : locked) view.items.push_back(std::move(item));
+  KLOG_I("XamShowAchievementsUI(player %u): %zu achievements, %zu unlocked", user_index + 1, view.items.size(),
+         unlocked.size());
+  Broadcast(kNotifySystemUi, 1);
+  x360::input::SetSystemUiOpen(true);
+  if (!x360::gpu::OpenAchievementsUi(std::move(view))) {  // no window (tests): shown and closed at once
+    x360::input::SetSystemUiOpen(false);
+    g_achievements_ui_open = false;
+    Broadcast(kNotifySystemUi, 0);
+  }
+  return X_ERROR_SUCCESS;
 }
 
 uint32_t XamUserCreateStatsEnumerator(uint32_t title_id, uint32_t user_index, uint32_t xuid, uint32_t count,
@@ -1235,7 +1544,7 @@ uint32_t XamShowNuiDeviceSelectorUI(uint32_t tracking_id, uint32_t user_index, u
   (void)tracking_id;
   XamShowDirtyDiscErrorUI(user_index);
 }
-uint32_t XamIsUIActive() { return g_kinect_guide_open || g_signin_picker_open ? 1 : 0; }
+uint32_t XamIsUIActive() { return g_kinect_guide_open || g_signin_picker_open || g_achievements_ui_open ? 1 : 0; }
 // The Kinect Guide (a Kinect title shows it when a player holds the guide gesture, the left arm
 // down at 45 degrees): there is no overlay here, but the title still sees the system UI open and
 // close, and pauses as it would on the console. Asked while the gesture holds it open (Dance
@@ -1283,7 +1592,6 @@ uint32_t XamVoiceHeadsetPresent(uint32_t voice) {
 uint32_t XamVoiceIsActiveProcess() { return 0; }
 uint32_t XamVoiceSubmitPacket() { return 0; }
 
-uint32_t XamReadTileToTexture() { return X_ERROR_NOT_FOUND; }
 // (user, title, big tile, small tile, for enumeration, overlapped): the title sets the player's gamer
 // picture to one of its own. There is none to change: done. Refused, Fruit Ninja Kinect said its
 // progress couldn't be saved.
@@ -1469,9 +1777,11 @@ uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_
         case 0x000B0010:  // XSessionCreate (offline sessions are allowed)
           if (buffer) CreateSessionInfo(buffer);
           return kHrSuccess;
+        case 0x000B0008:  // XUserWriteAchievements
+          WriteAchievements(buffer);
+          return kHrSuccess;
         case 0x000B0006:  // XUserSetContext
         case 0x000B0007:  // XUserSetPropertyEx
-        case 0x000B0008:  // XUserWriteAchievements
         case 0x000B0011:  // XSessionDelete
         case 0x000B0012:  // XSessionJoinLocal
         case 0x000B0013:  // XSessionLeaveLocal
@@ -1686,6 +1996,7 @@ namespace x360::kernel {
 
 void InitXam() {
   InitUsers();
+  InitAchievements();
   LoadLaunchData();
   x360::input::OnDevicesChanged([] { Broadcast(kNotifyInputDevicesChanged, 0); });
   // Time played, every minute (and when the game exits).
@@ -1771,6 +2082,8 @@ void SetKinectGuideOpen(bool open) {
 
 void Notify(uint32_t id, uint32_t param) { Broadcast(id, param); }
 
+void LoadAchievements(std::span<const uint8_t> xdbf, bool write_list) { ReadAchievementList(xdbf, write_list); }
+
 bool SignInProfile(uint32_t user_index, uint64_t xuid, const std::string& gamertag) {
   if (user_index == 0 || user_index >= 4 || !xuid) return false;
   {
@@ -1794,6 +2107,13 @@ void CloseSigninUi() {
   x360::input::SetSystemUiOpen(false);
   g_signin_picker_open = false;
   KLOG_I("users: the sign-in picker closed");
+  Broadcast(kNotifySystemUi, 0);
+}
+
+void CloseAchievementsUi() {
+  if (!g_achievements_ui_open) return;
+  x360::input::SetSystemUiOpen(false);
+  g_achievements_ui_open = false;
   Broadcast(kNotifySystemUi, 0);
 }
 
@@ -1866,7 +2186,7 @@ X360_EXPORT(XamShowMessageBoxUI, XamShowMessageBoxUI)
 X360_EXPORT(XamShowMessageBoxUIEx, XamShowMessageBoxUIEx)
 X360_EXPORT(XamShowKeyboardUI, XamShowKeyboardUI)
 X360_EXPORT(XamShowDirtyDiscErrorUI, XamShowDirtyDiscErrorUI)
-X360_EXPORT(XamShowAchievementsUI, XamShowUIStub)
+X360_EXPORT(XamShowAchievementsUI, XamShowAchievementsUI)
 X360_EXPORT(XamShowCustomMessageComposeUI, XamShowUIStub)
 X360_EXPORT(XamShowCustomPlayerListUI, XamShowUIStub)
 X360_EXPORT(XamShowFriendRequestUI, XamShowUIStub)
