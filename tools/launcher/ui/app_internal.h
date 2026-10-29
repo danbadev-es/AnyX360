@@ -84,7 +84,6 @@ inline constexpr int kLogoFull = 3;
 inline constexpr int kIdHomeAdd = kIdConsoleAction + 60;    // "Add a game", when there are none
 inline constexpr int kIdHomePanel = kIdConsoleAction + 70;  // + entry: My games, Settings, Add games
 inline constexpr int kIdHomeAvatar = kIdConsoleAction + 80;
-inline constexpr int kIdHomePill = kIdConsoleAction + 85;  // who's signed in: "Who's playing?"
 inline constexpr int kIdHomeCard = kIdConsoleAction + 90;  // the gamercard (as on the other pages)
 
 // The release's box art (covers\<slug>.jpg, the front only), or the repository's (a whole scan)

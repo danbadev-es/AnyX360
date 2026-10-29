@@ -100,8 +100,7 @@ Microsoft's):
   slightly blurred so the dashboard stays in front, darker at the top and towards the floor; a game
   without art shows its cover enlarged and blurred. It cross-fades when the selection changes. The
   blurred picture is made once per game and window size (a small copy, stretched smoothly).
-- **The top bar**: at the left the AnyX360 mark and name and a white pill with who's signed in (a
-  green dot; **A** or a click: "Who's playing?"); at the right the gamercard (round gamerpic,
+- **The top bar**: at the left the AnyX360 mark and name; at the right the gamercard (round gamerpic,
   gamertag, the gamerscore with its "G": it opens Profiles), the controller (bright when one is
   connected, with how many if more than one) and the time.
 - **The row**, standing on a dark mirror floor that reflects it: the profile's **avatar** at the left,

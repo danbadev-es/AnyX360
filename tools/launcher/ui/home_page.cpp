@@ -128,7 +128,7 @@ bool App::HomeKey(Key key) {
   const bool on_avatar = focus_ == kIdHomeAvatar;
   const bool on_game = (focus_ >= kIdConsoleRecent && focus_ < kIdConsoleRecent + 100) || focus_ == kIdHomeAdd;
   const bool on_panel = focus_ >= kIdHomePanel && focus_ < kIdHomePanel + 3;
-  const bool on_top = focus_ == kIdHomePill || focus_ == kIdHomeCard;
+  const bool on_top = focus_ == kIdHomeCard;
   const int pos = int(std::find(order.begin(), order.end(), focus_ - kIdConsoleRecent) - order.begin());
   switch (key) {
     case Key::kLeft:
@@ -436,7 +436,7 @@ void App::DrawHomeAvatar(Canvas& c, float cx, float feet, float h, float u, bool
 }
 
 void App::DrawHomeTopBar(Canvas& c, float u, float m, float cy) {
-  // Left: the logo, the name and the pill showing who's signed in (A: "Who's playing?").
+  // Left: the logo and the name.
   const float mark_w = DrawLogo(c, Logo(kLogoMark, 36 * u), m, cy - 18 * u);
   TextStyle brand = Style(30 * u, DWRITE_FONT_WEIGHT_LIGHT, kText);
   brand.vertical = Align::kCenter;
@@ -444,14 +444,6 @@ void App::DrawHomeTopBar(Canvas& c, float u, float m, float cy) {
   const float brand_w = c.MeasureText(L"AnyX360", brand).width;
   c.Text(L"AnyX360", {name_x, cy - 24 * u, brand_w + 4, 46 * u}, brand);
   const x360::profiles::Profile* player = Player();
-  const RectF pill{name_x + brand_w + 18 * u, cy - 15 * u, 56 * u, 30 * u};
-  c.FillRoundedRect(pill.Offset(0, 2 * u), pill.h / 2, kBlack.Alpha(0.25f));
-  c.FillRoundedRect(pill, pill.h / 2, kWhite.Alpha(hover_ == kIdHomePill ? 1.0f : 0.93f));
-  c.FillGradient({pill.x + pill.h / 2, pill.y + 2 * u, pill.w - pill.h, pill.h * 0.45f}, kWhite.Alpha(0.9f), kWhite.Alpha(0));
-  c.FillCircle(pill.x + pill.h / 2 + 2 * u, pill.cy(), 5 * u, player ? Color::Hex(0x2BB24C) : Color::Hex(0x9A9A9A));
-  c.FillRoundedRect({pill.x + pill.h / 2 + 12 * u, pill.cy() - 2 * u, pill.w - pill.h - 8 * u, 4 * u}, 2 * u, Color::Hex(0xC9CDD2));
-  if (focus_ == kIdHomePill && focus_visible_) Neon(c, pill, pill.h / 2, u * 0.6f, 0.9f);
-  AddTarget(pill.Inset(-4 * u), kIdHomePill, [this] { ShowWhoIsPlaying(false); });
 
   // Right: the time, the controller, the gamercard.
   SYSTEMTIME local;

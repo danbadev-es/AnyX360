@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Changed
+
+- Home's top bar no longer has the pill with a green dot next to the AnyX360 name; "Who's playing?"
+  stays on the gamercard's Profiles page and in the Guide.
+
 ## [0.25.0] - 2026-10-29
 
 Forza Motorsport 4, in testing: the first race, the career and World Tour races.
