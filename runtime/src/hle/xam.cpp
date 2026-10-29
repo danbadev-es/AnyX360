@@ -9,6 +9,7 @@
 #include <chrono>
 #include <deque>
 #include <fstream>
+#include <iterator>
 #include <optional>
 #include <random>
 #include <set>
@@ -108,6 +109,7 @@ uint32_t XamEnumerate(uint32_t handle, uint32_t flags, uint32_t buffer, uint32_t
   }
   if (items_returned_ptr) Store<uint32_t>(items_returned_ptr, count);
   uint32_t result = count ? X_ERROR_SUCCESS : X_ERROR_NO_MORE_FILES;
+  KLOG_T("XamEnumerate(%08X): %u items, %zu left", handle, count, e->items.size() - e->next);
   if (overlapped) return Complete(overlapped, result, count);
   return result;
 }
@@ -526,7 +528,10 @@ uint32_t XamContentCreateEx(uint32_t user_index, uint32_t root_name_ptr, uint32_
   KLOG_I("XamContentCreateEx %s (user %u): -> %s (%u)", root.c_str(), user_index, path.string().c_str(), result);
   if (disposition_ptr) Store<uint32_t>(disposition_ptr, disposition);
   if (license_mask_ptr) Store<uint32_t>(license_mask_ptr, 0xFFFFFFFF);
-  return overlapped ? Complete(overlapped, result) : result;
+  // Asynchronously, the disposition is the request's result (XGetOverlappedResult's length), as on
+  // the console: Minecraft reads its list of worlds only when it opened an existing one (2), and
+  // with 0 it rebuilt the list again and again and never showed it.
+  return overlapped ? Complete(overlapped, result, disposition) : result;
 }
 
 uint32_t XamContentClose(uint32_t root_name_ptr, uint32_t overlapped) {
@@ -658,6 +663,44 @@ uint32_t XamContentGetDeviceState(uint32_t device_id, uint32_t overlapped) {
 uint32_t XamContentGetLicenseMask(uint32_t mask_ptr, uint32_t overlapped) {
   if (mask_ptr) Store<uint32_t>(mask_ptr, 0xFFFFFFFF);
   return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
+}
+
+// A package's thumbnail (a PNG the title gives, shown next to its saves): kept in the package's
+// folder as __thumbnail.png, as Xenia does. Minecraft sets one on every world it saves and reads
+// them back for its list of worlds; answered "done" with nothing written, the list never finished.
+constexpr char kThumbnailFile[] = "__thumbnail.png";
+
+uint32_t XamContentSetThumbnail(uint32_t user_index, uint32_t content_data, uint32_t buffer, uint32_t size,
+                                uint32_t overlapped) {
+  fs::path folder = ContentPath(user_index, content_data);
+  std::error_code ec;
+  uint32_t result = X_ERROR_PATH_NOT_FOUND;
+  if (fs::is_directory(folder, ec)) {
+    std::ofstream(folder / kThumbnailFile, std::ios::binary).write(Ptr<const char>(buffer), size);
+    result = X_ERROR_SUCCESS;
+  }
+  return overlapped ? Complete(overlapped, result) : result;
+}
+
+// The thumbnail into `buffer` (when given and large enough); its size into *size_ptr either way.
+uint32_t XamContentGetThumbnail(uint32_t user_index, uint32_t content_data, uint32_t buffer, uint32_t size_ptr,
+                                uint32_t overlapped) {
+  fs::path file = ContentPath(user_index, content_data) / kThumbnailFile;
+  std::error_code ec;
+  uint32_t result = X_ERROR_FILE_NOT_FOUND;
+  if (fs::is_regular_file(file, ec)) {
+    std::ifstream in(file, std::ios::binary);
+    std::vector<char> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    uint32_t capacity = size_ptr ? Load<uint32_t>(size_ptr) : 0;
+    if (size_ptr) Store<uint32_t>(size_ptr, uint32_t(data.size()));
+    if (buffer && capacity >= data.size()) {
+      std::memcpy(Ptr(buffer), data.data(), data.size());
+      result = X_ERROR_SUCCESS;
+    } else {
+      result = buffer ? X_ERROR_INSUFFICIENT_BUFFER : X_ERROR_SUCCESS;
+    }
+  }
+  return overlapped ? Complete(overlapped, result) : result;
 }
 
 uint32_t XamShowDeviceSelectorUI(uint32_t user_index, uint32_t content_type, uint32_t content_flags,
@@ -1632,6 +1675,8 @@ X360_EXPORT(XamContentGetDeviceData, XamContentGetDeviceData)
 X360_EXPORT(XamContentGetDeviceName, XamContentGetDeviceName)
 X360_EXPORT(XamContentGetDeviceState, XamContentGetDeviceState)
 X360_EXPORT(XamContentGetLicenseMask, XamContentGetLicenseMask)
+X360_EXPORT(XamContentSetThumbnail, XamContentSetThumbnail)
+X360_EXPORT(XamContentGetThumbnail, XamContentGetThumbnail)
 X360_EXPORT(XamShowDeviceSelectorUI, XamShowDeviceSelectorUI)
 X360_EXPORT(XamNotifyCreateListener, XamNotifyCreateListener)
 X360_EXPORT(XNotifyGetNext, XNotifyGetNext)

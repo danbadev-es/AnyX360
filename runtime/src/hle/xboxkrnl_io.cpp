@@ -549,6 +549,7 @@ uint32_t NtQueryFullAttributesFile(uint32_t object_attributes, uint32_t info) {
     KLOG_T("NtQueryFullAttributesFile '%s': not found", guest.c_str());
     return X_STATUS_OBJECT_NAME_NOT_FOUND;
   }
+  KLOG_T("NtQueryFullAttributesFile '%s'", guest.c_str());
   return X_STATUS_SUCCESS;
 }
 
