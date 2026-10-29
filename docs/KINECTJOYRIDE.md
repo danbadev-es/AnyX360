@@ -231,9 +231,10 @@ needs them).
   (adding an avatar), the settings, three or more people in view.
 - **A person with a webcam**: the steering, pushes, drifts and tricks were only made by the
   scripted player (`wheel_*`, `boost`, `lean_*`); how the bridge's skeletons steer is untested.
-- **Avatars**: the default avatar's half-closed eyes in the garage and the lobby were the system
-  showing only the left half of each face texture, and the face shapes and hiding templates weren't
-  applied; both are fixed (unreleased, [AVATARS.md](AVATARS.md)) but not checked in this game yet.
-  `XamAvatarLoadAnimation` (imported) fails.
+- **Avatars**: `XamAvatarLoadAnimation` (imported) fails. The default avatar's half-closed eyes
+  in the garage and the lobby (the system showed only the left half of each face texture) and the
+  skin showing through its trousers (no hiding templates) are fixed (unreleased,
+  [AVATARS.md](AVATARS.md)); checked on 0.0.3.1 in the title screen, the garage and the lobby,
+  also dressed with `ANYX360_AVATAR` (cap, long-sleeved tee, shorts, sneakers: hair under the cap).
 - **The game's language** is the console's (Spanish on the test machine); it follows the profile
   language setting as the other games.

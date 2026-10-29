@@ -77,7 +77,8 @@ pixel shader constant; kind 2 a vertex shader constant. Kinect Sports maps ids t
 **Textures** (`x360tool avatar-model <toc> <entry>` prints each one's layout): DXT1 or DXT5,
 8-in-16 endian; linear ones (most) have rows 32 blocks apart (Xenia's pitch for a texture's base
 level), tiled ones (format bit 0x100) use the GPU's 2D tiling. The title makes a D3D texture header
-per texture and frame from the 44-byte texture records (Kinect Sports `82524770`:
+per texture and frame from the 44-byte texture records (Kinect Sports' base executable 0.0.0.2,
+`82524770`:
 `XGSetTextureHeaderEx(width, height, 1 level, format)`, then each frame at address + frame x slice
 size); the per-mesh code (`8259E8C0`) picks the frame for ids 7-10 and 12 (eyebrows, eyes, mouth,
 each side) from the avatar's expression, and sets wrap or clamp from the texture parameter's flags.
