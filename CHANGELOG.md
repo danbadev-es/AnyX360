@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-29
+
+A new Home for the dashboard, and guests as on the console.
+
 ### Added
 
 - **A new Home for the dashboard**, as a console's: the selected game's art fills the screen behind
@@ -1048,7 +1052,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.20.0...v0.21.0
