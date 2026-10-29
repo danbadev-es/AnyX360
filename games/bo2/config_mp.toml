@@ -6,10 +6,17 @@
 # x360tool god-extract (see docs/BLACKOPS2.md): a second program of the same title, which the
 # single-player executable starts with XamLoaderLaunchTitle for Multiplayer and Zombies. Encrypted
 # with the retail key, basic (zero-fill) compression, like default.xex.
+#
+# The executable is recompiled from the title update (version 0.0.18.14): XenonRecomp applies
+# patch_file_path (default_mp.xexp from the update's package, tu0000000e_00000000, x360tool
+# stfs-extract; see docs/BLACKOPS2.md) to file_path (version 0.0.0.14) and writes patched_file_path, which
+# XenonAnalyse reads (x360tool xex-patch makes the same file).
 
 [main]
 file_path = "../../extracted/bo2/game/default_mp.xex"
-out_directory_path = "recomp_mp"
+patch_file_path = "../../extracted/bo2/update/default_mp.xexp"
+patched_file_path = "../../extracted/bo2/update/default_mp_0.0.18.14.xex"
+out_directory_path = "recomp_mp2"
 switch_table_file_path = "switch_tables_mp.toml"
 
 # Optimisations stay off until the game runs (XenonRecomp recommendation).
@@ -22,27 +29,31 @@ cr_as_local = false
 non_argument_as_local = false
 non_volatile_as_local = false
 
-# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
 # image: each pattern occurs exactly once).
-restgprlr_14_address = 0x827D59B0
-savegprlr_14_address = 0x827D5960
-restfpr_14_address = 0x827D5C2C
-savefpr_14_address = 0x827D5BE0
-restvmx_14_address = 0x827D75D8
-savevmx_14_address = 0x827D7340
-restvmx_64_address = 0x827D766C
-savevmx_64_address = 0x827D73D4
+restgprlr_14_address = 0x82915FA0
+savegprlr_14_address = 0x82915F50
+restfpr_14_address = 0x8291621C
+savefpr_14_address = 0x829161D0
+restvmx_14_address = 0x82917C78
+savevmx_14_address = 0x829179E0
+restvmx_64_address = 0x82917D0C
+savevmx_64_address = 0x82917A74
 
 # The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: word for word the
 # single-player executable's, apart from the global they read and their calls). The other longjmp
 # candidate, 0x82130518, is the ordinary function with a switch found in the campaign too. 20 calls
 # to setjmp, 12 to longjmp.
-setjmp_address = 0x827D8600
-longjmp_address = 0x827D9790
+# In the patched image: the base's pair (827D8600/827D9790) matched by instruction shape and checked
+# over 24 instructions (find_helpers.py on the patched image finds the same setjmp).
+setjmp_address = 0x82918CA0
+longjmp_address = 0x82919E50
 
 # Functions the analyser gets wrong (address + size), added as they are found.
+# The base's entry found in the patched image by its shape over the whole function (the same
+# instructions; only its jump table's addresses moved).
 functions = [
   # The campaign's sub_82539CB8 (see config.toml), here too: a bdz to the next instruction made the
-  # analyser cut it, and its switch's default case (0x8261D2F0) fell outside.
-  { address = 0x8261D1D8, size = 0x130 },
+  # analyser cut it, and its switch's default case (0x826CE2B0) fell outside.
+  { address = 0x826CE198, size = 0x130 },
 ]

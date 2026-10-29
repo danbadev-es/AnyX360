@@ -5,10 +5,17 @@
 # written out with x360tool god-extract (see docs/BLACKOPS2.md). It is encrypted with the retail key
 # and uses basic (zero-fill) compression. The other executable, default_mp.xex (multiplayer and
 # Zombies), is not recompiled.
+#
+# The executable is recompiled from the title update (version 0.0.18.14): XenonRecomp applies
+# patch_file_path (default.xexp from the update's package, tu0000000e_00000000, x360tool
+# stfs-extract; see docs/BLACKOPS2.md) to file_path (version 0.0.0.14) and writes patched_file_path, which
+# XenonAnalyse reads (x360tool xex-patch makes the same file).
 
 [main]
 file_path = "../../extracted/bo2/game/default.xex"
-out_directory_path = "recomp"
+patch_file_path = "../../extracted/bo2/update/default.xexp"
+patched_file_path = "../../extracted/bo2/update/default_0.0.18.14.xex"
+out_directory_path = "recomp2"
 switch_table_file_path = "switch_tables.toml"
 
 # Optimisations stay off until the game runs (XenonRecomp recommendation).
@@ -21,27 +28,31 @@ cr_as_local = false
 non_argument_as_local = false
 non_volatile_as_local = false
 
-# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
 # image: each pattern occurs exactly once).
-restgprlr_14_address = 0x826C7650
-savegprlr_14_address = 0x826C7600
-restfpr_14_address = 0x826C76FC
-savefpr_14_address = 0x826C76B0
-restvmx_14_address = 0x826C9C48
-savevmx_14_address = 0x826C99B0
-restvmx_64_address = 0x826C9CDC
-savevmx_64_address = 0x826C9A44
+restgprlr_14_address = 0x826E9310
+savegprlr_14_address = 0x826E92C0
+restfpr_14_address = 0x826E93BC
+savefpr_14_address = 0x826E9370
+restvmx_14_address = 0x826EB908
+savevmx_14_address = 0x826EB670
+restvmx_64_address = 0x826EB99C
+savevmx_64_address = 0x826EB704
 
 # The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: the same code as Modern
 # Warfare 3's, apart from the global they read and their calls). The second longjmp candidate,
 # 0x8258D760, is an ordinary function (a switch). 18 calls to setjmp, 12 to longjmp.
-setjmp_address = 0x826CA660
-longjmp_address = 0x826CAAF0
+# In the patched image: the base's pair (826CA660/826CAAF0) matched by instruction shape and checked
+# over 24 instructions (find_helpers.py on the patched image finds the same setjmp).
+setjmp_address = 0x826EC320
+longjmp_address = 0x826EC7B0
 
 # Functions the analyser gets wrong (address + size), added as they are found.
+# The base's entry found in the patched image by its shape over the whole function (the same
+# instructions; only its jump table's addresses moved).
 functions = [
   # A leaf function with a switch, whose other cases count down CTR with bdz. The last bdz targets
   # the next instruction, which the analyser takes for an empty block: it cut the function there,
-  # and the switch's default case (0x82539DD0) ended up outside it.
-  { address = 0x82539CB8, size = 0x130 },
+  # and the switch's default case (0x8255AD18) ended up outside it.
+  { address = 0x8255AC00, size = 0x130 },
 ]
