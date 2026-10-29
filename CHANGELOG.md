@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-30
+
+Mortal Kombat Komplete Edition, in testing: the arcade ladder and local versus for two players.
+
 ### Added
 
 - **Mortal Kombat Komplete Edition** (in testing, [docs/MORTALKOMBAT.md](docs/MORTALKOMBAT.md)):
@@ -1135,7 +1139,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.24.0...v0.24.1
