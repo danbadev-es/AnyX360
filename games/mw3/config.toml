@@ -5,10 +5,17 @@
 # out with x360tool god-extract (see docs/MODERNWARFARE3.md). It is encrypted with the retail key and
 # uses basic (zero-fill) compression. The multiplayer executable, default_mp.xex, has its own
 # configuration (config_mp.toml).
+#
+# The executable is recompiled from the title update (version 0.0.23.8): XenonRecomp applies
+# patch_file_path (default.xexp from the update's package, tu00000008_00000000, x360tool
+# stfs-extract; see docs/MODERNWARFARE3.md) to file_path (version 0.0.0.8) and writes patched_file_path, which
+# XenonAnalyse reads (x360tool xex-patch makes the same file).
 
 [main]
 file_path = "../../extracted/mw3/game/default.xex"
-out_directory_path = "recomp3"
+patch_file_path = "../../extracted/mw3/update/default.xexp"
+patched_file_path = "../../extracted/mw3/update/default_0.0.23.8.xex"
+out_directory_path = "recomp4"
 switch_table_file_path = "switch_tables.toml"
 
 # Optimisations stay off until the game runs (XenonRecomp recommendation).
@@ -21,24 +28,28 @@ cr_as_local = false
 non_argument_as_local = false
 non_volatile_as_local = false
 
-# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
 # image: each pattern occurs exactly once).
-restgprlr_14_address = 0x824BED50
-savegprlr_14_address = 0x824BED00
-restfpr_14_address = 0x824BEDFC
-savefpr_14_address = 0x824BEDB0
-restvmx_14_address = 0x824C01D8
-savevmx_14_address = 0x824BFF40
-restvmx_64_address = 0x824C026C
-savevmx_64_address = 0x824BFFD4
+restgprlr_14_address = 0x824C9D80
+savegprlr_14_address = 0x824C9D30
+restfpr_14_address = 0x824C9E2C
+savefpr_14_address = 0x824C9DE0
+restvmx_14_address = 0x824CB208
+savevmx_14_address = 0x824CAF70
+restvmx_64_address = 0x824CB29C
+savevmx_64_address = 0x824CB004
 
 # The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: the same code as Kinect
 # Sports', Fruit Ninja Kinect's and Doritos Crash Course's). The engine's error handling (Com_Error,
 # from Quake III) leaves the failed frame with longjmp: 13 calls to setjmp, 46 to longjmp.
-setjmp_address = 0x824C0AF0
-longjmp_address = 0x824C1590
+# In the patched image: the base's pair (824C0AF0/824C1590) matched by instruction shape and checked
+# over 24 instructions (find_helpers.py on the patched image finds the same setjmp).
+setjmp_address = 0x824CBB90
+longjmp_address = 0x824CC5C0
 
 # Functions the analyser misses (address + size), added as they are found.
-# functions = [
+# # The base's entry found in the patched image by its shape over the whole function (the same
+# instructions; only its jump table's addresses moved).
+functions = [
 #   { address = 0x0, size = 0x0 },
 # ]

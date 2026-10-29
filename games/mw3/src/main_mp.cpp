@@ -13,6 +13,10 @@ int main(int argc, char** argv) {
   game.user_dir = game_info::kUserDir;
   game.dev_game_dir = game_info::kDevGameDir;
   game.title_id = game_info::kTitleId;
+  // Recompiled from the same title update (0.0.23.8): default_mp.xex is patched with its
+  // default_mp.xexp at start.
+  game.update_package = game_info::kUpdatePackage;
+  game.update_version = game_info::kUpdateVersion;
   game.xex_name = game_info::kXexName;
   for (const auto& [xex, exe] : game_info::kExecutables) game.executables.push_back({xex, exe});
   // 60 FPS, every vblank, as in the campaign.
