@@ -12,7 +12,7 @@
   "size_gb": 8,
   "archive_hint": "Forza Motorsport 4 (Games on Demand)",
   "input": "keyboard_pad",
-  "required_files": ["Database.xmplr", "Media/UI.zip"],
+  "required_files": ["Database.xmplr", "nxeart"],
   "owners": "Microsoft Corporation, Xbox Game Studios, Turn 10 Studios",
   "trademarks": ["Xbox", "Xbox 360", "Forza Motorsport"],
   "components": []
