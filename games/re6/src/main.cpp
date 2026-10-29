@@ -19,5 +19,11 @@ int main(int argc, char** argv) {
   // A console region from the player's country: told "every region", the game takes the console
   // for a Japanese one and shows its Japanese title, Biohazard 6.
   game.game_region_from_country = true;
+  // Entering a new area (the parking level of the prologue, for one) needs dozens of new pipelines
+  // at once; with Xenia's asynchronous pipeline creation their draws were skipped until they were
+  // ready, so meshes, lighting and effects went missing and came back for a few seconds. The draws
+  // of a frame may now wait up to 100 ms in all for their pipelines (they are usually ready within
+  // a few milliseconds).
+  game.xenia_options = {{"async_shader_compilation_wait_ms", "100"}};
   return x360::host::RunHost(argc, argv, game);
 }

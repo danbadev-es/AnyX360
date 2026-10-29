@@ -103,6 +103,48 @@ files, `nativeXenon\update\mes_update_<language>.gmd`.
   code). It hasn't happened again in about 60 runs since, several over 10 minutes; if it comes
   back, `ANYX360_ZPD` and the D3D12 debug layer (`[xenia] d3d12_debug = true`) are the next steps.
 
+## Graphics
+Looked into on 2026-10-29 after a report from the prologue: the picture dark overall and, from
+the descent with Helena through the parking level to the car, meshes missing and coming back,
+wrong-looking shaders and lighting that changed.
+
+- **Missing meshes, lighting and effects (fixed)**: Xenia creates pipelines on background threads
+  (`async_shader_compilation`) and skipped every draw whose pipeline wasn't ready yet. A new area
+  needs dozens at once: on a cold shader cache the prologue skipped 0.5 to 8 draws per frame most
+  of the time and 44 per frame (about 1,300 drawn) for several seconds after the healing, so
+  geometry, fog, light shafts and lighting passes went missing and came back. The fork now has
+  `async_shader_compilation_wait_ms`: a draw may wait for its pipeline, up to that time in all per
+  frame, before it is skipped; Resident Evil 6 sets 100 ms (`GameDescriptor::xenia_options`,
+  [games/re6/src/main.cpp](../games/re6/src/main.cpp)). Over the scripted prologue (775 s, cold
+  cache) the skipped draws fell from 115.6 to 3.4 and 7.9 in two runs (sum of the per-frame
+  averages of the 5-second log lines), the frame rate stayed at 30 FPS (29.9 to 30.0 on average)
+  and the longest frame at the busiest point went from 282 to 183-219 ms. Pipelines are kept in
+  `<user>\cache\shaders`, so a second visit of an area has nothing to create. With
+  `async_shader_compilation = false` nothing is skipped, but the same point froze for 1.2 s.
+- **Not the cause**: the game uses no occlusion queries (0 `EVENT_WRITE_ZPD` and no VIZ draws in
+  the prologue), so `occlusion_query` changes nothing; the render target path doesn't change the
+  picture (the brightness screen, an in-engine scene, is identical with `rov`, with
+  `xenos_sample_positions`, with the float24 depth options and with
+  `snorm16_render_target_full_range = false`: mean luma 32.6 in all).
+- **The dark picture (open)**: no emulation cause found. The game draws its final image into an
+  8_8_8_8 target and resolves it to a 2_10_10_10 front buffer, writes a PWL gamma ramp that is
+  almost the identity (applied as written), uses no gamma render targets, resolves or textures,
+  and its brightness setting defaults to 20. Raised by a gamma of 2.2 the screenshots look like a
+  well-exposed picture, which would point to a missing gamma step, but nothing in the GPU stream
+  asks for one. The game's own brightness setting (the screen after the title, or Options) is
+  the way to lighten it for now; a reference capture from a console at the same point would settle
+  whether the game is simply this dark.
+- **Diagnostics**: the GPU log line (every 5 s) now counts occlusion queries, VIZ draws, draws
+  skipped for pipelines not ready and the time spent waiting for them; `ANYX360_GPU_FORMATS=1`
+  logs each kind of render target, resolve and texture binding once, and the gamma ramp, in the
+  Xenia log (standard output).
+
+The prologue's render targets, for reference: the scene in 8_8_8_8 at 1280x720 (and in 4x MSAA
+at 640 pitch), 2_10_10_10, 7e3 (2_10_10_10_FLOAT, 4x MSAA), 16_16_16_16, 16_16_16_16_FLOAT (the
+luminance chain, 640x360 down to 8x8) and 32_FLOAT (8x8 to 64x64, exposure); depth (D24FS8) is
+resolved for shadow maps at 1024, 512 and 128 and at 1280x720. About 80 to 120 render target
+transfers per frame on the host render target path.
+
 ## Downloadable content
 The Games on Demand package carries 11 DLC packages (content type 2) and a Title Update. With
 the packages installed, the base game opens each with `XamContentCreateEx` (`dlc000:` to
@@ -179,7 +221,10 @@ coloured arc; the stick prompt wants the left stick turned (W A S D in turn).
 - No split screen and no online play (Xbox LIVE is gone; the port's scope is one player).
   `NetDll_XNetGetSystemLinkPort` is still unimplemented.
 - Stutters (17-25 FPS for a moment) the first time an area or effect appears, until the shader
-  cache has it.
+  cache has it; since meshes and effects no longer go missing meanwhile, a frame can now take up
+  to 100 ms longer there (see [Graphics](#graphics)).
+- The picture is dark at the default brightness (20); no emulation cause found yet (see
+  [Graphics](#graphics)). The brightness setting lightens it.
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `43430819`):

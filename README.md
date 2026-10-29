@@ -609,6 +609,8 @@ Resident Evil 6:
 - Siege Game Mode and the 3-Mode Pack are installed, but their modes (on the main menu) haven't
   been tried.
 - It runs at 30 FPS, as on the console, with short stutters the first time an area appears.
+- The picture is dark at the default brightness; the game's brightness setting lightens it (no
+  emulation cause found yet, see [docs/RESIDENTEVIL6.md](docs/RESIDENTEVIL6.md#graphics)).
 
 Minecraft: Xbox 360 Edition:
 

@@ -8,6 +8,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Changed
+
+- The GPU log line counts occlusion queries, draws skipped while their pipeline is being created
+  and the time spent waiting for pipelines; `ANYX360_GPU_FORMATS=1` logs the render target,
+  resolve and texture formats a game uses.
+
+### Fixed
+
+- Resident Evil 6: meshes, lighting and effects no longer go missing and come back on entering
+  a new area (the prologue's parking level): a draw now waits up to 100 ms per frame for a
+  pipeline being created in the background instead of being skipped
+  ([docs/RESIDENTEVIL6.md](docs/RESIDENTEVIL6.md#graphics)).
+
 ## [0.24.0] - 2026-10-29
 
 A new Home for the dashboard, and guests as on the console.
