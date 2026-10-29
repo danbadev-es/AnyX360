@@ -85,6 +85,10 @@ fs::path DownloadableContentDir(const CatalogGame& game);
 // Extracts downloadable content packages where the runtime looks for them:
 // DownloadableContentDir(game)\<package name>\. Returns how many.
 int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::path>& packages);
+// A downloadable content package's display name (UTF-8), kept for the runtime in
+// <content_folder>\..\Headers\<type>\<package>.header; empty if there is none.
+void WriteDisplayName(const fs::path& content_folder, const fs::path& package, const std::string& name_utf8);
+std::string ReadDisplayName(const fs::path& content_folder, const fs::path& package);
 
 // The avatar asset pack that discs of avatar games carry (AvatarAssetPack in the game's folder),
 // extracted where every game's avatar system looks for it (%LOCALAPPDATA%\AnyX360\system\): avatar

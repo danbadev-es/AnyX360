@@ -564,6 +564,22 @@ int main() {
     std::string v1 = json;
     v1.replace(v1.find("\"format_version\": 2"), 19, "\"format_version\": 1");
     CHECK(ReadAnyxManifest(v1, read) == AnyxRead::kDamaged);  // an update needs version 2
+
+    // The packages' display names (optional; a trailing space is part of a name).
+    AnyxManifest named = m;
+    named.content_names = {{"PACK", "Skin Pack 2 "}};
+    CHECK(ReadAnyxManifest(WriteAnyxManifest(named), read) == AnyxRead::kOk && read.content_names == named.content_names);
+    CHECK(ReadAnyxManifest(WriteAnyxManifest(m), read) == AnyxRead::kOk && read.content_names.empty());
+  }
+
+  {  // A downloadable content package's display name, in content\Headers\<type>\<package>.header.
+    const fs::path content = sandbox / L"names" / L"content" / L"00000002";
+    fs::create_directories(content);
+    CHECK(ReadDisplayName(content, content / L"PACK").empty());
+    WriteDisplayName(content, content / L"PACK", "Marvel Guardians of the Galaxy ");
+    CHECK(Exists(sandbox / L"names" / L"content" / L"Headers" / L"00000002" / L"PACK.header"));
+    CHECK(fs::file_size(sandbox / L"names" / L"content" / L"Headers" / L"00000002" / L"PACK.header") == 0x100);
+    CHECK(ReadDisplayName(content, content / L"PACK") == "Marvel Guardians of the Galaxy ");
   }
 
   {  // The player's cover.

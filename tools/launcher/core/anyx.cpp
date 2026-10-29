@@ -183,6 +183,12 @@ std::string WriteAnyxManifest(const AnyxManifest& m) {
   w.StartArray();
   for (const std::string& package : m.content) w.String(package.c_str());
   w.EndArray();
+  if (!m.content_names.empty()) {
+    w.Key("content_names");
+    w.StartObject();
+    for (const auto& [package, name] : m.content_names) w.Key(package.c_str()), w.String(name.c_str());
+    w.EndObject();
+  }
   if (m.update) {
     w.Key("update");
     w.StartObject();
@@ -248,6 +254,16 @@ AnyxRead ReadAnyxManifest(const std::string& json, AnyxManifest& m) {
     return true;
   };
   if (!strings("content", m.content) || !strings("folders", m.folders)) return AnyxRead::kDamaged;
+  // The packages' display names (since 0.19.0; older backups have none).
+  if (auto names = doc.FindMember("content_names"); names != doc.MemberEnd()) {
+    if (!names->value.IsObject()) return AnyxRead::kDamaged;
+    // (Through the members: windows.h renames GetObject.)
+    for (auto item = names->value.MemberBegin(); item != names->value.MemberEnd(); ++item) {
+      if (!item->value.IsString()) return AnyxRead::kDamaged;
+      m.content_names[std::string(item->name.GetString(), item->name.GetStringLength())] =
+          std::string(item->value.GetString(), item->value.GetStringLength());
+    }
+  }
   // Format version 2: the title update.
   auto update = doc.FindMember("update");
   if (update != doc.MemberEnd()) {
@@ -440,6 +456,8 @@ Outcome Export(Job& job, const CatalogGame& game, const fs::path& out) {
     if (!Walk(package.path(), "content/" + name, false, one, error)) return {error};
     if (one.files.empty()) continue;  // a package that was never extracted
     manifest.content.push_back(name);
+    if (std::string display = ReadDisplayName(content, package.path()); !display.empty())
+      manifest.content_names[name] = display;
     walked.files.insert(walked.files.end(), one.files.begin(), one.files.end());
     walked.folders.insert(walked.folders.end(), one.folders.begin(), one.folders.end());
     walked.bytes += one.bytes;
@@ -640,7 +658,11 @@ Outcome ImportAnyx(Job& job, const fs::path& archive, const ArchiveListing& list
     }
     const fs::path destination = DownloadableContentDir(*game) / name;
     RemoveAll(destination);
-    if (MoveFolder(files / L"content" / name, destination)) ++installed;
+    if (MoveFolder(files / L"content" / name, destination)) {
+      ++installed;
+      if (auto display = manifest.content_names.find(package); display != manifest.content_names.end())
+        WriteDisplayName(DownloadableContentDir(*game), destination, display->second);
+    }
   }
   Outcome outcome{installed ? Message{kTextAddedContent, {game->title, std::to_wstring(installed)}, false}
                             : Message{kTextAdded, {game->title}, false},

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -43,6 +44,9 @@ struct AnyxManifest {
   std::vector<AnyxFile> files;
   std::vector<std::string> folders;  // empty folders, as the files' paths
   std::vector<std::string> content;  // the downloadable content packages (their folder names)
+  // Their display names, where known ("content_names", optional: some titles find their packs by
+  // name, see WriteDisplayName).
+  std::map<std::string, std::string> content_names;
   std::optional<AnyxUpdate> update;
 };
 

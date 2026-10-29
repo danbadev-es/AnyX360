@@ -164,6 +164,41 @@ fs::path DownloadableContentDir(const CatalogGame& game) {
   return LocalAppData() / L"AnyX360" / game.user_dir / L"content" / L"00000002";
 }
 
+// A package's display name, where the runtime keeps those of the packages a title creates
+// (<user>\content\Headers\<type>\<file>.header: the XCONTENT_DATA field, 128 big-endian UTF-16
+// characters). Content enumerations answer it, as the console's do: Minecraft finds each pack's
+// details by its name ("Skin Pack 2", some with a trailing space) and crashed on a pack listed under
+// its file name.
+static fs::path DisplayNameHeader(const fs::path& content_folder, const fs::path& package) {
+  return content_folder.parent_path() / L"Headers" / content_folder.filename() / (package.filename().wstring() + L".header");
+}
+
+void WriteDisplayName(const fs::path& content_folder, const fs::path& package, const std::string& name_utf8) {
+  const std::wstring name = Widen(name_utf8);
+  std::string field(0x100, '\0');
+  for (size_t i = 0; i < name.size() && i < 127; ++i) {
+    field[i * 2] = char(name[i] >> 8);
+    field[i * 2 + 1] = char(name[i] & 0xFF);
+  }
+  const fs::path header = DisplayNameHeader(content_folder, package);
+  std::error_code ec;
+  fs::create_directories(header.parent_path(), ec);
+  std::ofstream(header, std::ios::binary).write(field.data(), std::streamsize(field.size()));
+}
+
+std::string ReadDisplayName(const fs::path& content_folder, const fs::path& package) {
+  std::ifstream in(DisplayNameHeader(content_folder, package), std::ios::binary);
+  std::string field(0x100, '\0');
+  if (!in || !in.read(field.data(), std::streamsize(field.size()))) return {};
+  std::wstring name;
+  for (size_t i = 0; i + 1 < field.size(); i += 2) {
+    const wchar_t c = wchar_t((uint8_t(field[i]) << 8) | uint8_t(field[i + 1]));
+    if (!c) break;
+    name.push_back(c);
+  }
+  return Narrow(name);
+}
+
 int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::path>& packages) {
   int installed = 0;
   for (const fs::path& path : packages) {
@@ -173,6 +208,7 @@ int InstallDownloadableContent(const CatalogGame& game, const std::vector<fs::pa
       RemoveAll(out);
       for (const x360tool::StfsEntry& e : package.entries())
         if (!e.is_dir) package.extract(e, out / x360tool::utf8_path(e.path));
+      WriteDisplayName(DownloadableContentDir(game), path, package.header().display_name);
       ++installed;
     } catch (const std::exception&) {
       // A damaged pack is skipped: the game runs without it (and no half of it stays).
