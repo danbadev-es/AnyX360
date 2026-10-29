@@ -10,6 +10,9 @@ int main(int argc, char** argv) {
   game.user_dir = game_info::kUserDir;
   game.dev_game_dir = game_info::kDevGameDir;
   game.title_id = game_info::kTitleId;
+  // Recompiled from its title update (0.0.6.3): the copy's 0.0.0.3 is patched with it at start.
+  game.update_package = game_info::kUpdatePackage;
+  game.update_version = game_info::kUpdateVersion;
   game.xex_name = game_info::kXexName;
   // Resident Evil 6 runs at 30 FPS on the console: it presents every other vblank.
   game.vblanks_per_frame = 2;
