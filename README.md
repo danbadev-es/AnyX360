@@ -20,7 +20,7 @@
 > **AnyX360 is an unofficial fan project.** It is not affiliated with, authorized, sponsored or
 > endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games, Harmonix, Good Science Studio,
 > Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay, Activision, Infinity Ward, Sledgehammer
-> Games, Treyarch, Capcom, Mojang, 4J Studios or any other rights holder.
+> Games, Treyarch, Capcom, Mojang, 4J Studios, Turn 10 Studios or any other rights holder.
 > It contains **no game code, assets or files**: you must own a legally acquired copy of the game,
 > and you provide its files yourself.
 
@@ -62,6 +62,10 @@ the sensor.
 - **Minecraft: Xbox 360 Edition** (in testing): 4J Studios' edition from Xbox Live Arcade with its
   last title update (version 0.0.80.1), new and saved worlds, up to four players in split screen,
   and its downloadable content (skins, texture packs, mash-ups).
+- **Forza Motorsport 4** (being brought up): Turn 10's racing game from a Games on Demand copy,
+  with the second disc's car packs and its downloadable content; it starts, saves and plays its
+  introduction, and stops at the first race's loading screen
+  ([docs/FORZAMOTORSPORT4.md](docs/FORZAMOTORSPORT4.md)).
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
 carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for. Your
@@ -823,6 +827,7 @@ games/ka/         Kinect Adventures: recompiler config, entry point, Kinect bind
 games/fnk/        Fruit Ninja Kinect: recompiler config, entry point, Kinect bindings, notes
 games/kp/         Kinect Party: recompiler config, entry point, Kinect bindings, notes
 games/minecraft/  Minecraft: Xbox 360 Edition: recompiler config, entry point, notes
+games/fm4/        Forza Motorsport 4: recompiler configs (the game and its two DLLs), entry point, notes
 runtime/          Kernel and XAM reimplementation, input, settings, GPU and audio glue,
                   the virtual Kinect (runtime/src/nui) and its debug window (runtime/kinect_window)
 tools/x360tool/   Disc and XEX tooling
@@ -844,7 +849,7 @@ anyx/            Your .anyx backups (git-ignored)
   authorized, sponsored or endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games,
   Harmonix, Good Science Studio, Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay,
   Double Fine Productions, Activision, Infinity Ward, Sledgehammer Games, Treyarch, Capcom, Mojang,
-  4J Studios or any other rights holder, and it is
+  4J Studios, Turn 10 Studios or any other rights holder, and it is
   not an official product or port of any game.
 - This repository contains **no game code, assets or console keys**, and never will. The
   third-party XenonRecomp submodule (like Xenia) embeds the publicly known XEX2 retail key in its
@@ -859,8 +864,8 @@ anyx/            Your .anyx backups (git-ignored)
   each player adds their own copy.
 - Gears of War, Dance Central, Harmonix, Kinect, Kinect Adventures, Kinect Sports, Kinect Joy
   Ride, Kinect Party, Double Fine, BigPark, Fruit Ninja, Halfbrick, Doritos, Rare, Call of Duty,
-  Modern Warfare, Black Ops, Treyarch, Activision, Resident Evil, Capcom, Minecraft, Mojang, Xbox
-  and Xbox 360 are trademarks of their
+  Modern Warfare, Black Ops, Treyarch, Activision, Resident Evil, Capcom, Minecraft, Mojang, Forza
+  Motorsport, Turn 10, Xbox and Xbox 360 are trademarks of their
   respective owners, used here only to identify the games
   AnyX360 is compatible with.
 - The box art in the release belongs to its publishers and is shown only to identify the games;

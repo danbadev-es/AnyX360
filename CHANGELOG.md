@@ -8,6 +8,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **Forza Motorsport 4** (being brought up, [docs/FORZAMOTORSPORT4.md](docs/FORZAMOTORSPORT4.md)):
+  from a Games on Demand copy with the second disc's car packs and the downloadable content. The
+  logos, the title screen, the profile save, the brightness screen and the introduction work;
+  the game stops at the first race's loading screen.
+- **A title's own DLLs**: a game that loads DLLs of its own with `XexLoadImage` (Forza's video
+  decoder and speech facade) has them recompiled into its executable and loaded at their base.
+
+### Changed
+
+- Forza Motorsport 4 leaves "Coming soon".
+
+### Fixed
+
+- `ExCreateThread` with flag 0x80 gives the thread's KTHREAD, as on the console.
+
 ## [0.24.1] - 2026-10-29
 
 Resident Evil 6: no more missing meshes and lighting on entering a new area.

@@ -1,0 +1,17 @@
+FORZA MOTORSPORT 4 (in testing)
+==========================================================
+Your copy: the Games on Demand package (in an archive or a folder) or a folder with the first
+disc's files. The second disc's content (the car packs and Autovista, as content packages) and
+the downloadable content next to it are installed too. One player; Kinect and split screen
+aren't available yet.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\ForzaMotorsport4
+
+CONTROLS
+Player 1: keyboard and mouse, standing in for a controller. A controller is recommended: open
+F2 > Players and set Player 1 to "Controller".
+
+KNOWN ISSUES
+- In testing: the start, the title screen, the profile save, the brightness screen and the
+  introduction work; the game stops at the first race's loading screen. If something goes
+  wrong, tell us with the logs.
+- Xbox LIVE (Rivals online, the storefront, the auction house) is gone.
