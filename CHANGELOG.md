@@ -8,6 +8,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+The Guide button and the dashboard, in one window ([docs/DASHBOARD.md](docs/DASHBOARD.md)).
+
+### Added
+
+- **The Guide**: the Xbox button opens the console's menu over the game, which pauses it as on the
+  console (the title sees the system UI open; a Kinect title, the pause gesture first): **Resume**,
+  **Achievements** (the game's, for the player who opened it), **Profiles** (who is signed in on
+  each slot; sign a player in or out), **Settings** (the F2 panel) and **Xbox Home** (after a
+  warning, back to the dashboard). Every controller and the keyboard drive it, in English or
+  Spanish, with a short sound (F2 turns it off). Back and Start held for a second, or Home on the
+  keyboard, open it too. The game never sees the Guide button. Turning off the Game Bar's use of
+  the button is explained in the docs.
+- **Notifications**: a toast when a controller connects or disconnects and when a player signs in
+  or out (F2 > Display > Overlay turns them off).
+- **Console mode** in the launcher: a dashboard driven by the controller first, borderless in its
+  window or over the whole screen, with pages changed with LB and RB: **Home** (the game played
+  last with Play, the others played recently, the gamercard), **Games**, **Achievements**,
+  **Profiles**, **Settings** and **Add a game**. The usual window stays as **desktop mode**; the
+  choice is remembered (`--console` or `--desktop` for one start).
+- **One window**: in console mode a game opens borderless at the dashboard's place (or full screen
+  on its monitor, `--window x,y,w,h` / `--fullscreen`), shows its window with its first frame, and
+  the dashboard hides only then; when the game ends the dashboard is back, in the same place, before
+  the game's window goes. Modern Warfare 3's and Black Ops II's switch to their multiplayer stays
+  covered by the dashboard until it shows.
+
+### Changed
+
+- **The launcher stays open when a game ends** (before, it closed when a game ended normally): it
+  follows every process of the game with a job object, including the executable a game replaces
+  itself with, and comes back when the last has ended. An error still shows the message and the log.
+
 ## [0.21.0] - 2026-10-29
 
 Achievements, as on the console ([docs/ACHIEVEMENTS.md](docs/ACHIEVEMENTS.md)).

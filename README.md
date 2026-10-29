@@ -106,7 +106,8 @@ carries: AnyX360 builds each avatar from it, with the clothes, hair and face the
    game patches its disc's executable with the update when it starts (cached after the first time)
    and reads the update's files.
 5. Choose a game and press **Play**. The launcher works with the mouse, the keyboard or an Xbox
-   controller.
+   controller. **Console mode** (in the header) makes it a dashboard the game opens in, as one
+   window; the Xbox button in a game opens the Guide, with **Xbox Home** back to it.
 
 Settings can be changed while playing in the **F2** panel. They are saved to
 `%LOCALAPPDATA%\AnyX360\<game>\settings.toml`, next to your saves. The release's `README.txt`
@@ -179,6 +180,15 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   (F2 turns them off), the game's own achievements menu lists them, and the launcher has an
   **Achievements** page per game and the profile's gamerscore in the header. Achievements earned on
   a console aren't imported.
+- **The Guide** - The Xbox button (or Back and Start held a second, or Home) opens the console's
+  menu over the paused game: Resume, Achievements, Profiles (sign players in or out), Settings and
+  Xbox Home, back to the dashboard ([docs/DASHBOARD.md](docs/DASHBOARD.md), which also explains
+  turning off the Game Bar's use of the button). Toasts say when a controller connects or a player
+  signs in.
+- **Console mode** - The launcher as a dashboard, borderless in its window or full screen, driven
+  by the controller: Home (the game played last, the gamercard), Games, Achievements, Profiles,
+  Settings and Add a game, changed with LB and RB. Games open in the same place and the dashboard
+  comes back when they end, as one window; **Desktop mode** keeps the usual window.
 - **Shader Cache** - Shaders and pipelines are cached between runs, so stutter fades after the
   first play.
 - **Saves** - Stored in `%LOCALAPPDATA%\AnyX360\<game>` (each profile's in its own folder),
@@ -494,6 +504,7 @@ Dial prompts want their button while the turning needle is inside the coloured a
 | **F2**                   | Settings panel (Esc closes it) |
 | **F3**                   | Kinect debug window (Kinect games) |
 | **F11** or **Alt+Enter** | Fullscreen                     |
+| **Home**, the **Xbox button**, or **Back+Start** held 1 s | The Guide                 |
 | **Alt+Tab**              | Releases the mouse             |
 
 ## Known Issues

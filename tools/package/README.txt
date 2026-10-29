@@ -52,6 +52,20 @@ another player joins, the game's sign-in screen lists the profiles: each player 
 creates one, with their own controller. The names you set before this version became profiles,
 with their saves.
 
+THE GUIDE: in a game, the Xbox button opens the console's menu and pauses the game: Resume,
+Achievements, Profiles (sign players in or out), Settings and "Xbox Home" (back to the launcher; the
+progress you haven't saved is lost). Holding Back and Start for a second, or Home on the keyboard,
+opens it too. If the Xbox button opens Windows' Game Bar instead: Windows 11, Settings > Gaming >
+Game Bar > turn off "Allow your controller to open Game Bar" (Windows 10: Settings > Gaming > Xbox
+Game Bar > "Open Xbox Game Bar using this button on a controller").
+
+CONSOLE MODE: "Console mode", at the top right, makes the launcher a dashboard for the controller,
+in its window without borders or full screen (Settings page): Home (the game you played last, your
+gamercard), Games, Achievements, Profiles, Settings and Add a game, changed with LB and RB. A game
+opens in the same place and the dashboard comes back when you leave it, as one window. "Desktop
+mode", in its Settings page, brings back the usual window. In both modes the launcher stays open
+while you play and comes back when the game ends.
+
 
 PROGRAM KEYS (every game)
   F1                  Statistics (FPS, memory; the webcam's frame rate and latency in Kinect games)
@@ -60,6 +74,7 @@ PROGRAM KEYS (every game)
   F3                  In Kinect games: the Kinect window, with everything the virtual Kinect
                       sees (put it on a second monitor; it remembers where it was)
   F11 or Alt+Enter    Fullscreen
+  Home                The Guide (as the Xbox button)
   Alt+Tab             Releases the mouse
 
 
