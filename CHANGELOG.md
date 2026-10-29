@@ -8,6 +8,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-29
+
 Resident Evil 6, Modern Warfare 3 and Black Ops II with their title updates, and their
 downloadable content back in.
 
@@ -877,7 +879,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.17.1...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.17.1...v0.18.0
 [0.17.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.16.1...v0.17.0
 [0.16.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.16.0...v0.16.1
