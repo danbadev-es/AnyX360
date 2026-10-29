@@ -54,7 +54,7 @@ PPC_FUNC(sub_82947780) {
   static const double from = std::getenv("PROBE_EV_FROM") ? std::atof(std::getenv("PROBE_EV_FROM")) : 1e9;
   static const double to = std::getenv("PROBE_EV_TO") ? std::atof(std::getenv("PROBE_EV_TO")) : 0;
   const double now = Now();
-  if (c <= 3 || (c & (c - 1)) == 0 || (now >= from && now <= to && ev != 2))
+  if (c <= 3 || (c & (c - 1)) == 0 || (now >= from && now <= to && ev != 2 && ev != 10 && ev != 14))
     P("post event %u/%u #%d r6 %08X r7 %08X r8 %08X", ev, sub, c, ctx.r6.u32, ctx.r7.u32, ctx.r8.u32);
   __imp__sub_82947780(ctx, base);
 }

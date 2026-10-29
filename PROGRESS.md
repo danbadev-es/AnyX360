@@ -87,16 +87,18 @@ it stays forever. Nothing is read after the Alps audio zones; the track's `bin.z
 - Tools in scratchpad fm4b\: rtti.py (class -> vtables), dis.sh (disassembly of a recompiled function).
 
 ## Next step (exact)
-1. Find the race setup that should follow the Alps audio: who requests the car and track loads
-   after `826D5358` (the race-start job run on thread 21: Kinect manager `82A689F8`, `82A78F80`...)
-   and what it waits for. Candidates: the Kinect manager / NUI thread (`827C1338` retries
-   `827BBE58` every 30 ms forever without a sensor; the worker `82A68968` waits on its object's
-   event at +17012), the DB install checks (`IsCarInstalled`, `IsEnvironmentOnDisc`,
-   `IsCarOnDisc`; `CContentInstaller` at `823CD428` never starts).
-2. Try a direct race launch with the dev parameters (`loadcmdlinedottxt`/`GAME:\cmdline.txt`,
-   or ExLoadedCommandLine) to see whether the race loader works outside the first-run flow.
+1. THE FIRST RACE WORKS (fibers). Route: `28:A,40:A,60:A~15x6,155:RT/190` (RT held drives it: the
+   first race steers/brakes for you; finishes ~315-335 s, 8th place). Post-race menu "Continuar /
+   Reiniciar" over the replay; the menu auto-hides after a while and a press shows it again.
+2. CURRENT BLOCKER: after "Continuar" the menu goes and the replay keeps playing; nothing is loaded
+   (no file opens), no new event types (probe), the game thread keeps running the race update
+   (824107E8 -> 826E2B20). Being checked: an export trace after Continue (run d5:
+   ANYX360_TRACE=FFFF:300) for a XAM call that never completes (profile save, achievement write).
+   Other ideas: the game loop's return code from 824107E8 (+19 of the game object -> 2), 822B9428.
 3. Then the single-player list: career/World Tour with saving, Free Play, garage/upgrades/tuning,
    paint editor, storefront, replays, Rivals offline, disc-2 cars, DLC.
+4. Dev parameters exist (skiptutorials, shortrace, noreplay, defaultProfile, NoNatal...;
+   loadcmdlinedottxt reads GAME:\cmdline.txt; ExLoadedCommandLine is only the quoted XEX name).
 
 ## Setting up again
 - Junctions: `thirdparty\xenia` and `thirdparty\XenosRecomp` → the main checkout's; and
