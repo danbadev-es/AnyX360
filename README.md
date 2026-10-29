@@ -155,7 +155,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 
 - **Local Split Screen** - Up to four players. Player 2 joins from the main menu, as a guest or
   with their own profile, and gets their own saves: the game's sign-in screen lists the profiles,
-  and each player chooses theirs (or creates one) with their own controller.
+  and each player chooses theirs (or creates one) with their own controller, or plays as a guest
+  ("Daniel (1)", as on the console: nothing of theirs is kept after the game).
 
 ### General
 
@@ -184,7 +185,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   **Achievements** page per game and the profile's gamerscore in the header. Achievements earned on
   a console aren't imported.
 - **The Guide** - The Xbox button (or Back and Start held a second, or Home) opens the console's
-  menu over the paused game: Resume, Achievements, Profiles (sign players in or out), Settings and
+  menu over the paused game: Resume, Achievements, Profiles (sign players or guests in or out), Settings and
   Xbox Home, back to the dashboard ([docs/DASHBOARD.md](docs/DASHBOARD.md), which also explains
   turning off the Game Bar's use of the button). Toasts say when a controller connects or a player
   signs in.

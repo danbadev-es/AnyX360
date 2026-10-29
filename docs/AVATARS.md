@@ -254,7 +254,28 @@ Daniel's first save made his gamerpic. Then, with the same build:
 
 The viewer and the games match (hair, colours, clothes, beard, nose). In Kinect Joy Ride the
 shades looked like an eye patch (one lens dark, the other eye showing) in the garage; Kinect Sports
-draws both lenses. Not investigated (the same parts are given to both games).
+draws both lenses. Looked into on 2026-10-29 (below): not reproduced, not the parts.
+
+### Kinect Joy Ride's "eye patch" (2026-10-29)
+The shades were "Surfer Shades" (pack entry 190): one mesh of material 3 (shades) holding the
+frame and both lenses, 416 vertices and 380 triangles, the first 190 triangles one side (x > 0)
+and the last 190 the other. The two halves are mirror images: the same number of front and
+back faces (the lenses are two-sided), every triangle's winding agreeing with its normals, every
+vertex skinned to the head joint (0x13) with full weight, and the same texels (both lenses take
+the top left corner of texture 0; texture 2, a reflection streak, has no UV set: the title makes
+its coordinates). So nothing in the part draws one lens differently from the other, and the
+runtime gives Kinect Joy Ride and Kinect Sports the same bytes.
+
+In a sandbox the eye patch showed once (the first run of Kinect Joy Ride there, the garage after the
+driving tutorial, on a machine busy with builds), as in the editor's check. It didn't show again in
+eight more runs, each as a new player to the same garage, with the default avatar wearing those
+shades (`ANYX360_AVATAR=190`): with the shader cache warm, cold, all of the game's caches removed
+(a first launch), and with the machine busy; six screenshots each over 15 seconds. "Metallic Carbon
+Shades" (189, a frame mesh and a lens mesh) and "Male Shades" (962) draw both lenses too. Forcing
+texture 2's alpha to 0 or 255 changed nothing. So it is intermittent and not in the avatar's data:
+probably the GPU side (Xenia drawing the part before its textures or buffers are current: the log
+shows the player's avatar built twice at the same GPU address, `AC069000`, a few seconds apart).
+Left open; a capture of the frame (RenderDoc, or Xenia's trace) when it shows would say more.
 
 ## Open
 

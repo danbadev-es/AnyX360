@@ -40,7 +40,7 @@ keyboard (arrows, Enter, Esc), in the game's language (English or Spanish):
 |---|---|
 | **Resume** | Closes the Guide. |
 | **Achievements** | This game's achievements for the profile on the controller that chose it (the list of [ACHIEVEMENTS.md](ACHIEVEMENTS.md)). A controller without a profile signed in is told to sign in. |
-| **Profiles** | Players 1-4: who is signed in on each slot. A free slot opens the sign-in picker for one player; a signed-in one (2-4) signs out. Player 1 stays signed in. |
+| **Profiles** | Players 1-4: who is signed in on each slot (a guest's says "Guest"). A free slot (2-4) offers **Choose a profile** (the sign-in picker for one player) and **Guest**, a guest of player 1's profile on that slot ([PROFILES.md](PROFILES.md#guests)); a signed-in one (2-4) signs out. Player 1 stays signed in. |
 | **Settings** | The F2 panel's pages, over the game; closing the panel (Esc) comes back to the Guide. |
 | **Xbox Home** | Asks first ("progress you haven't saved is lost"), then saves the settings and the time played and ends the game with `kExitToDashboard` (0x00DB0001): the dashboard comes back at once. |
 

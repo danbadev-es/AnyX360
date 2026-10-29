@@ -1,7 +1,7 @@
 # Profiles
 
 **Status:** implemented in 0.20.0 (profile format version 1); the avatar and the gamerpic are
-filled since 0.23.0 (the same version: the fields were there). The first stage of the console
+filled since 0.23.0 (the same version: the fields were there); guests since 0.24.0. The first stage of the console
 experience (profiles, then achievements, the Guide and the dashboard, then the avatar editor):
 later stages add their files next to these.
 
@@ -94,6 +94,8 @@ Saves and each game's profile settings stay in the game's own folder, keyed by X
 (`profiles::UserFolder`, used by the runtime's `UserRoot`):
 - the profile with XUID `E000000012345678` (player 1's before 0.20.0) uses the game's root folder
   (`<user_dir>\content`, `<user_dir>\profile`);
+- a guest ([Guests](#guests)) uses `<user_dir>\players\guest<n>`, emptied when a guest signs in
+  with that number and when the game starts again;
 - any other uses `<user_dir>\players\<XUID>`.
 
 That is the console's `Content\<XUID>\<TitleID>`, turned around. `.anyx` backups never had saves and
@@ -147,6 +149,37 @@ in, so "Who's playing?" shows it. A game started without the launcher (a develop
 - A player who signs in as another profile than before reads their own profile settings (the cache
   of `profile\*.bin` is per slot and is dropped on sign-in).
 
+## Guests
+As on the console, a player without a profile can play as a **guest** of a signed-in one: "Daniel
+(1)", "Daniel (2)"... (`kernel::SignInGuest`, `profiles::GuestXuid` and the helpers next to it in
+`x360/profiles.h`).
+- **Where:** the sign-in picker lists **Guest** ("Invitado" in Spanish) after the profiles, with the
+  gamertag the guest will have ("as Daniel (1), nothing is kept"), unless the title's call says
+  `XSSUI_FLAGS_DISALLOWGUEST` (0x01000000: Minecraft's "Connect to Xbox Live" asks for a profile
+  only); and the Guide's Profiles: a free
+  slot (players 2-4) offers "Choose a profile" (the picker) and **Guest** (on that slot). A guest's
+  slot says "Guest" and signs out like any other. Player 1 is never a guest, so the launcher's
+  "Who's playing?" has no guest.
+- **The sponsor:** the first player signed in who isn't a guest: player 1, who always is (the
+  console asks for a signed-in profile; AnyX360 always has one). Should there be none, the guest is
+  called just "Guest". The guest number is the lowest of 1-3 no other guest has; the gamertag is the
+  sponsor's, shortened so that "<gamertag> (n)" fits 15 characters ("ABCDEFGHIJK (2)").
+- **The XUID** follows the console's guest form, which titles test with the XDK's `IsGuestXUID`:
+  `0x0009` in the top 16 bits (the online form) with the guest number in bits 54-55 (`0x0049...`,
+  `0x0089...`, `0x00C9...`), and the sponsor's low 48 bits (`E0003A41C29F0B57`'s guest 1 is
+  `00493A41C29F0B57`). It is neither an offline XUID (`E...`) nor a plain online one.
+- **What a title sees:** `XamUserGetSigninInfo` gives the flags `XUSER_INFO_FLAG_GUEST` (2), the
+  guest number at +0x10 and the sponsor's user index at +0x14; `XamUserGetXUID`,
+  `XamUserGetName` and the notifications (`XN_SYS_SIGNINCHANGED`) are those of any player.
+- **Nothing is kept:** a guest is no profile (never in `profiles\`, never in profile.txt). Their
+  achievements unlock nothing (no toast, nothing stored, not even for the session); their time
+  played isn't counted; they get the default avatar and the gamerpic's initial.
+- **Saves:** in `<user_dir>\players\guest<n>\` (`profiles::UserFolder` of a guest XUID), never the
+  root folder or a profile's. The folder is emptied when a guest signs in with that number, and the
+  three are removed when the game starts (`InitUsers`), so a guest's saves last while the game runs,
+  as most titles keep them on the console. A title that switches executables (Modern Warfare 3's and
+  Black Ops II's multiplayer) starts without its guests: they sign in again there.
+
 ## The launcher
 `tools/launcher/ui/app.cpp`:
 - **"Who's playing?"** at start while profile.txt's `slot1` names no profile: a tile per profile and
@@ -167,7 +200,11 @@ in, so "Who's playing?" shows it. A game started without the launcher (a develop
 
 ## Tests
 - `test_hle`: profile.txt in both formats, the migration (names to profiles with their XUIDs, the
-  backup, once only), `UserFolder`, time played, a first start, a nameless player 2 with saves.
+  backup, once only), `UserFolder`, time played, a first start, a nameless player 2 with saves;
+  guests: their XUIDs (the guest bits, the number, the sponsor's bits), gamertags, folders (and
+  clearing only theirs), no profile, time played or slot of theirs, `XamUserGetSigninInfo`'s guest
+  flag, number and sponsor, and an achievement unlocked for a guest that isn't kept.
+- `test_guide`: a guest signed in and out with the Guide open, and without it.
 - `test_launcher_core`: the migration of a user folder with saves (nothing moved), create, rename and
   delete (taken and empty gamertags, a deleted profile's saves kept), moving a profile between
   slots, damaged and copied profile files, atomic writes, the time played as shown.
@@ -199,3 +236,18 @@ in, so "Who's playing?" shows it. A game started without the launcher (a develop
 - **Regressions** with the same build: Kinect Joy Ride (the scripted route to "How to drive"),
   Kinect Sports and Fruit Ninja Kinect (to their intro and title, player 1 signed in at startup,
   no picker) and Gears of War 3 Continue.
+
+## Guests checked (2026-10-29)
+In a sandbox (`LOCALAPPDATA` redirected, the games added from their `.anyx` backups with their
+updates), with one profile, Daniel, on slot 1 and `ANYX360_SIGNIN_PICKER=1` with scripted pads:
+- **Minecraft**, in a new world: the Guide (`GUIDE`), Profiles, Player 2, **Guest**: "Daniel (1)"
+  signed in on slot 2 with its toast, and Profiles showed "Daniel (1) · Guest · Sign out". Player 3's
+  "Choose a profile" opened the picker with "Guest — as Daniel (2), nothing is kept" (cancelled).
+  Then player 2 pressed START twice: the screen split, the lower view named "Daniel (1)".
+  Minecraft's own join (`XamShowSigninUI(1, 0x01010001)`) asks with `XSSUI_FLAGS_DISALLOWGUEST`, so
+  its picker offers the profiles and Create profile only, as the console's would.
+- **Modern Warfare 3 multiplayer**, Split Screen: player 2 joined ("Invitado 2", the game's own
+  guest), pressed X (sign-in profile), the picker (`XamShowSigninUI(1, 0x10000)`) offered Guest,
+  and A signed "Daniel (1)" in; the game showed "DANIEL (1)" in player 2's quadrant, wrote the
+  guest's `mpdata` and `cmr_history` to `players\guest1\`, and both started a Team Deathmatch on
+  Seatown in split screen. The next start of the game removed `players\guest1`.

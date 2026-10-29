@@ -22,6 +22,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - **Background art**: `backgrounds\<slug>.jpg` beside the covers (not in git, shipped in the release
   at 1920x1080, `x360tool background`; see `backgrounds/README.md`).
 - The avatar viewer stands the avatar with its arms down, relaxed, instead of the bind pose's T.
+- **Guests**, as on the Xbox 360: a player without a profile plays as a guest of a signed-in one
+  ("Daniel (1)"). The games' sign-in screen lists **Guest** after the profiles, and the Guide's
+  Profiles signs a guest in on a free slot. Games see a guest as the console shows one (a guest
+  XUID, the guest flag, number and sponsor), so their own guest rules apply. Nothing of a guest's is
+  kept: no achievements, no time played, the default avatar, and their saves only until the game
+  starts again (`players\guest<n>` in the game's folder) ([docs/PROFILES.md](docs/PROFILES.md#guests)).
 
 ### Changed
 
