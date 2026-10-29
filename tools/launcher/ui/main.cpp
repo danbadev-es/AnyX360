@@ -12,11 +12,17 @@
 //   --quit-when-done --result <file>    after that job, write its outcome ("ok: ..." or "error: ...")
 //                                       and exit (without the terms accepted: "error: ..." at once)
 //   --select <id>                       the game selected at start
+//   --console | --desktop               start in console mode (the dashboard) or desktop mode, this
+//                                       time only (the mode chosen in the launcher is remembered)
+//   --pad also takes GUIDE (the Xbox button: the dashboard's Home)
 //   --screenshot <png> [--size WxH] [--dpi N] [--lang en|es] [--state S] [--root <dir>]
 //                                       draw the window offscreen into a PNG: S is library, empty,
 //                                       compatible, add, progress, error, confirm, password, menu,
-//                                       terms, who, profiles, newprofile, achievements or
-//                                       gameachievements; --root uses another release folder
+//                                       terms, who, profiles, newprofile, achievements,
+//                                       gameachievements or the dashboard's pages (console-home,
+//                                       console-games, console-achievements, console-profiles,
+//                                       console-settings, console-add); --root uses another release
+//                                       folder
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -73,12 +79,64 @@ class WindowHost : public Host {
   }
   HWND Window() override { return hwnd; }
   void ShowWindow(bool show) override {
-    ::ShowWindow(hwnd, show ? SW_SHOW : SW_HIDE);
-    if (show) SetForegroundWindow(hwnd);
+    if (!show) {
+      ::ShowWindow(hwnd, SW_HIDE);
+      return;
+    }
+    // Painted and composed before this returns: a game leaving for the dashboard ends right after.
+    InvalidateRect(hwnd, nullptr, FALSE);
+    ::ShowWindow(hwnd, SW_SHOW);
+    SetForegroundWindow(hwnd);
+    UpdateWindow(hwnd);
+    DwmFlush();
   }
   void Close() override { DestroyWindow(hwnd); }
 
+  void SetBorderless(bool borderless, bool fullscreen) override {
+    const LONG_PTR visible = GetWindowLongPtrW(hwnd, GWL_STYLE) & WS_VISIBLE;
+    if (borderless) {
+      // The window's place as it looks (without the invisible resize borders), or its monitor.
+      if (!borderless_ && FAILED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &desktop_rect_,
+                                                       sizeof(desktop_rect_))))
+        GetWindowRect(hwnd, &desktop_rect_);
+      RECT r = desktop_rect_;
+      if (fullscreen) {
+        MONITORINFO monitor{sizeof(monitor)};
+        GetMonitorInfoW(MonitorFromRect(&desktop_rect_, MONITOR_DEFAULTTONEAREST), &monitor);
+        r = monitor.rcMonitor;
+      }
+      SetWindowLongPtrW(hwnd, GWL_STYLE, WS_POPUP | WS_CLIPCHILDREN | visible);
+      DWM_WINDOW_CORNER_PREFERENCE corners = DWMWCP_DONOTROUND;  // as the game's window
+      DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corners, sizeof(corners));
+      SetWindowPos(hwnd, nullptr, r.left, r.top, r.right - r.left, r.bottom - r.top,
+                   SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    } else if (borderless_) {
+      SetWindowLongPtrW(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW | visible);
+      DWM_WINDOW_CORNER_PREFERENCE corners = DWMWCP_DEFAULT;
+      DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corners, sizeof(corners));
+      // The visible rectangle again, with the frame's invisible borders around it.
+      RECT frame{0, 0, 0, 0};
+      AdjustWindowRectExForDpi(&frame, WS_OVERLAPPEDWINDOW, FALSE, 0, GetDpiForWindow(hwnd));
+      const int border = -frame.left;
+      SetWindowPos(hwnd, nullptr, desktop_rect_.left - border, desktop_rect_.top,
+                   desktop_rect_.right - desktop_rect_.left + 2 * border,
+                   desktop_rect_.bottom - desktop_rect_.top + border, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
+    borderless_ = borderless;
+    InvalidateRect(hwnd, nullptr, FALSE);  // WM_SIZE resized the canvas
+  }
+
+  bool ScreenRect(RECT& rect) override {
+    if (!GetClientRect(hwnd, &rect)) return false;
+    POINT origin{0, 0};
+    ClientToScreen(hwnd, &origin);
+    OffsetRect(&rect, origin.x, origin.y);
+    return true;
+  }
+
  private:
+  bool borderless_ = false;
+  RECT desktop_rect_{};
   std::mutex mutex_;
   std::vector<std::function<void()>> queue_;
 };
@@ -140,7 +198,7 @@ void ParsePadScript(const std::wstring& text) {
       {L"START", XINPUT_GAMEPAD_START}, {L"LB", XINPUT_GAMEPAD_LEFT_SHOULDER},
       {L"RB", XINPUT_GAMEPAD_RIGHT_SHOULDER}, {L"UP", XINPUT_GAMEPAD_DPAD_UP},
       {L"DOWN", XINPUT_GAMEPAD_DPAD_DOWN},    {L"LEFT", XINPUT_GAMEPAD_DPAD_LEFT},
-      {L"RIGHT", XINPUT_GAMEPAD_DPAD_RIGHT}};
+      {L"RIGHT", XINPUT_GAMEPAD_DPAD_RIGHT},  {L"GUIDE", 0x0400}};
   size_t start = 0;
   while (start < text.size()) {
     size_t end = text.find(L',', start);
@@ -163,6 +221,19 @@ WORD ScriptedButtons(ULONGLONG now) {
   return buttons;
 }
 
+// XInputGetStateEx (ordinal 100) also has the Guide button (0x0400): Home on the dashboard.
+using GetStateFunction = DWORD(WINAPI*)(DWORD, XINPUT_STATE*);
+GetStateFunction GetState() {
+  static const GetStateFunction function = [] {
+    for (const wchar_t* name : {L"xinput1_4.dll", L"xinput1_3.dll"})
+      if (HMODULE module = LoadLibraryW(name))
+        if (auto f = reinterpret_cast<GetStateFunction>(GetProcAddress(module, reinterpret_cast<LPCSTR>(100)))) return f;
+    return GetStateFunction(&XInputGetState);
+  }();
+  return function;
+}
+constexpr WORD kGuideButton = 0x0400;
+
 void PollPads() {
   ++g_pad_tick;
   const ULONGLONG now = GetTickCount64();
@@ -173,7 +244,7 @@ void PollPads() {
     if (!pad.connected && !scripted && g_pad_tick % 60 != user) continue;
     XINPUT_STATE state{};
     const bool was_connected = pad.connected;
-    pad.connected = XInputGetState(user, &state) == ERROR_SUCCESS || scripted;
+    pad.connected = GetState()(user, &state) == ERROR_SUCCESS || scripted;
     if (!pad.connected) continue;
     // A controller plugged in (or on at start): its button hints show before it is used.
     if (!was_connected || g_pad_tick == 1) g_app->PadConnected();
@@ -187,6 +258,7 @@ void PollPads() {
     if (pressed & XINPUT_GAMEPAD_START) g_app->KeyPressed(Key::kPlay, true);
     if (pressed & XINPUT_GAMEPAD_LEFT_SHOULDER) g_app->KeyPressed(Key::kPrevious, true);
     if (pressed & XINPUT_GAMEPAD_RIGHT_SHOULDER) g_app->KeyPressed(Key::kNext, true);
+    if (pressed & kGuideButton) g_app->KeyPressed(Key::kGuide, true);
     // The d-pad or the left stick, repeating while held.
     const SHORT x = state.Gamepad.sThumbLX, y = state.Gamepad.sThumbLY;
     constexpr SHORT kDead = 10000;  // about 30 %: a light push moves the focus
@@ -448,12 +520,15 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
   std::wstring select, source, password, screenshot, state = L"library", language, export_id;
   fs::path result, export_to;
   bool quit_when_done = false;
+  int mode = -1;  // --desktop 0, --console 1; -1: the one saved
   int shot_w = int(kWidth), shot_h = int(kHeight);
   float shot_dpi = 96;
   for (int i = 1; i < argc; ++i) {
     const std::wstring arg = argv[i];
     const bool value = i + 1 < argc;
     if (arg == L"--quit-when-done") quit_when_done = true;
+    if (arg == L"--console") mode = 1;
+    if (arg == L"--desktop") mode = 0;
     if (!value) continue;
     if (arg == L"--select") select = argv[++i];
     else if (arg == L"--archive" || arg == L"--folder") source = argv[++i];
@@ -521,6 +596,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show) {
     g_canvas = &canvas;
     g_app = &app;
     app.Load(select);
+    // Console mode (the dashboard), as last chosen, or as the command line says (not remembered).
+    bool console = false, fullscreen = false;
+    App::SavedMode(console, fullscreen);
+    if (mode >= 0) console = mode == 1;
+    if (console) app.SetConsoleMode(true, false);
     app.CheckTerms();
     if (!password.empty()) app.SetPassword(password);
     if (quit_when_done && !result.empty()) app.QuitWhenDone(result);

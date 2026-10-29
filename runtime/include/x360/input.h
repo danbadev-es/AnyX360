@@ -26,7 +26,9 @@ struct Device {
 Device ParseDevice(const std::string& name);
 std::string DeviceName(Device device);
 
-// XINPUT_GAMEPAD in host byte order.
+// XINPUT_GAMEPAD in host byte order. The Guide (Xbox) button is kGuideButton in `buttons` (read with
+// XInputGetStateEx): system UIs see it (GetUiPad), the game never does (GetPad).
+constexpr uint16_t kGuideButton = 0x0400;
 struct Pad {
   uint16_t buttons = 0;
   uint8_t left_trigger = 0, right_trigger = 0;
@@ -48,8 +50,8 @@ bool IsConnected(uint32_t user);
 // Connected controllers, bit i = controller i.
 uint32_t ConnectedControllers();
 
-// A player's controller state. Returns false if the player has no connected device. Neutral (but
-// connected) while a system UI is open (SetSystemUiOpen). Any thread.
+// A player's controller state, without the Guide button. Returns false if the player has no
+// connected device. Neutral (but connected) while a system UI is open (SetSystemUiOpen). Any thread.
 bool GetPad(uint32_t user, Pad& pad);
 // A system UI over the game (the sign-in picker) takes the controllers: the game reads neutral pads
 // while it is open, the UI reads them with GetUiPad (the scripted input too). Any thread.

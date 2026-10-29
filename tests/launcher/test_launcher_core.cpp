@@ -1402,6 +1402,66 @@ int main() {
     fs::remove_all(root / L"profiles", ec);
   }
 
+  // The dashboard (core/launch.h): the game's command line in console mode, and the job object that
+  // follows a game through the executables it replaces itself with.
+  {
+    LaunchOptions options;
+    CHECK(GameCommandLine(L"C:\\AnyX360\\bin\\Game.exe", L"C:\\Games\\My Game", {}, options) ==
+          L"\"C:\\AnyX360\\bin\\Game.exe\" --game \"C:\\Games\\My Game\"");
+    options.dashboard_pid = 4242;
+    options.window = x360::dashboard::WindowRect{-1920, 40, 1600, 900};
+    CHECK(GameCommandLine(L"C:\\AnyX360\\bin\\Game.exe", L"C:\\Games\\G", L"C:\\keys\\k.key", options) ==
+          L"\"C:\\AnyX360\\bin\\Game.exe\" --game \"C:\\Games\\G\" --key \"C:\\keys\\k.key\" --dashboard 4242 "
+          L"--window -1920,40,1600,900");
+    options.fullscreen = true;
+    CHECK(GameCommandLine(L"G.exe", L"D", {}, options).ends_with(L" --window -1920,40,1600,900 --fullscreen"));
+
+    // cmd.exe as the game: a copy in a folder of its own (the console host Windows starts with it,
+    // from System32, is a helper).
+    wchar_t system[MAX_PATH];
+    GetSystemDirectoryW(system, MAX_PATH);
+    const std::wstring cmd = sandbox / L"follow" / L"cmd.exe";
+    fs::create_directories(sandbox / L"follow", ec);
+    fs::copy_file(fs::path(system) / L"cmd.exe", cmd, fs::copy_options::overwrite_existing, ec);
+    auto follow = [&](const std::wstring& script, uint32_t& code) {
+      std::promise<uint32_t> done;
+      std::future<uint32_t> exited = done.get_future();
+      const auto start = std::chrono::steady_clock::now();
+      const uint32_t error = StartFollowed(L"\"" + cmd + L"\" /d /c " + script, {}, nullptr, nullptr,
+                                           [&done](uint32_t c) { done.set_value(c); });
+      if (error || exited.wait_for(std::chrono::seconds(30)) != std::future_status::ready) {
+        std::printf("StartFollowed: error %u\n", error);
+        return -1.0;
+      }
+      code = exited.get();
+      return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    };
+    uint32_t code = 0;
+    // One process: its exit code.
+    CHECK(follow(L"exit 3", code) >= 0 && code == 3);
+    // A process that starts another of its folder's executables and ends (as ReplaceProcess does,
+    // with exit code 0): followed until the second ends, about two seconds later, with its code.
+    const double seconds = follow(L"start \"\" /b \"" + cmd + L"\" /d /c \"ping -n 3 127.0.0.1 >nul & exit 7\"", code);
+    CHECK(seconds >= 1.5 && code == 7);
+    // A helper from another folder (as the pose bridge) doesn't keep it waiting: the first ends.
+    {
+      const fs::path copied = sandbox / L"helper" / L"ping.exe";
+      fs::create_directories(copied.parent_path(), ec);
+      fs::copy_file(fs::path(system) / L"ping.exe", copied, fs::copy_options::overwrite_existing, ec);
+      std::promise<uint32_t> done;
+      std::future<uint32_t> exited = done.get_future();
+      // The copy in another folder runs ~3 s; the first exits with 5 at once.
+      const uint32_t error = StartFollowed(L"\"" + cmd + L"\" /d /c start \"\" /b \"" + copied.wstring() +
+                                               L"\" -n 4 127.0.0.1 & exit 5",
+                                           {}, nullptr, nullptr, [&done](uint32_t c) { done.set_value(c); });
+      CHECK(error == 0 && exited.wait_for(std::chrono::seconds(2)) == std::future_status::ready && exited.get() == 5);
+      std::this_thread::sleep_for(std::chrono::milliseconds(3500));  // the helper ends: the sandbox can go
+    }
+    // Not started: the Windows error.
+    CHECK(StartFollowed(L"C:\\no\\such\\program.exe", {}, nullptr, nullptr, nullptr) == ERROR_PATH_NOT_FOUND ||
+          StartFollowed(L"C:\\no\\such\\program.exe", {}, nullptr, nullptr, nullptr) == ERROR_FILE_NOT_FOUND);
+  }
+
   fs::remove_all(sandbox, ec);
   std::printf("%s (%d failures)\n", failures ? "FAILED" : "OK", failures);
   return failures ? 1 : 0;

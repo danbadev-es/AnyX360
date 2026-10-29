@@ -451,6 +451,12 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
       bool sound = s.achievement_sound;
       Row("Achievement sound", "A short chime with the toast.");
       if (Toggle("##toast_sound", &sound)) settings::Update([sound](Settings& st) { st.achievement_sound = sound; });
+      bool notices = s.system_notifications;
+      Row("System notifications", "A toast when a controller connects or disconnects, or a player signs in or out.");
+      if (Toggle("##notices", &notices)) settings::Update([notices](Settings& st) { st.system_notifications = notices; });
+      bool guide_sound = s.guide_sound;
+      Row("Guide sound", "A short sound when the Guide opens (the Xbox button, Back and Start held, or Home).");
+      if (Toggle("##guide_sound", &guide_sound)) settings::Update([guide_sound](Settings& st) { st.guide_sound = guide_sound; });
       ImGui::EndTable();
     }
     EndCard();
@@ -865,7 +871,7 @@ void OpenSettingsPanel() {
 // ANYX360_SETTINGS_TEST="<seconds>:<setting>=<value>,..." applies settings as the panel does
 // (resolution, fullscreen, upscale, fxaa, fps, scale, stats, panel=1/0, tab=<name>, signin=<player>, signout=<player>, restart,
 // kinect_source=<webcam|mouse|none>, kinect_players=<1|2>, kinect_mirror=<0|1>, kinect_restart, kinect_calibrate,
-// kinect_window=<0|1>).
+// kinect_window=<0|1>, guide: the Guide opens or closes as with Home).
 void RunSettingsTest(std::string spec) {
   auto start = std::chrono::steady_clock::now();
   for (size_t pos = 0; pos < spec.size();) {
@@ -902,6 +908,7 @@ void RunSettingsTest(std::string spec) {
       else if (key == "kinect_restart") nui::RestartSource();
       else if (key == "kinect_calibrate") nui::Calibrate();
       else if (key == "kinect_window") SetKinectWindow(n != 0);
+      else if (key == "guide") GuideKey();
     });
   }
 }

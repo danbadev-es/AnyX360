@@ -194,6 +194,32 @@ enum Text {
   kTextAchievementSecretHint,
   kTextUnlockedOn,  // {0} date
   kTextGamerscore,  // {0} gamerscore
+  kTextConsoleMode,
+  kTextDesktopMode,
+  kTextPageHome,
+  kTextPageGames,
+  kTextPageProfiles,
+  kTextPageSettings,
+  kTextPageAdd,
+  kTextLastPlayed,
+  kTextRecentlyPlayed,
+  kTextYourGames,
+  kTextNoGamesYet,
+  kTextGamesPlayed,  // {0} games, {1} time
+  kTextNobodyPlaying,
+  kTextGamerscoreOf,  // {0} earned, {1} the game's
+  kTextUnlockedCount,  // {0} unlocked, {1} achievements
+  kTextSignedInBadge,
+  kTextManageProfiles,
+  kTextDisplayWindow,
+  kTextDisplayFullscreen,
+  kTextLanguageSetting,  // {0} the launcher's language
+  kTextLanguageName,
+  kTextSettingsHint,
+  kTextDesktopModeHint,
+  kTextStarting,  // {0} game
+  kTextHintTabs,
+  kTextHintPlay,
   kTextCount
 };
 

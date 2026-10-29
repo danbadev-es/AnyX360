@@ -43,6 +43,11 @@ void StartSettingsPanel();
 void ToggleSettingsPanel();
 bool IsSettingsPanelOpen();
 void CloseSettingsPanel();
+// The Guide (guide_menu.cpp): its thread (the Guide button, Back+Start held, the controllers'
+// notifications), started once the window exists; Home on the keyboard (UI thread).
+void StartGuide();
+void GuideKey();
+bool IsGuideOpen();
 // The Kinect debug window (F3; Kinect games only): opened or closed, remembered with its place.
 void SetKinectWindow(bool open);
 bool IsKinectWindowOpen();

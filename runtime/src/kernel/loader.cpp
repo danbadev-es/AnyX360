@@ -425,6 +425,7 @@ int Run(const TitleInfo& info) {
   }).detach();
   const int code = gpu::RunMessageLoop();
   SavePlayTime();
+  gpu::PrepareToLeave();
   return code;
 }
 

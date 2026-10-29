@@ -39,11 +39,23 @@ class Host {
   // Runs `fn` on the UI thread (called from any thread).
   virtual void Post(std::function<void()> fn) = 0;
   virtual HWND Window() = 0;  // for the system's file dialogs; null in screenshots
+  // Shown (in front, painted and on the screen when this returns) or hidden.
   virtual void ShowWindow(bool show) = 0;
   virtual void Close() = 0;
+  // Console mode: borderless at the window's place, or over its monitor; desktop mode: the usual
+  // window again.
+  virtual void SetBorderless(bool borderless, bool fullscreen) { (void)borderless, (void)fullscreen; }
+  // The client area on the screen, in pixels (false in screenshots).
+  virtual bool ScreenRect(RECT& rect) {
+    (void)rect;
+    return false;
+  }
 };
 
-enum class Key { kLeft, kRight, kUp, kDown, kActivate, kBack, kMore, kCompatible, kNext, kPrevious, kHome, kEnd, kPlay };
+enum class Key { kLeft, kRight, kUp, kDown, kActivate, kBack, kMore, kCompatible, kNext, kPrevious, kHome, kEnd, kPlay, kGuide };
+
+// The dashboard's pages (console mode).
+enum class Page { kHome, kGames, kAchievements, kProfiles, kSettings, kAdd };
 
 class App : public JobObserver {
  public:
@@ -86,6 +98,13 @@ class App : public JobObserver {
   void SetPassword(std::wstring password) { command_line_password_ = std::move(password); }
   // Unattended: after the first job, its outcome is written to `result` and the launcher closes.
   void QuitWhenDone(fs::path result) { quit_result_ = std::move(result); }
+  // Console mode (the dashboard, borderless, controller first; docs/DASHBOARD.md) or desktop mode
+  // (the window with the row of games). Remembered (launcher_mode.txt) unless `remember` is false.
+  void SetConsoleMode(bool console, bool remember = true);
+  bool ConsoleMode() const { return console_; }
+  bool Fullscreen() const { return fullscreen_; }
+  // The mode saved, read at start.
+  static void SavedMode(bool& console, bool& fullscreen);
 
   ImageCache& images() { return images_; }
   // Screenshots: library, empty, compatible, add, progress, error, confirm, password, menu, terms,
@@ -189,7 +208,29 @@ class App : public JobObserver {
   void PushOverlay(Overlay overlay);
   void PopOverlay();
   void Finish(const Outcome& outcome);
+  // The running game (core/launch.h GameEvents): its first frame shown, about to end, ended.
+  void GameReady();
+  void GameLeaving(std::function<void()> answer);
   void GameExited(uint32_t code);
+
+  // Console mode (the dashboard).
+  void DrawConsole(Canvas& c);
+  void DrawTabs(Canvas& c);
+  void DrawConsoleHints(Canvas& c);
+  void DrawHomePage(Canvas& c, const RectF& area);
+  void DrawGamesPage(Canvas& c, const RectF& area);
+  void DrawAchievementsPage(Canvas& c, const RectF& area);
+  void DrawProfilesPage(Canvas& c, const RectF& area);
+  void DrawSettingsPage(Canvas& c, const RectF& area);
+  void DrawAddPage(Canvas& c, const RectF& area);
+  void DrawStarting(Canvas& c);
+  // A game's cover (or its icon and title) in `r`, as a target.
+  void DrawCover(Canvas& c, const RectF& r, int game, int id, std::function<void()> action, bool show_title);
+  void ShowPage(Page page);
+  void PlayGame(int game);  // index into games_
+  // The installed games the profile playing played last, newest first.
+  std::vector<int> RecentlyPlayed();
+  void ToggleFullscreen();
 
   Host& host_;
   ImageCache images_;
@@ -235,6 +276,12 @@ class App : public JobObserver {
   bool saving_ = false;  // the job writes an .anyx backup
   bool close_after_job_ = false;
   const CatalogGame* running_game_ = nullptr;
+  bool game_starting_ = false;  // started, its window not shown yet
+  double leaving_at_ = 0;       // when the game said it was leaving (0: it hasn't)
+  // Console mode.
+  bool console_ = false, fullscreen_ = false;
+  Page page_ = Page::kHome;
+  Animation page_fade_;
   Message message_;
   std::vector<Message> notes_;
   std::wstring command_line_password_;

@@ -41,7 +41,10 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <dwmapi.h>
 #include <shellapi.h>
+
+#include "x360/dashboard.h"
 
 DECLARE_int32(log_level);
 DECLARE_int32(draw_resolution_scale_x);
@@ -168,6 +171,10 @@ std::atomic<uint32_t> g_writeback{0};
 DisplayConfig g_display;
 // Window size to apply when leaving fullscreen (the panel's resolution while fullscreen).
 uint32_t g_pending_width = 0, g_pending_height = 0;
+// Started by the dashboard (SetLaunchWindow): the window is shown with its first frame.
+LaunchWindow g_launch;
+std::atomic<bool> g_revealed{false};
+std::atomic<bool> g_reveal_asked{false};
 
 }  // namespace
 
@@ -332,6 +339,8 @@ class WindowListener final : public xe::ui::WindowListener {
     (void)e;
     KLOG_I("window closed: exiting");
     settings::SaveNow();
+    kernel::SavePlayTime();
+    PrepareToLeave();
     std::fflush(nullptr);
     std::_Exit(0);
   }
@@ -339,7 +348,7 @@ class WindowListener final : public xe::ui::WindowListener {
 WindowListener g_window_listener;
 
 // F1 toggles the performance overlay, F2 the settings panel (Esc closes it), F3 the Kinect debug
-// window (Kinect games), F11 fullscreen
+// window (Kinect games), F11 fullscreen, Home the Guide
 // (Alt+Enter: see the input module's window hook).
 class WindowKeys final : public xe::ui::WindowInputListener {
  public:
@@ -362,6 +371,10 @@ class WindowKeys final : public xe::ui::WindowInputListener {
         CloseSettingsPanel();
         break;
       case xe::ui::VirtualKey::kF11: SetFullscreenMode(!g_window->IsFullscreen()); break;
+      case xe::ui::VirtualKey::kHome:
+        if (std::getenv("ANYX360_NO_OVERLAY")) return;
+        GuideKey();
+        break;
       default: return;
     }
     e.set_handled(true);
@@ -398,7 +411,84 @@ std::wstring QuoteArgument(const std::wstring& arg) {
   return out + L"\"";
 }
 
+// The dashboard's event `which` (x360/dashboard.h), opened for `access`; null without a dashboard.
+HANDLE DashboardEvent(const wchar_t* which, DWORD access) {
+  if (!g_launch.dashboard_pid) return nullptr;
+  return OpenEventW(access, FALSE, dashboard::EventName(g_launch.dashboard_pid, which).c_str());
+}
+
+void Cloak(HWND hwnd, bool cloak) {
+  BOOL value = cloak ? TRUE : FALSE;
+  DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &value, sizeof(value));
+}
+
+bool IsXeniaWindow(HWND hwnd) {
+  wchar_t name[64] = {};
+  GetClassNameW(hwnd, name, 64);
+  return !std::wcscmp(name, L"XeniaWindowClass");
+}
+
+// The window is created borderless at the dashboard's rectangle (as Xenia creates it), and hidden
+// (cloaked) when the dashboard starts the game: when it is told it is about to show, which is before
+// anything of it reaches the screen (cloaked at creation, it isn't yet).
+HHOOK g_create_hook = nullptr, g_show_hook = nullptr;
+LRESULT CALLBACK CreateHook(int code, WPARAM wparam, LPARAM lparam) {
+  if (code == HCBT_CREATEWND && g_launch.has_rect && IsXeniaWindow(reinterpret_cast<HWND>(wparam))) {
+    CREATESTRUCTW* create = reinterpret_cast<CBT_CREATEWNDW*>(lparam)->lpcs;
+    create->style = (create->style & ~DWORD(WS_OVERLAPPEDWINDOW)) | WS_POPUP;
+    create->x = g_launch.x, create->y = g_launch.y, create->cx = g_launch.w, create->cy = g_launch.h;
+  }
+  return CallNextHookEx(g_create_hook, code, wparam, lparam);
+}
+LRESULT CALLBACK ShowHook(int code, WPARAM wparam, LPARAM lparam) {
+  const CWPSTRUCT* message = reinterpret_cast<const CWPSTRUCT*>(lparam);
+  if (code == HC_ACTION && (message->message == WM_CREATE || (message->message == WM_SHOWWINDOW && message->wParam)) &&
+      g_launch.dashboard_pid && !g_revealed && IsXeniaWindow(message->hwnd))
+    Cloak(message->hwnd, true);
+  return CallNextHookEx(g_show_hook, code, wparam, lparam);
+}
+
+// The first frame is presented (or a while has passed without one): the window shows, in front, and
+// the dashboard is told (it hides behind it). UI thread.
+void Reveal(const char* why) {
+  if (g_revealed.exchange(true) || !g_window) return;
+  HWND hwnd = GameHwnd();
+  Cloak(hwnd, false);
+  SetForegroundWindow(hwnd);
+  if (HANDLE ready = DashboardEvent(L"ready", EVENT_MODIFY_STATE)) {
+    ::SetEvent(ready);
+    ::CloseHandle(ready);
+  }
+  KLOG_I("display: the window shows (%s)", why);
+}
+
 }  // namespace
+
+void SetLaunchWindow(const LaunchWindow& window) { g_launch = window; }
+const LaunchWindow& GetLaunchWindow() { return g_launch; }
+
+void PrepareToLeave() {
+  HANDLE leaving = DashboardEvent(L"leaving", EVENT_MODIFY_STATE);
+  HANDLE shown = DashboardEvent(L"shown", SYNCHRONIZE | EVENT_MODIFY_STATE);
+  if (leaving && shown) {
+    AllowSetForegroundWindow(g_launch.dashboard_pid);  // the dashboard comes to the front
+    ::ResetEvent(shown);
+    ::SetEvent(leaving);
+    const bool answered = WaitForSingleObject(shown, 1500) == WAIT_OBJECT_0;
+    KLOG_I("dashboard: %s", answered ? "shown" : "didn't answer");
+  }
+  if (leaving) ::CloseHandle(leaving);
+  if (shown) ::CloseHandle(shown);
+}
+
+void ExitToDashboard() {
+  KLOG_I("Xbox Home: back to the dashboard");
+  settings::SaveNow();
+  kernel::SavePlayTime();
+  PrepareToLeave();
+  std::fflush(nullptr);
+  std::_Exit(int(dashboard::kExitToDashboard));
+}
 
 const DisplayConfig& GetDisplayConfig() { return g_display; }
 
@@ -503,7 +593,7 @@ std::string Restart() {
   for (int i = 1; i < argc; ++i) {
     std::wstring arg = argv[i];
     if (arg == L"--resolution" || arg == L"--scale" || arg == L"--fps" || arg == L"--upscale" ||
-        arg == L"--restarted-from") {
+        arg == L"--restarted-from" || arg == L"--window" || arg == L"--dashboard") {
       ++i;
       continue;
     }
@@ -520,6 +610,13 @@ std::string ReplaceProcess(const std::filesystem::path& exe, const std::vector<s
   std::wstring command = QuoteArgument(exe.wstring());
   for (const std::wstring& arg : arguments) command += L" " + QuoteArgument(arg);
   command += L" --restarted-from " + std::to_wstring(GetCurrentProcessId());
+  // Part of the dashboard's window: the next process too.
+  if (g_launch.dashboard_pid) command += L" --dashboard " + std::to_wstring(g_launch.dashboard_pid);
+  if (g_launch.has_rect) {
+    const std::string rect = dashboard::FormatWindowArg({g_launch.x, g_launch.y, g_launch.w, g_launch.h});
+    command += L" --window " + std::wstring(rect.begin(), rect.end());
+  }
+  if (g_launch.dashboard_pid && g_launch.fullscreen) command += L" --fullscreen";
   STARTUPINFOW startup{sizeof(startup)};
   HANDLE output = GetStdHandle(STD_OUTPUT_HANDLE);
   if (output && output != INVALID_HANDLE_VALUE) {
@@ -539,6 +636,8 @@ std::string ReplaceProcess(const std::filesystem::path& exe, const std::vector<s
     return "error " + std::to_string(error);
   }
   KLOG_I("starting %s: new process %lu", exe.filename().string().c_str(), process.dwProcessId);
+  // The dashboard covers the switch until the new process shows its first frame.
+  PrepareToLeave();
   std::fflush(nullptr);
   std::_Exit(0);
 }
@@ -608,15 +707,34 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
   g_window->AddListener(&g_window_listener);
   g_window->AddInputListener(&g_window_keys, 0);
   if (config.fullscreen) g_window->SetFullscreen(true);
-  if (!g_window->Open()) {
+  if (g_launch.has_rect) g_create_hook = SetWindowsHookExW(WH_CBT, CreateHook, nullptr, GetCurrentThreadId());
+  if (g_launch.dashboard_pid) g_show_hook = SetWindowsHookExW(WH_CALLWNDPROC, ShowHook, nullptr, GetCurrentThreadId());
+  const bool opened = g_window->Open();
+  if (g_create_hook) UnhookWindowsHookEx(g_create_hook), g_create_hook = nullptr;
+  if (g_show_hook) UnhookWindowsHookEx(g_show_hook), g_show_hook = nullptr;
+  if (!opened) {
     KLOG_E("could not open the game window");
     return false;
   }
+  if (g_launch.dashboard_pid) Cloak(GameHwnd(), true);
   // Window::Create takes a size in DPI-scaled units: set the client area in physical pixels.
-  if (config.fullscreen)
+  if (g_launch.has_rect) {
+    // The dashboard's rectangle, borderless (Xenia may have resized it for the monitor's DPI).
+    HWND hwnd = GameHwnd();
+    if (!config.fullscreen) {
+      SetWindowLongPtrW(hwnd, GWL_STYLE, (GetWindowLongPtrW(hwnd, GWL_STYLE) & ~LONG_PTR(WS_OVERLAPPEDWINDOW)) | WS_POPUP);
+      SetWindowPos(hwnd, nullptr, g_launch.x, g_launch.y, g_launch.w, g_launch.h,
+                   SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
+    g_display.width = uint32_t(g_launch.w), g_display.height = uint32_t(g_launch.h);
+    g_pending_width = g_pending_height = 0;
+    KLOG_I("display: in the dashboard's window, %dx%d at %d,%d%s", g_launch.w, g_launch.h, g_launch.x, g_launch.y,
+           config.fullscreen ? ", fullscreen" : "");
+  } else if (config.fullscreen) {
     g_pending_width = config.width, g_pending_height = config.height;
-  else
+  } else {
     ApplyWindowSize(config.width, config.height);
+  }
   input::Start(GameHwnd(), [] { SetFullscreenMode(!g_window->IsFullscreen()); });
   host_vblank::Start(GameHwnd());
 
@@ -651,6 +769,10 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
   g_graphics->presenter()->SetPresentObserver([](bool ui_thread, bool presented) {
     if (!presented) return;
     uint64_t swaps = g_gpu_swaps.load();
+    // The first guest frame is on the screen: started by the dashboard, the window shows now.
+    if (swaps && g_launch.dashboard_pid && !g_reveal_asked.load(std::memory_order_relaxed) &&
+        !g_reveal_asked.exchange(true))
+      PostToUIThread([] { Reveal("first frame"); });
     bool new_frame = g_presented_swap.exchange(swaps) != swaps;
     timing::Record(ui_thread ? timing::Event::kPresentUiThread : timing::Event::kPresentGpuThread, new_frame);
     if (new_frame && !ui_thread) TrackPresentPhase();  // UI-thread presents wait for the display anyway
@@ -660,6 +782,14 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
     StartStatsOverlay(g_window.get(), g_graphics.get(), XeMemory());
     if (std::getenv("ANYX360_OVERLAY") || settings::Get().show_stats) SetStatsOverlayVisible(true);
     StartSettingsPanel();
+    StartGuide();
+  }
+  // A game that shows no frame for a long while (a slow first load) still shows its window.
+  if (g_launch.dashboard_pid) {
+    std::thread([] {
+      std::this_thread::sleep_for(std::chrono::seconds(30));
+      PostToUIThread([] { Reveal("no frame after 30 s"); });
+    }).detach();
   }
 
   g_interrupt_thread = CreateHostDrivenThread("GPU interrupts", 2, InterruptThreadBody);

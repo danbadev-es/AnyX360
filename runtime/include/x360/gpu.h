@@ -66,6 +66,32 @@ std::string ReplaceProcess(const std::filesystem::path& exe, const std::vector<s
 // False when there is no game window to show it in. Any thread.
 bool OpenSigninPicker(uint32_t count);
 
+// The dashboard (x360/dashboard.h): the launcher started the game as part of its window. Set from
+// the command line before Initialize.
+struct LaunchWindow {
+  uint32_t dashboard_pid = 0;  // --dashboard: the launcher's events; the window is hidden until its first frame
+  bool has_rect = false;       // --window: borderless at this rectangle (screen pixels)
+  int x = 0, y = 0, w = 0, h = 0;
+  bool fullscreen = false;     // --fullscreen came with it (carried to the next process)
+};
+void SetLaunchWindow(const LaunchWindow& window);
+const LaunchWindow& GetLaunchWindow();
+// The game is about to end on its own (its window closed, Xbox Home, another of its executables
+// starting): the dashboard is shown first (it waits up to a second and a half for it). Any thread.
+void PrepareToLeave();
+// The Guide's Xbox Home: saves the settings and the time played, then ends the process with
+// dashboard::kExitToDashboard. Not the UI thread.
+[[noreturn]] void ExitToDashboard();
+
+// A system notification's toast (achievement_toast.cpp, the same queue): a controller connected,
+// a profile signed in. `glyph` is drawn in the circle (a player's number, a gamertag's initial). False
+// when they are off (settings.toml system_notifications) or there is no game window. Any thread.
+struct Notification {
+  std::string title, text;
+  char glyph = 0;
+};
+bool ShowNotification(const Notification& notification);
+
 // An achievement unlocked, for its toast (achievement_toast.cpp): bottom centre, a few seconds, with
 // a chime, one after another. `gamertag` is shown when given (several players signed in). False when
 // toasts are off (settings.toml achievement_toasts) or there is no game window. Any thread.

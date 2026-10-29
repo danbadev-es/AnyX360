@@ -56,6 +56,25 @@ void HandleRawInput(HRAWINPUT handle) {
   }
 }
 
+// XInputGetStateEx (ordinal 100 of xinput1_4 and xinput1_3, as Xenia's driver loads it) also reports
+// the Guide button; without it, plain XInputGetState.
+using GetStateFunction = DWORD(WINAPI*)(DWORD, XINPUT_STATE*);
+GetStateFunction GetStateEx() {
+  static const GetStateFunction function = [] {
+    for (const wchar_t* name : {L"xinput1_4.dll", L"xinput1_3.dll"}) {
+      if (HMODULE module = LoadLibraryW(name)) {
+        if (auto f = reinterpret_cast<GetStateFunction>(GetProcAddress(module, reinterpret_cast<LPCSTR>(100)))) {
+          KLOG_I("input: the Guide button is read (%ls)", name);
+          return f;
+        }
+      }
+    }
+    KLOG_W("input: XInputGetStateEx unavailable: the Guide button isn't read (hold Back and Start instead)");
+    return GetStateFunction(&XInputGetState);
+  }();
+  return function;
+}
+
 void PollControllers(int64_t now, int64_t* next_probe) {
   uint32_t connected = g_connected.load();
   uint32_t new_connected = connected;
@@ -63,7 +82,7 @@ void PollControllers(int64_t now, int64_t* next_probe) {
     bool was = connected & (1u << i);
     if (!was && now < next_probe[i]) continue;  // empty slots: once a second
     XINPUT_STATE state{};
-    bool is = XInputGetState(i, &state) == ERROR_SUCCESS;
+    bool is = GetStateEx()(i, &state) == ERROR_SUCCESS;
     if (is) {
       const XINPUT_GAMEPAD& g = state.Gamepad;
       Pad pad{g.wButtons, g.bLeftTrigger, g.bRightTrigger, g.sThumbLX, g.sThumbLY, g.sThumbRX, g.sThumbRY};

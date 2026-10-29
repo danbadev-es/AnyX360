@@ -3,6 +3,7 @@
 //   <Game>.exe [--game <folder with default.xex>] [--key <xex2_retail.key>] [--user <folder>]
 //              [--resolution 720|1080|1440|2160] [--scale 1-3] [--fps 30|60] [--fullscreen]
 //              [--upscale fsr|cas|bilinear] [--fxaa] [--restarted-from <pid>]
+//              [--dashboard <launcher pid>] [--window <x,y,width,height>]
 //
 // Defaults: a "game" folder next to (or above) the executable, else the game's development folder in
 // the repository (GameDescriptor::dev_game_dir); the key in keys\xex2_retail.key; and
@@ -11,7 +12,8 @@
 // in <user>\settings.toml for one session. The settings panel's "Restart now" relaunches with
 // --restarted-from: the new process waits for the old one to exit before touching the settings, cache
 // and saves. A title that starts another of its executables (XamLoaderLaunchTitle) starts that one
-// the same way, with the same game, user and key.
+// the same way, with the same game, user and key. --dashboard and --window come from the launcher
+// (x360/dashboard.h): the game window is part of the dashboard's, and carried to the next process.
 #pragma once
 
 #include <cstdint>

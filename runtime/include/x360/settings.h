@@ -77,6 +77,10 @@ struct Settings {
   // An unlocked achievement shows a toast, with a chime (achievement_sound).
   bool achievement_toasts = true;
   bool achievement_sound = true;
+  // The Guide's short sound when it opens; toasts for controllers connected or disconnected and
+  // profiles signed in or out.
+  bool guide_sound = true;
+  bool system_notifications = true;
   // The Kinect debug window (F3): open, and where it was ("left,top,right,bottom,maximized" in
   // screen pixels; empty: not placed yet).
   bool kinect_window = false;

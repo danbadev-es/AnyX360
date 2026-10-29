@@ -492,6 +492,19 @@ void CloseAchievementsUi();
 // lowered their arm): the title sees the system UI open while it is, and pauses as it would on the
 // console. There is no overlay. Any thread.
 void SetKinectGuideOpen(bool open);
+// The system's UIs over the game, as on the console. While any is open the title sees the system UI
+// open (XN_SYS_UIVISIBLE 1, then 0 when the last closes; XamIsUIActive) and pauses. While one drawn
+// over the game is open (all but the Kinect Guide) its controllers are neutral (input::SetSystemUiOpen).
+// The Kinect Guide, and the Guide in a Kinect title, first send XN_SYS_NUIPAUSE. Any thread.
+enum class SystemUi : uint32_t { kKinectGuide = 1, kSigninPicker = 2, kAchievements = 4, kGuide = 8 };
+void SetSystemUiOpen(SystemUi ui, bool open);
+bool IsSystemUiOpen(SystemUi ui);
+bool AnySystemUiOpen();
+// From the Guide: the sign-in picker for `count` players (whatever settings' sign_in is), and a
+// player's achievements list. False when it is open already or there is no window (or, for the
+// list, the player isn't signed in).
+bool ShowSigninPicker(uint32_t count);
+bool ShowAchievements(uint32_t user_index);
 // Queues a system notification (XNotify ID) for every listener of its area. Any thread.
 constexpr uint32_t kNotifyNuiBindingChanged = 0x0006001D;  // a Kinect body bound to a profile
 void Notify(uint32_t id, uint32_t param);

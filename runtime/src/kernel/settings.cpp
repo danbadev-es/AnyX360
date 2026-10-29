@@ -78,6 +78,8 @@ void Parse(const toml::table& t, Settings& s) {
   Read(display["show_stats"], s.show_stats);
   Read(display["achievement_toasts"], s.achievement_toasts);
   Read(display["achievement_sound"], s.achievement_sound);
+  Read(display["guide_sound"], s.guide_sound);
+  Read(display["system_notifications"], s.system_notifications);
   Read(display["kinect_window"], s.kinect_window);
   Read(display["kinect_window_placement"], s.kinect_window_placement);
 
@@ -172,6 +174,8 @@ std::string Serialize(const Settings& s) {
     << "show_stats = " << (s.show_stats ? "true" : "false") << "\n"
     << "achievement_toasts = " << (s.achievement_toasts ? "true" : "false") << "  # a toast when an achievement unlocks\n"
     << "achievement_sound = " << (s.achievement_sound ? "true" : "false") << "  # and its chime\n"
+    << "guide_sound = " << (s.guide_sound ? "true" : "false") << "  # a sound when the Guide opens\n"
+    << "system_notifications = " << (s.system_notifications ? "true" : "false") << "  # toasts: controllers, sign-ins\n"
     << "kinect_window = " << (s.kinect_window ? "true" : "false") << "  # the Kinect debug window, F3\n"
     << (s.kinect_window_placement.empty() ? "" : "kinect_window_placement = " + Quote(s.kinect_window_placement) + "\n")
     << "\n"

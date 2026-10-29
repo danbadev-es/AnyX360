@@ -5,8 +5,11 @@
 #include <windows.h>
 
 #include <cstring>
+#include <cwctype>
 #include <fstream>
 #include <iterator>
+#include <map>
+#include <memory>
 #include <string>
 #include <thread>
 #include <unordered_set>
@@ -95,7 +98,136 @@ void SeedShaderCache(const CatalogGame& game) {
   }
 }
 
-Message StartGame(const LibraryGame& game, std::function<void(uint32_t)> exited) {
+std::wstring GameCommandLine(const fs::path& exe, const fs::path& game_dir, const fs::path& key,
+                             const LaunchOptions& options) {
+  std::wstring command = Quote(exe) + L" --game " + Quote(game_dir);
+  if (!key.empty()) command += L" --key " + Quote(key);
+  if (options.dashboard_pid) command += L" --dashboard " + std::to_wstring(options.dashboard_pid);
+  if (options.window) {
+    const std::string rect = x360::dashboard::FormatWindowArg(*options.window);
+    command += L" --window " + std::wstring(rect.begin(), rect.end());
+  }
+  if (options.fullscreen) command += L" --fullscreen";
+  return command;
+}
+
+namespace {
+
+// The folder of a process's executable (lowercase); empty if it can't be read.
+std::wstring ProcessFolder(HANDLE process) {
+  wchar_t path[MAX_PATH * 2];
+  DWORD size = DWORD(std::size(path));
+  if (!QueryFullProcessImageNameW(process, 0, path, &size)) return {};
+  std::wstring folder = fs::path(std::wstring(path, size)).parent_path().wstring();
+  for (wchar_t& c : folder) c = wchar_t(std::towlower(c));
+  return folder;
+}
+
+// A job object and the processes of it that are followed, by ID. Its completion port's messages:
+// a process started, one ended, none left.
+struct Follower {
+  HANDLE job = nullptr, port = nullptr;
+  std::wstring folder;
+  std::map<DWORD, HANDLE> followed;
+  uint32_t last_code = 0;
+  std::function<void(uint32_t)> exited;
+
+  ~Follower() {
+    for (auto& [pid, handle] : followed) CloseHandle(handle);
+    if (job) CloseHandle(job);
+    if (port) CloseHandle(port);
+  }
+
+  void Follow(DWORD pid, HANDLE handle) {
+    if (followed.count(pid)) {
+      CloseHandle(handle);
+      return;
+    }
+    if (ProcessFolder(handle) != folder) {  // a helper (the pose bridge): not the game
+      CloseHandle(handle);
+      return;
+    }
+    followed[pid] = handle;
+  }
+
+  // Until the last followed process has ended (its port's thread).
+  void Run() {
+    for (;;) {
+      DWORD message = 0;
+      ULONG_PTR key = 0;
+      LPOVERLAPPED data = nullptr;
+      if (!GetQueuedCompletionStatus(port, &message, &key, &data, INFINITE)) break;
+      const DWORD pid = DWORD(reinterpret_cast<ULONG_PTR>(data));      if (message == JOB_OBJECT_MSG_NEW_PROCESS) {
+        if (HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, pid)) Follow(pid, process);
+      } else if (message == JOB_OBJECT_MSG_EXIT_PROCESS || message == JOB_OBJECT_MSG_ABNORMAL_EXIT_PROCESS) {
+        auto found = followed.find(pid);
+        if (found == followed.end()) continue;
+        WaitForSingleObject(found->second, 5000);
+        DWORD code = 0;
+        GetExitCodeProcess(found->second, &code);
+        last_code = code;
+        CloseHandle(found->second);
+        followed.erase(found);
+        if (followed.empty()) break;
+      } else if (message == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO) {
+        // It can come before the processes' own messages: the code of the one that ended last.
+        FILETIME latest{};
+        for (auto& [id, handle] : followed) {
+          FILETIME created, ended, kernel, user;
+          DWORD code = 0;
+          if (WaitForSingleObject(handle, 5000) == WAIT_OBJECT_0 && GetProcessTimes(handle, &created, &ended, &kernel, &user) &&
+              CompareFileTime(&ended, &latest) >= 0 && GetExitCodeProcess(handle, &code)) {
+            latest = ended;
+            last_code = code;
+          }
+        }
+        break;
+      }
+    }
+    if (exited) exited(last_code);
+  }
+};
+
+}  // namespace
+
+uint32_t StartFollowed(std::wstring command, const fs::path& dir, void* std_in, void* std_out,
+                       std::function<void(uint32_t code)> exited) {
+  auto follower = std::make_shared<Follower>();
+  follower->exited = std::move(exited);
+  follower->job = CreateJobObjectW(nullptr, nullptr);
+  follower->port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 1);
+  if (!follower->job || !follower->port) return GetLastError();
+  JOBOBJECT_ASSOCIATE_COMPLETION_PORT port{follower->job, follower->port};
+  if (!SetInformationJobObject(follower->job, JobObjectAssociateCompletionPortInformation, &port, sizeof(port)))
+    return GetLastError();
+  STARTUPINFOW startup{sizeof(startup)};
+  if (std_out) {
+    startup.dwFlags = STARTF_USESTDHANDLES;
+    startup.hStdInput = std_in;
+    startup.hStdOutput = std_out;
+    startup.hStdError = std_out;
+  }
+  // Suspended until it is in the job, so whatever it starts is in it too.
+  PROCESS_INFORMATION process{};
+  if (!CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW | CREATE_SUSPENDED, nullptr,
+                      dir.empty() ? nullptr : dir.c_str(), &startup, &process))
+    return GetLastError();
+  if (!AssignProcessToJobObject(follower->job, process.hProcess)) {
+    const DWORD error = GetLastError();
+    TerminateProcess(process.hProcess, 1);
+    CloseHandle(process.hThread);
+    CloseHandle(process.hProcess);
+    return error;
+  }
+  follower->folder = ProcessFolder(process.hProcess);
+  follower->Follow(process.dwProcessId, process.hProcess);
+  ResumeThread(process.hThread);
+  CloseHandle(process.hThread);
+  std::thread([follower] { follower->Run(); }).detach();
+  return 0;
+}
+
+Message StartGame(const LibraryGame& game, const LaunchOptions& options, GameEvents events) {
   if (game.exe.empty() || !Exists(game.exe)) return {kTextErrorNoExe, {game.info->exe}, true};
   if (game.needs_update) return {kTextNeedsUpdate, {game.info->title, game.info->update_version}, true};
   SeedShaderCache(*game.info);
@@ -112,31 +244,49 @@ Message StartGame(const LibraryGame& game, std::function<void(uint32_t)> exited)
                            FILE_ATTRIBUTE_NORMAL, nullptr);
   HANDLE input = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &inherit, OPEN_EXISTING, 0,
                              nullptr);
-  std::wstring command = Quote(game.exe) + L" --game " + Quote(game.dir);
-  fs::path key = KeyFile();
-  if (!key.empty()) command += L" --key " + Quote(key);
-  STARTUPINFOW startup{sizeof(startup)};
-  if (log != INVALID_HANDLE_VALUE) {
-    startup.dwFlags = STARTF_USESTDHANDLES;
-    startup.hStdInput = input;
-    startup.hStdOutput = log;
-    startup.hStdError = log;
+  const std::wstring command = GameCommandLine(game.exe, game.dir, KeyFile(), options);
+  // The dashboard's events (x360/dashboard.h): auto-reset, made before the game opens them. A thread
+  // answers them until the game has ended.
+  struct Session {
+    HANDLE ready = nullptr, leaving = nullptr, shown = nullptr, stop = nullptr;
+    ~Session() {
+      for (HANDLE h : {ready, leaving, shown, stop})
+        if (h) CloseHandle(h);
+    }
+  };
+  auto session = std::make_shared<Session>();
+  if (options.dashboard_pid) {
+    using x360::dashboard::EventName;
+    session->ready = CreateEventW(nullptr, FALSE, FALSE, EventName(options.dashboard_pid, L"ready").c_str());
+    session->leaving = CreateEventW(nullptr, FALSE, FALSE, EventName(options.dashboard_pid, L"leaving").c_str());
+    session->shown = CreateEventW(nullptr, FALSE, FALSE, EventName(options.dashboard_pid, L"shown").c_str());
+    session->stop = CreateEventW(nullptr, TRUE, FALSE, nullptr);
   }
-  PROCESS_INFORMATION process{};
-  BOOL started = CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr,
-                                Root().c_str(), &startup, &process);
-  DWORD error = GetLastError();
+  auto exited = [session, on_exit = std::move(events.exited)](uint32_t code) {
+    if (session->stop) SetEvent(session->stop);
+    if (on_exit) on_exit(code);
+  };
+  const uint32_t error = StartFollowed(command, Root(), input, log != INVALID_HANDLE_VALUE ? log : nullptr, exited);
   if (log != INVALID_HANDLE_VALUE) CloseHandle(log);
   CloseHandle(input);
-  if (!started) return {kTextErrorStart, {std::to_wstring(error)}, true};
-  CloseHandle(process.hThread);
-  std::thread([handle = process.hProcess, exited = std::move(exited)] {
-    WaitForSingleObject(handle, INFINITE);
-    DWORD code = 0;
-    GetExitCodeProcess(handle, &code);
-    CloseHandle(handle);
-    if (exited) exited(uint32_t(code));
-  }).detach();
+  if (error) return {kTextErrorStart, {std::to_wstring(error)}, true};
+  if (session->ready && session->leaving && session->shown && session->stop) {
+    std::thread([session, ready = std::move(events.ready), leaving = std::move(events.leaving)] {
+      for (;;) {
+        HANDLE handles[] = {session->stop, session->ready, session->leaving};
+        const DWORD which = WaitForMultipleObjects(3, handles, FALSE, INFINITE);
+        if (which == WAIT_OBJECT_0 + 1) {
+          if (ready) ready();
+        } else if (which == WAIT_OBJECT_0 + 2) {
+          HANDLE shown = session->shown;
+          if (leaving) leaving([session, shown] { SetEvent(shown); });
+          else SetEvent(shown);
+        } else {
+          return;
+        }
+      }
+    }).detach();
+  }
   return {};
 }
 

@@ -12,6 +12,10 @@ add_executable(test_title_update hle/test_title_update.cpp)
 target_link_libraries(test_title_update PRIVATE x360_hle_test_objs)
 add_test(NAME title_update COMMAND test_title_update)
 
+add_executable(test_guide hle/test_guide.cpp)
+target_link_libraries(test_guide PRIVATE x360_hle_test_objs)
+add_test(NAME guide COMMAND test_guide)
+
 add_executable(test_nui nui/test_nui.cpp)
 target_link_libraries(test_nui PRIVATE x360_hle_test_objs)
 add_test(NAME nui COMMAND test_nui)

@@ -4,11 +4,16 @@
 // chime. Several in a row show one after another. settings.toml's [display] achievement_toasts and
 // achievement_sound (F2 > Display > Overlay) turn them off.
 //
+// The system's notifications (ShowNotification: a controller connected or disconnected, a profile
+// signed in or out) share the queue: the same pill with a letter or number in the circle and no
+// chime (system_notifications turns them off).
+//
 // It is drawn on the foreground of the shared ImGui drawer without a window, so it never takes the
 // game's mouse or keyboard; it grows with the window as the sign-in picker does.
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <deque>
@@ -85,6 +90,7 @@ struct Toast {
   uint32_t width = 0, height = 0;
   std::vector<uint8_t> rgba;  // the picture, decoded
   std::unique_ptr<xe::ui::ImmediateTexture> texture;
+  char glyph = 0;  // a notification: this in the circle, no chime
   Clock::time_point start{};
   bool started = false;
 };
@@ -113,7 +119,7 @@ class ToastDialog : public xe::ui::ImGuiDialog {
     if (!toast->started) {
       toast->started = true;
       toast->start = now;
-      if (settings::Get().achievement_sound)
+      if (!toast->glyph && settings::Get().achievement_sound)
         PlaySoundW(reinterpret_cast<LPCWSTR>(Chime().data()), nullptr, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
     }
     const double t = std::chrono::duration<double>(now - toast->start).count();
@@ -178,11 +184,12 @@ class ToastDialog : public xe::ui::ImGuiDialog {
                             ImVec2(c.x + icon / 2, c.y + icon / 2), ImVec2(0, 0), ImVec2(1, 1), with(IM_COL32_WHITE),
                             icon / 2);
     } else {
-      draw->AddCircleFilled(c, icon / 2, with(color::kGreen), 48);
-      const ImVec2 g = heading->CalcTextSizeA(heading_size * 1.4f, FLT_MAX, 0, "G");
-      draw->AddText(heading, heading_size * 1.4f, ImVec2(c.x - g.x / 2, c.y - g.y / 2), with(IM_COL32_WHITE), "G");
+      draw->AddCircleFilled(c, icon / 2, with(toast.glyph ? color::Rgb(0x30353B) : color::kGreen), 48);
+      const char glyph[2] = {toast.glyph ? toast.glyph : 'G', 0};
+      const ImVec2 g = heading->CalcTextSizeA(heading_size * 1.4f, FLT_MAX, 0, glyph);
+      draw->AddText(heading, heading_size * 1.4f, ImVec2(c.x - g.x / 2, c.y - g.y / 2), with(IM_COL32_WHITE), glyph);
     }
-    draw->AddCircle(c, icon / 2 + S(1.5f), with(color::kGreenBright), 48, S(2.5f));
+    if (!toast.glyph) draw->AddCircle(c, icon / 2 + S(1.5f), with(color::kGreenBright), 48, S(2.5f));
     const float tx = x + pad + icon + S(16);
     const float block = small_size + S(3) + heading_size;
     const float ty = y + (h - block) / 2;
@@ -209,22 +216,7 @@ void PaintThread() {
   }
 }
 
-}  // namespace
-
-bool ShowAchievementToast(const AchievementToast& unlocked) {
-  if (!settings::Get().achievement_toasts || !SharedImGuiDrawer() || !GameWindow()) return false;
-  auto toast = std::make_shared<Toast>();
-  toast->title = UnlockedText();
-  if (!unlocked.gamertag.empty()) toast->title += " \xC2\xB7 " + unlocked.gamertag;
-  toast->text = std::to_string(unlocked.gamerscore) + "G - " + unlocked.name;
-  if (!unlocked.png.empty()) {
-    int w = 0, h = 0, channels = 0;
-    if (stbi_uc* pixels = stbi_load_from_memory(unlocked.png.data(), int(unlocked.png.size()), &w, &h, &channels, 4)) {
-      toast->width = uint32_t(w), toast->height = uint32_t(h);
-      toast->rgba.assign(pixels, pixels + size_t(w) * h * 4);
-      stbi_image_free(pixels);
-    }
-  }
+void Queue(std::shared_ptr<Toast> toast) {
   static std::once_flag started;
   std::call_once(started, [] { std::thread(PaintThread).detach(); });
   {
@@ -241,6 +233,36 @@ bool ShowAchievementToast(const AchievementToast& unlocked) {
     drawer->AddDialog(g_dialog);  // once: already there while toasts show
     drawer->RequestPaintIfIdle(0);
   });
+}
+
+}  // namespace
+
+bool ShowNotification(const Notification& notification) {
+  if (!settings::Get().system_notifications || !SharedImGuiDrawer() || !GameWindow()) return false;
+  auto toast = std::make_shared<Toast>();
+  toast->title = notification.title;
+  toast->text = notification.text;
+  toast->glyph = notification.glyph ? char(std::toupper(uint8_t(notification.glyph))) : '!';
+  KLOG_I("notification: %s: %s", notification.title.c_str(), notification.text.c_str());
+  Queue(std::move(toast));
+  return true;
+}
+
+bool ShowAchievementToast(const AchievementToast& unlocked) {
+  if (!settings::Get().achievement_toasts || !SharedImGuiDrawer() || !GameWindow()) return false;
+  auto toast = std::make_shared<Toast>();
+  toast->title = UnlockedText();
+  if (!unlocked.gamertag.empty()) toast->title += " \xC2\xB7 " + unlocked.gamertag;
+  toast->text = std::to_string(unlocked.gamerscore) + "G - " + unlocked.name;
+  if (!unlocked.png.empty()) {
+    int w = 0, h = 0, channels = 0;
+    if (stbi_uc* pixels = stbi_load_from_memory(unlocked.png.data(), int(unlocked.png.size()), &w, &h, &channels, 4)) {
+      toast->width = uint32_t(w), toast->height = uint32_t(h);
+      toast->rgba.assign(pixels, pixels + size_t(w) * h * 4);
+      stbi_image_free(pixels);
+    }
+  }
+  Queue(std::move(toast));
   return true;
 }
 

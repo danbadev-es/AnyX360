@@ -751,17 +751,12 @@ uint32_t XamReadTileToTexture(uint32_t tile_type, uint32_t title_id, uint64_t ti
   return result;
 }
 
-std::atomic<bool> g_achievements_ui_open{false};  // the list (gpu::OpenAchievementsUi) is shown
-
-// The system's achievements list for a player (a title's menu asks for it): as the sign-in picker,
-// it opens and this returns at once; the title sees the system UI open and pauses until it closes.
-uint32_t XamShowAchievementsUI(uint32_t user_index, uint32_t flags) {
-  (void)flags;
+// The system's achievements list for a player (a title's menu asks for it, or the Guide): as the
+// sign-in picker, it opens and this returns at once; the title sees the system UI open and pauses
+// until it closes. False when the player isn't signed in or the list is open already.
+bool ShowAchievementsList(uint32_t user_index) {
   const std::optional<User> user = GetUser(user_index < 4 ? user_index : 0);
-  if (!user || g_achievements_ui_open.exchange(true)) {
-    if (!user) g_achievements_ui_open = false;
-    return X_ERROR_SUCCESS;
-  }
+  if (!user || IsSystemUiOpen(SystemUi::kAchievements)) return false;
   x360::gpu::AchievementsView view;
   view.title = g_achievements.title.empty() ? TitlePaths().title_name : g_achievements.title;
   view.gamertag = user->name;
@@ -796,15 +791,17 @@ uint32_t XamShowAchievementsUI(uint32_t user_index, uint32_t flags) {
   std::stable_sort(unlocked.begin(), unlocked.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
   for (auto& [date, item] : unlocked) view.items.push_back(std::move(item));
   for (auto& item : locked) view.items.push_back(std::move(item));
-  KLOG_I("XamShowAchievementsUI(player %u): %zu achievements, %zu unlocked", user_index + 1, view.items.size(),
+  KLOG_I("achievements list (player %u): %zu achievements, %zu unlocked", user_index + 1, view.items.size(),
          unlocked.size());
-  Broadcast(kNotifySystemUi, 1);
-  x360::input::SetSystemUiOpen(true);
-  if (!x360::gpu::OpenAchievementsUi(std::move(view))) {  // no window (tests): shown and closed at once
-    x360::input::SetSystemUiOpen(false);
-    g_achievements_ui_open = false;
-    Broadcast(kNotifySystemUi, 0);
-  }
+  SetSystemUiOpen(SystemUi::kAchievements, true);
+  if (!x360::gpu::OpenAchievementsUi(std::move(view)))  // no window (tests): shown and closed at once
+    SetSystemUiOpen(SystemUi::kAchievements, false);
+  return true;
+}
+
+uint32_t XamShowAchievementsUI(uint32_t user_index, uint32_t flags) {
+  KLOG_I("XamShowAchievementsUI(player %u, %X)", user_index + 1, flags);
+  ShowAchievementsList(user_index);
   return X_ERROR_SUCCESS;
 }
 
@@ -1359,11 +1356,13 @@ fs::path ExecutableFor(const std::string& launch_path) {
     std::_Exit(1);
   }
   KLOG_I("XamLoaderLaunchTitle(%s, %X): exiting", launch_path.c_str(), flags);
+  x360::gpu::PrepareToLeave();
   std::fflush(nullptr);
   std::_Exit(0);
 }
 [[noreturn]] void XamLoaderTerminateTitle() {
   KLOG_I("XamLoaderTerminateTitle: exiting");
+  x360::gpu::PrepareToLeave();
   std::fflush(nullptr);
   std::_Exit(0);
 }
@@ -1424,9 +1423,6 @@ uint32_t XamTaskCloseHandle(uint32_t handle) {
 
 // ---- system UI --------------------------------------------------------------------------------
 
-std::atomic<bool> g_kinect_guide_open{false};    // SetKinectGuideOpen
-std::atomic<bool> g_signin_picker_open{false};   // the sign-in picker is shown (CloseSigninUi)
-
 // The sign-in UI. With the picker (SigninMode), it opens and this returns at once, as on the
 // console: the title sees the system UI open (it pauses, XamIsUIActive) and its controllers go
 // neutral until the picker closes; each profile chosen signs in on the slot whose controller chose
@@ -1438,13 +1434,10 @@ uint32_t ShowSignin(uint32_t count, uint32_t flags, bool kinect) {
   std::string mode = SigninMode();
   if (kinect && mode == "picker") mode = "automatic";
   if (mode == "picker") {
-    if (g_signin_picker_open.exchange(true)) return X_ERROR_SUCCESS;  // already shown
-    Broadcast(kNotifySystemUi, 1);
-    x360::input::SetSystemUiOpen(true);
-    if (x360::gpu::OpenSigninPicker(std::max<uint32_t>(count, 1))) return X_ERROR_SUCCESS;
+    if (IsSystemUiOpen(SystemUi::kSigninPicker)) return X_ERROR_SUCCESS;  // already shown
+    if (ShowSigninPicker(count)) return X_ERROR_SUCCESS;
     // No window to show it in (tests): the players sign in at once.
-    x360::input::SetSystemUiOpen(false);
-    g_signin_picker_open = false;
+    Broadcast(kNotifySystemUi, 1);
   } else {
     Broadcast(kNotifySystemUi, 1);
   }
@@ -1544,14 +1537,15 @@ uint32_t XamShowNuiDeviceSelectorUI(uint32_t tracking_id, uint32_t user_index, u
   (void)tracking_id;
   XamShowDirtyDiscErrorUI(user_index);
 }
-uint32_t XamIsUIActive() { return g_kinect_guide_open || g_signin_picker_open || g_achievements_ui_open ? 1 : 0; }
+uint32_t XamIsUIActive() { return AnySystemUiOpen() ? 1 : 0; }
 // The Kinect Guide (a Kinect title shows it when a player holds the guide gesture, the left arm
 // down at 45 degrees): there is no overlay here, but the title still sees the system UI open and
 // close, and pauses as it would on the console. Asked while the gesture holds it open (Dance
 // Central 3 answers the pause notification with it), it already is.
 uint32_t XamShowNuiGuideUI(uint32_t tracking_id) {
-  KLOG_I("XamShowNuiGuideUI(%u)%s", tracking_id, g_kinect_guide_open ? ": already open" : "");
-  if (g_kinect_guide_open) return X_ERROR_SUCCESS;
+  const bool open = AnySystemUiOpen();
+  KLOG_I("XamShowNuiGuideUI(%u)%s", tracking_id, open ? ": already open" : "");
+  if (open) return X_ERROR_SUCCESS;
   Broadcast(kNotifySystemUi, 1);
   Broadcast(kNotifySystemUi, 0);
   return X_ERROR_SUCCESS;
@@ -2044,6 +2038,18 @@ void SavePlayTime() {
       KLOG_W("users: the time played of %016llX could not be saved", (unsigned long long)d.xuid);
 }
 
+namespace {
+// A player signed in or out: the console's toast (gpu::ShowNotification).
+void SigninToast(uint32_t user_index, const std::string& gamertag, bool in) {
+  const bool spanish = TitlePaths().language == 5;
+  char title[32];
+  std::snprintf(title, sizeof(title), spanish ? "Jugador %u" : "Player %u", user_index + 1);
+  const std::string text = gamertag + (in ? (spanish ? " ha iniciado sesi\xC3\xB3n" : " signed in")
+                                          : (spanish ? " ha cerrado sesi\xC3\xB3n" : " signed out"));
+  x360::gpu::ShowNotification({title, text, gamertag.empty() ? '?' : gamertag[0]});
+}
+}  // namespace
+
 void SignInUser(uint32_t user_index) {
   if (user_index >= 4) return;
   {
@@ -2065,20 +2071,59 @@ void SignInUser(uint32_t user_index) {
   ForgetProfileBlobs(user_index);
   KLOG_I("users: player %u (%s) signed in", user_index + 1, UserName(user_index).c_str());
   // As if picked in the system's sign-in UI, which is open while the sign-in changes.
-  if (!g_in_signin_ui) Broadcast(kNotifySystemUi, 1);
+  const bool ui_open = g_in_signin_ui || AnySystemUiOpen();
+  if (!ui_open) Broadcast(kNotifySystemUi, 1);
   Broadcast(kNotifySigninChanged, SignedInMask());
-  if (!g_in_signin_ui) Broadcast(kNotifySystemUi, 0);
+  if (!ui_open) Broadcast(kNotifySystemUi, 0);
+  SigninToast(user_index, UserName(user_index), true);
 }
 
-void SetKinectGuideOpen(bool open) {
-  if (g_kinect_guide_open.exchange(open) == open) return;
-  KLOG_I("nui: the Kinect guide gesture: the system UI %s", open ? "opens" : "closes");
-  // As the console does, the title is first told a player made the pause gesture (the parameter is
-  // their user index: player 1's). Kinect Sports pauses on this alone; Dance Central 3 answers it by
-  // showing the Kinect Guide. The others pause on the system UI.
-  if (open) Broadcast(kNotifyNuiPause, 0);
-  Broadcast(kNotifySystemUi, open ? 1 : 0);
+namespace {
+std::mutex g_system_ui_mutex;
+std::atomic<uint32_t> g_system_ui{0};  // SystemUi bits
+// The UIs drawn over the game: the controllers are theirs while one is open (the Kinect Guide has
+// no overlay: the controllers stay the title's).
+constexpr uint32_t kOverlayUis =
+    uint32_t(SystemUi::kSigninPicker) | uint32_t(SystemUi::kAchievements) | uint32_t(SystemUi::kGuide);
+constexpr uint32_t kPauseUis = uint32_t(SystemUi::kKinectGuide) | uint32_t(SystemUi::kGuide);
+}  // namespace
+
+void SetSystemUiOpen(SystemUi ui, bool open) {
+  std::lock_guard lock(g_system_ui_mutex);  // the notifications stay in order
+  const uint32_t before = g_system_ui.load();
+  const uint32_t after = open ? before | uint32_t(ui) : before & ~uint32_t(ui);
+  if (before == after) return;
+  g_system_ui = after;
+  if ((before & kOverlayUis) != (after & kOverlayUis)) x360::input::SetSystemUiOpen((after & kOverlayUis) != 0);
+  // As the console does, a Kinect title is first told a player made the pause gesture (the
+  // parameter is their user index: player 1's): Kinect Sports pauses on this alone; Dance Central 3
+  // answers it by showing the Kinect Guide. The others pause on the system UI. The Guide button
+  // pauses a Kinect title the same way.
+  const bool kinect = ui == SystemUi::kKinectGuide || (ui == SystemUi::kGuide && x360::settings::Get().kinect.enabled);
+  if (open && kinect && !(before & kPauseUis)) Broadcast(kNotifyNuiPause, 0);
+  // The title sees one system UI, open from the first opened to the last closed (the Guide's
+  // achievements list over the Guide doesn't close it).
+  if ((before != 0) != (after != 0)) Broadcast(kNotifySystemUi, after ? 1 : 0);
 }
+
+bool IsSystemUiOpen(SystemUi ui) { return (g_system_ui.load() & uint32_t(ui)) != 0; }
+bool AnySystemUiOpen() { return g_system_ui.load() != 0; }
+
+void SetKinectGuideOpen(bool open) {
+  if (IsSystemUiOpen(SystemUi::kKinectGuide) == open) return;
+  KLOG_I("nui: the Kinect guide gesture: the system UI %s", open ? "opens" : "closes");
+  SetSystemUiOpen(SystemUi::kKinectGuide, open);
+}
+
+bool ShowSigninPicker(uint32_t count) {
+  if (IsSystemUiOpen(SystemUi::kSigninPicker)) return false;
+  SetSystemUiOpen(SystemUi::kSigninPicker, true);
+  if (x360::gpu::OpenSigninPicker(std::max<uint32_t>(count, 1))) return true;
+  SetSystemUiOpen(SystemUi::kSigninPicker, false);  // no window (tests)
+  return false;
+}
+
+bool ShowAchievements(uint32_t user_index) { return ShowAchievementsList(user_index); }
 
 void Notify(uint32_t id, uint32_t param) { Broadcast(id, param); }
 
@@ -2099,36 +2144,34 @@ bool SignInProfile(uint32_t user_index, uint64_t xuid, const std::string& gamert
   // Remembered for the next game (profile.txt), as the console keeps its players signed in.
   x360::profiles::SetSlot(TitlePaths().profiles_root, int(user_index), xuid);
   Broadcast(kNotifySigninChanged, SignedInMask());  // the picker is still open: the system UI is
+  SigninToast(user_index, gamertag, true);
   return true;
 }
 
 void CloseSigninUi() {
-  if (!g_signin_picker_open) return;
-  x360::input::SetSystemUiOpen(false);
-  g_signin_picker_open = false;
+  if (!IsSystemUiOpen(SystemUi::kSigninPicker)) return;
   KLOG_I("users: the sign-in picker closed");
-  Broadcast(kNotifySystemUi, 0);
+  SetSystemUiOpen(SystemUi::kSigninPicker, false);
 }
 
-void CloseAchievementsUi() {
-  if (!g_achievements_ui_open) return;
-  x360::input::SetSystemUiOpen(false);
-  g_achievements_ui_open = false;
-  Broadcast(kNotifySystemUi, 0);
-}
+void CloseAchievementsUi() { SetSystemUiOpen(SystemUi::kAchievements, false); }
 
 void SignOutUser(uint32_t user_index) {
   if (user_index == 0 || user_index >= 4) return;
   SavePlayTime();
+  const std::string name = UserName(user_index);
   {
     std::lock_guard lock(g_user_mutex);
     if (!g_users[user_index].signed_in) return;
     g_users[user_index].signed_in = false;
   }
   KLOG_I("users: player %u signed out", user_index + 1);
-  Broadcast(kNotifySystemUi, 1);
+  // As if changed in the system's UI, which is open while it changes (the Guide may be already).
+  const bool ui_open = AnySystemUiOpen();
+  if (!ui_open) Broadcast(kNotifySystemUi, 1);
   Broadcast(kNotifySigninChanged, SignedInMask());
-  Broadcast(kNotifySystemUi, 0);
+  if (!ui_open) Broadcast(kNotifySystemUi, 0);
+  SigninToast(user_index, name, false);
 }
 
 }  // namespace x360::kernel

@@ -67,7 +67,7 @@ int ResolveLocked(uint32_t user, uint32_t connected) {
 // ANYX360_INPUT="<seconds>:<button>[%<deflection>][/<hold>][~<period>x<count>][@<user>],..." presses
 // each button for 120 ms (or <hold> seconds) at the given time after the first input poll, on player
 // <user> (default 0); with ~<period>x<count>, again every <period> seconds, <count> times in all.
-// Buttons: START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT LS RS, left stick LUP LDOWN LLEFT LRIGHT,
+// Buttons: START BACK A B X Y UP DOWN LEFT RIGHT LB RB LT RT LS RS GUIDE, left stick LUP LDOWN LLEFT LRIGHT,
 // right stick RUP RDOWN RLEFT RRIGHT; a stick direction takes a deflection in percent (LLEFT%40).
 
 struct Press {
@@ -196,7 +196,8 @@ void ApplyScript(uint32_t user, Pad& pad) {
       {"UP", XINPUT_GAMEPAD_DPAD_UP},       {"DOWN", XINPUT_GAMEPAD_DPAD_DOWN},
       {"LEFT", XINPUT_GAMEPAD_DPAD_LEFT},   {"RIGHT", XINPUT_GAMEPAD_DPAD_RIGHT},
       {"LB", XINPUT_GAMEPAD_LEFT_SHOULDER}, {"RB", XINPUT_GAMEPAD_RIGHT_SHOULDER},
-      {"LS", XINPUT_GAMEPAD_LEFT_THUMB},    {"RS", XINPUT_GAMEPAD_RIGHT_THUMB}};
+      {"LS", XINPUT_GAMEPAD_LEFT_THUMB},    {"RS", XINPUT_GAMEPAD_RIGHT_THUMB},
+      {"GUIDE", kGuideButton}};
   uint16_t buttons = 0;
   std::vector<Press> live = LivePresses(now);
   const std::vector<Press>* lists[] = {&Script(), &live};
@@ -451,6 +452,7 @@ void SetSystemUiOpen(bool open) {
 bool GetPad(uint32_t user, Pad& pad) {
   const bool connected = GetUiPad(user, pad);
   if (g_system_ui) pad = {};
+  pad.buttons &= ~kGuideButton;  // the system's
   return connected;
 }
 

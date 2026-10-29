@@ -1,6 +1,7 @@
 // xboxkrnl modules, console configuration, crypto and power exports.
 #include <mutex>
 
+#include "x360/gpu.h"
 #include "x360/kernel.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -122,6 +123,7 @@ uint32_t XexUnloadImage(uint32_t handle) {
 
 [[noreturn]] void HalReturnToFirmware(uint32_t routine) {
   KLOG_I("HalReturnToFirmware(%u): title requested exit", routine);
+  x360::gpu::PrepareToLeave();
   std::fflush(nullptr);
   std::_Exit(0);
 }

@@ -10,6 +10,8 @@
 #include <vector>
 
 #include "anyx360_version.h"
+#include "x360/dashboard.h"
+#include "x360/gpu.h"
 #include "x360/kernel.h"
 #include "x360/profile.h"
 #include "x360/profiles.h"
@@ -98,11 +100,13 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   // Display flags override the saved settings for this session only.
   std::vector<std::function<void(Settings&)>> overrides;
   unsigned long restarted_from = 0;
+  gpu::LaunchWindow launch;
   for (int i = 1; i < argc; ++i) {
     const char* arg = argv[i];
     const char* value = i + 1 < argc ? argv[i + 1] : nullptr;
     if (!std::strcmp(arg, "--fullscreen")) {
       overrides.push_back([](Settings& s) { s.display.fullscreen = true; });
+      launch.fullscreen = true;
       continue;
     }
     if (!std::strcmp(arg, "--fxaa")) {
@@ -114,6 +118,15 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
     else if (!std::strcmp(arg, "--key")) info.key_path = value;
     else if (!std::strcmp(arg, "--user")) info.user_root = value;
     else if (!std::strcmp(arg, "--restarted-from")) restarted_from = std::strtoul(value, nullptr, 10);
+    else if (!std::strcmp(arg, "--dashboard")) launch.dashboard_pid = uint32_t(std::strtoul(value, nullptr, 10));
+    else if (!std::strcmp(arg, "--window")) {
+      if (const auto rect = dashboard::ParseWindowArg(value)) {
+        launch.has_rect = true;
+        launch.x = rect->x, launch.y = rect->y, launch.w = rect->w, launch.h = rect->h;
+      } else {
+        std::fprintf(stderr, "--window %s: expected x,y,width,height\n", value);
+      }
+    }
     else if (!std::strcmp(arg, "--resolution")) {
       uint32_t lines = uint32_t(std::atoi(value));
       overrides.push_back(
@@ -201,6 +214,10 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   settings::SetDefaults(defaults);
   settings::Load(info.user_root / "settings.toml");
   for (const auto& change : overrides) settings::Override(change);
+  // In the dashboard's window: windowed in its rectangle unless --fullscreen came too (the saved
+  // setting doesn't apply).
+  if (launch.has_rect && !launch.fullscreen) settings::Override([](Settings& s) { s.display.fullscreen = false; });
+  gpu::SetLaunchWindow(launch);
   if (game.fixed_fps) settings::Override([&](Settings& s) { s.display.target_fps = game.fixed_fps; });
   info.display = settings::Get().display;
   gpu::SetVblanksPerFrame(game.vblanks_per_frame);
