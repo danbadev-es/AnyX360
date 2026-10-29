@@ -106,9 +106,10 @@ own avatar is made in the launcher's avatar editor and plays in every avatar gam
    title update": add the update the same way (the same archive, or the `TU_…` file alone). The
    game patches its disc's executable with the update when it starts (cached after the first time)
    and reads the update's files.
-5. Choose a game and press **Play**. The launcher works with the mouse, the keyboard or an Xbox
-   controller. **Console mode** (in the header) makes it a dashboard the game opens in, as one
-   window; the Xbox button in a game opens the Guide, with **Xbox Home** back to it.
+5. Choose a game and press **A** (or click it again) to play. The launcher opens maximized as a
+   dashboard (console mode) that works with an Xbox controller, the keyboard or the mouse; the game
+   opens in its place, as one window, and the Xbox button in a game opens the Guide, with **Xbox
+   Home** back to it. **Desktop mode** (in Settings) is the older window with the games in a row.
 
 Settings can be changed while playing in the **F2** panel. They are saved to
 `%LOCALAPPDATA%\AnyX360\<game>\settings.toml`, next to your saves. The release's `README.txt`
@@ -187,10 +188,13 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   Xbox Home, back to the dashboard ([docs/DASHBOARD.md](docs/DASHBOARD.md), which also explains
   turning off the Game Bar's use of the button). Toasts say when a controller connects or a player
   signs in.
-- **Console mode** - The launcher as a dashboard, borderless in its window or full screen, driven
-  by the controller: Home (the game played last, the gamercard), Games, Achievements, Profiles,
-  Avatar, Settings and Add a game, changed with LB and RB. Games open in the same place and the
-  dashboard comes back when they end, as one window; **Desktop mode** keeps the usual window.
+- **Console mode** - The launcher as a dashboard (its first screen), maximized or full screen,
+  driven by the controller. Its Home is a console's: the selected game's art behind everything,
+  your avatar standing beside your games' box art on a mirror floor (newest played first, the
+  selected one large in a green glow, with its time played and gamerscore), the gamercard and the
+  time at the top, and a glass panel to My games, Settings and Add games. Achievements, Profiles
+  and the Avatar editor are the other pages, changed with LB and RB. Games open in the same place
+  and the dashboard comes back when they end, as one window; **Desktop mode** keeps the older window.
 - **Shader Cache** - Shaders and pipelines are cached between runs, so stutter fades after the
   first play.
 - **Saves** - Stored in `%LOCALAPPDATA%\AnyX360\<game>` (each profile's in its own folder),

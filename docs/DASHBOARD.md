@@ -7,8 +7,9 @@ achievements, then the Guide and the dashboard, then the avatar editor), on
 ## The idea
 As on the console: the Xbox button opens a menu over the game, which pauses it; from there the
 player goes back to the dashboard, and from the dashboard into another game, all in one window. The
-launcher gets a **console mode** for that: a dashboard driven by the controller first, borderless
-in its window or over the whole screen. Its usual window stays as **desktop mode**.
+launcher gets a **console mode** for that: a dashboard driven by the controller first, in its
+window (maximized when it starts) or borderless over the whole screen. The older layout stays as
+**desktop mode**.
 
 Every game still runs in a process of its own (what Modern Warfare 3's and Black Ops II's second
 executables, and a crash that takes only the game down, need), so "one window" is what the player
@@ -84,15 +85,50 @@ Guide with it:
 Or hold **Back and Start** for a second instead: it works with any controller.
 
 ## Console mode (the dashboard)
-`tools/launcher/ui/app.cpp` (`DrawConsole` and the pages), `ui/main.cpp` (the window).
+`tools/launcher/ui/app.cpp` (`DrawConsole` and the pages), `ui/home_page.cpp` (Home), `ui/main.cpp`
+(the window).
 
-The launcher is borderless in the place of its window, or over the whole monitor. The header has
-the AnyX360 mark, the profile playing (its gamerpic, gamertag and gamerscore: it opens Profiles) and
-the time; under it the pages, changed with **LB** and **RB** (Tab and Shift+Tab), or chosen:
+The launcher starts in console mode (unless desktop mode was chosen), **maximized**: a normal
+window with its title bar, the taskbar in view. Settings > Display switches to **full screen**,
+borderless over the whole monitor (and back to the maximized window).
+
+### Home
+The first screen, in the spirit of the Xbox 360's dashboards (AnyX360's own logo and colours, not
+Microsoft's):
+
+- **The background**: the selected game's art (`backgrounds\<slug>.jpg`, [backgrounds/README.md](../backgrounds/README.md)),
+  slightly blurred so the dashboard stays in front, darker at the top and towards the floor; a game
+  without art shows its cover enlarged and blurred. It cross-fades when the selection changes. The
+  blurred picture is made once per game and window size (a small copy, stretched smoothly).
+- **The top bar**: at the left the AnyX360 mark and name and a white pill with who's signed in (a
+  green dot; **A** or a click: "Who's playing?"); at the right the gamercard (round gamerpic,
+  gamertag, the gamerscore with its "G": it opens Profiles), the controller (bright when one is
+  connected, with how many if more than one) and the time.
+- **The row**, standing on a dark mirror floor that reflects it: the profile's **avatar** at the left,
+  full body, its arms down (drawn by the avatar viewer into a picture once, again only when the
+  avatar or its size changes); then the games, **newest played first**: the selected one's box art
+  large, in a green neon frame, with its title, time played and gamerscore (earned of the game's)
+  under it; the one before it smaller, translucent and blurred, half behind the avatar; the next
+  ones at the usual size, dimmer the further they are. Moving glides the row (0.3 s).
+- **The panel**: frosted glass at the bottom, **My games** (the Games page), **Settings** and **Add
+  games** (the Add page: `.anyx` backups, archives, discs, folders, downloadable content); the
+  controller's hints at its left (A Select, Y More), LB RB at its right (or what the last action
+  ended with).
+
+Controller and keyboard: left and right go through the games; **left of the first game the avatar
+takes the focus** (a green ring at its feet; **A** opens the Avatar page, or "Who's playing?" with
+nobody signed in), right from it back to the first game; down goes to the panel, up to the
+gamercard. **A** or **Start** plays the selected game, **Y** opens its ⋯ menu. The mouse clicks a
+game to select it and again to play it; the wheel or a trackpad's sideways swipe moves the row.
+With no games yet, "Add a game" stands where the selected game would.
+
+### The pages
+Changed with **LB** and **RB** (Tab and Shift+Tab), the panel, or the row of pages the other pages
+have under their header (the AnyX360 mark, the gamercard and the time):
 
 | Page | What it has |
 |---|---|
-| **Home** | The game played last by the profile playing, large, with its time played, its gamerscore and **Play**; the others played recently, smaller; the gamercard (gamerpic, gamertag, gamerscore, games played and the time), **Switch profile** and **Manage profiles**. |
+| **Home** | Above. |
 | **Games** | Every game in the library as box art, then **Add a game**. **A** or **Start** plays one, **Y** opens its ⋯ menu (cover, logs, .anyx backup, remove). |
 | **Achievements** | A row per game: unlocked of all, the gamerscore earned of the game's; **A** opens its list. |
 | **Profiles** | Each profile (its gamerpic, gamertag, gamerscore; the one playing marked): **A** plays as it. **Create profile**, and **Manage profiles** (rename, delete, its avatar and gamerpic, the language). |
@@ -103,7 +139,9 @@ the time; under it the pages, changed with **LB** and **RB** (Tab and Shift+Tab)
 **B** goes back to Home; the Guide button on the dashboard too. The mouse and the keyboard work as
 in desktop mode. The header of desktop mode has **Console mode**; the choice is remembered in
 `%LOCALAPPDATA%\AnyX360\launcher_mode.txt` (`desktop`, `console` or `console fullscreen`).
-`AnyX360.exe --console` or `--desktop` starts in one this time only.
+`AnyX360.exe --console` or `--desktop` starts in one this time only. Screenshots (`--screenshot`)
+have `--state console-home`, `console-home-avatar` (the avatar focused, also `home-avatar-focused`)
+and `console-home-panel`; `--select <id>` chooses Home's game.
 
 ## One window
 `tools/launcher/core/launch.cpp` (`StartGame`, `StartFollowed`), `runtime/src/gpu/xenia_gpu.cpp`,
@@ -116,7 +154,9 @@ The launcher starts it with (`GameCommandLine`):
 <Game>.exe --game <folder> --key <key> --dashboard <launcher process ID> [--window x,y,w,h] [--fullscreen]
 ```
 
-- `--window`: the dashboard's client area on the screen, in pixels. The game's window is created
+- `--window`: the dashboard's place on the screen, in pixels: its whole window as it looks (title bar
+  included, so no desktop shows above the borderless game; maximized, within the work area), or its
+  client area when it is borderless. The game's window is created
   there borderless (a CBT hook changes its style and rectangle as Xenia creates it, then the
   runtime sets them again in case Xenia resized it for the monitor's DPI). The game renders at its
   usual resolution and scales to it. The saved fullscreen setting doesn't apply.

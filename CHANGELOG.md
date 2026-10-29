@@ -8,9 +8,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **A new Home for the dashboard**, as a console's: the selected game's art fills the screen behind
+  it, slightly blurred (its cover, enlarged and blurred, for a game without art); the AnyX360 logo
+  and who's signed in at the top left; the gamercard (gamerpic, gamertag, gamerscore), the
+  controllers and the time at the top right. In the middle, on a mirror floor, the profile's avatar
+  standing at the left, then the games, newest played first: the selected one's box art large in a
+  green glow with its title, time played and gamerscore under it, the one before it half hidden
+  behind the avatar, the next ones smaller. Left of the first game the avatar takes the focus: **A**
+  opens the avatar editor. A glass panel at the bottom opens **My games**, **Settings** and **Add
+  games**; LB and RB still change pages.
+- **Background art**: `backgrounds\<slug>.jpg` beside the covers (not in git, shipped in the release
+  at 1920x1080, `x360tool background`; see `backgrounds/README.md`).
+- The avatar viewer stands the avatar with its arms down, relaxed, instead of the bind pose's T.
+
 ### Changed
 
 - Mortal Kombat Komplete Edition joins the launcher's "Coming soon" games, with its cover.
+- The launcher opens maximized, and in console mode (the dashboard) unless desktop mode was chosen;
+  console mode is a normal window now, and full screen (borderless) is an option in Settings.
 
 ## [0.23.0] - 2026-10-29
 
