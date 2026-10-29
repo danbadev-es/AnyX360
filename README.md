@@ -62,9 +62,9 @@ the sensor.
 - **Minecraft: Xbox 360 Edition** (in testing): 4J Studios' edition from Xbox Live Arcade with its
   last title update (version 0.0.80.1), new and saved worlds, up to four players in split screen,
   and its downloadable content (skins, texture packs, mash-ups).
-- **Forza Motorsport 4** (being brought up): Turn 10's racing game from a Games on Demand copy,
-  with the second disc's car packs and its downloadable content; it starts, saves and plays its
-  introduction, and stops at the first race's loading screen
+- **Forza Motorsport 4** (in testing): Turn 10's racing game from a Games on Demand copy, with the
+  second disc's car packs and its downloadable content; the introduction, the first race, the
+  career menus and World Tour races work, and the game saves
   ([docs/FORZAMOTORSPORT4.md](docs/FORZAMOTORSPORT4.md)).
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc

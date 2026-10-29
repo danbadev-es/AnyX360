@@ -11,7 +11,8 @@ Player 1: keyboard and mouse, standing in for a controller. A controller is reco
 F2 > Players and set Player 1 to "Controller".
 
 KNOWN ISSUES
-- In testing: the start, the title screen, the profile save, the brightness screen and the
-  introduction work; the game stops at the first race's loading screen. If something goes
-  wrong, tell us with the logs.
+- In testing: the start, the introduction, the first race, the first car, the career menus and
+  World Tour races work, and the game saves. Free Play, the garage, upgrades, tuning, the paint
+  editor, replays and the second disc's cars haven't been checked yet. If something goes wrong,
+  tell us with the logs.
 - Xbox LIVE (Rivals online, the storefront, the auction house) is gone.

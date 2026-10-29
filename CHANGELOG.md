@@ -10,10 +10,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ### Added
 
-- **Forza Motorsport 4** (being brought up, [docs/FORZAMOTORSPORT4.md](docs/FORZAMOTORSPORT4.md)):
+- **Forza Motorsport 4** (in testing, [docs/FORZAMOTORSPORT4.md](docs/FORZAMOTORSPORT4.md)):
   from a Games on Demand copy with the second disc's car packs and the downloadable content. The
-  logos, the title screen, the profile save, the brightness screen and the introduction work;
-  the game stops at the first race's loading screen.
+  introduction, the first race (the Bernese Alps in the Ferrari 458), the first car, the career
+  menus and World Tour races work, and the game saves. Free Play, the garage, upgrades, tuning,
+  paint, replays and the second disc's cars aren't checked yet; Kinect and split screen come later.
+- **XAPI fibers**: a title's `SwitchToFiber` (hand-written assembly the recompiler can't follow)
+  runs each guest fiber on a host fiber (Forza Motorsport 4's job scheduler).
 - **A title's own DLLs**: a game that loads DLLs of its own with `XexLoadImage` (Forza's video
   decoder and speech facade) has them recompiled into its executable and loaded at their base.
 
