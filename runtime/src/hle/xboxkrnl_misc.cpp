@@ -494,6 +494,50 @@ uint32_t XeKeysAesCbcUsingKey(uint32_t obscured_key, uint32_t input, uint32_t si
   return X_STATUS_SUCCESS;
 }
 
+// The security engine's key slots a title can set (XeKeysSetKey) and then use by number
+// (XeKeysAesCbc). The XDK's XKeysSetKey/XKeysAesCbc put a title's keys in slots 0xE0-0xE7; Dance
+// Central 2 derives its songs' keys this way. Only keys set here can be used: the console's own keys
+// (the other slots) aren't known.
+struct KeySlot {
+  bool set = false;
+  uint8_t key[16] = {};
+};
+std::mutex g_key_slots_mutex;
+KeySlot g_key_slots[256];
+
+uint32_t XeKeysSetKey(uint32_t key_num, uint32_t key, uint32_t size) {
+  if (key_num > 0xFF || !key || size != 16) return X_STATUS_INVALID_PARAMETER;
+  std::lock_guard lock(g_key_slots_mutex);
+  g_key_slots[key_num].set = true;
+  std::memcpy(g_key_slots[key_num].key, Ptr(key), 16);
+  return X_STATUS_SUCCESS;
+}
+
+// XeKeysAesCbc(key number, input, size, output, feed, encrypt): AES-CBC with a slot's key. Without
+// a feed the IV is zero (one block: ECB).
+uint32_t XeKeysAesCbc(uint32_t key_num, uint32_t input, uint32_t size, uint32_t output, uint32_t feed, uint32_t encrypt) {
+  uint8_t key[16];
+  {
+    std::lock_guard lock(g_key_slots_mutex);
+    if (key_num > 0xFF || !g_key_slots[key_num].set) {
+      KLOG_W("XeKeysAesCbc: key %#x wasn't set by the title", key_num);
+      return X_STATUS_INVALID_PARAMETER;
+    }
+    std::memcpy(key, g_key_slots[key_num].key, 16);
+  }
+  size &= ~15u;
+  if (!input || !output || !size) return X_STATUS_INVALID_PARAMETER;
+  thread_local const uint32_t state = SystemAlloc(kAesStateSize);
+  std::memset(Ptr(state), 0, kAesStateSize);
+  std::memcpy(Ptr(state), key, 16);
+  std::memmove(Ptr(output), Ptr(input), size);
+  uint8_t iv[16] = {};
+  if (feed) std::memcpy(iv, Ptr(feed), 16);
+  AesInPlace(state, true, encrypt != 0, Ptr<uint8_t>(output), size, iv);
+  if (feed) std::memcpy(Ptr(feed), iv, 16);
+  return X_STATUS_SUCCESS;
+}
+
 // A made-up console ID: 5 raw bytes and the same as 12 decimal digits (not NUL-terminated).
 uint32_t XeKeysGetConsoleID(uint32_t raw_ptr, uint32_t text_ptr) {
   static const uint8_t kRaw[5] = {0x39, 0x10, 0x40, 0x66, 0x7E};
@@ -547,5 +591,7 @@ X360_EXPORT(XeCryptAesCbc, XeCryptAesCbc)
 X360_EXPORT(XeKeysGetConsoleID, XeKeysGetConsoleID)
 X360_EXPORT(XeKeysObscureKey, XeKeysObscureKey)
 X360_EXPORT(XeKeysAesCbcUsingKey, XeKeysAesCbcUsingKey)
+X360_EXPORT(XeKeysSetKey, XeKeysSetKey)
+X360_EXPORT(XeKeysAesCbc, XeKeysAesCbc)
 X360_EXPORT(XeKeysConsolePrivateKeySign, XeKeysConsolePrivateKeySign)
 X360_EXPORT(XeKeysConsoleSignatureVerification, XeKeysConsoleSignatureVerification)
