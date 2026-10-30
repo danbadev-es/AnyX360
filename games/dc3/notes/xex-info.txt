@@ -1,6 +1,6 @@
 == XEX2 header ==
 module flags:     0x00000001 title
-PE data offset:   0x00003000
+PE data offset:   0x00004000
 base address:     0x82000000
 entry point:      0x827FC450
 image size:       0x01020000 (16.12 MiB)
@@ -8,7 +8,7 @@ page size:        0x10000
 encryption:       AES-128 (normal)
 compression:      basic (zero-fill blocks), 3 blocks
 region:           0xFFFFFFFF
-allowed media:    0xFFFFFFFF
+allowed media:    0x00000004
 original PE name: ham_xbox_h.exe
 
 == Execution info ==
@@ -22,28 +22,28 @@ title workspace:  0x280000
 system flags:     0x00000220
 
 == Optional headers (18) ==
-  000002FF  RESOURCE_INFO                  value/offset 0x00001ADC
-  000003FF  FILE_FORMAT_INFO               value/offset 0x00001AF0
+  000002FF  RESOURCE_INFO                  value/offset 0x00001A5C
+  000003FF  FILE_FORMAT_INFO               value/offset 0x00001A70
   00010100  ENTRY_POINT                    value/offset 0x827FC450
   00010201  IMAGE_BASE_ADDRESS             value/offset 0x82000000
-  000103FF  IMPORT_LIBRARIES               value/offset 0x000024C0
-  00018002  CHECKSUM_TIMESTAMP             value/offset 0x00001B10
-  000183FF  ORIGINAL_PE_NAME               value/offset 0x00001B18
-  000200FF  STATIC_LIBRARIES               value/offset 0x00001B2C
-  00020104  TLS_INFO                       value/offset 0x00001D00
+  000103FF  IMPORT_LIBRARIES               value/offset 0x000034C0
+  00018002  CHECKSUM_TIMESTAMP             value/offset 0x00001A90
+  000183FF  ORIGINAL_PE_NAME               value/offset 0x00001A98
+  000200FF  STATIC_LIBRARIES               value/offset 0x00001AAC
+  00020104  TLS_INFO                       value/offset 0x00001C80
   00020200  DEFAULT_STACK_SIZE             value/offset 0x00040000
   00030000  SYSTEM_FLAGS                   value/offset 0x00000220
   00030100  ?                              value/offset 0x00002070
-  00040006  EXECUTION_INFO                 value/offset 0x00001D10
+  00040006  EXECUTION_INFO                 value/offset 0x00001C90
   00040201  TITLE_WORKSPACE_SIZE           value/offset 0x00280000
-  00040310  GAME_RATINGS                   value/offset 0x00001D28
-  00040404  LAN_KEY                        value/offset 0x00001D68
-  000405FF  XBOX360_LOGO                   value/offset 0x00001D78
-  000407FF  ALTERNATE_TITLE_IDS            value/offset 0x00002440
+  00040310  GAME_RATINGS                   value/offset 0x00001CA8
+  00040404  LAN_KEY                        value/offset 0x00001CE8
+  000405FF  XBOX360_LOGO                   value/offset 0x00001CF8
+  000407FF  ALTERNATE_TITLE_IDS            value/offset 0x000023C0
 
 == Import libraries (2) ==
-  xam.xex          v2.0.21173.0    (min 2.0.0.0)  308 import records
-  xboxkrnl.exe     v2.0.21173.0    (min 2.0.0.0)  383 import records
+  xam.xex          v2.0.21173.0    (min 2.0.15574.0)  308 import records
+  xboxkrnl.exe     v2.0.21173.0    (min 2.0.15574.0)  383 import records
 
 == Statically linked SDK libraries (29) ==
   XBC      2.0.21173  (tail 0x4000)

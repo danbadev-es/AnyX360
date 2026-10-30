@@ -2,20 +2,60 @@
 
 These are working notes for the second title, Dance Central 3, a game played only with the Kinect.
 Every value below comes from its `default.xex`, read with `x360tool xex-info`. The full dump is in
-[games/dc3/notes/xex-info.txt](../games/dc3/notes/xex-info.txt).
+[games/dc3/notes/xex-info.txt](../games/dc3/notes/xex-info.txt) (the title update's executable:
+[xex-info_0.0.1.5.txt](../games/dc3/notes/xex-info_0.0.1.5.txt)).
 
 | Item | Value |
 |---|---|
 | Engine | Harmonix Milo (`ham_xbox_h.exe`; "ham" is Dance Central's internal name) |
 | Title ID / media ID | `373307D9` / `2BE86B86`, version 0.0.0.5, disc 1 of 1 |
-| Source used | Extracted disc folder (2375 files, 6.2 GB): `default.xex`, `gen\main_xbox.hdr` + 10 ARK archives, Kinect identity and speech data |
-| XEX | AES-encrypted with the **devkit** key (a re-packed dump), basic compression, base `0x82000000`, entry `0x827FC450` |
+| Source used | The **Games on Demand** package (`x360tool god-extract`: 2375 files, 6.2 GB: `default.xex`, `gen\main_xbox.hdr` + 10 ARK archives, Kinect identity and speech data), its title update and 20 downloadable content packages |
+| XEX | AES-encrypted with the retail key, basic compression, base `0x82000000`, entry `0x827FC450` (`0x827FDA00` in the update) |
 | Image | 16.1 MiB: 10.2 MiB code, 2.4 MiB data, 3.6 MiB read-only |
 | Functions in `.pdata` | 49,865 |
 | XDK | 2.0.21173, compiler C1/C2 16.0.11886; links NUI, NUIAUD, NUISP and FITNESS (Kinect), XHV2 and XMIC |
 | Imports | `xboxkrnl.exe`: 185 functions + 13 variables; `xam.xex`: 154 functions ([list](../games/dc3/notes/imported_functions.txt)) |
 | Middleware | Bink video (`BINK*`), RAD, libjpeg, Ogg Vorbis (song audio, decoded on the CPU; songs are AES-encrypted) |
-| Target version | Base disc executable; no Title Update |
+| Target version | The executable patched with the title update (`TU_0RJ61UP_000000K000000.0000000000085`): 0.0.0.5 to **0.0.1.5** (see [Title update](#title-update)) |
+
+## The copy
+Since 0.29.0 the port is made from a Games on Demand copy with its title update and downloadable
+content. Until then it was made from a re-packed dump of the disc (the same version and media ID),
+which the user has replaced.
+
+- **The same game.** Recompiled with the same configuration, the Games on Demand copy's base
+  executable gives the same code as the dump's, except in three functions and two imports: the dump
+  had been patched to decrypt its songs' keys with `XeCryptAesKey`/`XeCryptAesCbc` and an AES state
+  on the stack, where the retail executable uses the title's key slots (`XeKeysSetKey`,
+  `XeKeysAesCbc`: [tu_addresses.md](../games/dc3/notes/tu_addresses.md#the-song-keys)). The runtime
+  has those two now. The dump was also encrypted with the devkit key, and its allowed media and
+  minimum system versions were changed.
+- **The archive** (`DC3-DLC-TU-GOD.rar`, 7.8 GB) holds `373307D9\00007000\A9080A6703719ECBD565`
+  (+ `.data`, 40 data files), the title update `TU_0RJ61UP_000000K000000.0000000000085` at its root
+  (the console cache's form), 20 downloadable content packages in `373307D9\00000002\` and 10 avatar
+  items in `373307D9\00009000\` (content type 0x9000: T-shirts, outfits, a helmet, a dance
+  animation), which the launcher leaves out.
+
+## Title update
+The game is recompiled from its title update's executable, as Kinect Adventures and Resident
+Evil 6 are ([ANYX.md](ANYX.md)). The update (`TU_0RJ61UP_000000K000000.0000000000085`, the console
+cache's form of a `000B0000` package, "Dance Central 3 Title Update", 2.9 MB, 140 files) holds:
+
+- `default.xexp`, a delta patch from 0.0.0.5 to 0.0.1.5. The patched image keeps the base's layout
+  and size, but the code moved (Milo's start-up by `+0xA38`, the NUI library by `+0x15B0`) and the
+  entry point is `0x827FDA00`. The imports are the same.
+- `gen\patch_xbox.hdr` and `patch_xbox_0.ark`: Milo's patch archive, read from `UPDATE:`.
+- `grammar_update\<language>\*.cfg`: voice command grammars (voice isn't supported).
+
+How it is played:
+- **Recompiling**: `patch_file_path`/`patched_file_path` in config.toml, output `recomp7`.
+  XenonAnalyse finds 189 jump tables (2 table-driven `bctr` left), as on the base.
+- **Addresses**: every address in `src/` was found again in the patched image by instruction shape
+  ([games/dc3/notes/tu_addresses.md](../games/dc3/notes/tu_addresses.md)).
+- **At start** the game patches `default.xex` (cached in `<user>\cache\patched`) and mounts the
+  update as `update:`. Without it, it ends at once saying where the update goes. The launcher
+  installs it from the archive (or the `TU_` file alone) and shows "Needs its title update" until
+  it is there.
 
 ## Sections
 The section list is in [games/dc3/notes/sections.txt](../games/dc3/notes/sections.txt). Code lives

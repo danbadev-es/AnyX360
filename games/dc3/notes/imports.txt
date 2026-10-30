@@ -348,10 +348,10 @@ xboxkrnl.exe  0x0CC  var    0x820008B8  NtAllocateVirtualMemory
 xboxkrnl.exe  0x0CC  thunk  0x82CE81FC  NtAllocateVirtualMemory
 xboxkrnl.exe  0x0E7  var    0x820008BC  NtQueryFullAttributesFile
 xboxkrnl.exe  0x0E7  thunk  0x82CE81EC  NtQueryFullAttributesFile
-xboxkrnl.exe  0x15B  var    0x820008C0  XeCryptAesCbc
-xboxkrnl.exe  0x15B  thunk  0x82CE81DC  XeCryptAesCbc
-xboxkrnl.exe  0x159  var    0x820008C4  XeCryptAesKey
-xboxkrnl.exe  0x159  thunk  0x82CE81CC  XeCryptAesKey
+xboxkrnl.exe  0x24B  var    0x820008C0  XeKeysAesCbc
+xboxkrnl.exe  0x24B  thunk  0x82CE81DC  XeKeysAesCbc
+xboxkrnl.exe  0x242  var    0x820008C4  XeKeysSetKey
+xboxkrnl.exe  0x242  thunk  0x82CE81CC  XeKeysSetKey
 xboxkrnl.exe  0x14D  var    0x820008C8  _vsnprintf
 xboxkrnl.exe  0x14D  thunk  0x82CE81BC  _vsnprintf
 xboxkrnl.exe  0x199  var    0x820008CC  XexLoadImage

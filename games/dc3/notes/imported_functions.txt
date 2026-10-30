@@ -326,10 +326,10 @@ xboxkrnl.exe XAudioRegisterRenderDriverMECClient
 xboxkrnl.exe XAudioSubmitRenderDriverFrame
 xboxkrnl.exe XAudioUnregisterRenderDriverClient
 xboxkrnl.exe XAudioUnregisterRenderDriverMECClient
-xboxkrnl.exe XeCryptAesCbc
-xboxkrnl.exe XeCryptAesKey
 xboxkrnl.exe XeCryptRandom
+xboxkrnl.exe XeKeysAesCbc
 xboxkrnl.exe XeKeysGetConsoleID
+xboxkrnl.exe XeKeysSetKey
 xboxkrnl.exe XexCheckExecutablePrivilege
 xboxkrnl.exe XexGetModuleHandle
 xboxkrnl.exe XexGetProcedureAddress
