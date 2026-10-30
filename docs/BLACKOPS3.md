@@ -122,7 +122,7 @@ With a user folder that has been through the first-run screens (times from the f
 
 ```
 Multiplayer match (Team Deathmatch, Combine):
-ANYX360_INPUT=20:START,30:START,40:START,80:A,92:A,104:A
+ANYX360_INPUT=20:START,30:START,40:START,80:A,92:A,125:A,135:A,145:A
 
 Zombies from the LOCAL menu (Shadows of Evil), the Zombies program's script as ANYX360_INPUT_NEXT:
 ANYX360_INPUT=20:START,30:START,40:START,80:DOWN,82:DOWN,84:A
@@ -132,8 +132,9 @@ BlackOps3ZM.exe started directly (Shadows of Evil, playing at about 110 s):
 ANYX360_INPUT=60:A,70:A,80:A
 ```
 
-START skips the logos and passes the title screen; A picks Multiplayer, Start match and the
-first class (the match starts at about 125 s). The first time, the brightness and safe area
+START skips the logos and passes the title screen; A picks Multiplayer and Start match; the class
+screen comes between 115 and 150 s (it varies), so A is pressed three times to take the first class
+(a press in the match only jumps). The first time, the brightness and safe area
 screens come before the LOCAL menu: add an A for each (about 12 s apart) before the menu's A.
 A match with bots (three a side), from the same user folder:
 
