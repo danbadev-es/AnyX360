@@ -5,12 +5,15 @@
 // games/dc3/notes/nui_entry_points.md); names and signatures come from Harmonix's profiling scopes
 // around the calls, the arguments, how the results are used and what each function reaches
 // (games/dc3/notes/nui_api.md).
+//
+// The addresses are the title update's (0.0.1.5), the executable the game is recompiled from. The
+// notes give the disc's (0.0.0.5); games/dc3/notes/tu_addresses.md maps one to the other.
 #include "x360/endian.h"
 #include "x360/hle.h"
 #include "x360/nui.h"
 
-PPC_EXTERN_FUNC(sub_82AC7908);  // XGSetTextureHeaderEx (the title's D3D library)
-PPC_EXTERN_FUNC(sub_82AC7B28);  // XGOffsetResourceAddress
+PPC_EXTERN_FUNC(sub_82AC8E08);  // XGSetTextureHeaderEx (the title's D3D library)
+PPC_EXTERN_FUNC(sub_82AC9028);  // XGOffsetResourceAddress
 
 namespace dc3 {
 
@@ -26,9 +29,9 @@ void Store32(uint32_t address, uint32_t value) { store_be<uint32_t>(x360::hle::t
 // ---- image stream formats: the library's own tables -------------------------------------------
 // Per stream type (16 bytes): index into the format table, initialization flags it needs,
 // resolution. Per format (28 bytes): frame size, width, height, bytes per pixel, D3DFORMAT.
-constexpr uint32_t kStreamTypes = 0x820F0080;
+constexpr uint32_t kStreamTypes = 0x820F0600;
 constexpr uint32_t kStreamTypeCount = 9;
-constexpr uint32_t kFormats = 0x820F0110;
+constexpr uint32_t kFormats = 0x820F0690;
 
 bool StreamFormat(uint32_t type, uint32_t resolution, nui::StreamFormat& format) {
   if (type >= kStreamTypeCount) return false;
@@ -48,7 +51,7 @@ bool StreamFormat(uint32_t type, uint32_t resolution, nui::StreamFormat& format)
   }
 }
 
-// The texture header of an image frame, made as the library makes its own (8280CB60):
+// The texture header of an image frame, made as the library makes its own (8280E110):
 // XGSetTextureHeaderEx(width, height, 1 level, usage 4, format, exp bias 0, flags 1, base offset 0,
 // mip offset "contiguous", pitch 0 (default), header, NULL, NULL), then
 // XGOffsetResourceAddress(header, pixels). Arguments 9-13 go on the stack at r1+0x54, 8 bytes apart.
@@ -67,18 +70,18 @@ void TextureHeader(PPCContext& ctx, uint32_t header, const nui::StreamFormat& fo
   ctx.r8.u64 = 0;
   ctx.r9.u64 = 1;
   ctx.r10.u64 = 0;
-  ctx.lr = 0x8280CD0C;
-  sub_82AC7908(ctx, base);
+  ctx.lr = 0x8280E2BC;
+  sub_82AC8E08(ctx, base);
   ctx.r3.u64 = header;
   ctx.r4.u64 = pixels;
-  ctx.lr = 0x8280CD1C;
-  sub_82AC7B28(ctx, base);
+  ctx.lr = 0x8280E2CC;
+  sub_82AC9028(ctx, base);
   ctx = saved;
 }
 
 // ---- color camera settings: kept as the game sets them ---------------------------------------
-// 8280BF40(camera, setting, value) / 8280B258(camera, setting, value*): the game sets settings 0 and
-// 2 and reads them back. 8280BF98(camera, float[4]) / 8280AA68(camera, float[4]*): a region it
+// 8280D4F0(camera, setting, value) / 8280C808(camera, setting, value*): the game sets settings 0 and
+// 2 and reads them back. 8280D548(camera, float[4]) / 8280C018(camera, float[4]*): a region it
 // sets and compares.
 uint32_t g_camera_settings[4] = {};
 uint32_t g_camera_region[4] = {};
@@ -105,7 +108,7 @@ uint32_t CameraGetRegion(uint32_t camera, uint32_t region) {
 }
 
 // ---- identity: nobody is enrolled -------------------------------------------------------------
-// 82807B98(enrollment index 0-7, info*): {+0 value, +4 enrolled}.
+// 82809148(enrollment index 0-7, info*): {+0 value, +4 enrolled}.
 uint32_t IdentityGetEnrollment(uint32_t index, uint32_t info) {
   (void)index;
   Store32(info + 0, 0xFFFFFFFF);
@@ -125,60 +128,60 @@ void InstallNui() {
 }  // namespace dc3
 
 // Initialization.
-X360_GUEST_FUNCTION(828151F8, x360::nui::Initialize)
-X360_GUEST_FUNCTION(82812D98, x360::nui::Shutdown)
+X360_GUEST_FUNCTION(828167A8, x360::nui::Initialize)
+X360_GUEST_FUNCTION(82814348, x360::nui::Shutdown)
 
 // Skeleton tracking.
-X360_GUEST_FUNCTION(828067F0, x360::nui::SkeletonTrackingEnable)
-X360_GUEST_FUNCTION(82806018, x360::nui::SkeletonTrackingDisable)
-X360_GUEST_FUNCTION(82806990, x360::nui::SkeletonGetNextFrame)
-X360_GUEST_FUNCTION(82806190, x360::nui::SkeletonSetTrackedSkeletons)
-X360_GUEST_TRACE(82807768, "NUI transform from the gravity vector (pure)")
-X360_GUEST_TRACE(82807DB0, "NUI 82807DB0 (pure)")
-X360_GUEST_TRACE(8280A350, "NUI gesture troubleshooter (pure)")
+X360_GUEST_FUNCTION(82807DA0, x360::nui::SkeletonTrackingEnable)
+X360_GUEST_FUNCTION(828075C8, x360::nui::SkeletonTrackingDisable)
+X360_GUEST_FUNCTION(82807F40, x360::nui::SkeletonGetNextFrame)
+X360_GUEST_FUNCTION(82807740, x360::nui::SkeletonSetTrackedSkeletons)
+X360_GUEST_TRACE(82808D18, "NUI transform from the gravity vector (pure)")
+X360_GUEST_TRACE(82809360, "NUI 82809360 (pure)")
+X360_GUEST_TRACE(8280B900, "NUI gesture troubleshooter (pure)")
 
 // Image streams and camera.
-X360_GUEST_FUNCTION(8280D328, x360::nui::ImageStreamOpen)
-X360_GUEST_FUNCTION(8280C6E8, x360::nui::ImageStreamGetNextFrame)
-X360_GUEST_FUNCTION(8280CA10, x360::nui::ImageStreamReleaseFrame)
-X360_GUEST_FUNCTION(828080F8, x360::nui::CameraElevationGetAngle)
-X360_GUEST_FUNCTION(828081E0, x360::nui::CameraElevationSetAngle)
-X360_GUEST_STUB(82808B40, "NUI elevation adjustment", 0)
-X360_GUEST_FUNCTION(8280BF40, dc3::CameraSet)
-X360_GUEST_FUNCTION(8280B258, dc3::CameraGet)
-X360_GUEST_FUNCTION(8280BF98, dc3::CameraSetRegion)
-X360_GUEST_FUNCTION(8280AA68, dc3::CameraGetRegion)
+X360_GUEST_FUNCTION(8280E8D8, x360::nui::ImageStreamOpen)
+X360_GUEST_FUNCTION(8280DC98, x360::nui::ImageStreamGetNextFrame)
+X360_GUEST_FUNCTION(8280DFC0, x360::nui::ImageStreamReleaseFrame)
+X360_GUEST_FUNCTION(828096A8, x360::nui::CameraElevationGetAngle)
+X360_GUEST_FUNCTION(82809790, x360::nui::CameraElevationSetAngle)
+X360_GUEST_STUB(8280A0F0, "NUI elevation adjustment", 0)
+X360_GUEST_FUNCTION(8280D4F0, dc3::CameraSet)
+X360_GUEST_FUNCTION(8280C808, dc3::CameraGet)
+X360_GUEST_FUNCTION(8280D548, dc3::CameraSetRegion)
+X360_GUEST_FUNCTION(8280C018, dc3::CameraGetRegion)
 
 // Identity (face recognition): nobody enrolled, nothing recognised.
-X360_GUEST_FUNCTION(82807B98, dc3::IdentityGetEnrollment)
-X360_GUEST_STUB(828078B0, "NUI identity request (with callback)", x360::nui::kFail)
-X360_GUEST_STUB(82807A70, "NUI identity request (with callback)", x360::nui::kFail)
-X360_GUEST_STUB(82815660, "NUI identity 82815660", x360::nui::kFail)
-X360_GUEST_STUB(82815750, "NUI identity enable", x360::nui::kOk)
-X360_GUEST_STUB(828157F0, "NUI identity 828157F0", 0)
-X360_GUEST_STUB(82815870, "NUI identity 82815870", 0)
+X360_GUEST_FUNCTION(82809148, dc3::IdentityGetEnrollment)
+X360_GUEST_STUB(82808E60, "NUI identity request (with callback)", x360::nui::kFail)
+X360_GUEST_STUB(82809020, "NUI identity request (with callback)", x360::nui::kFail)
+X360_GUEST_STUB(82816C10, "NUI identity 82816C10", x360::nui::kFail)
+X360_GUEST_STUB(82816D00, "NUI identity enable", x360::nui::kOk)
+X360_GUEST_STUB(82816DA0, "NUI identity 82816DA0", 0)
+X360_GUEST_STUB(82816E20, "NUI identity 82816E20", 0)
 
 // Audio (multichannel echo cancellation): no microphone array, so creation fails.
-X360_GUEST_STUB(82852000, "NUI audio create", x360::nui::kFail)
-X360_GUEST_STUB(82851900, "NUI audio callback", 0)
-X360_GUEST_STUB(82851978, "NUI audio 82851978", 0)
-X360_GUEST_STUB(82851418, "NUI audio destroy", 0)
+X360_GUEST_STUB(828535B8, "NUI audio create", x360::nui::kFail)
+X360_GUEST_STUB(82852EB8, "NUI audio callback", 0)
+X360_GUEST_STUB(82852F30, "NUI audio 82852F30", 0)
+X360_GUEST_STUB(828529D0, "NUI audio destroy", 0)
 
 // Speech: starting recognition fails, so the game turns voice commands off.
-X360_GUEST_STUB(82868B98, "NUI speech start", x360::nui::kFail)
-X360_GUEST_STUB(828650B8, "NUI speech 828650B8", 0)
-X360_GUEST_STUB(828650C8, "NUI speech 828650C8", 0)
-X360_GUEST_STUB(828650E0, "NUI speech 828650E0", 0)
-X360_GUEST_STUB(828650F0, "NUI speech 828650F0", x360::nui::kFail)
-X360_GUEST_STUB(82866988, "NUI speech 82866988", 0)
-X360_GUEST_STUB(82866998, "NUI speech 82866998", 0)
-X360_GUEST_STUB(828669A8, "NUI speech 828669A8", x360::nui::kFail)
-X360_GUEST_STUB(828669C8, "NUI speech 828669C8", 0)
-X360_GUEST_STUB(828669F0, "NUI speech 828669F0", 0)
-X360_GUEST_STUB(82866A10, "NUI speech 82866A10", 0)
-X360_GUEST_STUB(82866A58, "NUI speech 82866A58", 0)
-X360_GUEST_STUB(82867B80, "NUI speech 82867B80", 0)
-X360_GUEST_STUB(82867B90, "NUI speech 82867B90", 0)
-X360_GUEST_STUB(82867BB0, "NUI speech 82867BB0", 0)
-X360_GUEST_STUB(82867BC0, "NUI speech 82867BC0", 0)
-X360_GUEST_STUB(82868AC0, "NUI speech 82868AC0", 0)
+X360_GUEST_STUB(8286A6F8, "NUI speech start", x360::nui::kFail)
+X360_GUEST_STUB(82866708, "NUI speech 82866708", 0)
+X360_GUEST_STUB(82866718, "NUI speech 82866718", 0)
+X360_GUEST_STUB(82866730, "NUI speech 82866730", 0)
+X360_GUEST_STUB(82866740, "NUI speech 82866740", x360::nui::kFail)
+X360_GUEST_STUB(82868290, "NUI speech 82868290", 0)
+X360_GUEST_STUB(828682A0, "NUI speech 828682A0", 0)
+X360_GUEST_STUB(828682B0, "NUI speech 828682B0", x360::nui::kFail)
+X360_GUEST_STUB(828682D0, "NUI speech 828682D0", 0)
+X360_GUEST_STUB(828682F8, "NUI speech 828682F8", 0)
+X360_GUEST_STUB(82868318, "NUI speech 82868318", 0)
+X360_GUEST_STUB(82868360, "NUI speech 82868360", 0)
+X360_GUEST_STUB(828696E0, "NUI speech 828696E0", 0)
+X360_GUEST_STUB(828696F0, "NUI speech 828696F0", 0)
+X360_GUEST_STUB(82869710, "NUI speech 82869710", 0)
+X360_GUEST_STUB(82869720, "NUI speech 82869720", 0)
+X360_GUEST_STUB(8286A620, "NUI speech 8286A620", 0)

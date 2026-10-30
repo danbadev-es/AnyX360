@@ -1,13 +1,20 @@
 # Dance Central 3 recompiler configuration (XenonRecomp format). Paths are relative to this file.
 # This file contains no game code or data; it only describes where things are.
 #
-# file_path is a copy of the game's default.xex (the rest of the game is read where it is, see
-# docs/DANCECENTRAL3.md). The executable is encrypted with the devkit key; the XenonRecomp fork
-# falls back to it.
+# The game is recompiled from its title update's executable (version 0.0.1.5, "Dance Central 3
+# Title Update"): XenonRecomp applies patch_file_path to file_path and writes patched_file_path,
+# which XenonAnalyse reads (x360tool xex-patch makes the same file).
+# file_path is the base executable (version 0.0.0.5, media ID 2BE86B86), the default.xex
+# (ham_xbox_h.exe) of the Games on Demand package written out with x360tool god-extract (see
+# docs/DANCECENTRAL3.md). It is encrypted with the retail key and uses basic (zero-fill)
+# compression. patch_file_path is default.xexp from the update's package
+# (TU_0RJ61UP_000000K000000.0000000000085, x360tool stfs-extract).
 
 [main]
-file_path = "../../extracted/dc3/default.xex"
-out_directory_path = "recomp6"
+file_path = "../../extracted/dc3/game/default.xex"
+patch_file_path = "../../extracted/dc3/update/default.xexp"
+patched_file_path = "../../extracted/dc3/update/default_0.0.1.5.xex"
+out_directory_path = "recomp7"
 switch_table_file_path = "switch_tables.toml"
 
 # Optimisations stay off until the game runs (XenonRecomp recommendation).
@@ -20,20 +27,23 @@ cr_as_local = false
 non_argument_as_local = false
 non_volatile_as_local = false
 
-# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the extracted
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
 # image: each pattern occurs exactly once).
-restgprlr_14_address = 0x827DE360
-savegprlr_14_address = 0x827DE310
-restfpr_14_address = 0x827E037C
-savefpr_14_address = 0x827E0330
-restvmx_14_address = 0x82C60A98
-savevmx_14_address = 0x82C60800
-restvmx_64_address = 0x82C60B2C
-savevmx_64_address = 0x82C60894
+restgprlr_14_address = 0x827DF910
+savegprlr_14_address = 0x827DF8C0
+restfpr_14_address = 0x827E192C
+savefpr_14_address = 0x827E18E0
+restvmx_14_address = 0x82C62A08
+savevmx_14_address = 0x82C62770
+restvmx_64_address = 0x82C62A9C
+savevmx_64_address = 0x82C62804
 
-# setjmp/longjmp: no candidates (libjpeg is linked, but with Harmonix's own error handling).
-# setjmp_address = 0x0
-# longjmp_address = 0x0
+# The CRT's setjmp/longjmp (find_helpers.py's candidates, checked by hand: setjmp first jumps to a
+# hook if one is set, then saves the FPRs and GPRs; longjmp restores them from the buffer in r3).
+# setjmp is called from 4 places and longjmp from 20. The disc build went without them; the other
+# longjmp candidates (0x82490220, 0x82A02668, 0x82AC9208) are ordinary functions.
+setjmp_address = 0x82C64770
+longjmp_address = 0x82C64340
 
 # Functions the analyser misses (address + size), added as they are found.
 # functions = [
