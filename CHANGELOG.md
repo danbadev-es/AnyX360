@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-30
+
+Call of Duty: Black Ops III, in testing: multiplayer with bots and Zombies, for one player.
+
 ### Added
 
 - **Call of Duty: Black Ops III** (in testing, [docs/BLACKOPS3.md](docs/BLACKOPS3.md)): the Xbox
@@ -1157,7 +1161,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.24.1...v0.25.0
