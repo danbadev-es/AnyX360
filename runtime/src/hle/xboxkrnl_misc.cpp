@@ -1,5 +1,12 @@
 // xboxkrnl modules, console configuration, crypto and power exports.
+#include <array>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <map>
 #include <mutex>
+#include <sstream>
+#include <string>
 
 #include "x360/gpu.h"
 #include "x360/kernel.h"
@@ -496,8 +503,9 @@ uint32_t XeKeysAesCbcUsingKey(uint32_t obscured_key, uint32_t input, uint32_t si
 
 // The security engine's key slots a title can set (XeKeysSetKey) and then use by number
 // (XeKeysAesCbc). The XDK's XKeysSetKey/XKeysAesCbc put a title's keys in slots 0xE0-0xE7; Dance
-// Central 2 derives its songs' keys this way. Only keys set here can be used: the console's own keys
-// (the other slots) aren't known.
+// Central 2 and 3 derive their songs' keys this way. Only keys set here can be used: the console's
+// own keys (the other slots) aren't known. A title that gives its keys in the console's obscured
+// form (GameDescriptor::title_keys) gets their real values from keys\title_keys.txt.
 struct KeySlot {
   bool set = false;
   uint8_t key[16] = {};
@@ -505,11 +513,50 @@ struct KeySlot {
 std::mutex g_key_slots_mutex;
 KeySlot g_key_slots[256];
 
+// Title keys (GameDescriptor::title_keys): a title's keys as the console obscures them, kept in its
+// data, mapped to their real values (keys\title_keys.txt). The console's hypervisor turns them back
+// itself; AnyX360 can't, so it looks them up. Dance Central 2 and 3 key their songs this way.
+std::mutex g_title_keys_mutex;
+bool g_title_keys_loaded = false;
+std::map<std::array<uint8_t, 16>, std::array<uint8_t, 16>> g_title_keys;
+
+bool ParseHexKey(const std::string& text, std::array<uint8_t, 16>& key) {
+  if (text.size() != 32) return false;
+  for (size_t i = 0; i < 16; ++i) {
+    unsigned value = 0;
+    for (size_t j = 0; j < 2; ++j) {
+      const char c = text[i * 2 + j];
+      value <<= 4;
+      if (c >= '0' && c <= '9') value |= unsigned(c - '0');
+      else if (c >= 'a' && c <= 'f') value |= unsigned(c - 'a' + 10);
+      else if (c >= 'A' && c <= 'F') value |= unsigned(c - 'A' + 10);
+      else return false;
+    }
+    key[i] = uint8_t(value);
+  }
+  return true;
+}
+
 uint32_t XeKeysSetKey(uint32_t key_num, uint32_t key, uint32_t size) {
   if (key_num > 0xFF || !key || size != 16) return X_STATUS_INVALID_PARAMETER;
+  uint8_t value[16];
+  std::memcpy(value, Ptr(key), 16);
+  bool uses_title_keys = false;
+  if (!FindTitleKey(value, value, uses_title_keys) && uses_title_keys) {
+    // The game would wait for data it can't decrypt (Dance Central 3 stays on a loading screen).
+    const std::string path = TitlePaths().title_keys_path.string();
+    std::fprintf(stderr,
+                 "%s: a key the game needs (XeKeysSetKey slot %#x) isn't in %s. Make the file again from a copy "
+                 "that holds the real keys (tools/scripts/title_keys.py, keys/README.md).\n",
+                 TitlePaths().title_name.c_str(), key_num, path.c_str());
+    std::fflush(stderr);
+    ShowPlayerError(TitlePaths().title_name + " can't go on: a key it needs isn't in " + path +
+                    ". Add the AnyX360 release's keys\\title_keys.txt again.");
+    std::_Exit(3);
+  }
   std::lock_guard lock(g_key_slots_mutex);
   g_key_slots[key_num].set = true;
-  std::memcpy(g_key_slots[key_num].key, Ptr(key), 16);
+  std::memcpy(g_key_slots[key_num].key, value, 16);
   return X_STATUS_SUCCESS;
 }
 
@@ -560,6 +607,50 @@ uint32_t XeKeysConsoleSignatureVerification(uint32_t hash, uint32_t signature, u
 }
 
 }  // namespace
+
+bool x360::kernel::LoadTitleKeys(const std::filesystem::path& path, std::string& error) {
+  std::ifstream in(path);
+  if (!in) {
+    error = "it wasn't found";
+    return false;
+  }
+  std::map<std::array<uint8_t, 16>, std::array<uint8_t, 16>> keys;
+  std::string line;
+  for (int number = 1; std::getline(in, line); ++number) {
+    if (const size_t hash = line.find('#'); hash != std::string::npos) line.resize(hash);
+    std::istringstream fields(line);
+    std::string obscured_text, real_text, extra;
+    if (!(fields >> obscured_text)) continue;  // blank or a comment
+    std::array<uint8_t, 16> obscured{}, real{};
+    if (!(fields >> real_text) || (fields >> extra) || !ParseHexKey(obscured_text, obscured) ||
+        !ParseHexKey(real_text, real)) {
+      error = "line " + std::to_string(number) + " isn't \"<obscured> <real>\" (32 hex digits each)";
+      return false;
+    }
+    keys[obscured] = real;
+  }
+  if (keys.empty()) {
+    error = "it holds no key";
+    return false;
+  }
+  std::lock_guard lock(g_title_keys_mutex);
+  g_title_keys = std::move(keys);
+  g_title_keys_loaded = true;
+  KLOG_I("title keys: %zu from %s", g_title_keys.size(), path.string().c_str());
+  return true;
+}
+
+bool x360::kernel::FindTitleKey(const uint8_t obscured[16], uint8_t real[16], bool& uses_title_keys) {
+  std::lock_guard lock(g_title_keys_mutex);
+  uses_title_keys = g_title_keys_loaded;
+  if (!g_title_keys_loaded) return false;
+  std::array<uint8_t, 16> key;
+  std::memcpy(key.data(), obscured, 16);
+  const auto found = g_title_keys.find(key);
+  if (found == g_title_keys.end()) return false;
+  std::memcpy(real, found->second.data(), 16);
+  return true;
+}
 
 X360_EXPORT(XexCheckExecutablePrivilege, XexCheckExecutablePrivilege)
 X360_EXPORT(XexGetModuleHandle, XexGetModuleHandle)

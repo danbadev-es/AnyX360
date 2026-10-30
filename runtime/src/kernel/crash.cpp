@@ -59,6 +59,26 @@ bool PrintMemory() {
   return memory.NearCommitLimit();
 }
 
+// A message box, from a thread of its own (the failing one may be the window's, whose messages must
+// not run again), until the player closes it.
+void ShowBox(const std::wstring& caption, const std::wstring& text) {
+  struct Box {
+    std::wstring caption, text;
+  };
+  Box box{caption, text};
+  HANDLE thread = ::CreateThread(
+      nullptr, 0,
+      [](void* param) -> DWORD {
+        const Box& b = *static_cast<const Box*>(param);
+        MessageBoxW(nullptr, b.text.c_str(), b.caption.c_str(), MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
+        return 0;
+      },
+      &box, 0, nullptr);
+  if (!thread) return;
+  WaitForSingleObject(thread, INFINITE);
+  ::CloseHandle(thread);
+}
+
 // Tells the player why the game closed, when nothing else would: Windows out of memory (with the
 // programs using the most, as it's often another one), or any fatal error in a process another one
 // of the game started (BO2's and MW3's multiplayer): the launcher only waits for the first. Shown
@@ -111,18 +131,24 @@ void TellPlayer(bool out_of_memory) {
   } catch (...) {
     return;  // no memory left even for the message
   }
-  HANDLE thread = ::CreateThread(
-      nullptr, 0,
-      [](void* param) -> DWORD {
-        const Box& b = *static_cast<const Box*>(param);
-        MessageBoxW(nullptr, b.text.c_str(), b.caption.c_str(), MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
-        return 0;
-      },
-      &box, 0, nullptr);
-  if (!thread) return;
-  WaitForSingleObject(thread, INFINITE);
-  ::CloseHandle(thread);
+  ShowBox(box.caption, box.text);
 }
+
+}  // namespace
+
+void ShowPlayerError(const std::string& text) {
+  if (std::getenv("ANYX360_INPUT") || std::getenv("ANYX360_NUI_SCRIPT") || std::getenv("ANYX360_NO_ERROR_BOX"))
+    return;
+  auto wide = [](const std::string& utf8) {
+    std::wstring out(utf8.size(), L'\0');
+    out.resize(MultiByteToWideChar(CP_UTF8, 0, utf8.data(), int(utf8.size()), out.data(), int(out.size())));
+    return out;
+  };
+  const std::string& title = TitlePaths().title_name;
+  ShowBox(title.empty() ? L"AnyX360" : L"AnyX360 - " + wide(title), wide(text));
+}
+
+namespace {
 
 LONG CALLBACK Handler(EXCEPTION_POINTERS* info) {
   DWORD code = info->ExceptionRecord->ExceptionCode;

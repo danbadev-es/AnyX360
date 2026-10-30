@@ -18,7 +18,8 @@
 #   powershell -ExecutionPolicy Bypass -File tools\package\make_dist.ps1 [-NoBuild] [-OutDir <folder>]
 #
 # Needs 7-Zip installed (its 7z.exe and 7z.dll are copied), keys\xex2_retail.key and, for webcam
-# games, the pose bridge built by tools\pose_bridge\build_bridge.ps1.
+# games, the pose bridge built by tools\pose_bridge\build_bridge.ps1. keys\title_keys.txt is copied
+# when it is there (Dance Central 3 needs it: keys\README.md).
 param([switch]$NoBuild, [string]$OutDir = '')
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path "$PSScriptRoot\..\..").Path
@@ -56,6 +57,9 @@ foreach ($file in '7z.exe', '7z.dll', 'License.txt') {
 }
 $key = "$root\keys\xex2_retail.key"
 if (-not (Test-Path $key)) { throw "$key is missing" }
+# The real values of the keys Dance Central 3 keeps in the console's obscured form (keys\README.md).
+$titleKeys = "$root\keys\title_keys.txt"
+if (-not (Test-Path $titleKeys)) { Write-Warning "$titleKeys is missing: Dance Central 3 won't start from this release" }
 if (-not (Test-Path "$launcherDir\AnyX360.exe")) { throw "$launcherDir\AnyX360.exe is missing: build first" }
 foreach ($game in $games) {
   foreach ($exe in $game.exes) {
@@ -118,6 +122,7 @@ New-Item -ItemType Directory "$dist\bin", "$dist\keys", "$dist\licenses" | Out-N
 Copy-Item "$launcherDir\AnyX360.exe" $dist
 Copy-Item "$sevenZip\7z.exe", "$sevenZip\7z.dll" "$dist\bin"
 Copy-Item $key "$dist\keys"
+if (Test-Path $titleKeys) { Copy-Item $titleKeys "$dist\keys" }
 foreach ($entry in $licenses.GetEnumerator()) { Copy-Item $entry.Value "$dist\licenses\$($entry.Key)" }
 if ($webcam) {
   Copy-Item $bridge "$dist\bin\pose_bridge" -Recurse

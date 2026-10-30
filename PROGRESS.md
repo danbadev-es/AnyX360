@@ -8,7 +8,22 @@ Sandbox: `C:\axdc3` (LOCALAPPDATA redirected there; kept as is, see below).
 Do not touch games/dc2 or C:\axdc2 (another agent ports Dance Central 2). Never push. Never commit
 docs/IDEAS.md. Remove this file and the probes before the final report.
 
-## Status in one line
+## Resumed 2026-10-30 22:10: the song-key plan
+- The old dump survives in main's `anyx\dc3.anyx` (READ ONLY, never modify): its `game/default.xex`
+  (sha256 matches the manifest) extracted to `extracted\dc3\old\default.xex`, image `old.bin`.
+- old.bin vs base.bin differ only in the 3 patched functions, 2 imports, and **the key table at
+  0x82D13000 (4 x 16 bytes)**: the dump holds the real keys, retail the obscured ones. The TU's table
+  is the same bytes at the same address. Index: mogg version <=13 -> 0, 14 -> 1, 15 -> 2, 16 -> 3
+  (sub_82623130). **DC2's table (0x82CA2C38, 4 entries) is byte-identical to DC3's obscured table**,
+  so the same 4 real keys cover DC2.
+- `keys\title_keys.txt` (git-ignored) written by the new `tools/scripts/title_keys.py`
+  (lines "<obscured hex> <real hex> # comment"). Runtime: `GameDescriptor::title_keys` (DC3 sets it),
+  host loads keys\title_keys.txt (FindUpwards like xex2_retail.key) or stops with a message;
+  XeKeysSetKey maps obscured -> real, a missing key ends the game with a message (exit 3).
+  make_dist copies the file if present; keys/README.md documents it.
+- Next: build, run a song (suspect 1 test in game), then the checks.
+
+## Status in one line (before resuming)
 The update build boots, reads the update's patch ARK, loads the user's save and reaches the song
 list, but **a song never leaves the loading screen ("CARGANDO")** in Perform or in Rehearse. That
 is the blocker being investigated.

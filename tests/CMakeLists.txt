@@ -18,6 +18,10 @@ add_executable(test_title_update hle/test_title_update.cpp)
 target_link_libraries(test_title_update PRIVATE x360_hle_test_objs)
 add_test(NAME title_update COMMAND test_title_update)
 
+add_executable(test_title_keys hle/test_title_keys.cpp)
+target_link_libraries(test_title_keys PRIVATE x360_hle_test_objs)
+add_test(NAME title_keys COMMAND test_title_keys)
+
 add_executable(test_guide hle/test_guide.cpp)
 target_link_libraries(test_guide PRIVATE x360_hle_test_objs)
 add_test(NAME guide COMMAND test_guide)

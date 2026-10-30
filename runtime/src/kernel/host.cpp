@@ -89,6 +89,28 @@ bool ApplyTitleUpdate(const GameDescriptor& game, kernel::TitleInfo& info) {
   return true;
 }
 
+// A title that uses title keys (GameDescriptor::title_keys): keys\title_keys.txt, found as
+// keys\xex2_retail.key is (next to the executable or above it). False, with the reason printed and
+// shown to the player, when it can't start without them.
+bool PrepareTitleKeys(const GameDescriptor& game, const fs::path& exe_dir, kernel::TitleInfo& info) {
+  fs::path path = FindUpwards(exe_dir, "keys/title_keys.txt");
+  std::string error = "it wasn't found";
+  if (path.empty()) {
+    path = (info.key_path.empty() ? exe_dir / "keys" : info.key_path.parent_path()) / "title_keys.txt";
+  } else if (kernel::LoadTitleKeys(path, error)) {
+    info.title_keys_path = path;
+    return true;
+  }
+  std::fprintf(stderr,
+               "%s needs the real values of the keys it keeps in the console's obscured form, in %s: %s.\n"
+               "It is made from a copy that holds them (tools/scripts/title_keys.py, keys/README.md); the AnyX360 "
+               "release has it in keys\\title_keys.txt.\n",
+               game.title_name, path.string().c_str(), error.c_str());
+  kernel::ShowPlayerError(std::string(game.title_name) + " can't start: " + path.string() + " is missing or damaged (" +
+                          error + "). It comes with the AnyX360 release, in its keys folder: copy it there again.");
+  return false;
+}
+
 }  // namespace
 
 int RunHost(int argc, char** argv, const GameDescriptor& game) {
@@ -206,6 +228,7 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   }
   if (!CheckTitleId(info.xex_path, game)) return 1;
   if (*game.update_package && !ApplyTitleUpdate(game, info)) return 1;
+  if (game.title_keys && !PrepareTitleKeys(game, exe_dir, info)) return 1;
 
   info.restarted = restarted_from != 0;
   if (restarted_from) {

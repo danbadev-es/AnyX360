@@ -97,6 +97,11 @@ struct GameDescriptor {
   // false: none is (Forza Motorsport 4, whose Kinect features are optional and use its own NUI
   // library with the camera driver, which isn't emulated).
   bool kinect_sensor = true;
+  // The title derives keys through the security engine's key slots with keys from its own data in
+  // the console's obscured form (XeKeysSetKey), whose real values come from keys\title_keys.txt
+  // (keys/README.md): Dance Central 2 and 3 decrypt their songs this way. Without the file the game
+  // doesn't start; a key the file doesn't have ends it with a message.
+  bool title_keys = false;
   // Game-specific default settings, applied before settings.toml is read.
   std::function<void(settings::Settings&)> defaults;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).

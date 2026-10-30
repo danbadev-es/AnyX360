@@ -318,6 +318,19 @@ void DumpThreads();
 void StartSamplingProfiler();
 // The crash handler leaves this thread's faults to its own __try/__except (crash.cpp).
 void HandleOwnFaultsOnThisThread();
+// Shows the player why the game can't go on (a message box titled with the game's name), and
+// returns once it is closed. Not in scripted runs (test hooks) or with ANYX360_NO_ERROR_BOX
+// (crash.cpp). The text is UTF-8.
+void ShowPlayerError(const std::string& text);
+
+// Title keys (GameDescriptor::title_keys): the real values of keys a title keeps in the console's
+// obscured form and gives to XeKeysSetKey, read from keys\title_keys.txt (tools/scripts/title_keys.py).
+// Each line: "<obscured> <real>", 32 hex digits each, then an optional "# comment". False with the
+// reason when the file can't be read or holds no key; true otherwise.
+bool LoadTitleKeys(const std::filesystem::path& path, std::string& error);
+// The real key for an obscured one, if the title uses title keys and the file has it. Sets
+// `uses_title_keys` to whether LoadTitleKeys has run (the title opted in).
+bool FindTitleKey(const uint8_t obscured[16], uint8_t real[16], bool& uses_title_keys);
 std::shared_ptr<Thread> CurrentThreadShared();
 std::shared_ptr<Thread> ThreadById(uint32_t id);
 
@@ -366,6 +379,8 @@ struct TitleInfo {
   std::filesystem::path game_root;    // folder mounted as game:\ and d:\ (contains default.xex)
   std::filesystem::path user_root;    // writable folder for hdd, cache and saves
   std::filesystem::path key_path;     // keys/xex2_retail.key
+  // keys/title_keys.txt, for a title that uses title keys (GameDescriptor::title_keys); empty: none.
+  std::filesystem::path title_keys_path;
   gpu::DisplayConfig display;         // window, render scale, frame rate
   std::string title_name;             // window title if the XEX has no title name
   bool arcade = false;                // an Xbox Live Arcade title: game:\ is its package's contents
