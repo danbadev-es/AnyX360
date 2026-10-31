@@ -38,6 +38,9 @@ the sensor.
 - **Dance Central 3** (in testing): the Kinect dance game, played with a webcam. A pose estimator
   turns the webcam's image into the Kinect's skeletons, color image and depth image. From a Games
   on Demand copy with its title update (version 0.0.1.5); its downloadable songs don't play yet.
+- **Dance Central 2** (in testing): the game before it, played the same way with a webcam, from a
+  Games on Demand copy with its title update (version 0.0.1.5); its downloadable songs don't play
+  yet either.
 - **Kinect Adventures** (in testing): the game that came with the Kinect, played with the same
   webcam, from a Games on Demand copy with its downloadable content and its title update (version
   0.0.1.3).
@@ -91,7 +94,8 @@ own avatar is made in the launcher's avatar editor and plays in every avatar gam
    `AnyX360-<version>.zip`. One release has every game.
 2. Extract it to a regular folder (not inside _Program Files_), on a drive with room for the games
    you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3 (3 GB more for
-   its downloadable content), 8 GB for Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for
+   its downloadable content), 4 GB for Dance Central 2 (1 GB more for its downloadable content),
+   8 GB for Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for
    Doritos Crash Course, 4 GB for
    Kinect Sports, 8 GB for Call of Duty: Modern Warfare 3, 8 GB for Call of Duty: Black Ops II,
    2 GB for Kinect Joy Ride, 1 GB for Kinect Party, 8 GB for Resident Evil 6 (3 GB more for its
@@ -217,7 +221,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 - **Saves** - Stored in `%LOCALAPPDATA%\AnyX360\<game>` (each profile's in its own folder),
   kept across versions.
 
-### Kinect (Dance Central 3, Kinect Adventures, Fruit Ninja Kinect, Kinect Sports, Kinect Joy Ride, Kinect Party)
+### Kinect (Dance Central 3, Dance Central 2, Kinect Adventures, Fruit Ninja Kinect, Kinect Sports, Kinect Joy Ride, Kinect Party)
 
 - **Webcam as the Kinect** - MediaPipe pose estimation turns the webcam's image into Kinect
   skeletons for up to two players. It also makes the Kinect's color and depth images, so the game's
@@ -274,6 +278,17 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Perform and Rehearse songs       | ✅ Playable; scoring follows the moves         |
 | Webcam tracking                  | 🧪 In testing                                  |
 | Two players                      | 🧪 In testing                                  |
+| Voice commands                   | ❌ Not available: no microphone support        |
+
+| Dance Central 2                  | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Menus (Kinect gestures, controller) | ✅ Working                                  |
+| Perform                          | ✅ Playable; scoring follows the moves         |
+| Pause (controller's Start)       | ✅ Working; the gesture's pause in testing     |
+| Break It Down, Fitness, Dance Battle | 🧪 Not played yet                          |
+| Title update (0.0.1.5)           | ✅ Required: the game is recompiled from it    |
+| Downloadable songs               | ❌ Installed, not listed yet                   |
+| Webcam tracking, two players     | 🧪 In testing                                  |
 | Voice commands                   | ❌ Not available: no microphone support        |
 
 | Kinect Adventures                | Status                                         |
@@ -412,6 +427,11 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Select                   | Swipe the arm across your body                               |
 | "Left hand" items (back) | The same with the left arm                                   |
 | Pause during a song      | Left arm out and down at 45° for a moment (the Kinect Guide gesture); or a controller's Start |
+
+### Dance Central 2
+
+The same gestures as Dance Central 3. An Xbox controller also works in the menus (A selects, B
+goes back; the game switches to controller mode).
 
 ### Kinect Adventures
 
@@ -566,6 +586,12 @@ Dance Central 3:
   players can be misread, and there is a little more latency than with a Kinect.
 - Voice commands don't work.
 
+Dance Central 2:
+
+- Same webcam limits as Dance Central 3.
+- The downloadable songs are installed but not listed yet, and Break It Down, Fitness, Dance
+  Battle and two players haven't been played yet.
+
 Kinect Adventures:
 
 - Reflex Ridge and Space Pop wait at their start ("grab bars", "flap your arms") for the scripted
@@ -715,6 +741,8 @@ environment with pinned, hash-checked packages.
   `x360tool god-extract`, and the title update to `extracted/dc3/update/` with
   `x360tool stfs-extract`; its songs also need `keys/title_keys.txt` (see
   [docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing) and [keys/README.md](keys/README.md)).
+- Dance Central 2: the same, to `extracted/dc2/game/` and `extracted/dc2/update/`; its songs use
+  the same `keys/title_keys.txt` (see [docs/DANCECENTRAL2.md](docs/DANCECENTRAL2.md#reproducing)).
 - Kinect Adventures: extract the Games on Demand package's disc files to `extracted/ka/game/` with
   `x360tool god-extract`, and the title update's `default.xexp` to `extracted/ka/update/` with
   `x360tool stfs-extract` (see [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing)).
@@ -747,7 +775,8 @@ environment with pinned, hash-checked packages.
 Both folders are git-ignored.
 
 > [!IMPORTANT]
-> The targets are the base executables, patched with their title update for Kinect Adventures (title
+> The targets are the base executables, patched with their title update for Dance Central 2 (title
+> `373307D2`, 0.0.0.5 to 0.0.1.5), Kinect Adventures (title
 > `4D5308ED`, 0.0.0.3 to 0.0.1.3), Fruit Ninja Kinect (title `58410B79`, 0.0.0.3 to 0.0.1.3),
 > Doritos Crash Course (title `58410A71`, 0.0.0.2 to 0.0.2.2), Kinect Sports (title `4D5308C9`,
 > 0.0.0.2 to 0.0.4.2), Kinect Joy Ride (title `4D53093B`, 0.0.0.1 to 0.0.3.1), Resident Evil 6
@@ -866,6 +895,7 @@ To release a version:
 docs/             Architecture, roadmap, format notes, per-game notes
 games/gow3/       Gears of War 3: recompiler config, entry point, game-specific hooks
 games/dc3/        Dance Central 3: recompiler config, entry point, Kinect bindings, notes
+games/dc2/        Dance Central 2: recompiler config, entry point, Kinect bindings, notes
 games/ka/         Kinect Adventures: recompiler config, entry point, Kinect bindings, notes
 games/fnk/        Fruit Ninja Kinect: recompiler config, entry point, Kinect bindings, notes
 games/kp/         Kinect Party: recompiler config, entry point, Kinect bindings, notes

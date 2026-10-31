@@ -1,0 +1,23 @@
+DANCE CENTRAL 2
+==========================================================
+Played with a webcam in place of the Kinect, like Dance Central 3 (see its section for setting up
+the webcam, the F2 > Kinect settings and the menu gestures).
+Your copy: the Games on Demand package (in an archive or a folder), and its title update (the TU_
+file next to it, or added alone afterwards): the game needs it (version 0.0.1.5). Its downloadable
+content is installed too, but those songs aren't listed yet. The songs need keys\title_keys.txt,
+which comes with this release.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\DanceCentral2
+
+MENUS
+- Raise your right arm out to the side: the cursor follows your hand. Swipe your arm across your
+  body to select; "left hand" items (back) with the left arm.
+- An Xbox controller works in the menus too: A selects, B goes back (the game switches to
+  controller mode; Back leaves it).
+- Pause during a song: a controller's Start, or the Kinect Guide gesture (left arm out and down at
+  45 degrees for a moment).
+
+KNOWN ISSUES
+- The downloadable songs don't appear in the song list yet.
+- Break It Down, Fitness, Dance Battle and two players haven't been tried yet.
+- Voice commands don't work: there is no microphone support.
+- A webcam is not a Kinect: it has no depth camera, so the depth is estimated.

@@ -18,8 +18,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - Dance Central 3 draws with Xenia's rasterizer-ordered view path: the default path blew the menus'
   glass panels out to white. It costs more GPU time; `[xenia] render_target_path_d3d12 = "rtv"` in
   its `settings.toml` goes back.
+- Dance Central 2 leaves "Coming soon".
 
 ### Added
+
+- **Dance Central 2** (in testing, [docs/DANCECENTRAL2.md](docs/DANCECENTRAL2.md)): Harmonix's
+  Kinect dance game before Dance Central 3, played with the webcam, from a Games on Demand copy
+  with its title update (version 0.0.1.5, recompiled from it). The menus work with gestures and with
+  a controller; a song in Perform plays to its results, and scoring follows the moves (dancing
+  5,424 points on Easy, standing still 0); a controller's Start pauses it. Its songs use the same
+  title keys as Dance Central 3's.
+  The launcher installs the copy's 29 downloadable content packages, whose songs aren't listed
+  yet. Break It Down, Fitness, Dance Battle and two players haven't been played yet.
 
 - **Title keys** (`keys\title_keys.txt`): the real values of keys a game keeps in the console's
   obscured form and gives to `XeKeysSetKey`, as Dance Central 3 does for its songs' keys. The
