@@ -1,0 +1,51 @@
+# Dance Central 2 recompiler configuration (XenonRecomp format). Paths are relative to this file.
+# This file contains no game code or data; it only describes where things are.
+#
+# The game is recompiled from its title update's executable (version 0.0.1.5): XenonRecomp applies
+# patch_file_path to file_path and writes patched_file_path, which XenonAnalyse reads (x360tool
+# xex-patch makes the same file). file_path is the default.xex of the disc files extracted from the
+# Games on Demand package (version 0.0.0.5, encrypted with the retail key); patch_file_path is
+# default.xexp from the update's package (TU_0RJ61UI_000000K000000.0000000000085, x360tool
+# stfs-extract), see docs/DANCECENTRAL2.md.
+
+[main]
+file_path = "../../extracted/dc2/game/default.xex"
+patch_file_path = "../../extracted/dc2/update/default.xexp"
+patched_file_path = "../../extracted/dc2/update/default_0.0.1.5.xex"
+out_directory_path = "recomp2"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x826BF370
+savegprlr_14_address = 0x826BF320
+restfpr_14_address = 0x826C17FC
+savefpr_14_address = 0x826C17B0
+restvmx_14_address = 0x82BD6A18
+savevmx_14_address = 0x82BD6780
+restvmx_64_address = 0x82BD6AAC
+savevmx_64_address = 0x82BD6814
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: the same code as Black Ops
+# II's; setjmp first calls through a global when it is set, longjmp restores the registers setjmp
+# saved).
+setjmp_address = 0x82BD8A50
+longjmp_address = 0x82BD8620
+
+# Functions the analyser misses (address + size). 822AD5D8 is a virtual function (a vtable entry
+# at 820053C0 points to it) right after a call to _CxxThrowException (826C0510), which doesn't return:
+# it has no .pdata entry and the analyser took it for the end of 822AD5B0. The game ended at the
+# title screen on "indirect call to an address without recompiled code: 822AD5D8".
+functions = [
+  { address = 0x822AD5D8, size = 0x14 },
+]

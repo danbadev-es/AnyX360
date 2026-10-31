@@ -1,0 +1,20 @@
+{
+  "id": "dc2",
+  "title": "Dance Central 2",
+  "cover": "dance-central-2",
+  "status": "testing",
+  "exe": "DanceCentral2",
+  "user_dir": "DanceCentral2",
+  "title_id": "373307D2",
+  "xex": {"version": "0.0.0.5", "media_id": "47AE82B4"},
+  "update": {"version": "0.0.1.5", "package": "TU_0RJ61UI_000000K000000.0000000000085"},
+  "dev_game_dir": "extracted/dc2/game",
+  "launcher_name": "AnyX360 Dance Central 2",
+  "size_gb": 4,
+  "archive_hint": "Dance Central 2 (Games on Demand)",
+  "input": "webcam",
+  "required_files": ["gen/main_xbox.hdr"],
+  "owners": "Microsoft Corporation, Xbox Game Studios, Harmonix Music Systems",
+  "trademarks": ["Xbox", "Xbox 360", "Kinect", "Dance Central", "Harmonix"],
+  "components": ["MediaPipe (Apache 2.0)", "OpenCV (Apache 2.0)", "NumPy (BSD)", "Python (PSF)"]
+}
