@@ -8,6 +8,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-31
+
+Dance Central 2, in testing, and Dance Central 3 on its Games on Demand copy with its title update:
+their songs play with the title keys.
+
 ### Changed
 
 - **Dance Central 3** is played from a Games on Demand copy with its title update (version 0.0.1.5,
@@ -30,7 +35,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   title keys as Dance Central 3's.
   The launcher installs the copy's 29 downloadable content packages, whose songs aren't listed
   yet. Break It Down, Fitness, Dance Battle and two players haven't been played yet.
-
 - **Title keys** (`keys\title_keys.txt`): the real values of keys a game keeps in the console's
   obscured form and gives to `XeKeysSetKey`, as Dance Central 3 does for its songs' keys. The
   release has the file; a game that needs it and doesn't find it says so instead of waiting on a
@@ -1190,7 +1194,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.25.0...v0.26.0
