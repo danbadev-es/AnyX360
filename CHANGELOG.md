@@ -11,10 +11,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 ### Changed
 
 - **Dance Central 3** is played from a Games on Demand copy with its title update (version 0.0.1.5,
-  recompiled from it) and its downloadable content ([docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md)):
-  the launcher installs the update (the console cache's `TU_` file) and the 20 packages: song packs
-  and the Dance Central and Dance Central 2 import packs. A copy of the disc of the same version
-  (0.0.0.5) is still accepted, and needs the title update too.
+  recompiled from it) ([docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md)): the launcher installs the
+  update (the console cache's `TU_` file) and the copy's 20 downloadable content packages (song
+  packs and the Dance Central and Dance Central 2 import packs), whose songs don't play yet. A copy
+  of the disc of the same version (0.0.0.5) is still accepted, and needs the title update too.
+- Dance Central 3 draws with Xenia's rasterizer-ordered view path: the default path blew the menus'
+  glass panels out to white. It costs more GPU time; `[xenia] render_target_path_d3d12 = "rtv"` in
+  its `settings.toml` goes back.
 
 ### Added
 
@@ -23,11 +26,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   release has the file; a game that needs it and doesn't find it says so instead of waiting on a
   loading screen ([keys/README.md](keys/README.md)).
 - Kernel: `XeKeysSetKey` and `XeKeysAesCbc` (the title's key slots).
-
-### Fixed
-
-- `XexGetProcedureAddress` finds `XamContentCreateInternal` by ordinal: Dance Central 3 opens its
-  downloadable content with it.
 
 ## [0.28.0] - 2026-10-30
 

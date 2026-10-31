@@ -226,6 +226,53 @@ The launcher does the first two from the archive.
 - **Pacing**: the title presents on every vblank, so the vblank runs at the console's 60 Hz. The
   game runs at 60 FPS only (`GameDescriptor::fixed_fps`).
 
+## Downloadable content
+The launcher installs the copy's 20 packages (content type 2) in `<user>\content\00000002\`: 11
+single songs, 5 artist packs of two songs (Usher, Justin Bieber, Lady Gaga, Rihanna, Pitbull) and
+4 import packs (Dance Central: 32 songs; its downloadable songs: 32; Dance Central 2: 44; its
+downloadable songs: 32), about 160 songs. **None of them plays yet**:
+
+- The game enumerates them (`XamContentAggregateCreateEnumerator`, 20 packages), but opens each
+  through `XamContentCreateInternal`, which it looks up by ordinal (`0x271`). Without that ordinal
+  answered it opens none and lists only the disc's songs: that is how the game ships now.
+- With the ordinal answered (tried, not shipped), it mounts all 20, reads their `songs.dta`,
+  rebuilds its song cache and lists their songs. Starting one (an import pack's "Poker Face", the
+  single "What Makes You Beautiful", "Galang '05") shows "La descarga de contenido a la que has
+  accedido ya no está disponible o el perfil de jugador propietario no ha iniciado sesión en Xbox
+  LIVE" and goes back to the title screen; scrolling the list over them often crashes the game in
+  its stream receiver (`sub_82629A48`, a song preview that was never opened). No file inside the
+  packages is opened before that: the game refuses them without reading them.
+- Not the cause (each tried): the license mask the open returns (all bits, or only bit 0, as the
+  packages' headers give), the owner of the packages in the enumeration, enumerating them only for
+  every player. The packages' own state in the game's content manager reaches "mounted". Next: the
+  song's content check before its preload (`ContentMgr`, the message `content_read_failure`, sent
+  from `82C1DFA4` when the preload fails).
+
+The 10 avatar items in the archive (content type 0x9000) are left out by the launcher.
+
+## Graphics
+- **Render target path**: Xenia's default host render target path (`rtv`) blew the menus' glass
+  panels out to white (the panel behind the main menu's picture, the song list's left and middle
+  panels), the same on the 0.28.0 build of the disc copy. Xenia's rasterizer-ordered view path
+  (`rov`), which packs the render targets exactly, draws them as on the console, so the game sets
+  `render_target_path_d3d12 = "rov"` (`GameDescriptor::xenia_options`). It costs GPU time: during a
+  song 6.4 ms a frame on an RTX 5060 Laptop (2.5 ms on `rtv`), at a steady 60 FPS; the first time
+  each scene is drawn its pipelines are compiled (a few seconds at 37-50 FPS while a song loads). A
+  player whose GPU can't keep up can go back with `[xenia] render_target_path_d3d12 = "rtv"` in
+  `settings.toml`.
+
+## Status with the title update (2026-10-31)
+Played with the scripted player on the build recompiled from 0.0.1.5, from the Games on Demand
+copy installed by the launcher, with a copy of the user's save:
+- **The save** loads (no first-run tutorials) and keeps working: a song's score is written to it
+  and shown in the song list afterwards.
+- **Menus**: title screen, main menu, BAILAR, ACTUAR, the song list, difficulty and START.
+- **A song to the end**: "Better Off Alone", Easy, dancing: 105,578 points and the results screen.
+  Before the title keys every song stayed on its loading screen.
+- **Pause**: the Kinect Guide gesture (`guide`) and a controller's Start both pause a song ("Now
+  That We Found Love") and its menu opens; Continue goes back to it.
+- **Downloadable content**: not playable yet ([above](#downloadable-content)).
+
 ## Status (2026-10-17)
 - **Booting and menus**: the game boots and plays its intro. The menus work with the scripted
   player, the mouse or the bridge.

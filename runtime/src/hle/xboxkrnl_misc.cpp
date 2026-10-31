@@ -30,7 +30,6 @@ PPC_EXTERN_FUNC(__imp__XamPartyGetBandwidth);
 PPC_EXTERN_FUNC(__imp__XamShowPartyUI);
 PPC_EXTERN_FUNC(__imp__XamShowCommunitySessionsUI);
 PPC_EXTERN_FUNC(__imp__XamContentAggregateCreateEnumerator);
-PPC_EXTERN_FUNC(__imp__XamContentCreateInternal);
 
 namespace {
 
@@ -99,9 +98,6 @@ const ProcedureExport kProcedureExports[] = {
     {kXamModuleHandle, 0x30B, __imp__XamShowCommunitySessionsUI},
     // Resident Evil 6 enumerates its downloadable content with it.
     {kXamModuleHandle, 0x279, __imp__XamContentAggregateCreateEnumerator},
-    // Dance Central 3 opens its downloadable content with it (the packages it enumerated with the
-    // one above): without it no package is opened and their songs aren't listed.
-    {kXamModuleHandle, 0x271, __imp__XamContentCreateInternal},
 };
 
 uint32_t XexGetProcedureAddress(uint32_t module, uint32_t ordinal, uint32_t out_ptr) {

@@ -22,6 +22,11 @@ int main(int argc, char** argv) {
   // Each song's key is derived through the security engine's key slots from a table the console
   // holds in obscured form: their real values come from keys\title_keys.txt.
   game.title_keys = true;
+  // Xenia's host render target path (rtv, its default) blows the menus' glass panels out to white
+  // (the bloom over them); the rasterizer-ordered view path packs the render targets exactly and
+  // draws them as on the console. It costs more GPU time (6.4 ms a frame in a song on an RTX 5060
+  // Laptop, against 2.5): settings.toml's [xenia] render_target_path_d3d12 = "rtv" goes back.
+  game.xenia_options = {{"render_target_path_d3d12", "\"rov\""}};
   game.vblanks_per_frame = 1;
   game.fixed_fps = 60;  // its timing is untested at 30
   game.defaults = [](x360::settings::Settings& s) {

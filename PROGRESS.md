@@ -23,6 +23,15 @@ docs/IDEAS.md. Remove this file and the probes before the final report.
   make_dist copies the file if present; keys/README.md documents it.
 - Next: build, run a song (suspect 1 test in game), then the checks.
 
+## 2026-10-31 02:40: checks done, wrapping up
+- Pauses verified (Guide gesture and pad START with ANYX360_INPUT set for player 1 + INPUT_LIVE).
+- DLC: the 0x271 ordinal was taken back out (with it the DLC songs are listed but refused and the
+  list crashes in StreamReceiver); documented as open in docs/DANCECENTRAL3.md "Downloadable content".
+- Bloom: Xenia's rtv path blows out the glass panels (same on the 0.28.0 base build); rov fixes it.
+  DC3 sets render_target_path_d3d12 = "rov" (main.cpp xenia_options). Contact sheet in the session
+  scratchpad dc3tu\shots\06_bloom_rtv_vs_rov.png.
+- Remaining: rebase on main, build and run tests, remove PROGRESS.md, junctions, empty C:\axdc3.
+
 ## Results so far (2026-10-30 23:30, uncommitted work listed below)
 - **Suspect 1 confirmed**: with keys\title_keys.txt, "Better Off Alone" Perform Easy played to the end:
   105,578 points, results screen (C:\axdc3\runs\song1). Save written (content\00000001\savegame).

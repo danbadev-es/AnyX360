@@ -3,9 +3,9 @@ DANCE CENTRAL 3
 Played with a webcam in place of the Kinect.
 Your copy: the Games on Demand package (in an archive or a folder) or a folder with the disc's
 files, and its title update (the TU_ file next to it, or added alone afterwards): the game needs
-it (version 0.0.1.5). Its downloadable content is installed too: the song packs and the Dance
-Central and Dance Central 2 import packs. The songs need keys\title_keys.txt, which comes with
-this release.
+it (version 0.0.1.5). Its downloadable content is installed too (the song packs and the Dance
+Central and Dance Central 2 import packs), but those songs don't play yet. The songs need
+keys\title_keys.txt, which comes with this release.
 Saved games and settings: %LOCALAPPDATA%\AnyX360\DanceCentral3
 
 THE WEBCAM
@@ -67,3 +67,9 @@ KNOWN ISSUES
 - A webcam is not a Kinect: it has no depth camera, so the depth is estimated. Turning your back
   to the camera, very fast moves, and two players overlapping can be misread.
 - There is a little more delay than with a Kinect (shown in F1 as "latency").
+- The downloadable songs (song packs and import packs) don't play yet: the song list doesn't show
+  them.
+- The game draws in a slower, more exact way that keeps its menus from glowing white. If your GPU
+  can't keep 60 FPS, add these two lines at the end of its settings.toml:
+    [xenia]
+    render_target_path_d3d12 = "rtv"

@@ -37,7 +37,7 @@ the sensor.
   screen at 60 FPS.
 - **Dance Central 3** (in testing): the Kinect dance game, played with a webcam. A pose estimator
   turns the webcam's image into the Kinect's skeletons, color image and depth image. From a Games
-  on Demand copy with its title update (version 0.0.1.5) and its downloadable content.
+  on Demand copy with its title update (version 0.0.1.5); its downloadable songs don't play yet.
 - **Kinect Adventures** (in testing): the game that came with the Kinect, played with the same
   webcam, from a Games on Demand copy with its downloadable content and its title update (version
   0.0.1.3).
