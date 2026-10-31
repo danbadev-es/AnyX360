@@ -23,6 +23,27 @@ docs/IDEAS.md. Remove this file and the probes before the final report.
   make_dist copies the file if present; keys/README.md documents it.
 - Next: build, run a song (suspect 1 test in game), then the checks.
 
+## Results so far (2026-10-30 23:30, uncommitted work listed below)
+- **Suspect 1 confirmed**: with keys\title_keys.txt, "Better Off Alone" Perform Easy played to the end:
+  105,578 points, results screen (C:\axdc3\runs\song1). Save written (content\00000001\savegame).
+  Screenshots kept in session scratchpad dc3tu\shots (01_*, 02_*).
+- **DLC listing**: the game opened no package until `XexGetProcedureAddress(xam, 0x271)`
+  (XamContentCreateInternal) was added to kProcedureExports (UNCOMMITTED, xboxkrnl_misc.cpp). Now it
+  mounts all 20 (cnt00..13), builds songcache (194 KB) and the song list shows DLC + import songs.
+- **DLC songs refused**: starting a DLC song (import pack "Poker Face" (83F3DA0F) and DC3 DLC "What Makes
+  You Beautiful" (62422AFA)) shows "La descarga de contenido ... ya no está disponible o el perfil ...
+  no ha iniciado sesión en Xbox LIVE" -> title screen. No DLC file is opened at all (ANYX360_LOG_FILES,
+  ANYX360_TRACE=1). Message token likely `content_read_failure` (ContentMgr, sender 824FA1E8, callers
+  824FA32C and 82C1DFA4). Probe games/dc3/src/probe.cpp (UNCOMMITTED, in CMakeLists) logs the guest
+  backtrace at 824FA1E8: run, select WMYB (route: Perform list, hand_down x2 then 4x fast down + 4x up,
+  lands near "What Makes You Beautiful"), START, grep PROBE.
+- **Crash seen twice** after the DLC refusal / scrolling the list: null read in sub_82629A48+0x1E4
+  (r3 = 0 from `lwz r3,28(r31)` vtable call), from 8260A280 / 825F87D0. Investigate after the refusal.
+- Other uncommitted: FindTitleKey also accepts a real key as itself (+test), docs (Song keys,
+  Reproducing, bring-up), README, CHANGELOG [Unreleased], section.txt, game.json size_gb back to 7.
+- Helpers: C:\axdc3\tools\step.py <run> action:wait... (writes last.png), around.py, xrefs.py, strrefs.py;
+  start.ps1 now also sets ANYX360_INPUT_LIVE=<run>\pad.txt (append "START" for the pad pause test).
+
 ## Status in one line (before resuming)
 The update build boots, reads the update's patch ARK, loads the user's save and reaches the song
 list, but **a song never leaves the loading screen ("CARGANDO")** in Perform or in Rehearse. That

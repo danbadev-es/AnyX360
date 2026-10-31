@@ -36,7 +36,8 @@ the sensor.
 - **Gears of War 3**: an unofficial native PC port with campaign, private Horde and local split
   screen at 60 FPS.
 - **Dance Central 3** (in testing): the Kinect dance game, played with a webcam. A pose estimator
-  turns the webcam's image into the Kinect's skeletons, color image and depth image.
+  turns the webcam's image into the Kinect's skeletons, color image and depth image. From a Games
+  on Demand copy with its title update (version 0.0.1.5) and its downloadable content.
 - **Kinect Adventures** (in testing): the game that came with the Kinect, played with the same
   webcam, from a Games on Demand copy with its downloadable content and its title update (version
   0.0.1.3).
@@ -89,8 +90,9 @@ own avatar is made in the launcher's avatar editor and plays in every avatar gam
 1. Download the release from [Releases](https://github.com/danielbarretoes/AnyX360/releases):
    `AnyX360-<version>.zip`. One release has every game.
 2. Extract it to a regular folder (not inside _Program Files_), on a drive with room for the games
-   you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3, 8 GB for
-   Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for Doritos Crash Course, 4 GB for
+   you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3 (3 GB more for
+   its downloadable content), 8 GB for Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for
+   Doritos Crash Course, 4 GB for
    Kinect Sports, 8 GB for Call of Duty: Modern Warfare 3, 8 GB for Call of Duty: Black Ops II,
    2 GB for Kinect Joy Ride, 1 GB for Kinect Party, 8 GB for Resident Evil 6 (3 GB more for its
    downloadable content), 2 GB for Minecraft (1 GB more for its downloadable content) and 6 GB for
@@ -709,8 +711,10 @@ environment with pinned, hash-checked packages.
 ### 3. Add the Required Game Files
 
 - Gears of War 3: put the `.7z` of your disc in `Raw/` and extract it to `extracted/gow3/`.
-- Dance Central 3: copy its `default.xex` to `extracted/dc3/` and make `extracted/dc3/game` a
-  directory junction to your disc folder (see [docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing)).
+- Dance Central 3: extract the Games on Demand package's disc files to `extracted/dc3/game/` with
+  `x360tool god-extract`, and the title update to `extracted/dc3/update/` with
+  `x360tool stfs-extract`; its songs also need `keys/title_keys.txt` (see
+  [docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing) and [keys/README.md](keys/README.md)).
 - Kinect Adventures: extract the Games on Demand package's disc files to `extracted/ka/game/` with
   `x360tool god-extract`, and the title update's `default.xexp` to `extracted/ka/update/` with
   `x360tool stfs-extract` (see [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing)).

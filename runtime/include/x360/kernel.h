@@ -328,8 +328,9 @@ void ShowPlayerError(const std::string& text);
 // Each line: "<obscured> <real>", 32 hex digits each, then an optional "# comment". False with the
 // reason when the file can't be read or holds no key; true otherwise.
 bool LoadTitleKeys(const std::filesystem::path& path, std::string& error);
-// The real key for an obscured one, if the title uses title keys and the file has it. Sets
-// `uses_title_keys` to whether LoadTitleKeys has run (the title opted in).
+// The real key for an obscured one, if the title uses title keys and the file has it (a real key
+// the file lists is given as it is: a copy that already holds them). Sets `uses_title_keys` to
+// whether LoadTitleKeys has run (the title opted in).
 bool FindTitleKey(const uint8_t obscured[16], uint8_t real[16], bool& uses_title_keys);
 std::shared_ptr<Thread> CurrentThreadShared();
 std::shared_ptr<Thread> ThreadById(uint32_t id);

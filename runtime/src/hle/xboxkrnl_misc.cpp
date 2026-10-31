@@ -30,6 +30,7 @@ PPC_EXTERN_FUNC(__imp__XamPartyGetBandwidth);
 PPC_EXTERN_FUNC(__imp__XamShowPartyUI);
 PPC_EXTERN_FUNC(__imp__XamShowCommunitySessionsUI);
 PPC_EXTERN_FUNC(__imp__XamContentAggregateCreateEnumerator);
+PPC_EXTERN_FUNC(__imp__XamContentCreateInternal);
 
 namespace {
 
@@ -98,6 +99,9 @@ const ProcedureExport kProcedureExports[] = {
     {kXamModuleHandle, 0x30B, __imp__XamShowCommunitySessionsUI},
     // Resident Evil 6 enumerates its downloadable content with it.
     {kXamModuleHandle, 0x279, __imp__XamContentAggregateCreateEnumerator},
+    // Dance Central 3 opens its downloadable content with it (the packages it enumerated with the
+    // one above): without it no package is opened and their songs aren't listed.
+    {kXamModuleHandle, 0x271, __imp__XamContentCreateInternal},
 };
 
 uint32_t XexGetProcedureAddress(uint32_t module, uint32_t ordinal, uint32_t out_ptr) {
@@ -647,9 +651,18 @@ bool x360::kernel::FindTitleKey(const uint8_t obscured[16], uint8_t real[16], bo
   std::array<uint8_t, 16> key;
   std::memcpy(key.data(), obscured, 16);
   const auto found = g_title_keys.find(key);
-  if (found == g_title_keys.end()) return false;
-  std::memcpy(real, found->second.data(), 16);
-  return true;
+  if (found != g_title_keys.end()) {
+    std::memcpy(real, found->second.data(), 16);
+    return true;
+  }
+  // A copy whose executable already holds the real keys (a re-packed dump) gives them as they are.
+  for (const auto& [obscured_key, real_key] : g_title_keys) {
+    if (real_key == key) {
+      std::memcpy(real, key.data(), 16);
+      return true;
+    }
+  }
+  return false;
 }
 
 X360_EXPORT(XexCheckExecutablePrivilege, XexCheckExecutablePrivilege)

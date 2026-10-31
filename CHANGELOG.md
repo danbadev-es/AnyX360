@@ -8,6 +8,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Changed
+
+- **Dance Central 3** is played from a Games on Demand copy with its title update (version 0.0.1.5,
+  recompiled from it) and its downloadable content ([docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md)):
+  the launcher installs the update (the console cache's `TU_` file) and the 20 packages: song packs
+  and the Dance Central and Dance Central 2 import packs. A copy of the disc of the same version
+  (0.0.0.5) is still accepted, and needs the title update too.
+
+### Added
+
+- **Title keys** (`keys\title_keys.txt`): the real values of keys a game keeps in the console's
+  obscured form and gives to `XeKeysSetKey`, as Dance Central 3 does for its songs' keys. The
+  release has the file; a game that needs it and doesn't find it says so instead of waiting on a
+  loading screen ([keys/README.md](keys/README.md)).
+- Kernel: `XeKeysSetKey` and `XeKeysAesCbc` (the title's key slots).
+
+### Fixed
+
+- `XexGetProcedureAddress` finds `XamContentCreateInternal` by ordinal: Dance Central 3 opens its
+  downloadable content with it.
+
 ## [0.28.0] - 2026-10-30
 
 Call of Duty: Black Ops III, in testing: multiplayer with bots and Zombies, for one player.

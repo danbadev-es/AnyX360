@@ -1,7 +1,11 @@
 DANCE CENTRAL 3
 ==========================================================
 Played with a webcam in place of the Kinect.
-Your copy: the disc's archive or its folder (the one with default.xex and "gen").
+Your copy: the Games on Demand package (in an archive or a folder) or a folder with the disc's
+files, and its title update (the TU_ file next to it, or added alone afterwards): the game needs
+it (version 0.0.1.5). Its downloadable content is installed too: the song packs and the Dance
+Central and Dance Central 2 import packs. The songs need keys\title_keys.txt, which comes with
+this release.
 Saved games and settings: %LOCALAPPDATA%\AnyX360\DanceCentral3
 
 THE WEBCAM

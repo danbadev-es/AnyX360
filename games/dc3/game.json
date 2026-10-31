@@ -10,7 +10,7 @@
   "update": {"version": "0.0.1.5", "package": "TU_0RJ61UP_000000K000000.0000000000085"},
   "dev_game_dir": "extracted/dc3/game",
   "launcher_name": "AnyX360 Dance Central 3",
-  "size_gb": 9,
+  "size_gb": 7,
   "archive_hint": "Dance Central 3 (Games on Demand)",
   "input": "webcam",
   "required_files": ["gen/main_xbox.hdr"],

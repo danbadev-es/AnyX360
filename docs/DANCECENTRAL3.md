@@ -57,18 +57,39 @@ How it is played:
   installs it from the archive (or the `TU_` file alone) and shows "Needs its title update" until
   it is there.
 
+## Song keys
+Each song (`.mogg`, Ogg Vorbis encrypted with AES-CTR) has its key derived through the console's
+security engine: the game calls `XeKeysSetKey` on slot `0xE0` with a key from a table in its
+executable (`0x82D13000`, 4 entries of 16 bytes; the entry is chosen by the song file's version:
+12 and 13 the first, 14 to 16 the next three), then `XeKeysAesCbc` on one 16-byte block.
+
+- **The table holds the keys as the console obscures them**, and the hypervisor turns them back.
+  AnyX360 can't, and with the obscured keys every song stayed on its loading screen ("CARGANDO").
+- **The real values** were in the re-packed disc dump the port was first made from: it had the two
+  calls patched to software AES (`XeCryptAesKey`/`XeCryptAesCbc`) with the real keys in the same
+  table. That dump survives in the user's `.anyx` backup of it; compared with the Games on Demand
+  executable, the table is the only data that differs.
+- **`keys\title_keys.txt`** (git-ignored, [keys/README.md](../keys/README.md)) maps each obscured
+  key to its real value; `tools/scripts/title_keys.py` makes it from the two executables. The game
+  opts in (`GameDescriptor::title_keys`): without the file it doesn't start, saying so, and a key the
+  file lacks ends it with a message. The release copies the file next to the retail key.
+- **Dance Central 2's table** (`0x82CA2C38`, 4 entries) holds the same four obscured keys, so the
+  same file serves it.
+
 ## Sections
-The section list is in [games/dc3/notes/sections.txt](../games/dc3/notes/sections.txt). Code lives
-in `.text` (`0x822D0000`–`0x82CE8EFC`), `BINK` and `RADCODE`.
+The section list is in [games/dc3/notes/sections.txt](../games/dc3/notes/sections.txt)
+([the update's](../games/dc3/notes/sections_0.0.1.5.txt)). Code lives in `.text`
+(`0x822D0000`–`0x82CE8EFC`, `0x82CEAF8C` in the update), `BINK` and `RADCODE`.
 
 ## Recompiler configuration
-- **Executable**: when the retail key doesn't give a PE image, XenonRecomp's loader now falls back
-  to the devkit key (a change in the fork). x360tool and the runtime already did this.
+- **Executable**: the re-packed dump was encrypted with the devkit key, so XenonRecomp's loader
+  falls back to it (a change in the fork); the Games on Demand copy uses the retail key.
 - **Register save/restore helpers**: each pattern in XenonRecomp's README occurs exactly once.
   `tools/scripts/find_helpers.py` finds them; the addresses are in
   [config.toml](../games/dc3/config.toml).
-- **setjmp/longjmp**: there are no candidates. libjpeg is linked, but without its setjmp error path.
-- **Jump tables**: the fork's dataflow detector finds 180. Six table-driven `bctr` stay unresolved;
+- **setjmp/longjmp**: the CRT's (`0x82C64770`/`0x82C64340` in the update), configured since the
+  update build. The XGraphics shader microcode assembler and the D3DX effect code use them for errors.
+- **Jump tables**: the fork's dataflow detector finds 189. Two table-driven `bctr` stay unresolved;
   they are listed at the end of [switch_tables.toml](../games/dc3/switch_tables.toml).
 
 ## Kinect: a virtual sensor at the NUI API
@@ -159,36 +180,49 @@ The details and a benchmark are in [tools/pose_bridge/README.md](../tools/pose_b
 or a bridge in `--synthetic` mode.
 
 ## Reproducing
-The game folder is used where it is: `extracted\dc3\game` is a directory junction to it, and only
-`default.xex` is copied to `extracted\dc3\` for the recompiler.
+From the archive extracted into `extracted\dc3\pkg` (the folder that holds `373307D9` and the `TU_`
+file):
 
 ```
-mkdir extracted\dc3
-copy "<game folder>\default.xex" extracted\dc3\
-mklink /J extracted\dc3\game "<game folder>"
 build.bat
+build\tools\x360tool\release\x360tool.exe god-extract extracted\dc3\pkg\373307D9\00007000\A9080A6703719ECBD565 extracted\dc3\game
+build\tools\x360tool\release\x360tool.exe stfs-extract extracted\dc3\pkg\TU_0RJ61UP_000000K000000.0000000000085 extracted\dc3\update
+build\tools\x360tool\release\x360tool.exe xex-patch extracted\dc3\game\default.xex extracted\dc3\update\default.xexp extracted\dc3\update\default_0.0.1.5.xex
+build\tools\x360tool\release\x360tool.exe xex-extract extracted\dc3\update\default_0.0.1.5.xex extracted\dc3\default_patched.bin --key keys\xex2_retail.key
+python -I tools\scripts\find_helpers.py extracted\dc3\default_patched.bin
 cd games\dc3
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\dc3\default.xex switch_tables.toml
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\dc3\update\default_0.0.1.5.xex switch_tables.toml
+mkdir recomp7
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 cd ..\..
-build.bat
+build.bat release dc3
 powershell -ExecutionPolicy Bypass -File tools\pose_bridge\build_bridge.ps1
 ```
 
-XenonRecomp writes into `out_directory_path` from `config.toml`, and that folder must be empty
-before it runs. To regenerate, point `out_directory_path` at a new folder, or pass
+XenonRecomp writes into `out_directory_path` from `config.toml` (`recomp7`), and that folder must be
+empty before it runs. To regenerate, point `out_directory_path` at a new folder, or pass
 `-DDC3_PPC_DIR=<folder>` to CMake.
 
+To play a development build:
+- the update's files go in `<user>\content\000B0000\TU_0RJ61UP_000000K000000.0000000000085`
+  (without `default_0.0.1.5.xex`);
+- each downloadable content package, extracted (`x360tool stfs-extract`), in
+  `<user>\content\00000002\<package file name>`;
+- `keys\title_keys.txt` must be there ([Song keys](#song-keys)).
+
+The launcher does the first two from the archive.
+
 ## Bring-up notes
-- **Main loop through an exception**: Milo's `App::Run` (`0x82311A68`) installs an
-  unhandled-exception filter, then stores to address 0 on purpose; the filter (`0x82311A40`) runs
-  the main loop. There is no guest exception dispatch, so `games/dc3/src/milo_hooks.cpp` calls the
+- **Main loop through an exception**: Milo's `App::Run` (`0x823124A0` in the update, `0x82311A68`
+  on the disc) installs an unhandled-exception filter, then stores to address 0 on purpose; the
+  filter (`0x82312478`, `0x82311A40` on the disc) runs the main loop. There is no guest exception dispatch, so `games/dc3/src/milo_hooks.cpp` calls the
   filter directly.
 - **Switches the analyser missed**: `XGetLocale`'s result indexes a 37-entry table in Milo's
   startup. XenonAnalyse took the call's result for a constant, so the switch became an indirect
   call whose cases ran as separate functions. Calls now end the dataflow.
-- **Songs are encrypted**: they are read through `XeCryptAesKey`/`XeCryptAesCbc`. Without them the
-  loading screen waits forever.
+- **Songs are encrypted**: their keys come through `XeKeysSetKey`/`XeKeysAesCbc` and the game's own
+  AES code decrypts the audio. A wrong key, or a missing function, leaves the
+  loading screen waiting forever ([Song keys](#song-keys)).
 - **Pacing**: the title presents on every vblank, so the vblank runs at the console's 60 Hz. The
   game runs at 60 FPS only (`GameDescriptor::fixed_fps`).
 

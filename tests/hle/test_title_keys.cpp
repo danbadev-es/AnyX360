@@ -79,6 +79,9 @@ int main() {
   uint8_t key[16];
   std::memcpy(key, obscured, 16);
   CHECK(x360::kernel::FindTitleKey(key, key, uses) && std::memcmp(key, expected, 16) == 0);
+  // A real key the file lists (a copy that already holds them): given as it is.
+  std::memset(real, 0, sizeof(real));
+  CHECK(x360::kernel::FindTitleKey(expected, real, uses) && std::memcmp(real, expected, 16) == 0);
   // A key the file doesn't have: the title uses title keys, and this one is missing.
   uint8_t other[16] = {1};
   std::memset(real, 0, sizeof(real));
