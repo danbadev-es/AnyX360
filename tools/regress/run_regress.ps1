@@ -263,7 +263,8 @@ foreach ($id in $ids) {
       foreach ($t in $shotTimes) {
         if ($elapsed -ge $t -and -not $taken.ContainsKey($t)) {
           $taken[$t] = $true
-          if (-not $title) { $title = @($titles | Where-Object { $_.StartsWith('AnyX360 - ') }) | Select-Object -First 1 }
+          # Without a route title: the game's window as titled now (Minecraft renames its window).
+          if (-not $route.title) { $title = @([AnyX360Tools.Win]::Titles([uint32[]]@($tracked)) | Where-Object { $_.StartsWith('AnyX360 - ') }) | Select-Object -First 1 }
           $file = 'shot_{0:000}.png' -f [int]$t
           $ok = $false
           if ($title) { $ok = Save-GameWindow $title "$gameOut\$file" ([uint32[]]@($tracked)) }

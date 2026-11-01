@@ -19,7 +19,7 @@
       "phases": { "menu": [50, 75], "play": [120, 160] }, "probe": "menu"
     },
     "mk": {
-      "title": null, "seconds": 150, "dlc": 17,
+      "title": "AnyX360 - Mortal Kombat", "seconds": 150, "dlc": 17,
       "input": "45:START,55:A,62:A,70:A,78:DOWN,80:DOWN,83:A,100:X~0.35x4000,100.15:A~0.35x4000,100.3:Y~1.3x1100",
       "shots": [40, 60, 90, 120, 145],
       "phases": { "menu": [50, 75], "fight": [110, 150] }, "probe": "menu"
@@ -37,13 +37,13 @@
       "phases": { "menu": [75, 90], "play": [190, 240] }
     },
     "re6": {
-      "title": null, "seconds": 200, "dlc": 11, "input_clock": "frames:30",
+      "title": "AnyX360 - RESIDENT EVIL 6", "seconds": 200, "dlc": 11, "input_clock": "frames:30",
       "input": "12:START,30:A,37:A,46:A,54:A,70:START,82:A,90:A",
       "shots": [30, 60, 100, 150, 195],
       "phases": { "menu": [55, 70], "late": [150, 200] }
     },
     "minecraft": {
-      "title": null, "seconds": 160, "dlc": 92,
+      "title": "AnyX360 - Minecraft", "seconds": 160, "dlc": 92,
       "input": "25:A,35:A,45:DOWN,48:A,60:RB,66:A,74:DOWN~0.7x6,80:A,125:LUP/5,132:RT/2,136:LT~0.6x4",
       "shots": [40, 70, 110, 150],
       "phases": { "menu": [50, 60], "play": [115, 160] }
