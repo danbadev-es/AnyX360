@@ -31,5 +31,10 @@ int main(int argc, char** argv) {
   // WavesLibDLL's function-table slots fall in the 0x90000000 heap, which must not be Xenia's view
   // of the title's image.
   game.separate_xex_4k_heap = true;
+  // Made for 30 FPS: it presents every other vblank of the console's 60 Hz, and its menus, Bink
+  // videos and cinematics advance a step per frame. At 60 FPS (a 120 Hz vblank) they ran twice as
+  // fast, the cinematics' voices overlapping. Gameplay keeps time on its own clock.
+  game.vblanks_per_frame = 2;
+  game.fixed_fps = 30;
   return x360::host::RunHost(argc, argv, game);
 }
