@@ -5,7 +5,10 @@
 #include <algorithm>
 
 #include "x360/kernel.h"
+#include "xenia/base/cvar.h"
 #include "xenia/memory.h"
+
+DECLARE_bool(xex_4k_heap_mirrors_64k_heap);
 
 namespace x360::kernel {
 
@@ -73,7 +76,8 @@ bool PageHeap::Query(uint32_t address, uint32_t* alloc_base, uint32_t* alloc_siz
 
 // ---- address space -----------------------------------------------------------------------------
 
-bool InitMemory() {
+bool InitMemory(bool separate_xex_4k_heap) {
+  cvars::xex_4k_heap_mirrors_64k_heap = !separate_xex_4k_heap;
   g_memory = new xe::Memory();
   if (!g_memory->Initialize()) {
     KLOG_E("could not set up the guest address space");

@@ -40,6 +40,9 @@ PPC_EXTERN_FUNC(__imp__XeCryptAesKey);
 PPC_EXTERN_FUNC(__imp__XeCryptAesCbc);
 PPC_EXTERN_FUNC(__imp__XeCryptAesEcb);
 PPC_EXTERN_FUNC(__imp__XeCryptShaInit);
+PPC_EXTERN_FUNC(__imp__XeCryptHmacShaInit);
+PPC_EXTERN_FUNC(__imp__XeCryptHmacShaUpdate);
+PPC_EXTERN_FUNC(__imp__XeCryptHmacShaFinal);
 PPC_EXTERN_FUNC(__imp__XeCryptShaUpdate);
 PPC_EXTERN_FUNC(__imp__XeCryptShaFinal);
 PPC_EXTERN_FUNC(__imp__XeCryptSha256Init);
@@ -298,6 +301,37 @@ int main() {
       char hex[129] = {};
       const uint32_t size = uint32_t(std::strlen(c.digest)) / 2;
       for (uint32_t i = 0; i < size; ++i) std::snprintf(hex + i * 2, 3, "%02x", mem.translate<uint8_t>(out)[i]);
+      CHECK(std::strcmp(hex, c.digest) == 0);
+    }
+  }
+
+  // HMAC-SHA-1 (RFC 2202, test cases 2 and 6: a short key and one longer than a block), the
+  // message fed in two parts.
+  {
+    const struct {
+      std::string key;
+      const char* message;
+      const char* digest;
+    } cases[] = {
+        {"Jefe", "what do ya want for nothing?", "effcdf6ae5eb2fa2d27416d5f184df9c259a7c79"},
+        {std::string(80, 'ª'), "Test Using Larger Than Block-Size Key - Hash Key First",
+         "aa4ae5e15272d00e95705637ce8a3b55ed402112"},
+    };
+    const guest_addr context = kHeap + 0x1C00, key = kHeap + 0x1D00, message = kHeap + 0x1E00, out = kHeap + 0x1F00;
+    for (const auto& c : cases) {
+      std::memcpy(mem.translate<char>(key), c.key.data(), c.key.size());
+      const uint32_t length = uint32_t(std::strlen(c.message)), first = length / 3;
+      std::memcpy(mem.translate<char>(message), c.message, length);
+      ctx.r3.u64 = context, ctx.r4.u64 = key, ctx.r5.u64 = c.key.size();
+      __imp__XeCryptHmacShaInit(ctx, base);
+      ctx.r3.u64 = context, ctx.r4.u64 = message, ctx.r5.u64 = first;
+      __imp__XeCryptHmacShaUpdate(ctx, base);
+      ctx.r3.u64 = context, ctx.r4.u64 = message + first, ctx.r5.u64 = length - first;
+      __imp__XeCryptHmacShaUpdate(ctx, base);
+      ctx.r3.u64 = context, ctx.r4.u64 = out, ctx.r5.u64 = 20;
+      __imp__XeCryptHmacShaFinal(ctx, base);
+      char hex[41] = {};
+      for (int i = 0; i < 20; ++i) std::snprintf(hex + i * 2, 3, "%02x", mem.translate<uint8_t>(out)[i]);
       CHECK(std::strcmp(hex, c.digest) == 0);
     }
   }

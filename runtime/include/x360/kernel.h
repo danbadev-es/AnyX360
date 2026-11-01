@@ -164,7 +164,8 @@ class PageHeap {
   void* heap_ = nullptr;  // xe::BaseHeap
 };
 
-bool InitMemory();
+// separate_xex_4k_heap: TitleInfo::separate_xex_4k_heap.
+bool InitMemory(bool separate_xex_4k_heap = false);
 xe::Memory* XeMemory();
 // Reserves and commits a fixed range in whichever heap contains it (executable image, tables).
 bool ReserveImage(uint32_t base, uint32_t size);
@@ -389,6 +390,7 @@ struct TitleInfo {
   uint32_t avatar_skeleton = 0;       // the avatar library's skeleton builder (GameDescriptor)
   uint8_t main_thread_processor = 1;  // hardware thread of the main thread (GameDescriptor)
   bool game_region_from_country = false;  // XGetGameRegion from the country (GameDescriptor)
+  bool separate_xex_4k_heap = false;  // 0x90000000 isn't a view of 0x80000000 (GameDescriptor)
   bool kinect_sensor = true;  // a Kinect sensor is reported connected (GameDescriptor)
   bool keyboard_ui_accepts = false;  // XamShowKeyboardUI accepts its default text (GameDescriptor)
   // The title's executables XamLoaderLaunchTitle can start: {XEX name in lower case, host
@@ -431,8 +433,9 @@ struct LoadedTitle {
 
 const LoadedTitle& Title();
 const TitleInfo& TitlePaths();
-// Finds a resource of the title's XEX (RESOURCE_INFO header): its guest address and size.
-bool FindXexResource(const std::string& name, uint32_t& address, uint32_t& size);
+// Finds a resource of the title's XEX (RESOURCE_INFO header), or of a title DLL's given its module
+// handle: its guest address and size.
+bool FindXexResource(const std::string& name, uint32_t& address, uint32_t& size, uint32_t module = 0);
 
 // Loads the executable, patches imports and starts the kernel services. Returns false on error.
 bool LoadTitle(const TitleInfo& info);

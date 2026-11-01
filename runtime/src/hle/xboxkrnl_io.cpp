@@ -5,6 +5,10 @@
 // writable user folder for the hard disk, the cache partition and saved content.
 #include <algorithm>
 #include <cctype>
+#include <chrono>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
 #include <unordered_map>
 
 #include "x360/kernel.h"
@@ -107,6 +111,30 @@ Resolved Resolve(std::string path) {
   return {};
 }
 
+// ---- I/O completion ports ---------------------------------------------------------------------
+
+// NtCreateIoCompletion's object: a queue of completion packets. A file associated with it
+// (NtSetInformationFile, FileCompletionInformation) posts one for each read or write it completes;
+// NtRemoveIoCompletion takes them, waiting while the queue is empty. Halo 3 and Halo: Reach read
+// their maps this way, from an "ASYNC_IO" thread (XAPI's GetQueuedCompletionStatus).
+struct IoCompletion : Object {
+  const char* TypeName() const override { return "IoCompletion"; }
+  struct Packet {
+    uint32_t key, apc_context, status, information;
+  };
+  std::mutex mutex;
+  std::condition_variable ready;
+  std::deque<Packet> packets;
+
+  void Post(const Packet& packet) {
+    {
+      std::lock_guard lock(mutex);
+      packets.push_back(packet);
+    }
+    ready.notify_one();
+  }
+};
+
 // ---- file objects -----------------------------------------------------------------------------
 
 struct File : Object {
@@ -120,6 +148,9 @@ struct File : Object {
   bool directory = false;
   // Opened for asynchronous I/O (no FILE_SYNCHRONOUS_IO_ALERT/NONALERT): reads answer STATUS_PENDING.
   bool asynchronous = false;
+  // The completion port its I/O completes to (FileCompletionInformation) and the key it gives.
+  std::shared_ptr<IoCompletion> completion_port;
+  uint32_t completion_key = 0;
   uint64_t position = 0;
   // Directory enumeration state.
   std::vector<WIN32_FIND_DATAW> entries;
@@ -338,6 +369,14 @@ void QueueCompletion(uint32_t apc_routine, uint32_t apc_context, uint32_t io_sta
   if (Thread* thread = CurrentThread()) QueueUserApc(*thread, apc_routine & ~1u, apc_context, io_status, 0);
 }
 
+// A file associated with a completion port posts a packet for each request it completes (those that
+// fail at once post nothing: they don't answer STATUS_PENDING), with the request's APC context (the
+// caller's OVERLAPPED) and its result.
+void PostCompletion(const File& file, uint32_t apc_context, uint32_t status, uint32_t information) {
+  if (!file.completion_port || status != X_STATUS_SUCCESS) return;
+  file.completion_port->Post({file.completion_key, apc_context, status, information});
+}
+
 // A read on a file opened for asynchronous I/O answers STATUS_PENDING, as on the console (and in
 // Xenia), though it is already done: the I/O status block holds the result, the event is set, and
 // GetOverlappedResult finds it complete. Titles that read overlapped check for ERROR_IO_PENDING:
@@ -359,6 +398,7 @@ uint32_t NtReadFile(uint32_t handle, uint32_t event, uint32_t apc_routine, uint3
   SetIoStatus(io_status, status, read);
   SignalEvent(event);
   QueueCompletion(apc_routine, apc_context, io_status, status);
+  PostCompletion(*file, apc_context, status, read);
   return Pending(*file, status);
 }
 
@@ -383,6 +423,7 @@ uint32_t NtReadFileScatter(uint32_t handle, uint32_t event, uint32_t apc_routine
   SetIoStatus(io_status, status, total);
   SignalEvent(event);
   QueueCompletion(apc_routine, apc_context, io_status, status);
+  PostCompletion(*file, apc_context, status, total);
   return Pending(*file, status);
 }
 
@@ -415,7 +456,9 @@ uint32_t NtWriteFile(uint32_t handle, uint32_t event, uint32_t apc_routine, uint
   SetIoStatus(io_status, status, written);
   SignalEvent(event);
   QueueCompletion(apc_routine, apc_context, io_status, status);
-  return status;
+  PostCompletion(*file, apc_context, status, written);
+  // A write that completes to a port is pending too: its packet is the caller's completion.
+  return file->completion_port ? Pending(*file, status) : status;
 }
 
 uint32_t NtWriteFileGather(uint32_t handle, uint32_t event, uint32_t apc_routine, uint32_t apc_context,
@@ -552,6 +595,13 @@ uint32_t NtSetInformationFile(uint32_t handle, uint32_t io_status, uint32_t info
       break;
     case 4:  // FileBasicInformation (timestamps/attributes): ignored
       break;
+    case 30: {  // FileCompletionInformation: the port (a handle) and the key of its packets
+      auto port = LookupHandleAs<IoCompletion>(Load<uint32_t>(info));
+      if (!port) return X_STATUS_INVALID_HANDLE;
+      file->completion_port = std::move(port);
+      file->completion_key = Load<uint32_t>(info + 4);
+      break;
+    }
     default:
       KLOG_W("NtSetInformationFile: unsupported class %u", info_class);
       return X_STATUS_INVALID_INFO_CLASS;
@@ -757,6 +807,54 @@ uint32_t IoCheckShareAccess() { return X_STATUS_SUCCESS; }
 void IoSetShareAccess() {}
 void IoRemoveShareAccess() {}
 void IoCompleteRequest() {}
+// NtCreateIoCompletion(handle*, access, object attributes, concurrent threads).
+uint32_t NtCreateIoCompletion(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_attributes,
+                              uint32_t concurrent_threads) {
+  (void)desired_access, (void)object_attributes, (void)concurrent_threads;
+  if (!handle_ptr) return X_STATUS_INVALID_PARAMETER;
+  Store<uint32_t>(handle_ptr, CreateHandle(std::make_shared<IoCompletion>()));
+  return X_STATUS_SUCCESS;
+}
+
+// NtSetIoCompletion(port, key, APC context, status, information): posts a packet.
+uint32_t NtSetIoCompletion(uint32_t handle, uint32_t key, uint32_t apc_context, uint32_t status,
+                           uint32_t information) {
+  auto port = LookupHandleAs<IoCompletion>(handle);
+  if (!port) return X_STATUS_INVALID_HANDLE;
+  port->Post({key, apc_context, status, information});
+  return X_STATUS_SUCCESS;
+}
+
+// NtRemoveIoCompletion(port, key*, APC context*, IO_STATUS_BLOCK*, timeout*): takes the oldest
+// packet, waiting for one up to the timeout (100 ns units; negative: relative; none: forever).
+uint32_t NtRemoveIoCompletion(uint32_t handle, uint32_t key_ptr, uint32_t apc_context_ptr, uint32_t io_status,
+                              uint32_t timeout_ptr) {
+  auto port = LookupHandleAs<IoCompletion>(handle);
+  if (!port) return X_STATUS_INVALID_HANDLE;
+  std::unique_lock lock(port->mutex);
+  if (port->packets.empty()) {
+    if (!timeout_ptr) {
+      port->ready.wait(lock, [&] { return !port->packets.empty(); });
+    } else {
+      int64_t timeout = Load<int64_t>(timeout_ptr);
+      if (timeout > 0) {  // an absolute system time
+        FILETIME now;
+        GetSystemTimeAsFileTime(&now);
+        timeout = -std::max<int64_t>(0, timeout - int64_t(FileTimeValue(now)));
+      }
+      const auto wait = std::chrono::microseconds(-timeout / 10);
+      if (!port->ready.wait_for(lock, wait, [&] { return !port->packets.empty(); })) return X_STATUS_TIMEOUT;
+    }
+  }
+  const IoCompletion::Packet packet = port->packets.front();
+  port->packets.pop_front();
+  lock.unlock();
+  if (key_ptr) Store<uint32_t>(key_ptr, packet.key);
+  if (apc_context_ptr) Store<uint32_t>(apc_context_ptr, packet.apc_context);
+  SetIoStatus(io_status, packet.status, packet.information);
+  return X_STATUS_SUCCESS;
+}
+
 uint32_t IoCreateDevice() { return X_STATUS_SUCCESS; }
 void IoDeleteDevice() {}
 uint32_t IoInvalidDeviceRequest() { return X_STATUS_NOT_SUPPORTED; }
@@ -785,6 +883,10 @@ void InitIo(const TitleInfo& info) {
   AddLink("d:", "\\Device\\Cdrom0");
   AddLink("hdd:", "\\Device\\Harddisk0\\Partition1");
   AddLink("cache:", "\\Device\\Harddisk0\\Cache0");
+  // The two cache partitions by their own names, as Xenia's mount_cache gives them: Halo 3 copies
+  // maps there (cache000.map...) and keeps its preferences in cache0:.
+  AddLink("cache0:", "\\Device\\Harddisk0\\Cache0");
+  AddLink("cache1:", "\\Device\\Harddisk0\\Cache1");
   KLOG_I("game:\\ -> %s", info.game_root.string().c_str());
   KLOG_I("hdd:\\  -> %s", (info.user_root / "hdd").string().c_str());
   // The title update's files (as Xenia's UPDATE:), read-only.
@@ -817,6 +919,9 @@ void UnmountContent(const std::string& root_name) {
 }  // namespace x360::kernel
 
 X360_EXPORT(NtCreateFile, NtCreateFile)
+X360_EXPORT(NtCreateIoCompletion, NtCreateIoCompletion)
+X360_EXPORT(NtSetIoCompletion, NtSetIoCompletion)
+X360_EXPORT(NtRemoveIoCompletion, NtRemoveIoCompletion)
 X360_EXPORT(NtOpenFile, NtOpenFile)
 X360_EXPORT(NtReadFile, NtReadFile)
 X360_EXPORT(NtReadFileScatter, NtReadFileScatter)

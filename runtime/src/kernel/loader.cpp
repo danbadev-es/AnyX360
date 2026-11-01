@@ -145,8 +145,18 @@ void ResolveImports(const x360tool::Xex& xex) {
       uint32_t record = Load<uint32_t>(record_address);
       uint8_t type = uint8_t(record >> 24);
       uint16_t ordinal = uint16_t(record & 0xFFFF);
-      auto info = x360tool::lookup_export(lib.name, ordinal);
       if (type != 0) continue;  // thunks: the recompiler turned them into calls to __imp__<Name>
+      // An import of another of the title's DLLs (Halo 3's Waves plug-ins import WavesLibDLL.dll):
+      // that DLL is loaded and the export's address goes in the variable record, which the
+      // recompiled thunk branches through.
+      if (lib.name != "xboxkrnl.exe" && lib.name != "xam.xex") {
+        const uint32_t module = LoadTitleModule(lib.name);
+        const uint32_t address = module ? TitleModuleExport(module, ordinal) : 0;
+        if (!address) KLOG_W("import %s ordinal %u: not found", lib.name.c_str(), ordinal);
+        Store<uint32_t>(record_address, address);
+        continue;
+      }
+      auto info = x360tool::lookup_export(lib.name, ordinal);
       if (!info || !info->is_variable) {
         // Function "IAT" slot: point it at the thunk code so indirect use still works.
         continue;
@@ -298,12 +308,19 @@ uint32_t LoadTitleModule(const std::string& path) {
     ++dll.references;
     return dll.handle;
   }
+  // GameDescriptor::modules names each DLL by its path in the game folder ("waves/l360.dll"); the
+  // title asks for it by that path or by its name alone (an import of another DLL).
   const PPCFuncMapping* mappings = nullptr;
-  for (const auto& [module, functions] : g_paths.modules)
-    if (module == name) mappings = functions;
+  std::string relative;
+  for (const auto& [module, functions] : g_paths.modules) {
+    if (ModuleFileName(module) == name) {
+      mappings = functions;
+      relative = module;
+    }
+  }
   if (!mappings) return 0;
 
-  const std::filesystem::path file = g_paths.game_root / name;
+  const std::filesystem::path file = g_paths.game_root / std::filesystem::path(relative).make_preferred();
   std::unique_ptr<x360tool::Xex> xex;
   std::vector<uint8_t> image;
   try {
@@ -514,9 +531,10 @@ std::string ReadTitleName() {
 
 }  // namespace
 
-bool FindXexResource(const std::string& name, uint32_t& address, uint32_t& size) {
-  // RESOURCE_INFO (0x2FF) header: {be32 size; {char name[8]; be32 address; be32 size}[]}.
-  uint32_t header = g_title.xex_header;
+bool FindXexResource(const std::string& name, uint32_t& address, uint32_t& size, uint32_t module) {
+  // RESOURCE_INFO (0x2FF) header: {be32 size; {char name[8]; be32 address; be32 size}[]}. A title
+  // DLL's own (Halo 3's Waves plug-ins describe themselves in theirs), else the title's.
+  uint32_t header = module && IsTitleModule(module) ? Load<uint32_t>(module + 0x58) : g_title.xex_header;
   if (!header) return false;
   uint32_t count = Load<uint32_t>(header + 0x14);
   for (uint32_t i = 0; i < count; ++i) {
@@ -536,7 +554,7 @@ bool FindXexResource(const std::string& name, uint32_t& address, uint32_t& size)
 
 int Run(const TitleInfo& info) {
   InstallCrashHandler();
-  if (!InitMemory()) return 1;
+  if (!InitMemory(info.separate_xex_4k_heap)) return 1;
   SetupWriteWatch();
   // The window, Direct3D 12 and the GPU must exist before the title runs; this thread becomes the
   // UI thread.

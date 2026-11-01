@@ -10,6 +10,7 @@
 
 #include "x360/gpu.h"
 #include "x360/kernel.h"
+#include "xenia/kernel/xboxkrnl/xecrypt_rsa.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -69,9 +70,10 @@ uint32_t XexGetModuleHandle(uint32_t name_ptr, uint32_t handle_ptr) {
 }
 
 uint32_t XexGetModuleSection(uint32_t module, uint32_t name_ptr, uint32_t data_ptr, uint32_t size_ptr) {
-  (void)module;
   uint32_t address, size;
-  if (!FindXexResource(Ptr<const char>(name_ptr), address, size)) return X_STATUS_OBJECT_NAME_NOT_FOUND;
+  const bool found = FindXexResource(Ptr<const char>(name_ptr), address, size, module);
+  KLOG_T("XexGetModuleSection(%08X, %s): %s", module, Ptr<const char>(name_ptr), found ? "found" : "not found");
+  if (!found) return X_STATUS_OBJECT_NAME_NOT_FOUND;
   if (data_ptr) Store<uint32_t>(data_ptr, address);
   if (size_ptr) Store<uint32_t>(size_ptr, size);
   return X_STATUS_SUCCESS;
@@ -412,6 +414,74 @@ void XeCryptSha512Init(uint32_t context) { ShaInit(kSha512, context); }
 void XeCryptSha512Update(uint32_t context, uint32_t input, uint32_t size) { ShaUpdate(kSha512, context, input, size); }
 void XeCryptSha512Final(uint32_t context, uint32_t out, uint32_t out_size) { ShaFinal(kSha512, context, out, out_size); }
 
+// HMAC-SHA-1 (Halo: Reach). XECRYPT_HMACSHA_STATE is two SHA-1 contexts: the inner hash, started
+// with the key xor 0x36, then the outer one, started with the key xor 0x5C.
+constexpr uint32_t kShaStateSize = 4 * (1 + 5) + 64;
+constexpr uint32_t kShaBufferOffset = 4 * (1 + 5);
+void XeCryptHmacShaInit(uint32_t context, uint32_t key, uint32_t key_size) {
+  uint8_t block[64] = {};
+  if (key_size > 64) {
+    BCRYPT_ALG_HANDLE alg = nullptr;
+    BCRYPT_HASH_HANDLE hash = nullptr;
+    if (BCryptOpenAlgorithmProvider(&alg, BCRYPT_SHA1_ALGORITHM, nullptr, 0) >= 0 &&
+        BCryptCreateHash(alg, &hash, nullptr, 0, nullptr, 0, 0) >= 0) {
+      BCryptHashData(hash, Ptr(key), key_size, 0);
+      BCryptFinishHash(hash, block, 20, 0);
+    }
+    if (hash) BCryptDestroyHash(hash);
+    if (alg) BCryptCloseAlgorithmProvider(alg, 0);
+  } else if (key && key_size) {
+    std::memcpy(block, Ptr(key), key_size);
+  }
+  // The padded key goes through guest memory (the SHA functions read their input there): the
+  // outer context's buffer for the inner pad, then the inner one's (free again after one block).
+  const uint32_t inner = context, outer = context + kShaStateSize;
+  ShaInit(kSha1, inner);
+  ShaInit(kSha1, outer);
+  uint8_t* scratch = Ptr<uint8_t>(outer + kShaBufferOffset);
+  for (int i = 0; i < 64; ++i) scratch[i] = block[i] ^ 0x36;
+  ShaUpdate(kSha1, inner, outer + kShaBufferOffset, 64);
+  scratch = Ptr<uint8_t>(inner + kShaBufferOffset);
+  for (int i = 0; i < 64; ++i) scratch[i] = block[i] ^ 0x5C;
+  ShaUpdate(kSha1, outer, inner + kShaBufferOffset, 64);
+}
+void XeCryptHmacShaUpdate(uint32_t context, uint32_t input, uint32_t size) { ShaUpdate(kSha1, context, input, size); }
+void XeCryptHmacShaFinal(uint32_t context, uint32_t out, uint32_t out_size) {
+  const uint32_t inner = context, outer = context + kShaStateSize;
+  // The inner digest goes into the inner context's buffer, which the outer hash then reads.
+  const uint32_t digest = inner + kShaBufferOffset;
+  ShaFinal(kSha1, inner, digest, 20);
+  ShaUpdate(kSha1, outer, digest, 20);
+  ShaFinal(kSha1, outer, out, out_size);
+}
+
+// Big-number helpers used by RSA signature checks (Halo 3 and Halo: Reach check the signatures of
+// their content with them). Each 64-bit word's byte order is reversed.
+void XeCryptBnQw_SwapDwQwLeBe(uint32_t input, uint32_t output, uint32_t count) {
+  for (uint32_t i = 0; i < count; ++i)
+    Store<uint64_t>(output + i * 8, _byteswap_uint64(Load<uint64_t>(input + i * 8)));
+}
+
+// XeCryptBnQwNeRsaPubCrypt(input, output, XECRYPT_RSA*): input^e mod n with the public key that
+// follows the header (modulus size in qwords, exponent, padding, then the modulus): numbers of
+// big-endian qwords, least significant first. Halo 3 checks its maps' signatures with it at start
+// (without it the game reported a disc read error).
+uint32_t RsaPubCrypt(uint32_t input, uint32_t output, uint32_t key) {
+  const uint32_t qwords = Load<uint32_t>(key), exponent = Load<uint32_t>(key + 4);
+  if (qwords == 0 || qwords > 64) return 0;
+  return XeCryptBnQwNeRsaPubCrypt(Ptr<const uint8_t>(input), Ptr<uint8_t>(output), Ptr<const uint8_t>(key + 16),
+                                  qwords, exponent);
+}
+
+// The console checks a PKCS #1 signature it has decrypted with a public key: the keys are
+// Microsoft's and the content was signed with them, so the check passes (as in Xenia).
+uint32_t XeCryptBnDwLePkcs1Verify(uint32_t hash, uint32_t signature, uint32_t size) {
+  (void)hash;
+  (void)signature;
+  (void)size;
+  return 1;
+}
+
 void XeCryptRandom(uint32_t buffer, uint32_t length) {
   if (buffer && length) BCryptGenRandom(nullptr, Ptr(buffer), length, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
 }
@@ -685,6 +755,12 @@ X360_EXPORT(XeCryptSha512Init, XeCryptSha512Init)
 X360_EXPORT(XeCryptSha512Update, XeCryptSha512Update)
 X360_EXPORT(XeCryptSha512Final, XeCryptSha512Final)
 X360_EXPORT(XeCryptRandom, XeCryptRandom)
+X360_EXPORT(XeCryptHmacShaInit, XeCryptHmacShaInit)
+X360_EXPORT(XeCryptHmacShaUpdate, XeCryptHmacShaUpdate)
+X360_EXPORT(XeCryptHmacShaFinal, XeCryptHmacShaFinal)
+X360_EXPORT(XeCryptBnQw_SwapDwQwLeBe, XeCryptBnQw_SwapDwQwLeBe)
+X360_EXPORT(XeCryptBnDwLePkcs1Verify, XeCryptBnDwLePkcs1Verify)
+X360_EXPORT(XeCryptBnQwNeRsaPubCrypt, RsaPubCrypt)
 X360_EXPORT(XeCryptAesKey, XeCryptAesKey)
 X360_EXPORT(XeCryptAesEcb, XeCryptAesEcb)
 X360_EXPORT(XeCryptAesCbc, XeCryptAesCbc)

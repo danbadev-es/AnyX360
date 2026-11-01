@@ -89,6 +89,11 @@ struct GameDescriptor {
   // 0xFFFF (every region). Resident Evil 6 takes 0xFFFF for a Japanese console and shows its
   // Japanese title, Biohazard 6. The other games were brought up and tested with 0xFFFF.
   bool game_region_from_country = false;
+  // The 0x90000000 heap is memory of its own instead of Xenia's view of 0x80000000. A title DLL's
+  // function-table slots (PPC_LOOKUP_FUNC, past the title's) can land there: Halo 3's and Halo:
+  // Reach's WavesLibDLL.dll at 0x8A000000 has them at 0x93200000, which overwrote the title's
+  // image (its resources) and the start of its own table through the view.
+  bool separate_xex_4k_heap = false;
   // Options of Xenia's GPU code the title needs, by name, each value as TOML text ({"occlusion_query",
   // "\"strict\""}): set before the GPU starts, under the player's own [xenia] options in
   // settings.toml (which win). Not written to settings.toml.
