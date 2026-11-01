@@ -95,15 +95,19 @@ void PureHelpers() {
 
 void Book() {
   AddressBook book;
-  CHECK(book.GuestAddress({0xC0A80002, 0}) == 0xC0A80002);  // an instance 0 at its own address
+  uint32_t z = book.GuestAddress({0xC0A80002, 0});
   uint32_t a = book.GuestAddress({0xC0A80002, 1});
   uint32_t b = book.GuestAddress({0xC0A80002, 2});
   uint32_t c = book.GuestAddress({0xC0A80003, 1});
-  CHECK(AddressBook::IsStandIn(a) && AddressBook::IsStandIn(b) && AddressBook::IsStandIn(c));
-  CHECK(a != b && a != c && b != c);
+  // Handles shaped like secure addresses: the first byte 0 (Halo 3 refuses any other).
+  CHECK(AddressBook::IsHandle(z) && AddressBook::IsHandle(a) && AddressBook::IsHandle(b) && AddressBook::IsHandle(c));
+  CHECK((z >> 24) == 0 && z != 0);
+  CHECK(z != a && a != b && a != c && b != c);
   CHECK(book.GuestAddress({0xC0A80002, 1}) == a);  // stable
   CHECK(book.Resolve(a) == (Peer{0xC0A80002, 1}));
-  CHECK(book.Resolve(0xC0A80009) == (Peer{0xC0A80009, 0}));
+  CHECK(book.Resolve(z) == (Peer{0xC0A80002, 0}));
+  CHECK(book.Resolve(0xC0A80009) == (Peer{0xC0A80009, 0}));  // a raw address: an instance 0
+  CHECK(book.Resolve(LoopbackAddress(2)) == (Peer{LoopbackAddress(2), 2}));
   book.SetRoute(0xC0A80002, 0x64400001);  // its packets come over a VPN
   CHECK(book.Route(0xC0A80002) == 0x64400001);
   CHECK(book.Advertised(0x64400001) == 0xC0A80002);
@@ -203,18 +207,21 @@ void TwoInstances() {
   CHECK(b.IoControl(uint32_t(sb), 0x4004667F, pending) == 0 && pending == sizeof(hello));
   int32_t n = b.RecvFrom(uint32_t(sb), buffer, sizeof(buffer), 0, &from);
   CHECK(n == sizeof(hello) && !std::memcmp(buffer, hello, sizeof(hello)));
-  CHECK(from.ip == kLoopbackAdvertised && from.port == 1000);  // never a loopback address for the game
+  // a's handle (a secure-style address), and its port.
+  CHECK(AddressBook::IsHandle(from.ip) && from.port == 1000);
+  CHECK(b.book().Resolve(from.ip) == (Peer{kLoopbackAdvertised, 0}));
 
-  // b answers to that address: a hears it from b's stand-in address, and answers back to it.
+  // b answers to that address: a hears it from b's handle, and answers back to it.
   const char reply[] = "me";
   CHECK(b.SendTo(uint32_t(sb), reinterpret_cast<const uint8_t*>(reply), sizeof(reply), 0, &from) == sizeof(reply));
   readable = {uint32_t(sa)};
   CHECK(a.Select(&readable, nullptr, nullptr, 2000000) == 1);
   Stack::Address from_b;
   CHECK(a.RecvFrom(uint32_t(sa), buffer, sizeof(buffer), 0, &from_b) == sizeof(reply));
-  CHECK(from_b.ip == LoopbackAddress(1) && from_b.port == 1000);  // the address in its XNADDR
-  CHECK(a.book().Resolve(from_b.ip) == (Peer{LoopbackAddress(1), 1}));
-  CHECK(a.own_ip() == kLoopbackAdvertised && b.own_ip() == LoopbackAddress(1) && b.own_guest_ip() == b.own_ip());
+  CHECK(AddressBook::IsHandle(from_b.ip) && from_b.port == 1000);
+  CHECK(a.book().Resolve(from_b.ip) == (Peer{LoopbackAddress(1), 1}));  // the address in its XNADDR
+  CHECK(a.own_ip() == kLoopbackAdvertised && b.own_ip() == LoopbackAddress(1));
+  CHECK(AddressBook::IsHandle(b.own_guest_ip()));
   CHECK(a.SendTo(uint32_t(sa), reinterpret_cast<const uint8_t*>(hello), 4, 0, &from_b) == 4);
   readable = {uint32_t(sb)};
   CHECK(b.Select(&readable, nullptr, nullptr, 2000000) == 1);

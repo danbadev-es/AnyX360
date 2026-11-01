@@ -6,12 +6,11 @@
 // (Header) naming the sending instance, its address and the guest port it sent from, so that:
 // - several instances on one PC can each have their own host ports (guest port + port_offset +
 //   instance * kInstanceStride) and still be told apart;
-// - the address a guest sees for a peer is stable (AddressBook): the peer's own IPv4 address for an
-//   instance 0, a stand-in address (192.0.2.x, a range never routed) for the other instances, as a
-//   console's secure addresses are opaque too. On the "loopback" adapter each instance is a machine
-//   of its own instead, 198.51.100.1-4 (never routed either), and every datagram goes to 127.0.0.1:
-//   a datagram's sender is then the address in its XNADDR, which Halo 3 checks before it lets a
-//   peer join;
+// - the address a guest sees for a peer (XNetXnAddrToInAddr, a datagram's sender) is a stable
+//   handle shaped like the console's secure addresses, 0.1.x.y (AddressBook): Halo 3 only connects
+//   to an address whose first byte is 0. XNADDRs carry the real IPv4 address and the instance. On
+//   the "loopback" adapter each instance is a machine of its own, 198.51.100.1-4 (a range never
+//   routed), and every datagram goes to 127.0.0.1;
 // - a datagram the guest sends to the broadcast address goes to every instance's port on the
 //   chosen adapter's broadcast address, on the loopback address and on the configured peers.
 // There is no key exchange or encryption: both ends are AnyX360.
@@ -94,21 +93,22 @@ void MakeSystemLinkKeyId(uint8_t* id8, uint64_t random);
 // The addresses the guest sees, both ways.
 class AddressBook {
  public:
-  // An instance 0 is seen at its own address; the others get a stand-in, 192.0.2.1-254.
+  // A peer's handle, 0.1.0.1 and up, the same for as long as the process runs.
   uint32_t GuestAddress(const Peer& peer);
-  // The peer behind a guest address: a stand-in's, else instance 0 at that address.
+  // The peer behind a guest address: a handle's, else instance 0 at that address (one of the
+  // loopback adapter's addresses names its instance).
   Peer Resolve(uint32_t guest_ip) const;
   // Where a peer's packets come from when that isn't the address it advertises (a VPN, loopback).
   void SetRoute(uint32_t advertised, uint32_t seen);
   uint32_t Route(uint32_t advertised) const;
   // The advertised address a host address routes for, else itself.
   uint32_t Advertised(uint32_t seen) const;
-  static bool IsStandIn(uint32_t ip) { return (ip & 0xFFFFFF00u) == 0xC0000200u; }
+  static bool IsHandle(uint32_t ip) { return (ip & 0xFFFF0000u) == 0x00010000u; }
 
  private:
   mutable std::mutex mutex_;
-  std::unordered_map<uint64_t, uint32_t> stand_ins_;  // (ip << 8 | instance) -> stand-in
-  std::unordered_map<uint32_t, Peer> peers_;          // stand-in -> peer
+  std::unordered_map<uint64_t, uint32_t> handles_;  // (ip << 8 | instance) -> handle
+  std::unordered_map<uint32_t, Peer> peers_;        // handle -> peer
   std::unordered_map<uint32_t, uint32_t> routes_;     // advertised -> seen
   uint32_t next_ = 1;
 };

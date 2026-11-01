@@ -171,15 +171,13 @@ void MakeSystemLinkKeyId(uint8_t* id8, uint64_t random) {
 }
 
 uint32_t AddressBook::GuestAddress(const Peer& peer) {
-  // An instance 0, and the loopback adapter's instances (each has its own address): their own.
-  if (peer.instance == 0 || peer.ip == LoopbackAddress(peer.instance)) return peer.ip;
   std::lock_guard lock(mutex_);
   uint64_t key = uint64_t(peer.ip) << 8 | uint32_t(peer.instance);
-  if (auto it = stand_ins_.find(key); it != stand_ins_.end()) return it->second;
-  uint32_t stand_in = 0xC0000200u | (1 + (next_++ - 1) % 254);
-  stand_ins_[key] = stand_in;
-  peers_[stand_in] = peer;
-  return stand_in;
+  if (auto it = handles_.find(key); it != handles_.end()) return it->second;
+  uint32_t handle = 0x00010000u | (next_++ & 0xFFFF);  // 0.1.0.1, 0.1.0.2...
+  handles_[key] = handle;
+  peers_[handle] = peer;
+  return handle;
 }
 
 Peer AddressBook::Resolve(uint32_t guest_ip) const {
