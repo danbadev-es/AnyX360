@@ -314,7 +314,7 @@ int main() {
       const char* digest;
     } cases[] = {
         {"Jefe", "what do ya want for nothing?", "effcdf6ae5eb2fa2d27416d5f184df9c259a7c79"},
-        {std::string(80, 'ª'), "Test Using Larger Than Block-Size Key - Hash Key First",
+        {std::string(80, char(0xAA)), "Test Using Larger Than Block-Size Key - Hash Key First",
          "aa4ae5e15272d00e95705637ce8a3b55ed402112"},
     };
     const guest_addr context = kHeap + 0x1C00, key = kHeap + 0x1D00, message = kHeap + 0x1E00, out = kHeap + 0x1F00;
@@ -745,6 +745,13 @@ int main() {
     CHECK(kernel::SignInGuest(2) && profiles::GuestNumber(kernel::UserXuid(2)) == 2);
     CHECK(kernel::UserName(2) == profiles::GuestGamertag(kernel::UserName(0), 2));
     kernel::SignOutUser(2);
+    // A slot nobody is signed in to: an HRESULT (XAPI's XUserGetSigninInfo checks the sign bit).
+    ctx.r3.u64 = 2, ctx.r4.u64 = 0, ctx.r5.u64 = info;
+    __imp__XamUserGetSigninInfo(ctx, base);
+    CHECK(ctx.r3.u32 == 0x80070525 && mem.read<uint64_t>(info) == 0);
+    ctx.r3.u64 = 2, ctx.r4.u64 = 1, ctx.r5.u64 = info;
+    __imp__XamUserGetXUID(ctx, base);
+    CHECK(ctx.r3.u32 == 0x80070525);
     // The title unlocks achievement 1 for the guest: nothing, not even for the session.
     mem.write<uint32_t>(request, 1);
     mem.write<uint32_t>(list + 0, 1), mem.write<uint32_t>(list + 4, 1);

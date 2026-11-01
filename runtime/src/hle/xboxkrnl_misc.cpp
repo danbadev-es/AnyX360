@@ -71,9 +71,7 @@ uint32_t XexGetModuleHandle(uint32_t name_ptr, uint32_t handle_ptr) {
 
 uint32_t XexGetModuleSection(uint32_t module, uint32_t name_ptr, uint32_t data_ptr, uint32_t size_ptr) {
   uint32_t address, size;
-  const bool found = FindXexResource(Ptr<const char>(name_ptr), address, size, module);
-  KLOG_T("XexGetModuleSection(%08X, %s): %s", module, Ptr<const char>(name_ptr), found ? "found" : "not found");
-  if (!found) return X_STATUS_OBJECT_NAME_NOT_FOUND;
+  if (!FindXexResource(Ptr<const char>(name_ptr), address, size, module)) return X_STATUS_OBJECT_NAME_NOT_FOUND;
   if (data_ptr) Store<uint32_t>(data_ptr, address);
   if (size_ptr) Store<uint32_t>(size_ptr, size);
   return X_STATUS_SUCCESS;

@@ -291,12 +291,16 @@ uint32_t XamUserGetSigninState(uint32_t user_index) {
 // XUSER_SIGNIN_INFO: xuid (0), flags (8), state (0xC), guest number (0x10), sponsor (0x14),
 // name (char[16], 0x18). A guest has XUSER_INFO_FLAG_GUEST, their number and their sponsor's index.
 constexpr uint32_t kUserInfoFlagGuest = 0x00000002;
+constexpr uint32_t kHrNoSuchUser = 0x80070525;  // HRESULT_FROM_WIN32(ERROR_NO_SUCH_USER)
 uint32_t XamUserGetSigninInfo(uint32_t user_index, uint32_t flags, uint32_t info) {
   (void)flags;
   std::memset(Ptr(info), 0, 0x28);
   auto user = GetUser(user_index);
-  LogOtherUser("XamUserGetSigninInfo", user_index, user ? 0 : X_ERROR_NO_SUCH_USER);
-  if (!user) return X_ERROR_NO_SUCH_USER;
+  // An HRESULT, as XAM's (and Xenia's): XAPI's XUserGetSigninInfo takes a non-negative result for
+  // success. With ERROR_NO_SUCH_USER (positive) Halo 3 took players 2-4 for signed in, put them
+  // in its lobby without a controller and wouldn't start a game ("controller disconnected").
+  LogOtherUser("XamUserGetSigninInfo", user_index, user ? 0 : kHrNoSuchUser);
+  if (!user) return kHrNoSuchUser;
   Store<uint64_t>(info + 0x00, user->xuid);
   Store<uint32_t>(info + 0x0C, 1);
   if (user->guest) {
@@ -311,8 +315,8 @@ uint32_t XamUserGetSigninInfo(uint32_t user_index, uint32_t flags, uint32_t info
 uint32_t XamUserGetXUID(uint32_t user_index, uint32_t type_mask, uint32_t xuid_ptr) {
   (void)type_mask;
   auto user = GetUser(user_index);
-  LogOtherUser("XamUserGetXUID", user_index, user ? 0 : X_ERROR_NO_SUCH_USER);
-  if (!user) return X_ERROR_NO_SUCH_USER;
+  LogOtherUser("XamUserGetXUID", user_index, user ? 0 : kHrNoSuchUser);
+  if (!user) return kHrNoSuchUser;  // an HRESULT, as XamUserGetSigninInfo's
   if (xuid_ptr) Store<uint64_t>(xuid_ptr, user->xuid);
   return X_ERROR_SUCCESS;
 }
@@ -350,7 +354,6 @@ uint32_t XamUserGetDeviceContext(uint32_t user_index, uint32_t unknown, uint32_t
   return GetUser(user_index) ? X_ERROR_SUCCESS : X_ERROR_NO_SUCH_USER;
 }
 
-constexpr uint32_t kHrNoSuchUser = 0x80070525;  // HRESULT_FROM_WIN32(ERROR_NO_SUCH_USER)
 
 uint32_t XamUserGetIndexFromXUID(uint64_t xuid, uint32_t flags, uint32_t index_ptr) {
   (void)flags;
@@ -1216,6 +1219,11 @@ uint32_t XamInputSetState(uint32_t user_index, uint32_t unknown, uint32_t vibrat
   (void)unknown;
   user_index &= 0xFF;
   if (user_index >= 4) return X_ERROR_DEVICE_NOT_CONNECTED;
+  // As XInputSetState on the console (and Xenia): an absent controller isn't there. Halo 3 counts
+  // the controllers its vibration reaches: with success for all four it took players 2-4 for
+  // present players without a controller, and wouldn't start a game ("controller disconnected").
+  XINPUT_GAMEPAD pad;
+  if (!ReadPad(user_index, pad)) return X_ERROR_DEVICE_NOT_CONNECTED;
   x360::input::SetVibration(user_index, Load<uint16_t>(vibration), Load<uint16_t>(vibration + 2));
   return X_ERROR_SUCCESS;
 }
@@ -1878,6 +1886,12 @@ uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_
       }
     case 0xFA:  // XMP (background music player): always idle
       switch (message) {
+        case 0x0007001B:  // XMPGetPlaybackController {client, controller*, locked*}
+          // The title has the playback (Game, 0), unlocked. Unanswered, Halo 3 found the user's
+          // music playing and showed its "music notice" before the campaign, again and again.
+          if (uint32_t controller = Load<uint32_t>(buffer + 4)) Store<uint32_t>(controller, 0);
+          if (uint32_t locked = Load<uint32_t>(buffer + 8)) Store<uint32_t>(locked, 0);
+          return kHrSuccess;
         case 0x00070009:  // XMPGetStatus {client, state_ptr}
           if (uint32_t state = Load<uint32_t>(buffer + 4)) Store<uint32_t>(state, 0);
           return kHrSuccess;
