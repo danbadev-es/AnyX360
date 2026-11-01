@@ -15,7 +15,7 @@ locally, nothing goes to the network, no firewall prompt.
 | Game | Status |
 |---|---|
 | Halo 3 | **Works on one PC**: host, find, join, custom game (Slayer on Last Resort) with two players. Campaign co-op over System Link is refused by the game's hard drive check (below). |
-| Halo: Reach | See [Games](#games). |
+| Halo: Reach | **Hosts and finds**: each copy's roster lists the other's System Link party. Joining doesn't start yet (below). |
 | Gears of War 3, MW3, Black Ops II | Not tried yet. |
 
 ## Turning it on
@@ -46,11 +46,17 @@ Spanish), then Host game or Find game.
 
 ## Playing
 
+**Every player needs a profile of their own** (the launcher's profiles: each has its own XUID).
+Games tell players apart by XUID: a player without a profile, and the profile carried over from
+before profiles existed (XUID `E000000012345678`), have the same XUID on every copy of AnyX360,
+and Halo: Reach then takes the other copy's party for its own and doesn't list it. The log warns
+about it when System Link starts.
+
 ### Two copies on one PC
 
-1. Give each copy its own user folder: for example two folders, each with its own
-   `settings.toml`, started with `--user <folder>` (or two Windows accounts). The copies must not
-   share a profile.
+1. Give each copy its own AnyX360 folder, so each has its own profiles and settings: for example
+   two folders started with `--user <folder>\<game>` (the profiles live next to the game's
+   folder), or two Windows accounts. Each copy signs in with a different profile.
 2. Turn System Link on in both, with `adapter = "loopback"` (no firewall prompt) or `"auto"`.
 3. Start both. The first is instance 0, the second instance 1: its window title ends in
    "(System Link 2)".
@@ -139,9 +145,10 @@ instance number 0-3, to that instance's host port on the adapter's broadcast add
 - `XNetGetTitleXnAddr` reports the adapter's IPv4 address in `ina`, and an `abEnet` (MAC) that
   names the instance: `02|instance<<4`, the address's 4 bytes, `'X'` (locally administered, so
   unique per PC and instance). The link status is "active, 100 Mbps, full duplex".
-- The addresses the game sees for peers (`XNetXnAddrToInAddr`, a datagram's sender, `accept`,
-  `getpeername`) are **handles shaped like the console's secure addresses**, 0.1.x.y, one per peer
-  and instance for as long as the process runs. A real console's secure addresses are opaque
+- The addresses the game sees for peers (`XNetXnAddrToInAddr`, a unicast datagram's sender,
+  `accept`, `getpeername`) are **handles shaped like the console's secure addresses**, 0.1.x.y,
+  one per peer and instance for as long as the process runs. A broadcast's sender is its plain
+  address (the one in its XNADDR), as on the console, where broadcasts aren't secured. A real console's secure addresses are opaque
   0.x.x.x values too, and Halo 3 only connects to an address whose first byte is 0 (its observer,
   `823B7420`, refuses any other: "can't join, incompatible network configuration").
   `XNetInAddrToXnAddr` maps a handle back to the peer's XNADDR.
@@ -186,7 +193,22 @@ What it took: the link status and XNADDR, real sockets, and the secure-style add
 
 ### Halo: Reach
 
-See the status table above.
+Tested the same way, each copy with its own profile:
+
+1. Main menu > Custom (or any mode), **Y: Select network > System Link games**: "this party is
+   open to System Link".
+2. The other copy does the same: its roster gets a **System Link** section listing the first
+   copy's party (mode, players), and the player's card offers "X: Join". Both copies list each
+   other.
+3. **Joining doesn't start**: Join (X, or A > Join player) does nothing, and the copy sends
+   nothing and makes no XNet call; the game refuses before connecting. Where to resume: the
+   roster's join action, as Halo 3's join was found (Halo 3's observer `823F35E0`/`823B7420`, its
+   join state machine `8243BCB8`).
+
+What it took so far: the two players must have different XUIDs (above); with the same one each
+copy accepted the other's search replies (`8232DE90` adds them to the results) but its roster
+showed nothing. Broadcasts' senders are reported as plain addresses (changed in the same run). The
+game binds UDP 1000 (VDP) and 1001 (broadcasts).
 
 ## Known issues and limits
 

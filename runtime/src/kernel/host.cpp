@@ -253,8 +253,16 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   if (game.fixed_fps) settings::Override([&](Settings& s) { s.display.target_fps = game.fixed_fps; });
   info.display = settings::Get().display;
   // System Link: the adapter and this PC's instance are chosen now (the window's title names it).
-  if (settings::Get().network.enabled)
-    net::Global().Start(settings::Get().network, [](const std::string& line) { KLOG_I("%s", line.c_str()); });
+  if (settings::Get().network.enabled &&
+      net::Global().Start(settings::Get().network, [](const std::string& line) { KLOG_I("%s", line.c_str()); })) {
+    // Players are told apart by their XUIDs: the pre-profile one (and a player without a profile)
+    // is the same on every copy of AnyX360, and Halo: Reach hides a party whose player is "us".
+    const uint64_t xuid = info.players[0].xuid ? info.players[0].xuid : profiles::kLegacyXuid;
+    if (xuid >= profiles::kLegacyXuid && xuid < profiles::kLegacyXuid + profile::kPlayers)
+      KLOG_W("system link: player 1 plays as %s, the XUID every copy without a profile of its own has; "
+             "other copies may take them for their own player. Create a profile in the launcher.",
+             profiles::XuidText(xuid).c_str());
+  }
   gpu::SetVblanksPerFrame(game.vblanks_per_frame);
   gpu::SetFixedFps(game.fixed_fps);
   {

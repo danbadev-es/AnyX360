@@ -687,8 +687,10 @@ int32_t Stack::ReceiveDatagram(Sock& sock, uint8_t* data, uint32_t length, uint3
     uint32_t copied = std::min(payload, length);
     if (copied) std::memcpy(data, packet.data() + kHeaderSize, copied);
     if (from) {
+      // A broadcast isn't secured on the console: its sender is the plain address its XNADDR has
+      // (Halo: Reach drops a search reply from any other). The rest come from a secure address.
       uint32_t advertised = header->advertised_ip ? header->advertised_ip : seen;
-      from->ip = book_.GuestAddress({advertised, header->instance});
+      from->ip = (header->flags & kFlagBroadcast) ? advertised : book_.GuestAddress({advertised, header->instance});
       from->port = header->guest_port;
     }
     if (trace_)

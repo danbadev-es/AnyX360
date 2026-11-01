@@ -207,8 +207,8 @@ void TwoInstances() {
   CHECK(b.IoControl(uint32_t(sb), 0x4004667F, pending) == 0 && pending == sizeof(hello));
   int32_t n = b.RecvFrom(uint32_t(sb), buffer, sizeof(buffer), 0, &from);
   CHECK(n == sizeof(hello) && !std::memcmp(buffer, hello, sizeof(hello)));
-  // a's handle (a secure-style address), and its port.
-  CHECK(AddressBook::IsHandle(from.ip) && from.port == 1000);
+  // A broadcast comes from a's plain address (the one in its XNADDR), and its port.
+  CHECK(from.ip == kLoopbackAdvertised && from.port == 1000);
   CHECK(b.book().Resolve(from.ip) == (Peer{kLoopbackAdvertised, 0}));
 
   // b answers to that address: a hears it from b's handle, and answers back to it.

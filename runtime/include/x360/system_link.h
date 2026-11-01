@@ -145,6 +145,7 @@ class Stack {
   bool started() const { return started_; }
   int instance() const { return instance_; }
   const Adapter& adapter() const { return adapter_; }
+  const Config& config() const { return config_; }
   // This instance's address in XNADDRs (the adapter's; 198.51.100.1-4 on loopback), and as
   // the guest sees it.
   uint32_t own_ip() const { return advertised_; }

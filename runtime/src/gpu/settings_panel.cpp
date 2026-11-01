@@ -460,6 +460,36 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
       ImGui::EndTable();
     }
     EndCard();
+
+    // System Link ([network]): read when the game starts.
+    BeginCard("System Link");
+    if (BeginRows("##network")) {
+      bool on = s.network.enabled;
+      Row("System Link", "Local-network play with other copies of AnyX360: on this PC, a LAN or a LAN-style VPN.");
+      if (Toggle("##syslink", &on)) settings::Update([on](Settings& st) { st.network.enabled = on; });
+      int where = s.network.adapter == "loopback" ? 1 : s.network.adapter == "auto" ? 0 : 2;
+      Row("Network", "Another adapter (a VPN: Tailscale, ZeroTier, Radmin) is set in settings.toml.");
+      if (where == 2) {
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextDisabled("%s (settings.toml)", s.network.adapter.c_str());
+      } else if (Segmented("##adapter", &where, {{"LAN", 0}, {"This PC only", 1}})) {
+        settings::Update([where](Settings& st) { st.network.adapter = where ? "loopback" : "auto"; });
+      }
+      ImGui::EndTable();
+    }
+    net::Stack& link = net::Global();
+    if (link.started()) {
+      char text[160];
+      std::snprintf(text, sizeof(text), "On: %s, %s, copy %d on this PC.", link.adapter().name.c_str(),
+                    net::IpText(link.adapter().ip).c_str(), link.instance() + 1);
+      ImGui::TextDisabled("%s", text);
+    }
+    if (s.network.enabled != link.started() || (link.started() && s.network.adapter != link.config().adapter)) {
+      ColoredText(color::kAmber, "System Link changes apply after a restart.");
+      if (ImGui::Button("Restart now##syslink")) PostToUIThread(RestartNow);
+      ImGui::SetItemTooltip("Saves the settings and starts the game again. Progress since the last checkpoint is lost.");
+    }
+    EndCard();
   }
 
   void DrawControls(const Settings& s) {
