@@ -8,7 +8,7 @@ to the front cover and compressed, to identify the games AnyX360 plays or will p
 
 - One file per game: `<slug>.jpg` (or `.png`). The slug is the game's English title in lower case,
   its words joined by hyphens, without platform, region, edition or IDs: `gears-of-war-3.jpg`,
-  `kinect-sports-ultimate-collection.jpg`, `call-of-duty-black-ops-ii.jpg`, `fifa-19.jpg`.
+  `guitar-hero-iii-legends-of-rock.jpg`, `call-of-duty-black-ops-ii.jpg`, `fifa-19.jpg`.
 - A full wraparound scan (back, spine and front of the Xbox 360 case, about 1.49:1, any size), or
   the front cover alone, one page (between 3:5 and 4:5, kept whole; Xbox Live Arcade titles only
   have this). The launcher and the packaging take the front from a wraparound: the right 47.3 % of
