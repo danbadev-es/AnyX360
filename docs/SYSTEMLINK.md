@@ -16,8 +16,9 @@ locally, nothing goes to the network, no firewall prompt.
 |---|---|
 | Halo 3 | **Works on one PC**: host, find, join, custom game (Slayer on Last Resort) with two players. Campaign co-op over System Link is refused by the game's hard drive check (below). |
 | Halo: Reach | **Hosts and finds**: each copy's roster lists the other's System Link party. Joining doesn't start yet (below). |
-| Gears of War 3, Black Ops II | Their System Link modes not tried yet. Their campaigns play as before with System Link on (real sockets) and off. |
-| Modern Warfare 3 | Not tried yet. |
+| Gears of War 3 | **Works on one PC**: a System Link party hosted, found and joined, a private Versus match (Team Deathmatch on Sandbar) with both players. |
+| Modern Warfare 3 | **Works on one PC**: a match hosted, listed once it has started, joined in progress and played (Team Deathmatch on Seatown). |
+| Black Ops II | **Works on one PC**: a lobby hosted, listed, joined and a match played (Team Deathmatch on Aftermath). Zombies not tried yet. |
 
 ## Turning it on
 
@@ -213,6 +214,59 @@ copy accepted the other's search replies (`8232DE90` adds them to the results) b
 showed nothing. Broadcasts' senders are reported as plain addresses (changed in the same run). The
 game binds UDP 1000 (VDP) and 1001 (broadcasts).
 
+### Gears of War 3
+
+Works with no change to the game (two copies on one PC, each with its own profile, 2026-11-01):
+
+1. Copy A, main menu: **BACK** (party options) > **System Link** ("Interconexión") > A: the System
+   Link browser; **Y: Create party**. The main menu shows "Party type: System Link" with A as the
+   leader.
+2. Copy B the same way: the browser lists A's party (leader, 1/10); **A: Join**. Both party lists
+   show both players. (The first time, B is asked to set its multiplayer preferences.)
+3. A: **Versus > Private > Team Deathmatch** > A (start) > A (yes): the pre-game lobby with both
+   players and bots; START (choose map: Sandbar), START (start): **both play the match**, the
+   scoreboard listing both.
+
+The game sets its system link port to 14000 (`XNetSetSystemLinkPort`) and binds VDP 1000 (the
+game), UDP 14001 (the party browser's broadcasts) and VDP 1001. The host registers QoS data
+(`XNetQosListen`); nobody looks it up.
+
+### Modern Warfare 3
+
+The multiplayer program (`ModernWarfare3MP.exe`; [MODERNWARFARE3.md](MODERNWARFARE3.md#multiplayer)):
+
+1. Copy A: **System Link > Create game** opens the host's lobby; **Start game** starts the match.
+2. Copy B: **System Link > Join game**: the list shows A's game (host, map, players, mode) **once
+   A's match has started**; A joins it: team choice, class, and both play (Team Deathmatch on
+   Seatown, the scoreboard listing both).
+
+**A host's lobby isn't listed**, only a running match. That is the game's own code: the search is
+a broadcast `getinfo`, and only the server answers it (`SV_ConnectionlessPacket`, `822CDD20`),
+which runs only while the `sv_running` dvar is set, that is once the match has started; in the
+lobby the packet goes to the client's handler, which ignores it. Players join a match in progress,
+as with a dedicated server.
+
+What it took: **`XMsgStartIORequest` without an overlapped now sets the thread's last error**. The
+joining copy creates its client session with `XSessionCreate`, whose XAM wrapper (`825266A0`)
+reads `GetLastError()` after a successful synchronous request and fails the session when it isn't 0.
+A stale error from an earlier call failed it, and the main thread then waited for ever (0 frames).
+The game binds VDP 1000, UDP 1013 and UDP 1001 (broadcasts).
+
+### Black Ops II
+
+The multiplayer program (`BlackOps2MP.exe`; [BLACKOPS2.md](BLACKOPS2.md#multiplayer-and-zombies)),
+with no change to the game:
+
+1. Copy A: **System Link > Create game**: the host's lobby (Start match, Game setup, Adjust bots).
+2. Copy B: **System Link > Join game**: the list shows A's lobby (host, map, players, mode, "Lobby");
+   A joins: both lobbies list both players.
+3. A: **Start match**: each picks a class and both play (Team Deathmatch on Aftermath, the
+   scoreboard listing both).
+
+It binds VDP 1000 and UDP 1001, registers the session key (`XNetRegisterKey`) and connects to the
+host's secure-style address (`XNetConnect`). "NAT: Strict" in the lobby is the Xbox LIVE NAT type;
+it doesn't affect System Link. Zombies over System Link hasn't been tried.
+
 ## Known issues and limits
 
 - Two PCs and a VPN haven't been tested yet (only one PC): the design is meant for them, and the
@@ -220,8 +274,11 @@ game binds UDP 1000 (VDP) and 1001 (broadcasts).
 - Copies on one PC with `adapter = "auto"` rely on Windows delivering a subnet broadcast to the
   PC's own sockets as well as unicast copies to 127.0.0.1; `loopback` is the sure way on one PC.
   Mixing copies on one PC with copies on other PCs works only through `auto`.
-- `XNetQosLookup` doesn't carry the host's QoS data; a game that shows it (ping bars, a host's
-  description) shows nothing there.
+- `XNetQosLookup` doesn't carry the host's QoS data (what it registered with `XNetQosListen`); a
+  game that shows it (ping bars, a host's description) would show nothing there. None of the games
+  tried needs it: Gears of War 3's host listens but no copy looks it up, Modern Warfare 3 and
+  Black Ops II make no QoS calls in System Link, and Halo 3 joins with the lookup's answer as it
+  is.
 - TCP connections between copies on one PC all appear to come from instance 0 (no header on
   streams); the games tested use UDP only.
 - Xbox LIVE, its matchmaking and its services are not part of this and never will be.

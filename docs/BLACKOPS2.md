@@ -166,8 +166,10 @@ descriptor as the campaign: one vblank per frame (60 FPS), main thread on hardwa
   ("Error modifying the game"). It succeeds now.
 
 ### Status (2026-10-20, scripted pads)
-- **Menus**: multiplayer and Zombies, at 60 FPS. Xbox LIVE needs an Xbox LIVE sign-in; System
-  Link shows "you must have an active network connection".
+- **Menus**: multiplayer and Zombies, at 60 FPS. Xbox LIVE needs an Xbox LIVE sign-in. System
+  Link (with `[network] enabled`) hosts, lists and joins lobbies between copies of AnyX360
+  ([SYSTEMLINK.md](SYSTEMLINK.md#black-ops-ii)); without it the menu says "you must have an active
+  network connection".
 - **Local split screen, multiplayer**: the Local lobby (Start match, Game setup, Adjust bots,
   Create a class, Scorestreaks) on Aftermath, Team Deathmatch. Player 2 presses A to join: with
   `sign_in = "at_start"` they are already signed in; with `"on_demand"` (the default) the game
@@ -507,7 +509,8 @@ accepts and V or Backspace goes back.
   "ELIMINA 3 458 4368...").
 - Four players run at 37-51 FPS on the test machine, and two players at 45-60 in heavy moments
   (Zombies especially: see the split screen frame rate above).
-- Xbox LIVE and System Link aren't available (no network play).
+- Xbox LIVE isn't available. System Link is: a multiplayer match between two copies on one PC was
+  played; Zombies over System Link and two PCs haven't been tried.
 - Not tried: Zombies with three or four players, Survival and the Farm location, Zombies'
   custom game options, other multiplayer modes and maps, a match played to its end, the Zombies
   box's Multiplayer choice.

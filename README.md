@@ -201,8 +201,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 - **System Link** (in testing) - The console's local-network play between copies of AnyX360: two
   to four on one PC, PCs on a LAN, or PCs over the internet through a LAN-style VPN (ZeroTier,
   Radmin VPN, Tailscale), with no server. Off by default: F2 > Players > System Link, or
-  `[network]` in `settings.toml`. Each player needs a profile of their own. Halo 3 so far
-  ([docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)).
+  `[network]` in `settings.toml`. Each player needs a profile of their own. Halo 3, Gears of War 3,
+  Modern Warfare 3 and Black Ops II so far ([docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)).
 
 ### General
 
@@ -296,6 +296,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Campaign                         | ✅ Playable                                    |
 | Private Horde                    | ✅ Playable                                    |
 | Local split screen (2-4 players) | ✅ Playable                                    |
+| System Link                      | 🧪 Two copies on one PC: a party hosted, found and joined, a private Versus match (Team Deathmatch on Sandbar) played |
 | Online (Xbox Live, Versus)       | ❌ Not available: Xbox 360's Xbox Live is gone |
 
 | Dance Central 3                  | Status                                         |
@@ -377,7 +378,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; split screen matches on Seatown played (two and three players) |
 | Downloadable maps                | 🧪 Offered (Game Setup > Map > Bonus maps); a split screen match on Piazza played |
 | Title Update (0.0.23.8)          | ✅ Required: both programs are recompiled from it |
-| Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link finds no games |
+| System Link                      | 🧪 Two copies on one PC: a match hosted, found once it starts, joined and played (Team Deathmatch on Seatown) |
+| Xbox LIVE                        | ❌ Not available: Xbox LIVE is gone            |
 
 | Kinect Party                     | Status                                         |
 | -------------------------------- | ---------------------------------------------- |
@@ -397,7 +399,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Zombies, split screen            | 🧪 TranZit alone and with two players, Grief with two played; three or four players not tried yet |
 | Downloadable maps                | 🧪 Offered; Magma (Uprising) in split screen and Die Rise (Zombies) with two players played |
 | Title Update (0.0.18.14)         | ✅ Required: both programs are recompiled from it |
-| Xbox LIVE, System Link           | ❌ Not available: Xbox LIVE is gone; System Link needs a network |
+| System Link                      | 🧪 Two copies on one PC: a lobby hosted, found, joined and a match played (Team Deathmatch on Aftermath); Zombies not tried yet |
+| Xbox LIVE                        | ❌ Not available: Xbox LIVE is gone            |
 
 | Call of Duty: Black Ops III      | Status                                         |
 | -------------------------------- | ---------------------------------------------- |

@@ -92,9 +92,18 @@ that the co-op campaign in split screen stuttered.
   draws. There is room to spare, so no Xenia option was needed (Black Ops II's
   `d3d12_submit_on_primary_buffer_end=false` addresses a command processor limit, which this
   isn't).
-- **One host core busy all the time:** the guest thread `NETWORK_RECEIVE` uses 90-100% of a core
-  from the start, even with no sockets (`ANYX360_NO_SOCKETS`). It polls in a loop. It costs a
-  core, not frame rate. System Link work on `xam_net` may change what it waits on.
+- **Fixed: one host core busy all the time.** The guest thread `NETWORK_RECEIVE` (started at
+  `8242C238`, its loop `82441408`) used 90-100% of a core from the start, with System Link on or
+  off. Its loop is `while (running) { if (network up) { lock; receive (822A5D28); unlock; }
+  Sleep(0); }`. The receive step waits in `select()` for up to 15 ms (`822A4C90`), but only on
+  the sockets the game has open: at the menus, in the campaign and with System Link off it has
+  none, so the loop was `Sleep(0)` after `Sleep(0)`. On the console that thread has a hardware
+  thread of its own. That `Sleep(0)` (`827E14A0` returning to `824414D0`) now sleeps for a
+  millisecond ([games/reach/src/network_thread.cpp](../games/reach/src/network_thread.cpp));
+  data arriving meanwhile waits in the socket for the next `select()`. Measured with each
+  thread's CPU time (`GetThreadTimes`, 5 s samples): 39-52% of a core before at the title menus
+  (the machine was busy; up to 90-100% idle), **0.3-1.2%** after with System Link off, and 0-0.6%
+  hosting a System Link party.
 
 ## Status (2026-11-01)
 - **Boot**: the first-run welcome screen (choose the Spartan's gender), the Armory (helmet,

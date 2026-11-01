@@ -8,6 +8,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **System Link** in **Gears of War 3** (a party hosted, found and joined, a private Versus match
+  played), **Modern Warfare 3** (a match hosted, found once it has started, joined in progress and
+  played) and **Black Ops II** (a lobby hosted, found, joined and a match played), each tested
+  with two copies on one PC ([docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)).
+
+### Fixed
+
+- **Halo: Reach**: the `NETWORK_RECEIVE` thread took a whole host core all the time (its idle
+  loop called `Sleep(0)` without end when the game had no sockets open, with System Link on or
+  off). It now sleeps a millisecond there: 0.3-1.2% of a core instead of 40-100%.
+- `XMsgStartIORequest` without an overlapped leaves its result as the thread's last error, as
+  XAM's synchronous wrappers expect: a stale error failed Modern Warfare 3's `XSessionCreate`
+  when joining a System Link game, and the game then waited for ever.
+
 ## [0.32.0] - 2026-11-01
 
 System Link between copies of AnyX360 (Halo 3), the Halo games at their speed and Reach's faces, and Doritos Crash Course's sound.

@@ -174,8 +174,9 @@ On the console, `XamLoaderLaunchTitle` ends the title and boots the XEX it names
 ### Status (2026-10-20, scripted pads)
 - **Menus**: Xbox LIVE, Split Screen, System Link, Elite, Theater, Store, Options and Main Menu,
   at 60 FPS. No imports were missing besides `XamShowGameVoiceChannelUI` (a system UI stub).
-- **Online**: Xbox LIVE shows "you have to sign in to Xbox LIVE" and returns to the menu; System
-  Link opens an empty game list (sockets are local; nothing else is on the network).
+- **Online**: Xbox LIVE shows "you have to sign in to Xbox LIVE" and returns to the menu. System
+  Link plays between copies of AnyX360 since 0.33.0 ([SYSTEMLINK.md](SYSTEMLINK.md#modern-warfare-3)):
+  a host's game is listed once its match has started, and others join it in progress.
 - **Split screen**: in the sign-in screen each player presses A in their quadrant; player 2
   joins as a guest ("Guest 2"), or presses X (sign-in profile) and chooses or creates their
   profile in the sign-in picker (0.20.0; checked on 2026-10-29: "Ana" made on the on-screen
@@ -236,8 +237,8 @@ start). Alone: `78:LEFT,81:A,88:A,98:DOWN,100:DOWN,105:A,112:A,118:A,124:A,130:A
   memory), and in none of 6 starts (3 of 0.17.0's base build, 3 of the updated one) once it was
   quieter. Starting again works.
 - Fixed by the Title Update (0.18.0): the DLC maps weren't offered on the base executables.
-- Not tried: four players, a match played to its end, other modes, hosting a System Link game,
-  the Special Ops missions.
+- Not tried: four players, a match played to its end, other modes, System Link between PCs, the
+  Special Ops missions.
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `415608CB`):

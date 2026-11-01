@@ -59,7 +59,8 @@ reads as a PPC405 instruction. Bink is better replaced by a native decoder anywa
   with D3D12 so resolves become ordinary render-target copies.
 - **Streaming**: seamless level streaming from disc. The VFS has to be fast and fully asynchronous.
 - **Online**: Xbox Live for the 360 is gone. The scope is campaign, local split-screen and Horde
-  offline.
+  offline, and System Link between copies of AnyX360 ([SYSTEMLINK.md](SYSTEMLINK.md#gears-of-war-3):
+  a private Versus match played by two copies on one PC, with no change to the game).
 
 ## Reproducing (from the 7z in `Raw/`)
 ```bat
