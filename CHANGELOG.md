@@ -19,10 +19,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - The kernel's XMA context functions (`XMAInitializeContext`, `XMAEnableContext`,
   `XMASetInputBuffer0Valid`...), which games built with the older XAudio library use for their
   compressed audio: Guitar Hero III was silent without them.
+- **Diablo III: Reaper of Souls – Ultimate Evil Edition** (in testing,
+  [docs/DIABLO3.md](docs/DIABLO3.md)): Blizzard's action RPG from a Games on Demand copy with its
+  title update (version 0.0.2.14, recompiled from it): hero creation, the start of Act I, the saves
+  and local co-op with up to four controllers. Short freezes every few seconds are still to fix.
+- The on-screen keyboard can accept the text it is opened with, for a game that needs an answer
+  (Diablo III names a new hero with it); the other games still see it cancelled.
 
 ### Changed
 
-- Guitar Hero III leaves "Coming soon".
+- Guitar Hero III and Diablo III leave "Coming soon".
 - XenonAnalyse (the fork) says where a fixed-pattern jump table lies when it is inside the code,
   as older compilers put it right after the jump: the function analyser no longer cuts those
   functions at the table (1,922 cut switch cases in Guitar Hero III).

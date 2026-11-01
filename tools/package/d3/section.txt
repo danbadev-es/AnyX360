@@ -1,0 +1,17 @@
+DIABLO III: REAPER OF SOULS - ULTIMATE EVIL EDITION (in testing)
+==========================================================
+Your copy: the Games on Demand package (in an archive or a folder), and its title update (the
+394F07D4\000B0000 package next to it, or added alone afterwards): the game needs it (version
+0.0.2.14). Its downloadable content is installed too.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\Diablo3
+
+CONTROLS
+Played with a controller, as on the console. One to four players on the same screen: give each
+player a controller in F2 > Players. A new player presses a button on their controller, then
+chooses or creates their hero.
+
+KNOWN ISSUES
+- The picture freezes for about half a second several times every few seconds while playing.
+- In testing: hero creation, the start of Act I, the saves and co-op have been played; Adventure
+  Mode hasn't been reached.
+- New heroes take the name the game proposes (there is no on-screen keyboard).
