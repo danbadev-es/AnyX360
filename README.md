@@ -92,6 +92,10 @@ the sensor.
   (version 0.0.3.5): the campaign (Sierra 117, checkpoints, Save and quit) and split screen for up to
   four players, in co-op or a custom game, each with a controller; a short pause about once a
   second is still to fix and the map packs aren't offered yet ([docs/HALO3.md](docs/HALO3.md)).
+- **Halo: Reach** (in testing): Bungie's prequel from a Games on Demand copy with its title update
+  (version 0.0.1.7): the first-run Spartan, the Armory, the campaign (Winter Contingency,
+  checkpoints) and its co-op for two players on one screen; the same short pause as Halo 3's
+  ([docs/HALOREACH.md](docs/HALOREACH.md)).
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
 carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for. Your
@@ -114,8 +118,8 @@ own avatar is made in the launcher's avatar editor and plays in every avatar gam
    2 GB for Kinect Joy Ride, 1 GB for Kinect Party, 8 GB for Resident Evil 6 (3 GB more for its
    downloadable content), 2 GB for Minecraft (1 GB more for its downloadable content) and 6 GB for
    Call of Duty: Black Ops III (4 GB more for its downloadable content) and 4 GB for Guitar Hero III
-   (3 GB more for its downloadable songs), 8 GB for Diablo III and 6 GB for Halo 3 (2 GB more for
-   its map packs).
+   (3 GB more for its downloadable songs), 8 GB for Diablo III, 6 GB for Halo 3 (2 GB more for
+   its map packs) and 7 GB for Halo: Reach (3 GB more for its map packs).
 3. Run **`AnyX360.exe`** and accept the terms of use.
 4. Choose **Add game** (the **+** tile), or drop your copy on the window, as you have it:
    - **A file**: an archive of any kind (.7z, .rar, .zip, split or not, .tar.gz...), a disc image
@@ -134,8 +138,8 @@ own avatar is made in the launcher's avatar editor and plays in every avatar gam
 
    **Title updates.** A game AnyX360 plays with its title update (Kinect Adventures, Fruit Ninja
    Kinect, Doritos Crash Course, Kinect Sports, Kinect Joy Ride, Resident Evil 6, Modern Warfare 3,
-   Black Ops II, Black Ops III, Minecraft, Guitar Hero III, Diablo III and Halo 3; for the Call of
-   Duty games, both programs) is
+   Black Ops II, Black Ops III, Minecraft, Guitar Hero III, Diablo III, Halo 3 and Halo: Reach; for
+   the Call of Duty games, both programs) is
    recompiled from the updated executable: the launcher installs the update from the copy (the
    `TU_…` file, or a `<TitleID>\000B0000\` package) and the game is ready only with it. Its version
    must be the one AnyX360 plays; another is left out. A copy added without it shows "Needs its
@@ -449,6 +453,17 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Title update (0.0.3.5)           | ✅ Required: the game is recompiled from it    |
 | Matchmaking (Xbox LIVE)          | ❌ Not available: Xbox LIVE is gone            |
 
+| Halo: Reach                      | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Start-up, menus, the Armory      | ✅ Working; the Spartan and the credits are kept |
+| Campaign                         | 🧪 Winter Contingency played; checkpoints      |
+| Split screen                     | 🧪 Two players in co-op on Winter Contingency; three or four not tried yet |
+| Smoothness                       | ❌ A pause of about 400 ms roughly once a second (being looked into) |
+| Firefight, custom games, Forge   | 🧪 Not tried yet                               |
+| Map packs                        | 🧪 Installed by the launcher; not tried yet    |
+| Title update (0.0.1.7)           | ✅ Required: the game is recompiled from it    |
+| Matchmaking (Xbox LIVE)          | ❌ Not available: Xbox LIVE is gone            |
+
 ## Controls
 
 ### Gears of War 3
@@ -630,6 +645,11 @@ Played with a controller, as on the console. For split screen give each player a
 F2 > Players, with "Players 2-4 sign in" set to "At startup"; in the lobby choose Campaign or
 Custom games, then Start game.
 
+### Halo: Reach
+
+As Halo 3: a controller each, "Players 2-4 sign in" set to "At startup" for split screen; with
+two players signed in the title menu offers the co-op campaign.
+
 ### Program Keys
 
 | Key                      | Action                         |
@@ -777,6 +797,12 @@ Halo 3:
 - Only the first missions, co-op and a custom game have been played; Forge and Theater haven't
   been tried. Matchmaking needs Xbox LIVE, which is gone.
 
+Halo: Reach:
+
+- The picture stops for about 400 ms roughly once a second.
+- Only Winter Contingency, alone and in co-op for two, has been played; Firefight, custom games,
+  Forge, three or four players and the map packs haven't been tried.
+
 Found something else? Open an issue with the version (shown in the launcher) and the game's
 `logs\<game>\last_run.log` file.
 
@@ -869,6 +895,8 @@ environment with pinned, hash-checked packages.
   `extracted/d3/update/` (see [docs/DIABLO3.md](docs/DIABLO3.md#reproducing)).
 - Halo 3: the same, to `extracted/halo3/game/`, and its title update (the `TU_…` file) to
   `extracted/halo3/update/` (see [docs/HALO3.md](docs/HALO3.md#reproducing)).
+- Halo: Reach: the same, to `extracted/reach/game/`, and its title update to
+  `extracted/reach/update/` (see [docs/HALOREACH.md](docs/HALOREACH.md#reproducing)).
 - Put the XEX2 retail key in `keys/xex2_retail.key` (see [keys/README.md](keys/README.md)).
 
 Both folders are git-ignored.
@@ -883,8 +911,8 @@ Both folders are git-ignored.
 > to 0.0.23.8), Call of Duty: Black Ops II (title `415608C3`, 0.0.0.14 to 0.0.18.14), Call of Duty:
 > Black Ops III (title `4156091D`, 0.0.0.5 to 0.0.8.5), Minecraft: Xbox 360 Edition (title
 > `584111F7`, 0.0.0.1 to 0.0.80.1) and Guitar Hero III: Legends of Rock (title `415607F7`, 0.0.0.2
-> to 0.0.3.2), Diablo III: Reaper of Souls (title `394F07D4`, 0.0.0.14 to 0.0.2.14) and Halo 3
-> (title `4D5307E6`, 0.0.0.5 to 0.0.3.5); for Modern Warfare 3 and Black Ops II, both the single-player
+> to 0.0.3.2), Diablo III: Reaper of Souls (title `394F07D4`, 0.0.0.14 to 0.0.2.14), Halo 3
+> (title `4D5307E6`, 0.0.0.5 to 0.0.3.5) and Halo: Reach (title `4D53085B`, 0.0.0.7 to 0.0.1.7); for Modern Warfare 3 and Black Ops II, both the single-player
 > `default.xex` and the multiplayer `default_mp.xex`, and for Black Ops III the multiplayer
 > `default.xex` and the Zombies `default_zm.xex`, each with its own `.xexp`.
 > Without one for Gears of War 3 (title `4D5308AB`) and Dance Central 3 (title `373307D9`).
@@ -904,8 +932,9 @@ names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing-fro
 [docs/RESIDENTEVIL6.md](docs/RESIDENTEVIL6.md#reproducing),
 [docs/MINECRAFT.md](docs/MINECRAFT.md#reproducing),
 [docs/GUITARHERO3.md](docs/GUITARHERO3.md#reproducing),
-[docs/DIABLO3.md](docs/DIABLO3.md#reproducing) and
-[docs/HALO3.md](docs/HALO3.md#reproducing). For Gears of War 3:
+[docs/DIABLO3.md](docs/DIABLO3.md#reproducing),
+[docs/HALO3.md](docs/HALO3.md#reproducing) and
+[docs/HALOREACH.md](docs/HALOREACH.md#reproducing). For Gears of War 3:
 
 ```bat
 build.bat
@@ -1010,6 +1039,7 @@ games/bo3/        Call of Duty: Black Ops III: recompiler configs (multiplayer a
 games/gh3/        Guitar Hero III: Legends of Rock: recompiler config, entry point, notes
 games/d3/         Diablo III: Reaper of Souls: recompiler config, entry point, notes
 games/halo3/      Halo 3: recompiler configs (the game and its four Waves DLLs), entry point, fiber hooks, notes
+games/reach/      Halo: Reach: recompiler configs (the game and its four Waves DLLs), entry point, fiber hooks, notes
 runtime/          Kernel and XAM reimplementation, input, settings, GPU and audio glue,
                   the virtual Kinect (runtime/src/nui) and its debug window (runtime/kinect_window)
 tools/x360tool/   Disc and XEX tooling

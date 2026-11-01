@@ -1,8 +1,6 @@
 {
   "comment": "Games the launcher shows as \"Coming soon\" in Compatible, in this order. A game leaves this list when it gets its own games/<id>/game.json. cover is a covers/<slug>.jpg (empty: a placeholder tile); owners and trademarks join the terms of use, which the shipped box art makes necessary.",
   "games": [
-    {"title": "Halo: Reach", "cover": "halo-reach", "title_id": "4D53085B",
-     "owners": "Microsoft Corporation, Xbox Game Studios, Bungie", "trademarks": ["Halo"]},
     {"title": "Dance Central", "cover": "dance-central", "title_id": "",
      "owners": "Harmonix Music Systems, Microsoft Corporation", "trademarks": ["Dance Central"]},
     {"title": "Gears of War 2", "cover": "gears-of-war-2", "title_id": "",

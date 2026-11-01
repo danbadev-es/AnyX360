@@ -1,0 +1,17 @@
+HALO: REACH (in testing)
+========================
+Your copy: the Games on Demand package (in an archive or a folder), and its title update (the
+4D53085B\000B0000 package next to it, or added alone afterwards): the game needs it (version
+0.0.1.7). Its map packs are installed too.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\HaloReach
+
+CONTROLS
+Played with a controller, as on the console. Co-op for two on one screen: give each player a
+controller in F2 > Players, with "Players 2-4 sign in" set to "At startup"; the title menu then
+offers the co-op campaign.
+
+KNOWN ISSUES
+- The picture stops for about 400 ms roughly once a second.
+- In testing: Winter Contingency, alone and in co-op for two, has been played; Firefight, custom
+  games, Forge, three or four players and the map packs haven't been tried. Matchmaking needs
+  Xbox LIVE, which is gone.

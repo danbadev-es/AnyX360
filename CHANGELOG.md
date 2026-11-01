@@ -15,6 +15,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   recompiled into the game: the campaign (Arrival, Sierra 117, checkpoints, Save and quit) and split
   screen for two to four players (co-op campaign, custom games). A pause of about 400 ms roughly
   once a second is still to fix, and the map packs, installed, aren't offered yet.
+- **Halo: Reach** (in testing, [docs/HALOREACH.md](docs/HALOREACH.md)): Bungie's prequel from a
+  Games on Demand copy with its title update (version 0.0.1.7, recompiled from it) and its Waves
+  DLLs: the first-run Spartan, the Armory, the campaign's Winter Contingency with checkpoints, and
+  its co-op for two players on one screen. The same pause as Halo 3's is still to fix.
 - I/O completion ports (`NtCreateIoCompletion`, `NtSetIoCompletion`, `NtRemoveIoCompletion`, files
   associated with one), which Halo 3 reads its maps with, and the `cache0:`/`cache1:` partitions.
 - `XeCryptBnQwNeRsaPubCrypt` and `XeCryptBnDwLePkcs1Verify` (Halo 3 checks its maps' signatures),
@@ -25,7 +29,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ### Changed
 
-- Halo 3 leaves "Coming soon".
+- Halo 3 and Halo: Reach leave "Coming soon".
 - `XamUserGetSigninInfo` and `XamUserGetXUID` return `ERROR_NO_SUCH_USER` as an HRESULT
   (`0x80070525`) for a slot nobody is signed in to, as XAM does: Halo 3's lobby counted the
   empty slots as players without a controller.
