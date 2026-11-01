@@ -28,12 +28,15 @@ param(
   [string]$DataRoot = '',
   # For Doritos' avatar pack (stfs-extract): the main checkout's build.
   [string]$X360Tool = '',
-  [string]$Routes = "$PSScriptRoot\routes.json",
+  [string]$Routes = '',
   [switch]$KeepSandbox,
   [switch]$SkipImport,
   [int]$ImportMinutes = 60
 )
 $ErrorActionPreference = 'Stop'
+# Numbers with a decimal point whatever the system's language.
+[Threading.Thread]::CurrentThread.CurrentCulture = [Globalization.CultureInfo]::InvariantCulture
+if (-not $Routes) { $Routes = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'routes.json' }
 . "$PSScriptRoot\..\scripts\lib.ps1"
 $repo = (Resolve-Path "$PSScriptRoot\..\..").Path
 # keys\, anyx\, dist\ and build\ are git-ignored: the main checkout's (from a worktree, give -DataRoot).

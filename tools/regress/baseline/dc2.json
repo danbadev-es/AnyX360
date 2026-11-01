@@ -1,0 +1,291 @@
+﻿{
+    "id":  "dc2",
+    "title":  "Dance Central 2",
+    "date":  "2026-11-01T21:44:52",
+    "release":  "C:\\Users\\DanielBarreto\\Desktop\\Code\\danielbarretoes\\AnyX360\\dist\\AnyX360-0.32.0",
+    "route":  {
+                  "title":  "AnyX360 - Dance Central 2",
+                  "seconds":  130,
+                  "dlc":  29,
+                  "nui":  "3:enter",
+                  "shots":  [
+                                60,
+                                90,
+                                125
+                            ],
+                  "phases":  {
+                                 "title":  [
+                                               90,
+                                               130
+                                           ]
+                             }
+              },
+    "import":  {
+                   "result":  "ok: Dance Central 2 está preparado, con su contenido descargable (29). También se ha añadido su actualización del título (0.0.1.5).",
+                   "seconds":  24,
+                   "anyx_bytes":  3993346478
+               },
+    "dlc":  29,
+    "update":  1,
+    "window_titles":  [
+                          "AnyX360 - Dance Central 2"
+                      ],
+    "expected_title":  "AnyX360 - Dance Central 2",
+    "shots":  [
+                  {
+                      "t":  60,
+                      "file":  "shot_060.png",
+                      "lit":  0.61
+                  },
+                  {
+                      "t":  90,
+                      "file":  "shot_090.png",
+                      "lit":  0.533
+                  },
+                  {
+                      "t":  125,
+                      "file":  "shot_125.png",
+                      "lit":  0.534
+                  }
+              ],
+    "samples":  [
+                    {
+                        "t":  8.5,
+                        "swaps":  32,
+                        "p99":  73.89,
+                        "max":  194.2,
+                        "cpu_cores":  2.62,
+                        "gpu_ms":  1
+                    },
+                    {
+                        "t":  13.5,
+                        "swaps":  30.2,
+                        "p99":  34.39,
+                        "max":  35.3,
+                        "cpu_cores":  2.9,
+                        "gpu_ms":  1.6
+                    },
+                    {
+                        "t":  18.4,
+                        "swaps":  52.4,
+                        "p99":  34.58,
+                        "max":  48.2,
+                        "cpu_cores":  2.16,
+                        "gpu_ms":  1.8
+                    },
+                    {
+                        "t":  23.4,
+                        "swaps":  60,
+                        "p99":  22.57,
+                        "max":  23.4,
+                        "cpu_cores":  2.47,
+                        "gpu_ms":  2
+                    },
+                    {
+                        "t":  28.4,
+                        "swaps":  60,
+                        "p99":  22.07,
+                        "max":  24.2,
+                        "cpu_cores":  2.4,
+                        "gpu_ms":  1.9
+                    },
+                    {
+                        "t":  33.9,
+                        "swaps":  60,
+                        "p99":  21.47,
+                        "max":  22.6,
+                        "cpu_cores":  2.36,
+                        "gpu_ms":  2
+                    },
+                    {
+                        "t":  38.9,
+                        "swaps":  56.8,
+                        "p99":  35.81,
+                        "max":  152.1,
+                        "cpu_cores":  2.36,
+                        "gpu_ms":  1.6
+                    },
+                    {
+                        "t":  44.2,
+                        "swaps":  56.6,
+                        "p99":  34.35,
+                        "max":  152.9,
+                        "cpu_cores":  2.36,
+                        "gpu_ms":  1.9
+                    },
+                    {
+                        "t":  49.2,
+                        "swaps":  60,
+                        "p99":  21.19,
+                        "max":  23.9,
+                        "cpu_cores":  2.55,
+                        "gpu_ms":  2.2
+                    },
+                    {
+                        "t":  54.2,
+                        "swaps":  60,
+                        "p99":  21.07,
+                        "max":  22.6,
+                        "cpu_cores":  2.53,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  59.3,
+                        "swaps":  60,
+                        "p99":  20.92,
+                        "max":  21.5,
+                        "cpu_cores":  2.57,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  64.2,
+                        "swaps":  60,
+                        "p99":  20.91,
+                        "max":  24.7,
+                        "cpu_cores":  2.56,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  69.8,
+                        "swaps":  60,
+                        "p99":  20.68,
+                        "max":  20.9,
+                        "cpu_cores":  2.42,
+                        "gpu_ms":  2.2
+                    },
+                    {
+                        "t":  74.8,
+                        "swaps":  60,
+                        "p99":  20.5,
+                        "max":  21,
+                        "cpu_cores":  2.24,
+                        "gpu_ms":  2.2
+                    },
+                    {
+                        "t":  79.8,
+                        "swaps":  59.8,
+                        "p99":  23.05,
+                        "max":  29,
+                        "cpu_cores":  2.12,
+                        "gpu_ms":  2
+                    },
+                    {
+                        "t":  84.9,
+                        "swaps":  60,
+                        "p99":  21.08,
+                        "max":  22.8,
+                        "cpu_cores":  2.36,
+                        "gpu_ms":  3.4
+                    },
+                    {
+                        "t":  89.9,
+                        "swaps":  60,
+                        "p99":  20.6,
+                        "max":  25.5,
+                        "cpu_cores":  2.31,
+                        "gpu_ms":  3.4
+                    },
+                    {
+                        "t":  95.4,
+                        "swaps":  60,
+                        "p99":  20.13,
+                        "max":  21.7,
+                        "cpu_cores":  2.38,
+                        "gpu_ms":  3.5
+                    },
+                    {
+                        "t":  100.5,
+                        "swaps":  60,
+                        "p99":  20.55,
+                        "max":  21.7,
+                        "cpu_cores":  2.37,
+                        "gpu_ms":  3.4
+                    },
+                    {
+                        "t":  105.5,
+                        "swaps":  60,
+                        "p99":  20.46,
+                        "max":  22.5,
+                        "cpu_cores":  2.28,
+                        "gpu_ms":  3.4
+                    },
+                    {
+                        "t":  110.6,
+                        "swaps":  60,
+                        "p99":  20.07,
+                        "max":  21.1,
+                        "cpu_cores":  2.27,
+                        "gpu_ms":  3.3
+                    },
+                    {
+                        "t":  115.6,
+                        "swaps":  60,
+                        "p99":  19.93,
+                        "max":  22.6,
+                        "cpu_cores":  2.29,
+                        "gpu_ms":  3.4
+                    },
+                    {
+                        "t":  120.7,
+                        "swaps":  60.2,
+                        "p99":  21.32,
+                        "max":  23.5,
+                        "cpu_cores":  2.34,
+                        "gpu_ms":  3.4
+                    },
+                    {
+                        "t":  126.3,
+                        "swaps":  59.8,
+                        "p99":  20.78,
+                        "max":  23.1,
+                        "cpu_cores":  2.34,
+                        "gpu_ms":  3.5
+                    }
+                ],
+    "phases":  {
+                   "title":  {
+                                 "from":  90,
+                                 "to":  130,
+                                 "samples":  7,
+                                 "swaps_median":  60,
+                                 "swaps_min":  59.8,
+                                 "p99_median":  20.46,
+                                 "p99_max":  21.32,
+                                 "max_max":  23.5
+                             }
+               },
+    "errors":  [
+
+               ],
+    "error_count":  0,
+    "exit":  {
+                 "state":  "running",
+                 "at":  130,
+                 "code":  null
+             },
+    "machine_before":  {
+                           "time":  "2026-11-01T21:44:59",
+                           "cpu_load":  100,
+                           "free_memory_mb":  3398,
+                           "idle_seconds":  80,
+                           "other_games":  [
+                                               "BlackOps2 14116"
+                                           ]
+                       },
+    "machine_after":  {
+                          "time":  "2026-11-01T21:47:41",
+                          "cpu_load":  84.7,
+                          "free_memory_mb":  3322,
+                          "idle_seconds":  242,
+                          "other_games":  [
+                                              "BlackOps2MP 25604",
+                                              "BlackOps2MP 33244"
+                                          ]
+                      },
+    "steady":  null,
+    "notes":  [
+
+              ],
+    "machine_unsteady":  false,
+    "baseline_note":  "AnyX360 0.32.0 (dist\\AnyX360-0.32.0\\bin), 2026-11-01 20:43-22:11. The machine was loaded by two other agents (their game copies and builds: see machine_before); the probes were steady (Mortal Kombat menu p99 18 ms, Gears 19 ms)."
+}

@@ -62,7 +62,7 @@
     },
     "gh3": {
       "title": "AnyX360 - Guitar Hero III", "seconds": 160, "dlc": 25, "input_clock": "frames:60",
-      "input": "15:START,20:START,25:A,30:START,40:A,50:UP,51:UP,52:UP,53.5:A,57:A,61:A,64:A,67:A,70:A,73:A",
+      "input": "15:START,20:START,25:A,30:START,40:A,50:DOWN,52:DOWN,54:A,60:A,66:A,72:A,78:A,84:A",
       "shots": [45, 80, 120, 155],
       "phases": { "menu": [40, 50], "song": [110, 160] }
     },
@@ -79,13 +79,13 @@
       "phases": { "menu": [45, 60], "play": [120, 170] }
     },
     "fm4": {
-      "title": null, "seconds": 210, "dlc": 21,
+      "title": "AnyX360 - Forza Motorsport 4", "seconds": 210, "dlc": 21,
       "input": "28:A,40:A,60:A~15x6,155:RT/50",
       "shots": [35, 70, 150, 180, 205],
       "phases": { "intro": [60, 90], "race": [165, 210] }
     },
     "bo3": {
-      "title": null, "seconds": 180, "dlc": 5,
+      "title": "AnyX360 - COD: Black Ops III", "seconds": 180, "dlc": 5,
       "input": "20:START,30:START,40:START,52:A,64:A,80:A,92:A,125:A,135:A,145:A",
       "shots": [45, 80, 120, 175],
       "phases": { "menu": [60, 80], "late": [150, 180] }

@@ -1,0 +1,274 @@
+﻿{
+    "id":  "dcc",
+    "title":  "Doritos Crash Course",
+    "date":  "2026-11-01T21:28:07",
+    "release":  "C:\\Users\\DanielBarreto\\Desktop\\Code\\danielbarretoes\\AnyX360\\dist\\AnyX360-0.32.0",
+    "route":  {
+                  "title":  "AnyX360 - Doritos Crash Course",
+                  "seconds":  110,
+                  "dlc":  1,
+                  "avatar_pack_from":  "ks",
+                  "input":  "15:A,25:A,33:B,45:A,55:A,65:A,75:A,90:LRIGHT/8",
+                  "shots":  [
+                                40,
+                                70,
+                                100
+                            ],
+                  "phases":  {
+                                 "menu":  [
+                                              30,
+                                              50
+                                          ],
+                                 "play":  [
+                                              80,
+                                              110
+                                          ]
+                             }
+              },
+    "import":  {
+                   "result":  "ok: Doritos Crash Course está preparado, con su contenido descargable (1). También se ha añadido su actualización del título (0.0.2.2).",
+                   "seconds":  1,
+                   "anyx_bytes":  75784352
+               },
+    "dlc":  1,
+    "update":  1,
+    "window_titles":  [
+                          "AnyX360 - Doritos Crash Course"
+                      ],
+    "expected_title":  "AnyX360 - Doritos Crash Course",
+    "shots":  [
+                  {
+                      "t":  40,
+                      "file":  "shot_040.png",
+                      "lit":  0.92
+                  },
+                  {
+                      "t":  70,
+                      "file":  "shot_070.png",
+                      "lit":  0.957
+                  },
+                  {
+                      "t":  100,
+                      "file":  "shot_100.png",
+                      "lit":  0.971
+                  }
+              ],
+    "samples":  [
+                    {
+                        "t":  7.3,
+                        "swaps":  35.6,
+                        "p99":  147.84,
+                        "max":  790.3,
+                        "cpu_cores":  2.49,
+                        "gpu_ms":  0.5
+                    },
+                    {
+                        "t":  12.4,
+                        "swaps":  60,
+                        "p99":  18.44,
+                        "max":  19.4,
+                        "cpu_cores":  3.6,
+                        "gpu_ms":  0.8
+                    },
+                    {
+                        "t":  17.9,
+                        "swaps":  60,
+                        "p99":  18.32,
+                        "max":  22.7,
+                        "cpu_cores":  2.48,
+                        "gpu_ms":  0.7
+                    },
+                    {
+                        "t":  22.9,
+                        "swaps":  60,
+                        "p99":  18.34,
+                        "max":  18.5,
+                        "cpu_cores":  2.39,
+                        "gpu_ms":  0.7
+                    },
+                    {
+                        "t":  27.8,
+                        "swaps":  58.4,
+                        "p99":  24.72,
+                        "max":  86.7,
+                        "cpu_cores":  1.48,
+                        "gpu_ms":  0.9
+                    },
+                    {
+                        "t":  32.8,
+                        "swaps":  58.4,
+                        "p99":  32.76,
+                        "max":  92.8,
+                        "cpu_cores":  1.61,
+                        "gpu_ms":  2.1
+                    },
+                    {
+                        "t":  38.3,
+                        "swaps":  60,
+                        "p99":  18.81,
+                        "max":  19.3,
+                        "cpu_cores":  1.68,
+                        "gpu_ms":  1.7
+                    },
+                    {
+                        "t":  43.3,
+                        "swaps":  60,
+                        "p99":  18.76,
+                        "max":  18.8,
+                        "cpu_cores":  1.76,
+                        "gpu_ms":  1.8
+                    },
+                    {
+                        "t":  48.1,
+                        "swaps":  60,
+                        "p99":  19.54,
+                        "max":  21,
+                        "cpu_cores":  1.62,
+                        "gpu_ms":  1.7
+                    },
+                    {
+                        "t":  53.6,
+                        "swaps":  60,
+                        "p99":  19.5,
+                        "max":  23.3,
+                        "cpu_cores":  1.7,
+                        "gpu_ms":  1.9
+                    },
+                    {
+                        "t":  58.6,
+                        "swaps":  60,
+                        "p99":  20.09,
+                        "max":  23.9,
+                        "cpu_cores":  1.63,
+                        "gpu_ms":  2
+                    },
+                    {
+                        "t":  63.6,
+                        "swaps":  59.8,
+                        "p99":  21.28,
+                        "max":  28.8,
+                        "cpu_cores":  1.66,
+                        "gpu_ms":  1.9
+                    },
+                    {
+                        "t":  68.7,
+                        "swaps":  59.6,
+                        "p99":  24.85,
+                        "max":  65,
+                        "cpu_cores":  1.72,
+                        "gpu_ms":  2
+                    },
+                    {
+                        "t":  73.8,
+                        "swaps":  60,
+                        "p99":  20.28,
+                        "max":  22,
+                        "cpu_cores":  1.69,
+                        "gpu_ms":  2.1
+                    },
+                    {
+                        "t":  78.8,
+                        "swaps":  59.6,
+                        "p99":  21.59,
+                        "max":  36.5,
+                        "cpu_cores":  1.7,
+                        "gpu_ms":  2.2
+                    },
+                    {
+                        "t":  84,
+                        "swaps":  58.6,
+                        "p99":  32.15,
+                        "max":  58.3,
+                        "cpu_cores":  1.72,
+                        "gpu_ms":  2
+                    },
+                    {
+                        "t":  89.1,
+                        "swaps":  59.8,
+                        "p99":  21.3,
+                        "max":  27.8,
+                        "cpu_cores":  1.75,
+                        "gpu_ms":  1.9
+                    },
+                    {
+                        "t":  94.1,
+                        "swaps":  60,
+                        "p99":  23.23,
+                        "max":  26.4,
+                        "cpu_cores":  1.73,
+                        "gpu_ms":  2
+                    },
+                    {
+                        "t":  100,
+                        "swaps":  59.8,
+                        "p99":  25.74,
+                        "max":  33.5,
+                        "cpu_cores":  1.77,
+                        "gpu_ms":  2
+                    },
+                    {
+                        "t":  105,
+                        "swaps":  58.8,
+                        "p99":  33.28,
+                        "max":  45,
+                        "cpu_cores":  1.63,
+                        "gpu_ms":  2
+                    }
+                ],
+    "phases":  {
+                   "menu":  {
+                                "from":  30,
+                                "to":  50,
+                                "samples":  4,
+                                "swaps_median":  60,
+                                "swaps_min":  58.4,
+                                "p99_median":  19.174999999999997,
+                                "p99_max":  32.76,
+                                "max_max":  92.8
+                            },
+                   "play":  {
+                                "from":  80,
+                                "to":  110,
+                                "samples":  5,
+                                "swaps_median":  59.8,
+                                "swaps_min":  58.6,
+                                "p99_median":  25.74,
+                                "p99_max":  33.28,
+                                "max_max":  58.3
+                            }
+               },
+    "errors":  [
+
+               ],
+    "error_count":  0,
+    "exit":  {
+                 "state":  "running",
+                 "at":  110,
+                 "code":  null
+             },
+    "machine_before":  {
+                           "time":  "2026-11-01T21:28:14",
+                           "cpu_load":  65.7,
+                           "free_memory_mb":  4622,
+                           "idle_seconds":  495,
+                           "other_games":  [
+                                               "HaloReach 32752"
+                                           ]
+                       },
+    "machine_after":  {
+                          "time":  "2026-11-01T21:30:13",
+                          "cpu_load":  98.7,
+                          "free_memory_mb":  2771,
+                          "idle_seconds":  4,
+                          "other_games":  [
+                                              "GearsOfWar3 9536",
+                                              "HaloReach 32752"
+                                          ]
+                      },
+    "steady":  null,
+    "notes":  [
+
+              ],
+    "machine_unsteady":  false,
+    "baseline_note":  "AnyX360 0.32.0 (dist\\AnyX360-0.32.0\\bin), 2026-11-01 20:43-22:11. The machine was loaded by two other agents (their game copies and builds: see machine_before); the probes were steady (Mortal Kombat menu p99 18 ms, Gears 19 ms)."
+}

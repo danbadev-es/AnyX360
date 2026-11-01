@@ -8,9 +8,10 @@ param(
   [Parameter(Mandatory)] [string]$Run,
   [string]$Games = 'all',
   [string]$Note = '',
-  [string]$Baseline = "$PSScriptRoot\baseline"
+  [string]$Baseline = ''
 )
 $ErrorActionPreference = 'Stop'
+if (-not $Baseline) { $Baseline = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'baseline' }
 New-Item -ItemType Directory -Force $Baseline | Out-Null
 $all = @(Get-ChildItem -LiteralPath $Run -Directory | Where-Object { Test-Path "$($_.FullName)\summary.json" })
 $unsteady = @($all | Where-Object { (Get-Content -Raw "$($_.FullName)\summary.json" | ConvertFrom-Json).steady -eq $false }).Count -gt 0
@@ -19,6 +20,8 @@ foreach ($dir in $all) {
   $s = Get-Content -Raw -Encoding UTF8 "$($dir.FullName)\summary.json" | ConvertFrom-Json
   if (@($s.notes | Where-Object { $_ -like 'run failed*' })) { "$($dir.Name): the run failed, not stored"; continue }
   $s | Add-Member -Force NoteProperty machine_unsteady $unsteady
+  # The repository keeps the load figures, not the names of this machine's other programs.
+  foreach ($m in @($s.machine_before, $s.machine_after)) { if ($m) { $m.PSObject.Properties.Remove('busy_processes') } }
   $s | Add-Member -Force NoteProperty baseline_note $Note
   $s | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $Baseline "$($dir.Name).json") -Encoding UTF8
   "$($dir.Name): stored$(if ($unsteady) { ' (machine unsteady)' })"

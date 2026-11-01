@@ -1,0 +1,444 @@
+﻿{
+    "id":  "fm4",
+    "title":  "Forza Motorsport 4",
+    "date":  "2026-11-01T21:34:26",
+    "release":  "C:\\Users\\DanielBarreto\\Desktop\\Code\\danielbarretoes\\AnyX360\\dist\\AnyX360-0.32.0",
+    "route":  {
+                  "title":  null,
+                  "seconds":  210,
+                  "dlc":  21,
+                  "input":  "28:A,40:A,60:A~15x6,155:RT/50",
+                  "shots":  [
+                                35,
+                                70,
+                                150,
+                                180,
+                                205
+                            ],
+                  "phases":  {
+                                 "intro":  [
+                                               60,
+                                               90
+                                           ],
+                                 "race":  [
+                                              165,
+                                              210
+                                          ]
+                             }
+              },
+    "import":  {
+                   "result":  "ok: Forza Motorsport 4 está preparado, con su contenido descargable (21).",
+                   "seconds":  113,
+                   "anyx_bytes":  13371915800
+               },
+    "dlc":  21,
+    "update":  0,
+    "window_titles":  [
+                          "AnyX360 - Forza Motorsport 4"
+                      ],
+    "expected_title":  null,
+    "shots":  [
+                  {
+                      "t":  35,
+                      "file":  "shot_035.png",
+                      "lit":  0.39
+                  },
+                  {
+                      "t":  70,
+                      "file":  "shot_070.png",
+                      "lit":  0.792
+                  },
+                  {
+                      "t":  150,
+                      "file":  "shot_150.png",
+                      "lit":  0.21
+                  },
+                  {
+                      "t":  180,
+                      "file":  "shot_180.png",
+                      "lit":  0.392
+                  },
+                  {
+                      "t":  205,
+                      "file":  "shot_205.png",
+                      "lit":  0.436
+                  }
+              ],
+    "samples":  [
+                    {
+                        "t":  7.6,
+                        "swaps":  84.2,
+                        "p99":  13.72,
+                        "max":  65.1,
+                        "cpu_cores":  2.06,
+                        "gpu_ms":  0.2
+                    },
+                    {
+                        "t":  12.6,
+                        "swaps":  115.4,
+                        "p99":  10.24,
+                        "max":  151.9,
+                        "cpu_cores":  2.72,
+                        "gpu_ms":  0.6
+                    },
+                    {
+                        "t":  17.7,
+                        "swaps":  120,
+                        "p99":  10.29,
+                        "max":  12.5,
+                        "cpu_cores":  2.24,
+                        "gpu_ms":  1.1
+                    },
+                    {
+                        "t":  22.7,
+                        "swaps":  61.6,
+                        "p99":  63.08,
+                        "max":  63.6,
+                        "cpu_cores":  2.31,
+                        "gpu_ms":  1.2
+                    },
+                    {
+                        "t":  28.2,
+                        "swaps":  116.4,
+                        "p99":  10.31,
+                        "max":  105.5,
+                        "cpu_cores":  2.37,
+                        "gpu_ms":  1.2
+                    },
+                    {
+                        "t":  33.2,
+                        "swaps":  114.4,
+                        "p99":  10.28,
+                        "max":  120.3,
+                        "cpu_cores":  2.12,
+                        "gpu_ms":  1.7
+                    },
+                    {
+                        "t":  38.1,
+                        "swaps":  120,
+                        "p99":  10.44,
+                        "max":  12.8,
+                        "cpu_cores":  2.15,
+                        "gpu_ms":  1.8
+                    },
+                    {
+                        "t":  43.7,
+                        "swaps":  119.6,
+                        "p99":  9.92,
+                        "max":  24,
+                        "cpu_cores":  2.14,
+                        "gpu_ms":  1.3
+                    },
+                    {
+                        "t":  48.7,
+                        "swaps":  119,
+                        "p99":  11.09,
+                        "max":  21.9,
+                        "cpu_cores":  2.7,
+                        "gpu_ms":  1.2
+                    },
+                    {
+                        "t":  53.7,
+                        "swaps":  119.4,
+                        "p99":  10.72,
+                        "max":  16,
+                        "cpu_cores":  2.67,
+                        "gpu_ms":  3.1
+                    },
+                    {
+                        "t":  58.9,
+                        "swaps":  118.6,
+                        "p99":  14.63,
+                        "max":  27.2,
+                        "cpu_cores":  2.55,
+                        "gpu_ms":  3.1
+                    },
+                    {
+                        "t":  63.9,
+                        "swaps":  84.6,
+                        "p99":  59.62,
+                        "max":  154.3,
+                        "cpu_cores":  2.24,
+                        "gpu_ms":  2.9
+                    },
+                    {
+                        "t":  69.4,
+                        "swaps":  23.4,
+                        "p99":  68.4,
+                        "max":  74,
+                        "cpu_cores":  1.72,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  74.6,
+                        "swaps":  26.2,
+                        "p99":  56.1,
+                        "max":  65.5,
+                        "cpu_cores":  1.92,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  79.7,
+                        "swaps":  23.6,
+                        "p99":  75.13,
+                        "max":  76.1,
+                        "cpu_cores":  1.77,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  84.8,
+                        "swaps":  22.6,
+                        "p99":  64.57,
+                        "max":  65.2,
+                        "cpu_cores":  1.73,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  89.9,
+                        "swaps":  22.8,
+                        "p99":  54.65,
+                        "max":  56.1,
+                        "cpu_cores":  1.83,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  94.9,
+                        "swaps":  25.6,
+                        "p99":  59.69,
+                        "max":  64.6,
+                        "cpu_cores":  1.82,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  100,
+                        "swaps":  30.8,
+                        "p99":  43.62,
+                        "max":  48.4,
+                        "cpu_cores":  1.76,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  105,
+                        "swaps":  27.4,
+                        "p99":  54.33,
+                        "max":  55.7,
+                        "cpu_cores":  1.81,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  110.6,
+                        "swaps":  27,
+                        "p99":  47.83,
+                        "max":  49.7,
+                        "cpu_cores":  1.83,
+                        "gpu_ms":  2.2
+                    },
+                    {
+                        "t":  115.7,
+                        "swaps":  25.2,
+                        "p99":  54.51,
+                        "max":  60.6,
+                        "cpu_cores":  1.78,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  120.7,
+                        "swaps":  26.4,
+                        "p99":  51.07,
+                        "max":  52,
+                        "cpu_cores":  1.79,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  125.8,
+                        "swaps":  28,
+                        "p99":  47.48,
+                        "max":  53.8,
+                        "cpu_cores":  1.79,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  130.7,
+                        "swaps":  29.4,
+                        "p99":  46.82,
+                        "max":  47.4,
+                        "cpu_cores":  1.75,
+                        "gpu_ms":  2.2
+                    },
+                    {
+                        "t":  135.8,
+                        "swaps":  26,
+                        "p99":  49.99,
+                        "max":  50.3,
+                        "cpu_cores":  2.79,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  140.9,
+                        "swaps":  41.6,
+                        "p99":  56.07,
+                        "max":  751.1,
+                        "cpu_cores":  1.73,
+                        "gpu_ms":  2.1
+                    },
+                    {
+                        "t":  145.9,
+                        "swaps":  52.6,
+                        "p99":  83.73,
+                        "max":  87.4,
+                        "cpu_cores":  3.48,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  151.4,
+                        "swaps":  59.8,
+                        "p99":  27.78,
+                        "max":  39.1,
+                        "cpu_cores":  5.35,
+                        "gpu_ms":  2.4
+                    },
+                    {
+                        "t":  156.5,
+                        "swaps":  60,
+                        "p99":  22.16,
+                        "max":  26.6,
+                        "cpu_cores":  3.98,
+                        "gpu_ms":  3.3
+                    },
+                    {
+                        "t":  161.8,
+                        "swaps":  44.8,
+                        "p99":  185.19,
+                        "max":  351.9,
+                        "cpu_cores":  4.1,
+                        "gpu_ms":  6.4
+                    },
+                    {
+                        "t":  166.9,
+                        "swaps":  49.8,
+                        "p99":  80.8,
+                        "max":  291.6,
+                        "cpu_cores":  3.91,
+                        "gpu_ms":  11.9
+                    },
+                    {
+                        "t":  172,
+                        "swaps":  45,
+                        "p99":  33.92,
+                        "max":  69,
+                        "cpu_cores":  4.19,
+                        "gpu_ms":  9.1
+                    },
+                    {
+                        "t":  177.2,
+                        "swaps":  40.8,
+                        "p99":  52.12,
+                        "max":  100.2,
+                        "cpu_cores":  4.24,
+                        "gpu_ms":  4.4
+                    },
+                    {
+                        "t":  182.5,
+                        "swaps":  46.6,
+                        "p99":  37.49,
+                        "max":  40.8,
+                        "cpu_cores":  4.27,
+                        "gpu_ms":  4.4
+                    },
+                    {
+                        "t":  187.2,
+                        "swaps":  55.8,
+                        "p99":  30.94,
+                        "max":  37.5,
+                        "cpu_cores":  4.27,
+                        "gpu_ms":  4.2
+                    },
+                    {
+                        "t":  192.9,
+                        "swaps":  52.6,
+                        "p99":  30.73,
+                        "max":  48.9,
+                        "cpu_cores":  4.5,
+                        "gpu_ms":  4.3
+                    },
+                    {
+                        "t":  197.6,
+                        "swaps":  42.8,
+                        "p99":  36.43,
+                        "max":  40.2,
+                        "cpu_cores":  4.3,
+                        "gpu_ms":  4.3
+                    },
+                    {
+                        "t":  202.7,
+                        "swaps":  46.6,
+                        "p99":  37.36,
+                        "max":  55.5,
+                        "cpu_cores":  4.37,
+                        "gpu_ms":  4.3
+                    },
+                    {
+                        "t":  207.9,
+                        "swaps":  55.2,
+                        "p99":  28.49,
+                        "max":  44.7,
+                        "cpu_cores":  4.2,
+                        "gpu_ms":  4.1
+                    }
+                ],
+    "phases":  {
+                   "intro":  {
+                                 "from":  60,
+                                 "to":  90,
+                                 "samples":  6,
+                                 "swaps_median":  23.5,
+                                 "swaps_min":  22.6,
+                                 "p99_median":  62.095,
+                                 "p99_max":  75.13,
+                                 "max_max":  154.3
+                             },
+                   "race":  {
+                                "from":  165,
+                                "to":  210,
+                                "samples":  9,
+                                "swaps_median":  46.6,
+                                "swaps_min":  40.8,
+                                "p99_median":  36.43,
+                                "p99_max":  80.8,
+                                "max_max":  291.6
+                            }
+               },
+    "errors":  [
+
+               ],
+    "error_count":  0,
+    "exit":  {
+                 "state":  "running",
+                 "at":  210,
+                 "code":  null
+             },
+    "machine_before":  {
+                           "time":  "2026-11-01T21:34:33",
+                           "cpu_load":  71.3,
+                           "free_memory_mb":  4600,
+                           "idle_seconds":  0,
+                           "other_games":  [
+                                               "BlackOps2 23912"
+                                           ]
+                       },
+    "machine_after":  {
+                          "time":  "2026-11-01T21:40:04",
+                          "cpu_load":  85.7,
+                          "free_memory_mb":  3684,
+                          "idle_seconds":  0,
+                          "other_games":  [
+
+                                          ]
+                      },
+    "steady":  null,
+    "notes":  [
+                  "window title found: AnyX360 - Forza Motorsport 4"
+              ],
+    "machine_unsteady":  false,
+    "baseline_note":  "AnyX360 0.32.0 (dist\\AnyX360-0.32.0\\bin), 2026-11-01 20:43-22:11. The machine was loaded by two other agents (their game copies and builds: see machine_before); the probes were steady (Mortal Kombat menu p99 18 ms, Gears 19 ms)."
+}

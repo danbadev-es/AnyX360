@@ -15,13 +15,16 @@
 # Exit code 1 when anything is flagged (warnings don't count).
 param(
   [Parameter(Mandatory)] [string]$Run,
-  [string]$Baseline = "$PSScriptRoot\baseline",
+  [string]$Baseline = '',
   [string]$Report = '',
   [double]$FpsDrop = 10,
   [double]$P99Rise = 50,
   [double]$P99RiseMs = 15
 )
 $ErrorActionPreference = 'Stop'
+# Numbers with a decimal point whatever the system's language.
+[Threading.Thread]::CurrentThread.CurrentCulture = [Globalization.CultureInfo]::InvariantCulture
+if (-not $Baseline) { $Baseline = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'baseline' }
 if (-not $Report) { $Report = Join-Path $Run 'report.md' }
 $runs = @(Get-ChildItem -LiteralPath $Run -Directory | Where-Object { Test-Path "$($_.FullName)\summary.json" })
 if (-not $runs) { throw "No <id>\summary.json in $Run" }
@@ -49,6 +52,13 @@ foreach ($dir in $runs | Sort-Object Name) {
   if ($s.exit -and $s.exit.state -eq 'exited') { $flags += "the game exited by itself at $($s.exit.at) s (code $($s.exit.code))" }
   if (-not $b) { $warnings += 'no baseline' }
   else {
+    # A loaded machine on either side makes the frame rates a lower bound: said next to the flags.
+    foreach ($side in @(@('baseline', $b.machine_before), @('this run', $s.machine_before))) {
+      $m = $side[1]
+      if ($m -and (@($m.other_games).Count -or $m.cpu_load -gt 80)) {
+        $warnings += "$($side[0]) ran on a loaded machine (CPU $($m.cpu_load)%, other games: $(if (@($m.other_games).Count) { $m.other_games -join ', ' } else { 'none' }))"
+      }
+    }
     if ($null -ne $b.dlc -and $s.dlc -ne $b.dlc) { $flags += "DLC packs: $($s.dlc), baseline $($b.dlc)" }
     foreach ($p in $b.phases.PSObject.Properties) {
       $bp = $p.Value; $rp = $s.phases.($p.Name)

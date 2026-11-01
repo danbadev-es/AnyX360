@@ -1,0 +1,282 @@
+﻿{
+    "id":  "kjr",
+    "title":  "Kinect Joy Ride",
+    "date":  "2026-11-01T21:58:16",
+    "release":  "C:\\Users\\DanielBarreto\\Desktop\\Code\\danielbarretoes\\AnyX360\\dist\\AnyX360-0.32.0",
+    "route":  {
+                  "title":  "AnyX360 - Kinect Joy Ride",
+                  "seconds":  120,
+                  "dlc":  2,
+                  "nui":  "3:enter,45:menu_right,45:arm_right_79_-24/0.3,51:arm_right_78_-37/0.3,56:lower",
+                  "shots":  [
+                                40,
+                                80,
+                                115
+                            ],
+                  "phases":  {
+                                 "garage":  [
+                                                85,
+                                                120
+                                            ]
+                             }
+              },
+    "import":  {
+                   "result":  "ok: Kinect Joy Ride está preparado, con su contenido descargable (2). También se ha añadido su actualización del título (0.0.3.1).",
+                   "seconds":  9,
+                   "anyx_bytes":  1529217719
+               },
+    "dlc":  2,
+    "update":  1,
+    "window_titles":  [
+                          "AnyX360 - Kinect Joy Ride"
+                      ],
+    "expected_title":  "AnyX360 - Kinect Joy Ride",
+    "shots":  [
+                  {
+                      "t":  40,
+                      "file":  "shot_040.png",
+                      "lit":  0.971
+                  },
+                  {
+                      "t":  80,
+                      "file":  "shot_080.png",
+                      "lit":  0.971
+                  },
+                  {
+                      "t":  115,
+                      "file":  "shot_115.png",
+                      "lit":  0.971
+                  }
+              ],
+    "samples":  [
+                    {
+                        "t":  7.3,
+                        "swaps":  24.6,
+                        "p99":  115.48,
+                        "max":  201.7,
+                        "cpu_cores":  2.99,
+                        "gpu_ms":  1
+                    },
+                    {
+                        "t":  12.8,
+                        "swaps":  30,
+                        "p99":  38.73,
+                        "max":  39,
+                        "cpu_cores":  2.76,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  17.8,
+                        "swaps":  30,
+                        "p99":  35.24,
+                        "max":  48.6,
+                        "cpu_cores":  1.86,
+                        "gpu_ms":  3
+                    },
+                    {
+                        "t":  22.8,
+                        "swaps":  30.2,
+                        "p99":  33.77,
+                        "max":  33.8,
+                        "cpu_cores":  1.89,
+                        "gpu_ms":  3.4
+                    },
+                    {
+                        "t":  27.5,
+                        "swaps":  30,
+                        "p99":  33.69,
+                        "max":  33.7,
+                        "cpu_cores":  1.93,
+                        "gpu_ms":  3.2
+                    },
+                    {
+                        "t":  33,
+                        "swaps":  30,
+                        "p99":  33.76,
+                        "max":  33.8,
+                        "cpu_cores":  1.92,
+                        "gpu_ms":  2.9
+                    },
+                    {
+                        "t":  38,
+                        "swaps":  30,
+                        "p99":  33.71,
+                        "max":  33.8,
+                        "cpu_cores":  1.99,
+                        "gpu_ms":  3.9
+                    },
+                    {
+                        "t":  43.1,
+                        "swaps":  30,
+                        "p99":  33.82,
+                        "max":  33.8,
+                        "cpu_cores":  2,
+                        "gpu_ms":  3.8
+                    },
+                    {
+                        "t":  48.1,
+                        "swaps":  30,
+                        "p99":  33.68,
+                        "max":  33.8,
+                        "cpu_cores":  1.91,
+                        "gpu_ms":  3.9
+                    },
+                    {
+                        "t":  53.1,
+                        "swaps":  30,
+                        "p99":  33.83,
+                        "max":  34,
+                        "cpu_cores":  1.92,
+                        "gpu_ms":  3.8
+                    },
+                    {
+                        "t":  58.5,
+                        "swaps":  30,
+                        "p99":  33.75,
+                        "max":  33.7,
+                        "cpu_cores":  1.85,
+                        "gpu_ms":  3.9
+                    },
+                    {
+                        "t":  63.5,
+                        "swaps":  30,
+                        "p99":  33.85,
+                        "max":  34,
+                        "cpu_cores":  1.86,
+                        "gpu_ms":  3.9
+                    },
+                    {
+                        "t":  68.5,
+                        "swaps":  30,
+                        "p99":  33.66,
+                        "max":  33.7,
+                        "cpu_cores":  1.99,
+                        "gpu_ms":  3.9
+                    },
+                    {
+                        "t":  73.5,
+                        "swaps":  29.8,
+                        "p99":  33.91,
+                        "max":  57.4,
+                        "cpu_cores":  2.12,
+                        "gpu_ms":  2.6
+                    },
+                    {
+                        "t":  78.5,
+                        "swaps":  30,
+                        "p99":  34.03,
+                        "max":  44.7,
+                        "cpu_cores":  2.05,
+                        "gpu_ms":  1.9
+                    },
+                    {
+                        "t":  83.6,
+                        "swaps":  30,
+                        "p99":  33.69,
+                        "max":  33.7,
+                        "cpu_cores":  2.08,
+                        "gpu_ms":  3.1
+                    },
+                    {
+                        "t":  88.6,
+                        "swaps":  30,
+                        "p99":  33.67,
+                        "max":  33.8,
+                        "cpu_cores":  2.05,
+                        "gpu_ms":  1.7
+                    },
+                    {
+                        "t":  94.1,
+                        "swaps":  30,
+                        "p99":  33.63,
+                        "max":  33.6,
+                        "cpu_cores":  2.16,
+                        "gpu_ms":  1.7
+                    },
+                    {
+                        "t":  99.1,
+                        "swaps":  30,
+                        "p99":  33.68,
+                        "max":  33.8,
+                        "cpu_cores":  2.02,
+                        "gpu_ms":  2.3
+                    },
+                    {
+                        "t":  104.2,
+                        "swaps":  30,
+                        "p99":  33.67,
+                        "max":  33.7,
+                        "cpu_cores":  2.15,
+                        "gpu_ms":  1.7
+                    },
+                    {
+                        "t":  109.2,
+                        "swaps":  30,
+                        "p99":  33.67,
+                        "max":  33.7,
+                        "cpu_cores":  2.03,
+                        "gpu_ms":  1.7
+                    },
+                    {
+                        "t":  114.2,
+                        "swaps":  30,
+                        "p99":  33.68,
+                        "max":  33.7,
+                        "cpu_cores":  2.13,
+                        "gpu_ms":  1.7
+                    },
+                    {
+                        "t":  119.4,
+                        "swaps":  30,
+                        "p99":  33.69,
+                        "max":  33.8,
+                        "cpu_cores":  2.09,
+                        "gpu_ms":  1.7
+                    }
+                ],
+    "phases":  {
+                   "garage":  {
+                                  "from":  85,
+                                  "to":  120,
+                                  "samples":  7,
+                                  "swaps_median":  30,
+                                  "swaps_min":  30,
+                                  "p99_median":  33.67,
+                                  "p99_max":  33.69,
+                                  "max_max":  33.8
+                              }
+               },
+    "errors":  [
+
+               ],
+    "error_count":  0,
+    "exit":  {
+                 "state":  "running",
+                 "at":  120,
+                 "code":  null
+             },
+    "machine_before":  {
+                           "time":  "2026-11-01T21:58:23",
+                           "cpu_load":  69.7,
+                           "free_memory_mb":  4626,
+                           "idle_seconds":  885,
+                           "other_games":  [
+                                               "HaloReach 30752"
+                                           ]
+                       },
+    "machine_after":  {
+                          "time":  "2026-11-01T22:00:39",
+                          "cpu_load":  72.3,
+                          "free_memory_mb":  4497,
+                          "idle_seconds":  1021,
+                          "other_games":  [
+                                              "Minecraft 28824"
+                                          ]
+                      },
+    "steady":  null,
+    "notes":  [
+
+              ],
+    "machine_unsteady":  false,
+    "baseline_note":  "AnyX360 0.32.0 (dist\\AnyX360-0.32.0\\bin), 2026-11-01 20:43-22:11. The machine was loaded by two other agents (their game copies and builds: see machine_before); the probes were steady (Mortal Kombat menu p99 18 ms, Gears 19 ms)."
+}

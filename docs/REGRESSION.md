@@ -68,9 +68,9 @@ fixed sequence of presses gets there from a new profile, a little gameplay.
 | minecraft | Play Game, offline, a new world, walk and dig | menu, play |
 | halo3 | A, A from the main menu (solo campaign, Normal), the look prompts | menu, late |
 | reach | A (Armory), START, A, A (solo campaign, Normal) | menu, late |
-| gh3 | to the main menu, then Practice > Slow Ride (frames clock) | menu, song |
-| dcc | A through the menus, B, the stick | menu, play |
-| d3 | the legal screens, a new hero, walk and attack (frames clock) | menu, play |
+| gh3 | to the main menu, then DOWN, DOWN, A... (frames clock): on a new profile it ends in Career's band name | menu, song |
+| dcc | A through the intro, B (continue without saving), the main menu | menu, play |
+| d3 | the legal screens, then A presses (frames clock): it ends in the menus | menu, play |
 | fm4 | A at the title, the brightness, the introduction, RT in the first race | intro, race |
 | bo3 | the logos, the first-run screens, Multiplayer > Start match | menu, late |
 | dc2, dc3 | the scripted dancer enters: the title screen | title |
@@ -80,8 +80,13 @@ fixed sequence of presses gets there from a new profile, a little gameplay.
 | kjr | Start and the autosave notice with the hand: the garage | garage |
 | kp | the player enters: the first channel, then arm moves | channel |
 
+What each route really reaches on 0.32.0 is in `tools\regress\baseline\README.md`; a route that
+stops short of gameplay still compares boot, menus and pacing. Doritos Crash Course gets the version 2
+avatar pack from `ks.anyx` (`"avatar_pack_from"`, extracted with the main checkout's x360tool), as
+the launcher would install it: with Reach's older pack it crashes 10 s in.
+
 Window titles that differ from the game's name: `AnyX360 - COD: Black Ops II`,
-`AnyX360 - Modern Warfare® 3`, `AnyX360 - Guitar Hero III`, `AnyX360 - Diablo III: RoS`. A route with
+`AnyX360 - Modern Warfare® 3`, `AnyX360 - COD: Black Ops III`, `AnyX360 - Guitar Hero III`, `AnyX360 - Diablo III: RoS`, `AnyX360 - Mortal Kombat`, `AnyX360 - RESIDENT EVIL 6`, `AnyX360 - Minecraft`. A route with
 `"title": null` takes the first `AnyX360 - ` window of the game's processes and reports it.
 
 ## Rules for runs
