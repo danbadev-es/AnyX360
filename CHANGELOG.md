@@ -13,12 +13,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - **Halo 3** (in testing, [docs/HALO3.md](docs/HALO3.md)): Bungie's shooter from a Games on Demand
   copy with its title update (version 0.0.3.5, recompiled from it) and its four Waves audio DLLs,
   recompiled into the game: the campaign (Arrival, Sierra 117, checkpoints, Save and quit) and split
-  screen for two to four players (co-op campaign, custom games). A pause of about 400 ms roughly
-  once a second is still to fix, and the map packs, installed, aren't offered yet.
+  screen for two to four players (co-op campaign, custom games). The map packs, installed, aren't
+  offered yet.
 - **Halo: Reach** (in testing, [docs/HALOREACH.md](docs/HALOREACH.md)): Bungie's prequel from a
   Games on Demand copy with its title update (version 0.0.1.7, recompiled from it) and its Waves
   DLLs: the first-run Spartan, the Armory, the campaign's Winter Contingency with checkpoints, and
-  its co-op for two players on one screen. The same pause as Halo 3's is still to fix.
+  its co-op for two players on one screen.
 - I/O completion ports (`NtCreateIoCompletion`, `NtSetIoCompletion`, `NtRemoveIoCompletion`, files
   associated with one), which Halo 3 reads its maps with, and the `cache0:`/`cache1:` partitions.
 - `XeCryptBnQwNeRsaPubCrypt` and `XeCryptBnDwLePkcs1Verify` (Halo 3 checks its maps' signatures),

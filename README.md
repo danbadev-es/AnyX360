@@ -447,7 +447,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Start-up, menus, settings        | ✅ Working; preferences and the profile's settings are kept |
 | Campaign                         | 🧪 Arrival and Sierra 117 played; checkpoints, Save and quit and its progress kept |
 | Split screen (2-4 players)       | 🧪 Two players in co-op on Sierra 117; four in a custom game (Slayer, Last Resort) |
-| Smoothness                       | ❌ A pause of about 400 ms roughly once a second (also seen in other games on the test machine: to be checked) |
+| Smoothness                       | 🧪 To be checked by a player (the test machine stuttered in every game that day) |
 | Map packs                        | ❌ Installed by the launcher, but the game doesn't offer them yet |
 | Forge, Theater                   | 🧪 Not tried yet                               |
 | Title update (0.0.3.5)           | ✅ Required: the game is recompiled from it    |
@@ -458,7 +458,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Start-up, menus, the Armory      | ✅ Working; the Spartan and the credits are kept |
 | Campaign                         | 🧪 Winter Contingency played; checkpoints      |
 | Split screen                     | 🧪 Two players in co-op on Winter Contingency; three or four not tried yet |
-| Smoothness                       | ❌ A pause of about 400 ms roughly once a second (also seen in other games on the test machine: to be checked) |
+| Smoothness                       | 🧪 To be checked by a player (the test machine stuttered in every game that day) |
 | Firefight, custom games, Forge   | 🧪 Not tried yet                               |
 | Map packs                        | 🧪 Installed by the launcher; not tried yet    |
 | Title update (0.0.1.7)           | ✅ Required: the game is recompiled from it    |
@@ -791,7 +791,6 @@ Diablo III: Reaper of Souls – Ultimate Evil Edition:
 
 Halo 3:
 
-- The picture stops for about 400 ms roughly once a second.
 - The map packs (Heroic, Legendary, Cold Storage, Mythic, Mythic II) are installed but not offered:
   the game lists only the disc's maps.
 - Only the first missions, co-op and a custom game have been played; Forge and Theater haven't
@@ -799,7 +798,6 @@ Halo 3:
 
 Halo: Reach:
 
-- The picture stops for about 400 ms roughly once a second.
 - Only Winter Contingency, alone and in co-op for two, has been played; Firefight, custom games,
   Forge, three or four players and the map packs haven't been tried.
 

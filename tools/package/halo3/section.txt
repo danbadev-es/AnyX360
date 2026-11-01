@@ -11,7 +11,6 @@ a controller in F2 > Players, with "Players 2-4 sign in" set to "At startup"; in
 choose Campaign or Custom games, then Start game.
 
 KNOWN ISSUES
-- The picture stops for about 400 ms roughly once a second.
 - The map packs are installed but the game doesn't offer them yet.
 - In testing: the first missions, co-op and a custom game have been played; Forge and Theater
   haven't been tried. Matchmaking needs Xbox LIVE, which is gone.

@@ -11,7 +11,6 @@ controller in F2 > Players, with "Players 2-4 sign in" set to "At startup"; the 
 offers the co-op campaign.
 
 KNOWN ISSUES
-- The picture stops for about 400 ms roughly once a second.
 - In testing: Winter Contingency, alone and in co-op for two, has been played; Firefight, custom
   games, Forge, three or four players and the map packs haven't been tried. Matchmaking needs
   Xbox LIVE, which is gone.

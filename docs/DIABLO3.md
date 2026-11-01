@@ -82,7 +82,10 @@ The launcher installs the title update and the package.
   render thread (`guest 31`, `82D1D368`) spends them in the D3D library's wait for room in the
   command ring (`82D5C5B0` → `82D4DED8`, polling the read pointer written back at device+0x2B10),
   while the command processor is mostly idle. Next: find what the command stream waits on there
-  (a fence the CPU writes, or a register wait) in Xenia's command processor.
+  (a fence the CPU writes, or a register wait) in Xenia's command processor. That day the test
+  machine paused every game the same way (about 430 ms, Mortal Kombat built from 0.29.0's code
+  too: [HALO3.md](HALO3.md#known-issues)), so the stalls may come from that machine: to be checked by
+  a player first.
 - **Not tried yet**: New Tristram itself and the quests after it, Adventure Mode (opened once the
   story has been finished), the town's vendors and the stash, the shoulders.
 

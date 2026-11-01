@@ -110,11 +110,11 @@ The launcher installs the title update and the map packs.
 - **Xbox LIVE** (Matchmaking) is gone; System Link isn't offered.
 
 ## Known issues
-- **Stutter**: frames come at 60 per second with a pause of about 400 ms roughly once a second
-  ("no frame presented for 400 ms"); the main thread waits on a kernel object then. Not looked
-  into yet: on the same day the same pauses (about 420-440 ms) showed in Gears of War 3 and Black
-  Ops II on the test machine, with the released 0.30.0 Gears of War 3 too, so they may come from
-  that machine rather than from the game; to be checked on another session.
+- **Smoothness, to be checked by a player**: on the bring-up day the test machine showed a pause
+  of about 420-440 ms roughly once a second in every game it ran: Halo 3, Halo: Reach, Gears of
+  War 3, Black Ops II, and Mortal Kombat built from 0.29.0's code, which players had run at a
+  steady 60 FPS. So the pauses came from that machine's state, not from the ports; the games'
+  smoothness still has to be judged on a normal session.
 
 ## Routes (scripted input)
 With an existing user folder and the game at its main menu (about 50 s in), using
