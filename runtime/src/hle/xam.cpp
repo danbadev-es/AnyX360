@@ -976,7 +976,10 @@ uint32_t XamContentCreateEnumerator(uint32_t user_index, uint32_t device_id, uin
   (void)content_flags;
   LogOtherUser("XamContentCreateEnumerator", user_index, 0);
   if (buffer_size_ptr) Store<uint32_t>(buffer_size_ptr, kContentDataSize * std::max<uint32_t>(items_per, 1));
-  return CreateEnumerator(handle_ptr, items_per, ListContent(user_index, device_id, content_type));
+  auto items = ListContent(user_index, device_id, content_type);
+  KLOG_T("XamContentCreateEnumerator(player %u, device %08X, type %08X): %zu packages", user_index + 1, device_id,
+         content_type, items.size());
+  return CreateEnumerator(handle_ptr, items_per, std::move(items));
 }
 
 // XContentCreateAggregateEnumerator: the title's content of a type on every device and for every

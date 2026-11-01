@@ -1,0 +1,51 @@
+# Halo: Reach recompiler configuration (XenonRecomp format). Paths are relative to this file.
+# This file contains no game code or data; it only describes where things are.
+#
+# The game is recompiled from its title update's executable (version 0.0.1.7): XenonRecomp applies
+# patch_file_path to file_path and writes patched_file_path, which XenonAnalyse reads (x360tool
+# xex-patch makes the same file). file_path is the default.xex of the disc files extracted from the
+# Games on Demand package (version 0.0.0.7, encrypted with the retail key); patch_file_path is
+# default.xexp from the update's package (000B0000\tu00000007_00000000, x360tool stfs-extract), see
+# docs/HALOREACH.md.
+
+[main]
+file_path = "../../extracted/reach/game/default.xex"
+patch_file_path = "../../extracted/reach/update/default.xexp"
+patched_file_path = "../../extracted/reach/update/default_0.0.1.7.xex"
+out_directory_path = "recomp3"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x827EF010
+savegprlr_14_address = 0x827EEFC0
+restfpr_14_address = 0x827F4FFC
+savefpr_14_address = 0x827F4FB0
+restvmx_14_address = 0x8295EFA8
+savevmx_14_address = 0x8295ED10
+restvmx_64_address = 0x8295F03C
+savevmx_64_address = 0x8295EDA4
+
+# The CRT's setjmp/longjmp, checked by hand: the same code as Halo 3's (setjmp first calls through
+# a global when it is set; the jmp_buf's words 304-312 hold CR, LR and a flag that longjmp reads).
+# find_helpers.py's other longjmp candidates are ordinary functions (8295DD30 copies a thread
+# context, 829604A0 is the middle of a function).
+setjmp_address = 0x829B47A0
+longjmp_address = 0x8295FC90
+
+# Functions the analyser misses (address + size). 8213A218 starts inside 8213A178's .pdata range
+# (that function's last case falls through into it with "b +4"), and 8219E4F0 ends with a tail
+# call to it: the recompiler had no function there ("ERROR 8213A218").
+functions = [
+  { address = 0x8213A218, size = 0x7C },
+]

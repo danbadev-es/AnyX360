@@ -1,0 +1,20 @@
+{
+  "id": "reach",
+  "title": "Halo: Reach",
+  "cover": "halo-reach",
+  "status": "testing",
+  "exe": "HaloReach",
+  "user_dir": "HaloReach",
+  "title_id": "4D53085B",
+  "xex": {"version": "0.0.0.7", "media_id": "25148C14"},
+  "update": {"version": "0.0.1.7", "package": "tu00000007_00000000"},
+  "dev_game_dir": "extracted/reach/game",
+  "launcher_name": "AnyX360 Halo: Reach",
+  "size_gb": 10,
+  "archive_hint": "Halo: Reach (Games on Demand)",
+  "input": "keyboard_pad",
+  "required_files": ["maps/mainmenu.map", "maps/m10.map"],
+  "owners": "Microsoft Corporation, Xbox Game Studios, Bungie",
+  "trademarks": ["Xbox", "Xbox 360", "Halo"],
+  "components": []
+}
