@@ -407,7 +407,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Menus, settings, saves           | ✅ Working (60 FPS)                            |
 | Multiplayer                      | 🧪 Local matches (Team Deathmatch on Combine) played, with bots; needs the Compatibility Packs |
 | Zombies                          | 🧪 Its own program, started from the menu; Shadows of Evil played to the end of a game |
-| Downloadable content             | ✅ Installed, required for multiplayer; The Giant, Der Eisendrache and Awakening's maps not tried yet |
+| Downloadable content             | ✅ Installed, required for multiplayer; The Giant (Zombies) and Rise (Awakening) played, Der Eisendrache and the other Awakening maps offered |
 | Title Update (0.0.8.5)           | ✅ Required: both programs are recompiled from it |
 | Split screen, campaign           | ❌ Not in this version of the game (one local player, no campaign) |
 | Xbox LIVE, LAN                   | ❌ Not available: Xbox LIVE is gone            |

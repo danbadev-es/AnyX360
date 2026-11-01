@@ -110,9 +110,11 @@ content as it does for the other games (game.json has no `"downloadable_content"
   it was.
 - **Title Update**: required (both programs are recompiled from 0.0.8.5); the game mounts it as
   `update:` and reads its patch fast files and packs.
-- **Downloadable content**: required for multiplayer (above). The Giant and Der Eisendrache (Zombies)
-  and Awakening's multiplayer maps are installed; whether their maps can be chosen and played
-  wasn't checked yet.
+- **Downloadable content**: required for multiplayer (above), and its maps are offered and play
+  (2026-11-01, nothing had to change): the Zombies map list has Shadows of Evil, **The Giant** and
+  **Der Eisendrache**, and The Giant was started and played (round 1, the starting pistol, 500
+  points); multiplayer's Change map > Downloadable content lists Awakening's **Rise**, Splash,
+  Skyjacked and Gauntlet, and a Team Deathmatch on Rise was started and played.
 - Not tried: Free Run, Zombies past round 1 with the scripted player (it dies in round 1 standing
   still), other multiplayer modes and maps, a match to its end, the Zombies' Multiplayer choice
   back to `BlackOps3.exe`.

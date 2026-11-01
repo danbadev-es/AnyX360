@@ -44,6 +44,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 - **Halo: Reach**: the map packs were tried: Custom games offers the Noble, Defiant and Anniversary
   maps, and Slayer on Anchor 9 was played. Theater opens.
+- **Call of Duty: Black Ops III**: the downloadable maps were tried: The Giant (Zombies) and Rise
+  (Awakening, multiplayer) played; Der Eisendrache, Splash, Skyjacked and Gauntlet offered.
 
 ### Changed
 
