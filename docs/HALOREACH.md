@@ -54,12 +54,54 @@ playback controller, players 2-4's sign-in state. Reach needed besides:
   `DeleteFiber` `829603B8`) run on host fibers ([games/reach/src/fibers.cpp](../games/reach/src/fibers.cpp)).
 - `XeCryptHmacShaInit`/`Update`/`Final` (HMAC-SHA-1), which Halo 3 doesn't import.
 
+## Fixes after 0.31.0 (2026-11-01)
+A player reported that the game and its videos ran several times too fast until gameplay, that
+the first cinematic's voices overlapped, that two Spartans had only floating eyes for faces, and
+that the co-op campaign in split screen stuttered.
+
+- **Speed: the game is made for 30 FPS.** It presents every other vblank of the console's 60 Hz.
+  Its menus, Bink videos and cinematics advance one step per frame. Gameplay keeps time on its
+  own clock. The runtime's default vblank is 120 Hz (2 vblanks per frame for 60 FPS), so
+  everything frame-driven ran twice as fast: at the title menu 120 swaps/s, and the opening
+  cinematic reached Winter Contingency's gameplay **155 s** after Normal. With the 60 Hz vblank
+  (the 30 FPS setting) it took **295 s**, with the cinematic's lines in step. The game now always
+  runs at 30 FPS, as on the console (`vblanks_per_frame = 2`, `fixed_fps = 30`): the title menu
+  presents at 30 swaps/s and the cinematic takes about 280 s. Halo 3 had the same problem and the
+  same fix ([HALO3.md](HALO3.md#fixes-after-0310-2026-11-01)).
+- **Faces: tessellated triangle strips.** The faces (Kat's, Jorge's, Carter's...) are tessellated
+  triangle strips with an index buffer. Tessellation needs triangle lists, and Xenia's primitive
+  processor converted only fans, line loops and quad lists. Every frame these draws failed
+  (`PM4_DRAW_INDX(4909, 6, 0): Failed in backend`, and others with 5342, 4403 and 404 indices),
+  leaving only the eyes, teeth and hair, which are other draws. Indexed strips are now converted
+  to lists, keeping their winding and their primitive resets (xenia `anyx360-fixes`, `ee7661e`).
+  The faces render in the briefing. This had nothing to do with the speed: they were missing at
+  60 Hz too.
+- **Split screen**: see Performance below.
+
+## Performance (2026-11-01)
+- **Split screen before (the player's 0.31.0 log, 60 FPS):** two players in the co-op campaign
+  ran at 33-60 swaps/s, mostly 45-55, with a p99 frame time of 30-50 ms. The guest's
+  `MAIN_THREAD` and `RENDER` threads were both at 95-99% of a core. The GPU was busy 50-63% (10-12
+  ms per frame, 2400-3000 draws), and Xenia's command processor worked 50-69% of the time. So the
+  title's own two threads were the limit, not the GPU or the command processor: rendering two
+  views roughly doubles the render thread's work (35% of a core alone at 60 FPS). Uneven 40-60
+  FPS was the stutter the player felt.
+- **Split screen now (30 FPS, the console's rate):** the same co-op on Winter Contingency, both
+  players walking and looking around: 30.0 swaps/s, p99 33.7 ms (two samples of 13 with a 55-75 ms
+  maximum), `RENDER` 30-46%, `MAIN_THREAD` 15-32%, the GPU 8-10 ms per frame (23-31% busy), 1400-2850
+  draws. There is room to spare, so no Xenia option was needed (Black Ops II's
+  `d3d12_submit_on_primary_buffer_end=false` addresses a command processor limit, which this
+  isn't).
+- **One host core busy all the time:** the guest thread `NETWORK_RECEIVE` uses 90-100% of a core
+  from the start, even with no sockets (`ANYX360_NO_SOCKETS`). It polls in a loop. It costs a
+  core, not frame rate. System Link work on `xam_net` may change what it waits on.
+
 ## Status (2026-11-01)
 - **Boot**: the first-run welcome screen (choose the Spartan's gender), the Armory (helmet,
   shoulders, chest... 5000 credits to start with) and the title menu (version 1.1: Start solo
   campaign, Main menu).
-- **Campaign**: Start solo campaign, difficulty, the opening cinematic (Noble Team) and **Winter
-  Contingency**'s gameplay (in the Warthog with Jun, the HUD and the tutorial prompts); the pause
+- **Campaign**: Start solo campaign, difficulty, the opening cinematic (Noble Team, the faces
+  drawn since the fix above) and **Winter Contingency**'s gameplay (in the Warthog with Jun, the HUD and the tutorial prompts); the pause
   menu offers the last checkpoint, and credits are earned (5148).
 - **Split screen**: two players in the **co-op campaign** (the lobby: "this party is local to this
   Xbox 360", Preparing map, Start co-op campaign) on Winter Contingency, each with their view and
@@ -72,15 +114,19 @@ playback controller, players 2-4's sign-in state. Reach needed besides:
 - **Xbox LIVE** is gone.
 
 ## Known issues
-- Smoothness is still to be checked by a player: the test machine paused every game that day
-  (see [HALO3.md](HALO3.md#known-issues)).
+- **30 FPS only**, as on the console: the 60 FPS setting doesn't apply to this game, because its
+  menus, videos and cinematics would run twice as fast.
+- The cinematics can drop below 30 FPS on a busy GPU (22-27 FPS in the briefing here, with the GPU
+  at 33-52 ms per frame while another program used it).
 
 ## Routes (scripted input)
 On a new profile, with `ANYX360_INPUT_LIVE`: at about 75 s `A` (Male, to the Armory), `START`
 (leave the Armory: the title menu), `A` (Start solo campaign), `A` (Normal): the cinematic, then
-Winter Contingency's gameplay about 150 s later. Co-op: with two players signed in the title menu
-offers Campaign: `A` (the lobby prepares the map), then `A` (Start co-op campaign): gameplay about
-60 s later (co-op skips the cinematic).
+Winter Contingency's gameplay about 280 s later (155 s before the 30 FPS fix). Co-op: with two
+players signed in, the title menu offers Campaign: `A` (the lobby prepares the map), then `A`
+(Start co-op campaign): the same cinematic, then gameplay about 300 s later. With
+`[players] p1`/`p2` `device = "none"`, scripted input alone drives both players
+(`ANYX360_INPUT=9999:BACK,9999:BACK@1` connects them).
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `4D53085B`):

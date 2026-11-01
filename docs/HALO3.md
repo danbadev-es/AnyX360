@@ -89,6 +89,16 @@ The launcher installs the title update and the map packs.
   success, and the lobby had four players, three without a controller: "the Xbox 360 controller
   is disconnected" and "Error starting the game". They return the HRESULT now, as XAM does.
 
+## Fixes after 0.31.0 (2026-11-01)
+- **Speed: made for 30 FPS.** As Halo: Reach ([HALOREACH.md](HALOREACH.md#fixes-after-0310-2026-11-01)):
+  the game presents every other vblank of the console's 60 Hz, and its menus and cinematics
+  advance a step per frame. With the runtime's default 120 Hz vblank, Arrival ran twice as fast:
+  Sierra 117's first prompt came about 80 s after Normal, and Johnson's cigar about 50 s in. At
+  60 Hz they come at about 175 s and 120 s. The game now always runs at 30 FPS
+  (`vblanks_per_frame = 2`, `fixed_fps = 30`).
+- **Tessellated triangle strips** with an index buffer are drawn now (Reach's faces needed them).
+  Halo 3 didn't log such failed draws in these runs.
+
 ## Status (2026-11-01)
 - **Boot**: the loading screen, the main menu (version 1.2: Start solo game, Campaign,
   Matchmaking, Custom games, Forge, Theater), at 60 FPS with stutters (below). Preferences are

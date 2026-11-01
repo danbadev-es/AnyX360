@@ -25,6 +25,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   other's); joining doesn't start yet.
 - With System Link on, the log warns when player 1 plays as the XUID every copy without a profile
   of its own shares (games take such a peer for themselves).
+- `GameDescriptor::audio_queued_frames`: how many audio frames a title queues ahead of the
+  host's playback (default 16, 85 ms). Fewer means less delay before its sounds play.
+- The log warns for each audio client whose output played every queued frame ("audio: client N
+  ran dry"). The old check timed all clients together, so with two clients (Doritos Crash
+  Course, Minecraft) one could starve unseen.
+
+### Fixed
+
+- **Halo: Reach** and **Halo 3** ran their menus, videos and cinematics twice as fast: both are
+  made for 30 FPS and advance a step per frame, and the default 120 Hz vblank gave them 60 FPS.
+  Reach's opening cinematic reached gameplay 155 s after Normal instead of about 280 s, and its
+  voices overlapped. Both now run at the console's 30 FPS (60 Hz vblank). In Reach's split screen
+  this also ends the uneven 40-60 FPS.
+- **Halo: Reach**: the characters' faces in the cinematics (only the eyes and teeth showed).
+  They are tessellated triangle strips with an index buffer, which Xenia couldn't convert to
+  lists, so the draws failed every frame. Indexed strips are converted now (xenia
+  `anyx360-fixes`).
+- **Doritos Crash Course**: its sound plays 43 ms sooner (8 queued frames). The game runs at the
+  console's 60 FPS with a 60 Hz vblank: it presents every vblank, and with the default 120 Hz it
+  ran at up to 120 FPS. Its audio output was measured without gaps or underruns. The cuts a player
+  heard weren't reproduced, and the new warning will show them in the log if the output starves.
+- **The avatar asset pack**: adding Halo: Reach replaced the shared pack with its disc's older
+  version, which the avatar system can't read, and Doritos Crash Course then crashed on its first
+  level. An older pack never replaces a later one now. Before each game starts, the launcher puts
+  back the latest pack a game in the library carries, and avatar games bring their own disc's pack
+  back too.
 
 ## [0.31.0] - 2026-11-01
 

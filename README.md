@@ -90,13 +90,13 @@ the sensor.
   short freezes still to fix ([docs/DIABLO3.md](docs/DIABLO3.md)).
 - **Halo 3** (in testing): Bungie's shooter from a Games on Demand copy with its title update
   (version 0.0.3.5): the campaign (Sierra 117, checkpoints, Save and quit) and split screen for up to
-  four players, in co-op or a custom game, each with a controller, and System Link custom games
-  between copies of AnyX360 ([docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)); a short pause about once a
-  second is still to fix and the map packs aren't offered yet ([docs/HALO3.md](docs/HALO3.md)).
+  four players, in co-op or a custom game, each with a controller, at the console's 30 FPS, and
+  System Link custom games between copies of AnyX360 ([docs/SYSTEMLINK.md](docs/SYSTEMLINK.md));
+  the map packs aren't offered yet ([docs/HALO3.md](docs/HALO3.md)).
 - **Halo: Reach** (in testing): Bungie's prequel from a Games on Demand copy with its title update
   (version 0.0.1.7): the first-run Spartan, the Armory, the campaign (Winter Contingency,
-  checkpoints) and its co-op for two players on one screen; the same short pause as Halo 3's
-  ([docs/HALOREACH.md](docs/HALOREACH.md)).
+  checkpoints, the cinematics with their faces) and its co-op for two players on one screen, at the
+  console's 30 FPS ([docs/HALOREACH.md](docs/HALOREACH.md)).
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
 carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for. Your
@@ -341,7 +341,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | -------------------------------- | ---------------------------------------------- |
 | Menus, country and level choice  | ✅ Working with a controller or the keyboard   |
 | Levels                           | 🧪 Running, jumping, checkpoints; finishing one not tried yet |
-| Avatars (player, crowd)          | ✅ With the avatar data from Kinect Sports     |
+| Sound                            | 🧪 43 ms less delay; cuts a player heard not reproduced (the log now reports them) |
+| Avatars (player, crowd)          | ✅ With the avatar data from Kinect Sports or Mortal Kombat |
 | Saving progress                  | ✅ Saved and loaded again                      |
 | Title update (0.0.2.2)           | ✅ Required: the game is recompiled from it    |
 | Leaderboards                     | ❌ Not available: they need Xbox Live          |
@@ -453,7 +454,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Start-up, menus, settings        | ✅ Working; preferences and the profile's settings are kept |
 | Campaign                         | 🧪 Arrival and Sierra 117 played; checkpoints, Save and quit and its progress kept |
 | Split screen (2-4 players)       | 🧪 Two players in co-op on Sierra 117; four in a custom game (Slayer, Last Resort) |
-| Smoothness                       | 🧪 To be checked by a player (the test machine stuttered in every game that day) |
+| Speed, smoothness                | ✅ 30 FPS, as on the console: menus and cinematics at their speed |
 | Map packs                        | ❌ Installed by the launcher, but the game doesn't offer them yet |
 | Forge, Theater                   | 🧪 Not tried yet                               |
 | System Link                      | 🧪 Two copies on one PC: a custom game (Slayer, Last Resort) hosted, found, joined and played; two PCs and VPNs not tried yet; co-op refused (hard drive check) |
@@ -463,9 +464,9 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Halo: Reach                      | Status                                         |
 | -------------------------------- | ---------------------------------------------- |
 | Start-up, menus, the Armory      | ✅ Working; the Spartan and the credits are kept |
-| Campaign                         | 🧪 Winter Contingency played; checkpoints      |
-| Split screen                     | 🧪 Two players in co-op on Winter Contingency; three or four not tried yet |
-| Smoothness                       | 🧪 To be checked by a player (the test machine stuttered in every game that day) |
+| Campaign                         | 🧪 Winter Contingency played; checkpoints; the cinematics with their faces |
+| Split screen                     | 🧪 Two players in co-op on Winter Contingency, a steady 30 FPS; three or four not tried yet |
+| Speed, smoothness                | ✅ 30 FPS, as on the console: menus, videos and cinematics at their speed |
 | Firefight, custom games, Forge   | 🧪 Not tried yet                               |
 | Map packs                        | 🧪 Installed by the launcher; not tried yet    |
 | System Link                      | 🧪 Hosts and finds: each copy's roster lists the other's party; joining doesn't start yet |

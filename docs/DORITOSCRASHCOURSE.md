@@ -97,6 +97,43 @@ with the message.
 
 Scripted pad: `15:A,25:A,35:A,45:A,55:A,65:A,72:B,90:LRIGHT/50` and `A/0.5` every 3 s to jump.
 
+## Audio (2026-11-01)
+A player heard the sound late, with cuts (0.29.0). What the investigation found:
+
+- **Two audio engines.** The game creates two XAudio2 engines, so the runtime has two render
+  driver clients (callback `82530C60` for both, arguments `4001F820` and `4001F8A0`), each with its
+  own host output. That is why the log shows 375 frames/s: 187.5 for each. The second one only ever
+  submits silence. Minecraft has two clients too.
+- **The host side keeps up.** Measured per client (a temporary probe, at 120 Hz and with a 6-job
+  build running beside it): both mixed at 187.5 frames/s. Neither output ever had more than 2 of
+  its 16 queued frames played and not yet replaced, so playback never ran dry. A mix callback takes
+  0.15-0.4 ms on average and 3 ms at most: the game's XAudio2 mixes on its own threads and the
+  callback hands over the finished frame. Each client's output, dumped to a file for 150 s
+  (menus and the first level), has no silent gaps, no repeated frames and no sudden drops. So the
+  cuts the player heard didn't come from the runtime's output on this PC. Before 0.32.0 the log's
+  "playback ran dry" check timed all clients together, so it couldn't see one client starving
+  while the other kept mixing.
+- **Its frame rate.** The game presents every vblank: on the console it runs at 60 FPS. It had kept
+  the runtime's default 120 Hz vblank, which suits titles that present every other vblank. So it
+  ran at up to 120 FPS: 96-120 swaps/s here on a fast display. On a 60 Hz display it is held at 60
+  by the presents (the player's log: 60.0 swaps/s), while its vblank interrupt still came 120
+  times a second. The race timer kept time either way (30.5-30.7 s in 30 s), so the game has its
+  own clock. It now has the console's 60 Hz vblank at a fixed 60 FPS (`vblanks_per_frame = 1`,
+  `fixed_fps = 60`, as Guitar Hero III and Mortal Kombat): a steady 60.0 swaps/s, the timer
+  unchanged.
+- **Changes (0.32.0).** The game's sound now plays 43 ms sooner: 8 frames are queued ahead of
+  playback instead of 16 (85 ms), with `GameDescriptor::audio_queued_frames`. Its mixing was never
+  more than 2 frames late, which leaves 6 frames of slack. The runtime also warns for each client
+  whose output plays every queued frame ("audio: client N ran dry"), so the next log from a PC
+  with cuts will show whether the output starved.
+- **Avatar pack.** Adding Halo: Reach replaced the shared avatar asset pack with its disc's older
+  version (1), which the avatar system can't read. With it this game crashed on its first level
+  (a null read in `sub_82877CC8`, thread 20/21), as it does with no pack at all (checked: the
+  version with its title update needs the avatars; the notes above about an invisible player are
+  from the base game). Since 0.32.0 an older pack never replaces a later one, and the launcher
+  puts the latest one back before each game starts ([AVATARS.md](AVATARS.md)). Without any game
+  that carries a version 2 pack (Kinect Sports, Mortal Kombat...) the game still crashes there.
+
 ## Reproducing
 From the arcade package (`<package>` is the folder that holds `58410A71`):
 
