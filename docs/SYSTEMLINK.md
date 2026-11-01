@@ -16,7 +16,8 @@ locally, nothing goes to the network, no firewall prompt.
 |---|---|
 | Halo 3 | **Works on one PC**: host, find, join, custom game (Slayer on Last Resort) with two players. Campaign co-op over System Link is refused by the game's hard drive check (below). |
 | Halo: Reach | **Hosts and finds**: each copy's roster lists the other's System Link party. Joining doesn't start yet (below). |
-| Gears of War 3, MW3, Black Ops II | Not tried yet. |
+| Gears of War 3, Black Ops II | Their System Link modes not tried yet. Their campaigns play as before with System Link on (real sockets) and off. |
+| Modern Warfare 3 | Not tried yet. |
 
 ## Turning it on
 
