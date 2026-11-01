@@ -1,0 +1,20 @@
+{
+  "id": "d3",
+  "title": "Diablo III: Reaper of Souls – Ultimate Evil Edition",
+  "cover": "diablo-iii-reaper-of-souls",
+  "status": "testing",
+  "exe": "Diablo3",
+  "user_dir": "Diablo3",
+  "title_id": "394F07D4",
+  "xex": {"version": "0.0.0.14", "media_id": "30016504"},
+  "update": {"version": "0.0.2.14", "package": "tu0000000e_00000000"},
+  "dev_game_dir": "extracted/d3/game",
+  "launcher_name": "AnyX360 Diablo III: Reaper of Souls",
+  "size_gb": 8,
+  "archive_hint": "Diablo III: Reaper of Souls – Ultimate Evil Edition (Games on Demand)",
+  "input": "keyboard_pad",
+  "required_files": ["CPKs/Common.cpk", "CPKs/CacheCommon.cpk"],
+  "owners": "Blizzard Entertainment",
+  "trademarks": ["Xbox", "Xbox 360", "Diablo", "Blizzard Entertainment"],
+  "components": []
+}

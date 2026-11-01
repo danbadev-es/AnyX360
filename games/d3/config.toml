@@ -1,0 +1,45 @@
+# Diablo III: Reaper of Souls - Ultimate Evil Edition recompiler configuration (XenonRecomp format).
+# Paths are relative to this file. This file contains no game code or data; it only describes where
+# things are.
+#
+# The game is recompiled from its title update's executable (version 0.0.2.14, "Diablo III: RoS
+# Title Update"): XenonRecomp applies patch_file_path to file_path and writes patched_file_path,
+# which XenonAnalyse reads (x360tool xex-patch makes the same file). file_path is Default.xex from
+# the Games on Demand package (394F07D4\00007000, x360tool god-extract: Default.exe, version
+# 0.0.0.14, disc 1 of 1, encrypted with the retail key, basic compression); patch_file_path is
+# Default.xexp from the update's package (394F07D4\000B0000\tu0000000e_00000000, x360tool
+# stfs-extract). See docs/DIABLO3.md.
+
+[main]
+file_path = "../../extracted/d3/game/Default.xex"
+patch_file_path = "../../extracted/d3/update/Default.xexp"
+patched_file_path = "../../extracted/d3/update/default_0.0.2.14.xex"
+out_directory_path = "recomp2"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x82D1A1C0
+savegprlr_14_address = 0x82D1A170
+restfpr_14_address = 0x82D1A95C
+savefpr_14_address = 0x82D1A910
+restvmx_14_address = 0x82D1EF68
+savevmx_14_address = 0x82D1ECD0
+restvmx_64_address = 0x82D1EFFC
+savevmx_64_address = 0x82D1ED64
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: the same code as Black Ops
+# II's; setjmp first calls through a global when it is set, then saves f14-f31; longjmp restores
+# them through r7). The other longjmp candidate, 0x82D80168, is an ordinary function.
+setjmp_address = 0x83161AD0
+longjmp_address = 0x83161DA0
