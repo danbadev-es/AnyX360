@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-01
+
+System Link between copies of AnyX360 (Halo 3), the Halo games at their speed and Reach's faces, and Doritos Crash Course's sound.
+
 ### Added
 
 - **System Link** (in testing, [docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)): the console's
@@ -1318,7 +1322,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.29.0...v0.29.1
