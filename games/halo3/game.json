@@ -1,0 +1,20 @@
+{
+  "id": "halo3",
+  "title": "Halo 3",
+  "cover": "halo-3",
+  "status": "testing",
+  "exe": "Halo3",
+  "user_dir": "Halo3",
+  "title_id": "4D5307E6",
+  "xex": {"version": "0.0.0.5", "media_id": "3DFC2730"},
+  "update": {"version": "0.0.3.5", "package": "TU_16L61V6_000000K000000.00000000000o5"},
+  "dev_game_dir": "extracted/halo3/game",
+  "launcher_name": "AnyX360 Halo 3",
+  "size_gb": 8,
+  "archive_hint": "Halo 3 (Games on Demand)",
+  "input": "keyboard_pad",
+  "required_files": ["maps/mainmenu.map", "maps/shared.map"],
+  "owners": "Microsoft Corporation, Xbox Game Studios, Bungie",
+  "trademarks": ["Xbox", "Xbox 360", "Halo"],
+  "components": []
+}

@@ -1,0 +1,64 @@
+﻿== XEX2 header ==
+module flags:     0x00000001 title
+PE data offset:   0x00004000
+base address:     0x82000000
+entry point:      0x82582A98
+image size:       0x012A0000 (18.62 MiB)
+page size:        0x10000
+encryption:       AES-128 (normal)
+compression:      basic (zero-fill blocks), 4 blocks
+region:           0xFFFFFFFF
+allowed media:    0x00000004
+original PE name: halo3_cache_release.exe
+
+== Execution info ==
+title id:         4D5307E6
+media id:         3DFC2730
+version:          0.0.0.5 (base 0.0.0.5)
+disc:             1 of 1
+savegame id:      00000000
+default stack:    0x10000
+system flags:     0x00800600
+
+== Optional headers (15) ==
+  000002FF  RESOURCE_INFO                  value/offset 0x00001E04
+  000003FF  FILE_FORMAT_INFO               value/offset 0x00001E78
+  00010100  ENTRY_POINT                    value/offset 0x82582A98
+  00010201  IMAGE_BASE_ADDRESS             value/offset 0x82000000
+  000103FF  IMPORT_LIBRARIES               value/offset 0x00003654
+  00018002  CHECKSUM_TIMESTAMP             value/offset 0x00001EA0
+  000183FF  ORIGINAL_PE_NAME               value/offset 0x00001EA8
+  000200FF  STATIC_LIBRARIES               value/offset 0x00001EC4
+  00020104  TLS_INFO                       value/offset 0x00001F98
+  00020200  DEFAULT_STACK_SIZE             value/offset 0x00010000
+  00030000  SYSTEM_FLAGS                   value/offset 0x00800600
+  00040006  EXECUTION_INFO                 value/offset 0x00001FA8
+  00040310  GAME_RATINGS                   value/offset 0x00001FC0
+  00040404  LAN_KEY                        value/offset 0x00002000
+  000405FF  XBOX360_LOGO                   value/offset 0x00002010
+
+== Import libraries (2) ==
+  xam.xex          v2.0.6132.0     (min 2.0.5766.0)  220 import records
+  xboxkrnl.exe     v2.0.6132.0     (min 2.0.5766.0)  370 import records
+
+== Statically linked SDK libraries (13) ==
+  XMP      2.0.6132  (tail 0x4000)
+  XAPILIB  2.0.6132  (tail 0x4004)
+  XBOXKRNL 2.0.6132  (tail 0x4000)
+  LIBCPMT  2.0.6132  (tail 0x4000)
+  D3D9     2.0.6132  (tail 0x4000)
+  D3DX9    2.0.6132  (tail 0x4000)
+  XGRAPHC  2.0.6132  (tail 0x4000)
+  XNET     2.0.6132  (tail 0x4000)
+  XONLINE  2.0.6132  (tail 0x4000)
+  XAUD     2.0.6132  (tail 0x4000)
+  X3DAUD   2.0.6132  (tail 0x4000)
+  XHV      2.0.6132  (tail 0x4000)
+  RTDMP    2.0.4902  (tail 0x0000)
+
+== Page descriptors (298) ==
+  code       6.62 MiB
+  data       11.31 MiB
+  read-only  576.0 KiB
+  other      64.0 KiB
+  other      64.0 KiB

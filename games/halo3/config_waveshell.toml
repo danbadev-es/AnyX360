@@ -1,0 +1,24 @@
+# Halo 3's WaveShell-Xbox.dll (the Waves audio plug-in host), a title DLL the game loads with XexLoadImage at start (the game
+# stops with a disc read error without it), recompiled into the game's executable. Base 0x88000000, version 0.0.0.5,
+# encrypted with the retail key; the title update's patch for it (.dllp) changes only its headers.
+# See docs/HALO3.md.
+
+[main]
+file_path = "../../extracted/halo3/game/WaveShell-Xbox.dll"
+out_directory_path = "recomp_waveshell"
+switch_table_file_path = "switch_tables_waveshell.toml"
+# Its own names for the entry point, the helpers and the function mappings (waveshell_PPCFuncMappings).
+symbol_prefix = "waveshell_"
+
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# find_helpers.py on the DLL's image (--base 0x88000000): the helpers it has. No setjmp/longjmp.
+restgprlr_14_address = 0x88072960
+savegprlr_14_address = 0x88072910

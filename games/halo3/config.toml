@@ -1,0 +1,45 @@
+# Halo 3 recompiler configuration (XenonRecomp format). Paths are relative to this file.
+# This file contains no game code or data; it only describes where things are.
+#
+# The game is recompiled from its title update's executable (version 0.0.3.5): XenonRecomp applies
+# patch_file_path to file_path and writes patched_file_path, which XenonAnalyse reads (x360tool
+# xex-patch makes the same file). file_path is the default.xex of the disc files extracted from the
+# Games on Demand package (version 0.0.0.5, encrypted with the retail key); patch_file_path is
+# default.xexp from the update's package (TU_16L61V6_000000K000000.00000000000o5, x360tool
+# stfs-extract), see docs/HALO3.md.
+
+[main]
+file_path = "../../extracted/halo3/game/default.xex"
+patch_file_path = "../../extracted/halo3/update/default.xexp"
+patched_file_path = "../../extracted/halo3/update/default_0.0.3.5.xex"
+out_directory_path = "recomp6"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x825A41A0
+savegprlr_14_address = 0x825A4150
+restfpr_14_address = 0x825A9EFC
+savefpr_14_address = 0x825A9EB0
+restvmx_14_address = 0x8270ABF8
+savevmx_14_address = 0x8270A960
+restvmx_64_address = 0x8270AC8C
+savevmx_64_address = 0x8270A9F4
+
+# The CRT's setjmp/longjmp, checked by hand (XDK 2.0.6132, older than the other titles'): setjmp
+# first calls through a global when it is set, then saves the registers in a jmp_buf whose words
+# 304-312 hold CR, LR and a flag; longjmp reads the same words and returns 1 for a value of 0.
+# find_helpers.py's other longjmp candidates are ordinary functions (82709130 copies a thread
+# context, 825B8310 is the middle of a function).
+setjmp_address = 0x82709CB0
+longjmp_address = 0x82709870

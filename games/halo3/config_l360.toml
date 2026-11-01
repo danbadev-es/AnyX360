@@ -1,0 +1,27 @@
+# Halo 3's waves/L360.dll (the Waves L360 limiter plug-in), a title DLL the game loads with
+# XexLoadImage at start, recompiled into the game's executable. Base 0x89400000, version 0.0.0.5,
+# encrypted with the retail key; the title update's patch for it (.dllp) changes only its headers.
+# Its imports from WavesLibDLL.dll go through their variable records, which the loader fills.
+# See docs/HALO3.md.
+
+[main]
+file_path = "../../extracted/halo3/game/waves/L360.dll"
+out_directory_path = "recomp_l360"
+switch_table_file_path = "switch_tables_l360.toml"
+# Its own names for the entry point, the helpers and the function mappings (l360_PPCFuncMappings).
+symbol_prefix = "l360_"
+
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# find_helpers.py on the DLL's image (--base 0x89400000): the helpers it has. No setjmp/longjmp.
+restgprlr_14_address = 0x89422180
+savegprlr_14_address = 0x89422130
+restfpr_14_address = 0x8942459C
+savefpr_14_address = 0x89424550

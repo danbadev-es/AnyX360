@@ -1,0 +1,26 @@
+# Halo 3's WavesLibDLL.dll (the Waves audio library), a title DLL the game loads with XexLoadImage at start (the game
+# stops with a disc read error without it), recompiled into the game's executable. Base 0x8A000000, version 0.0.0.5,
+# encrypted with the retail key; the title update's patch for it (.dllp) changes only its headers.
+# See docs/HALO3.md.
+
+[main]
+file_path = "../../extracted/halo3/game/WavesLibDLL.dll"
+out_directory_path = "recomp_waveslib"
+switch_table_file_path = "switch_tables_waveslib.toml"
+# Its own names for the entry point, the helpers and the function mappings (waveslib_PPCFuncMappings).
+symbol_prefix = "waveslib_"
+
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# find_helpers.py on the DLL's image (--base 0x8A000000): the helpers it has. No setjmp/longjmp.
+restgprlr_14_address = 0x8A096DE0
+savegprlr_14_address = 0x8A096D90
+restfpr_14_address = 0x8A09A56C
+savefpr_14_address = 0x8A09A520
