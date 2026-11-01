@@ -23,6 +23,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - `XMsgStartIORequest` without an overlapped leaves its result as the thread's last error, as
   XAM's synchronous wrappers expect: a stale error failed Modern Warfare 3's `XSessionCreate`
   when joining a System Link game, and the game then waited for ever.
+- **Halo 3**: Theater and campaign co-op over System Link no longer say "one or more players don't
+  have an Xbox 360 hard drive". The game's own copy of the XDK's utility drive (formatting the
+  cache partitions through the raw disk and mounting them with a driver of its own) couldn't run;
+  the cache partitions are host folders mounted from the start, and its `XMountUtilityDriveEx` and
+  `XFlushUtilityDrive` answer success (`x360::kernel::MountUtilityDrive`). Its campaign checkpoints
+  now go to `cache1:` and its font cache to `cache0:`, as on the console.
 
 ## [0.32.0] - 2026-11-01
 

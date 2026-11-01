@@ -459,8 +459,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Split screen (2-4 players)       | 🧪 Two players in co-op on Sierra 117; four in a custom game (Slayer, Last Resort) |
 | Speed, smoothness                | ✅ 30 FPS, as on the console: menus and cinematics at their speed |
 | Map packs                        | ❌ Installed by the launcher, but the game doesn't offer them yet |
-| Forge, Theater                   | 🧪 Not tried yet                               |
-| System Link                      | 🧪 Two copies on one PC: a custom game (Slayer, Last Resort) hosted, found, joined and played; two PCs and VPNs not tried yet; co-op refused (hard drive check) |
+| Forge, Theater                   | 🧪 Theater's lobby opens (no film recorded yet); Forge not tried yet |
+| System Link                      | 🧪 Two copies on one PC: a custom game (Slayer, Last Resort) hosted, found, joined and played; a campaign lobby hosted and started (co-op with a second copy not tried yet); two PCs and VPNs not tried yet |
 | Title update (0.0.3.5)           | ✅ Required: the game is recompiled from it    |
 | Matchmaking (Xbox LIVE)          | ❌ Not available: Xbox LIVE is gone            |
 

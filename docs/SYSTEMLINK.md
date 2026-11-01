@@ -14,7 +14,7 @@ locally, nothing goes to the network, no firewall prompt.
 
 | Game | Status |
 |---|---|
-| Halo 3 | **Works on one PC**: host, find, join, custom game (Slayer on Last Resort) with two players. Campaign co-op over System Link is refused by the game's hard drive check (below). |
+| Halo 3 | **Works on one PC**: host, find, join, custom game (Slayer on Last Resort) with two players. A campaign lobby over System Link is hosted and starts (co-op with a second copy to be tried). |
 | Halo: Reach | **Hosts and finds**: each copy's roster lists the other's System Link party. Joining doesn't start yet (below). |
 | Gears of War 3 | **Works on one PC**: a System Link party hosted, found and joined, a private Versus match (Team Deathmatch on Sandbar) with both players. |
 | Modern Warfare 3 | **Works on one PC**: a match hosted, listed once it has started, joined in progress and played (Team Deathmatch on Seatown). |
@@ -189,9 +189,10 @@ profile:
 The game binds UDP 1000 (VDP: the game itself) and UDP 1001 (broadcast search, join messages).
 What it took: the link status and XNADDR, real sockets, and the secure-style addresses above.
 
-- **Campaign co-op over System Link** shows "one or more players don't have an Xbox 360 hard
-  drive" (as Theater does, even offline): the game's hard drive check fails on AnyX360, System Link
-  or not. To be investigated with Theater.
+- **Campaign co-op over System Link** showed "one or more players don't have an Xbox 360 hard
+  drive" (as Theater did, even offline) until 0.33.0: the game's utility drive didn't mount
+  ([HALO3.md](HALO3.md#fixes-after-0320)). A campaign lobby over System Link is now ready and
+  starts the mission; a second copy joining it is to be tried.
 
 ### Halo: Reach
 

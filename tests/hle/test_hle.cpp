@@ -67,6 +67,8 @@ PPC_EXTERN_FUNC(__imp__XMsgStartIORequest);
 PPC_EXTERN_FUNC(__imp__XamReadTileToTexture);
 PPC_EXTERN_FUNC(__imp__XamUserGetSigninInfo);
 PPC_EXTERN_FUNC(__imp__XamUserGetXUID);
+PPC_EXTERN_FUNC(__imp__NtCreateFile);
+PPC_EXTERN_FUNC(__imp__NtClose);
 
 // The kernel's loader fills the function table from this generated array; tests have no game.
 PPCFuncMapping PPCFuncMappings[] = {{0, nullptr}};
@@ -659,6 +661,45 @@ int main() {
     CHECK(x360::profiles::Save(root, damaged));
     CHECK(!ChooseManifest(root, 0, daniel, false).description);
     std::filesystem::remove_all(root, ec);
+  }
+
+  // The utility drive (kernel::MountUtilityDrive: Halo 3's XMountUtilityDriveEx and
+  // XFlushUtilityDrive). Not ready before the file system is; then cache0: and cache1: are folders
+  // of the user's, and the file Halo 3 writes to check the drive (cache0:\test.dat) is created there.
+  // Without it the game said no player had a hard drive (Theater, co-op over System Link).
+  {
+    namespace fs = std::filesystem;
+    CHECK(kernel::MountUtilityDrive() == 21);  // ERROR_NOT_READY: InitIo not called yet
+    const fs::path folder = fs::temp_directory_path() / "anyx360_test_utility_drive";
+    fs::remove_all(folder);
+    kernel::TitleInfo info;
+    info.game_root = folder / "game";
+    info.user_root = folder / "user";
+    fs::create_directories(info.game_root);
+    kernel::InitIo(info);
+    CHECK(kernel::MountUtilityDrive() == 0);
+    CHECK(fs::is_directory(info.user_root / "cache") && fs::is_directory(info.user_root / "cache1"));
+    constexpr guest_addr kArea = 0x40008000;
+    const guest_addr name = kArea, text = kArea + 0x10, attributes = kArea + 0x40, io = kArea + 0x50,
+                     handle = kArea + 0x60;
+    const char path[] = "cache0:\\test.dat";
+    std::memcpy(mem.translate(text), path, sizeof(path));
+    mem.write<uint16_t>(name, uint16_t(sizeof(path) - 1)), mem.write<uint16_t>(name + 2, uint16_t(sizeof(path)));
+    mem.write<uint32_t>(name + 4, text);
+    mem.write<uint32_t>(attributes + 0, 0), mem.write<uint32_t>(attributes + 4, name), mem.write<uint32_t>(attributes + 8, 0);
+    // CreateFile(GENERIC_WRITE, CREATE_ALWAYS) as the game: NtCreateFile(..., FILE_OVERWRITE_IF).
+    ctx.r3.u64 = handle, ctx.r4.u64 = 0x40100080, ctx.r5.u64 = attributes, ctx.r6.u64 = io, ctx.r7.u64 = 0;
+    ctx.r8.u64 = 0x80, ctx.r9.u64 = 0, ctx.r10.u64 = 5;
+    // The ninth argument, on the stack: FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE.
+    const uint32_t saved_sp = ctx.r1.u32;
+    ctx.r1.u64 = kArea + 0x200;
+    mem.write<uint32_t>(kArea + 0x200 + 0x54, 0x60);
+    __imp__NtCreateFile(ctx, base);
+    ctx.r1.u64 = saved_sp;
+    CHECK(ctx.r3.u32 == 0 && fs::is_regular_file(info.user_root / "cache" / "test.dat"));
+    ctx.r3.u64 = mem.read<uint32_t>(handle);
+    __imp__NtClose(ctx, base);
+    fs::remove_all(folder);
   }
 
   // Achievements (xam.cpp): a made-up SPA's list enumerated as XACHIEVEMENT_DETAILS, an unlock

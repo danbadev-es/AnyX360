@@ -507,6 +507,12 @@ std::string FormatHostMemory(const HostMemory& memory);
 std::string LargestProcesses(size_t count);
 void InitTime();
 void InitIo(const TitleInfo& info);
+// The XDK's utility drive (XMountUtilityDrive/XMountUtilityDriveEx, XFlushUtilityDrive) for titles
+// that link their own copy of it, through game hooks (Halo 3). Their copy formats the cache
+// partitions through the raw disk and mounts them with a file system driver of its own, which the
+// runtime doesn't run; the partitions are host folders here, mounted as cache0:, cache1: and cache:
+// from the start. 0 (ERROR_SUCCESS) once they are ready; ERROR_NOT_READY (InitIo not called).
+uint32_t MountUtilityDrive();
 void InitXam();
 // Local players' profiles (xam.cpp). Player 1 is always signed in.
 bool IsUserSignedIn(uint32_t user_index);

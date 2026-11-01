@@ -99,6 +99,25 @@ The launcher installs the title update and the map packs.
 - **Tessellated triangle strips** with an index buffer are drawn now (Reach's faces needed them).
   Halo 3 didn't log such failed draws in these runs.
 
+## Fixes after 0.32.0
+- **The hard drive: the utility drive mounts.** Theater and campaign co-op over System Link said
+  "one or more players don't have an Xbox 360 hard drive", offline too. The game takes a hard drive
+  to be there when it could mount the hard drive's cache partitions at start (`sub_821A8448`):
+  `XMountUtilityDriveEx` (`825982F8`), `XFlushUtilityDrive` (`82597AD0`), then a write to
+  `cache0:\test.dat`; only then does it set its "using utility drive" flag (`828C3F05`). Its own
+  copy of the XDK's `XMountUtilityDriveEx` reads partition 0's header (2 KiB in, magic "Josh"),
+  formats each cache partition through its raw volume (an XTAF header with the cluster size it
+  asks for, 64 KiB) and mounts it with a file system driver of its own (`IoCreateDevice`, a
+  device extension, the title's own I/O routines). The runtime's volumes are host folders: the
+  format's writes failed, and that driver can't run. The cache partitions are mounted as
+  `cache0:` and `cache1:` from the start, so the game's two calls are replaced
+  ([games/halo3/src/utility_drive.cpp](../games/halo3/src/utility_drive.cpp)) and answer success
+  (`x360::kernel::MountUtilityDrive`). Theater opens ("no film selected"), a campaign lobby over
+  System Link says "Ready: this party is open to System Link" and starts Arrival. With the drive
+  the game keeps its campaign checkpoints in `cache1:` (`savegame0.bin`, `savegame1.bin`, 8 MiB
+  each) and caches its font package in `cache0:\maps\cached_fonts`, as on the console: the
+  user folder's `cache` and `cache1` folders.
+
 ## Status (2026-11-01)
 - **Boot**: the loading screen, the main menu (version 1.2: Start solo game, Campaign,
   Matchmaking, Custom games, Forge, Theater), at 60 FPS with stutters (below). Preferences are
@@ -116,11 +135,13 @@ The launcher installs the title update and the map packs.
   start and lists the 11 maps of the disc; it never asks for its downloadable content in these
   runs (`XamContentCreateEnumerator` type 2 is never called), so Heroic, Legendary, Cold Storage,
   Mythic and Mythic II aren't offered.
-- **Not tried yet**: Forge, Theater, further campaign missions, a whole custom game.
+- **Theater**: the lobby opens and asks for a film (none recorded yet).
+- **Not tried yet**: Forge, further campaign missions, a whole custom game, recording a film.
 - **System Link** (with `[network] enabled`): the lobby's Network > System Link hosts and finds
   games; a second copy joins and a custom game is played ([SYSTEMLINK.md](SYSTEMLINK.md)). The
-  observer only connects to secure-style addresses (first byte 0, `823B7420`). Campaign co-op
-  over System Link and Theater stop at "one or more players don't have an Xbox 360 hard drive".
+  observer only connects to secure-style addresses (first byte 0, `823B7420`). A campaign lobby
+  over System Link is ready and starts the mission (the hard drive check passes since 0.33.0);
+  co-op with a second copy joining is to be tried.
 - **Xbox LIVE** (Matchmaking) is gone.
 
 ## Known issues

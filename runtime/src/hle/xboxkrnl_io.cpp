@@ -897,6 +897,26 @@ void InitIo(const TitleInfo& info) {
   }
 }
 
+uint32_t MountUtilityDrive() {
+  std::vector<fs::path> folders;
+  {
+    std::lock_guard lock(g_vfs_mutex);
+    for (const char* link : {"cache:", "cache0:", "cache1:"}) {
+      auto found = g_links.find(link);
+      if (found == g_links.end()) return 21;  // ERROR_NOT_READY
+      const std::string target = Lower(found->second);
+      auto device = std::find_if(g_devices.begin(), g_devices.end(), [&](const Device& d) { return d.name == target; });
+      if (device == g_devices.end() || device->read_only) return 21;
+      folders.push_back(device->host);
+    }
+  }
+  std::error_code ec;
+  for (const fs::path& folder : folders) fs::create_directories(folder, ec);
+  static std::once_flag logged;
+  std::call_once(logged, [] { KLOG_I("utility drive: cache0: and cache1: mounted (the title's XMountUtilityDrive)"); });
+  return 0;
+}
+
 // Used by XAM content functions to mount save folders.
 void MountContent(const std::string& root_name, const std::filesystem::path& host) {
   std::lock_guard lock(g_vfs_mutex);
