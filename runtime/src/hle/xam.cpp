@@ -1961,7 +1961,13 @@ uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_
 uint32_t XMsgStartIORequest(uint32_t app, uint32_t message, uint32_t overlapped, uint32_t buffer, uint32_t size) {
   uint32_t hr = DispatchXamApp(app, message, buffer, size);
   if (hr != kHrSuccess) KLOG_I("XMsgStartIORequest(app %X, message %08X) -> %08X", app, message, hr);
-  if (overlapped) return Complete(overlapped, hr == kHrSuccess ? X_ERROR_SUCCESS : X_ERROR_FUNCTION_FAILED, 0, hr);
+  const uint32_t result = hr == kHrSuccess ? X_ERROR_SUCCESS : X_ERROR_FUNCTION_FAILED;
+  if (overlapped) return Complete(overlapped, result, 0, hr);
+  // Without an overlapped the request completes before returning and leaves its result as the
+  // thread's last error (KTHREAD+0x160): XAM's synchronous wrappers check GetLastError() after a
+  // successful return. XSessionCreate does, and a stale error from an earlier call made Modern
+  // Warfare 3's System Link join fail its session and wait for ever.
+  if (Thread* thread = CurrentThread()) Store<uint32_t>(thread->kthread + 0x160, result);
   return hr;
 }
 uint32_t XMsgStartIORequestEx(uint32_t app, uint32_t message, uint32_t overlapped, uint32_t buffer, uint32_t size,
