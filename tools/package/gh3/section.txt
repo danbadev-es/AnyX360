@@ -1,0 +1,23 @@
+GUITAR HERO III: LEGENDS OF ROCK (in testing)
+==========================================================
+Your copy: the Games on Demand package (in an archive or a folder), and its title update (the TU_
+file next to it, or added alone afterwards): the game needs it (version 0.0.3.2). Its downloadable
+songs are installed too and appear in the song list's "descargas" tab.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\GuitarHero3
+
+CONTROLS
+No guitar is needed: the game has its own controller layout.
+
+  Frets, green to orange                LT, LB, RB, RT, A      Keyboard: 1, 2, 3, 4, 5
+  Strum                                 D-pad up or down       Keyboard: Up or Down arrow, Right Shift
+  Menus                                 A, B, D-pad            Keyboard: Space/Enter, Backspace, arrows
+  Pause                                 Start                  Keyboard: Esc
+
+Two players: each takes a controller (F2 > Players). At "Seleccionar mando" each moves their
+controller to their side of the screen.
+
+KNOWN ISSUES
+- In testing: quick play, practice, the career's first gig, downloadable songs and a two-player
+  face-off have been played; whether the notes stay in time with the music has to be checked by a
+  person. Tell us if they drift.
+- Guitar controllers aren't supported.

@@ -8,6 +8,25 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **Guitar Hero III: Legends of Rock** (in testing, [docs/GUITARHERO3.md](docs/GUITARHERO3.md)):
+  Neversoft's rhythm game from a Games on Demand copy with its title update (version 0.0.3.2,
+  recompiled from it) and its 25 downloadable content packages, whose songs are listed and play. At
+  60 FPS with a controller (the game's own layout: frets on LT, LB, RB, RT and A, strum on the
+  D-pad; no guitar needed) or the keyboard (frets on 1-5, strum on the arrows): quick play,
+  practice, the career's first gig and face-offs for two players.
+- The kernel's XMA context functions (`XMAInitializeContext`, `XMAEnableContext`,
+  `XMASetInputBuffer0Valid`...), which games built with the older XAudio library use for their
+  compressed audio: Guitar Hero III was silent without them.
+
+### Changed
+
+- Guitar Hero III leaves "Coming soon".
+- XenonAnalyse (the fork) says where a fixed-pattern jump table lies when it is inside the code,
+  as older compilers put it right after the jump: the function analyser no longer cuts those
+  functions at the table (1,922 cut switch cases in Guitar Hero III).
+
 ## [0.29.1] - 2026-11-01
 
 Black Ops II's two-player Zombies is smoother in its busiest rounds.
