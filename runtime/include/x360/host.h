@@ -102,6 +102,11 @@ struct GameDescriptor {
   // (keys/README.md): Dance Central 2 and 3 decrypt their songs this way. Without the file the game
   // doesn't start; a key the file doesn't have ends it with a message.
   bool title_keys = false;
+  // The on-screen keyboard (XamShowKeyboardUI) answers at once with its default text, or the
+  // player's name when it has none, as if the player accepted it; false: it is cancelled, as for the
+  // other games, which were brought up that way. Diablo III asks a new hero's name with it and
+  // can't create one when it is cancelled.
+  bool keyboard_ui_accepts = false;
   // Game-specific default settings, applied before settings.toml is read.
   std::function<void(settings::Settings&)> defaults;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).

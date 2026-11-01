@@ -1516,10 +1516,33 @@ uint32_t XamShowMessageBoxUIEx(uint32_t user_index, uint32_t title, uint32_t tex
   return ShowMessageBox("XamShowMessageBoxUIEx", title, text, focus, result_ptr, overlapped);
 }
 
+// There is no on-screen keyboard: the player cancels it, or, for a title that needs an answer
+// (TitleInfo::keyboard_ui_accepts), accepts its default text (the player's name when it has none).
+// The text is UTF-16 big-endian, buffer_length characters with the terminator.
 uint32_t XamShowKeyboardUI(uint32_t user_index, uint32_t flags, uint32_t default_text, uint32_t title,
                            uint32_t description, uint32_t buffer, uint32_t buffer_length, uint32_t overlapped) {
-  (void)user_index, (void)flags, (void)default_text, (void)title, (void)description, (void)buffer, (void)buffer_length;
-  return overlapped ? Complete(overlapped, X_ERROR_CANCELLED) : X_ERROR_CANCELLED;
+  (void)flags, (void)title, (void)description;
+  if (!TitlePaths().keyboard_ui_accepts || !buffer || !buffer_length)
+    return overlapped ? Complete(overlapped, X_ERROR_CANCELLED) : X_ERROR_CANCELLED;
+  std::u16string text;
+  for (uint32_t i = 0; default_text && i + 1 < buffer_length; ++i) {
+    char16_t c = char16_t(Load<uint16_t>(default_text + i * 2));
+    if (!c) break;
+    text.push_back(c);
+  }
+  if (text.empty()) {
+    std::lock_guard lock(g_user_mutex);
+    const std::string& name = g_users[user_index & 3].name.empty() ? SlotUser(user_index & 3).name
+                                                                    : g_users[user_index & 3].name;
+    for (char c : name)
+      if (uint8_t(c) < 0x80 && text.size() + 1 < buffer_length) text.push_back(char16_t(c));
+  }
+  for (size_t i = 0; i < text.size(); ++i) Store<uint16_t>(buffer + uint32_t(i) * 2, uint16_t(text[i]));
+  Store<uint16_t>(buffer + uint32_t(text.size()) * 2, 0);
+  KLOG_I("XamShowKeyboardUI(%u): accepted \"%s\"", user_index, std::string(text.begin(), text.end()).c_str());
+  Broadcast(kNotifySystemUi, 1);
+  Broadcast(kNotifySystemUi, 0);
+  return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
 }
 
 [[noreturn]] void XamShowDirtyDiscErrorUI(uint32_t user_index) {

@@ -390,6 +390,7 @@ struct TitleInfo {
   uint8_t main_thread_processor = 1;  // hardware thread of the main thread (GameDescriptor)
   bool game_region_from_country = false;  // XGetGameRegion from the country (GameDescriptor)
   bool kinect_sensor = true;  // a Kinect sensor is reported connected (GameDescriptor)
+  bool keyboard_ui_accepts = false;  // XamShowKeyboardUI accepts its default text (GameDescriptor)
   // The title's executables XamLoaderLaunchTitle can start: {XEX name in lower case, host
   // executable} (GameDescriptor::executables).
   std::vector<std::pair<std::string, std::filesystem::path>> executables;
