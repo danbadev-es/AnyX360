@@ -9,6 +9,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <thread>
 #include <vector>
 
@@ -259,6 +260,164 @@ uint32_t XMAReleaseContext(uint32_t context) {
   return X_STATUS_SUCCESS;
 }
 
+// The kernel's XMA context functions (as Xenia's): titles built with the older XAudio library
+// (XAUD: Guitar Hero III's FMOD) drive their contexts through these as well as the registers.
+// Context pointers are guest addresses of XMA_CONTEXT_DATA in the decoder's context array; buffer
+// pointers in a context are physical addresses.
+struct XmaLoopData {
+  xe::be<uint32_t> loop_start;
+  xe::be<uint32_t> loop_end;
+  uint8_t loop_count;
+  uint8_t loop_subframe_end;
+  uint8_t loop_subframe_skip;
+};
+static_assert(sizeof(XmaLoopData) == 12);
+
+struct XmaContextInit {
+  xe::be<uint32_t> input_buffer_0_ptr;
+  xe::be<uint32_t> input_buffer_0_packet_count;
+  xe::be<uint32_t> input_buffer_1_ptr;
+  xe::be<uint32_t> input_buffer_1_packet_count;
+  xe::be<uint32_t> input_buffer_read_offset;
+  xe::be<uint32_t> output_buffer_ptr;
+  xe::be<uint32_t> output_buffer_block_count;
+  xe::be<uint32_t> work_buffer;
+  xe::be<uint32_t> subframe_decode_count;
+  xe::be<uint32_t> channel_count;
+  xe::be<uint32_t> sample_rate;
+  XmaLoopData loop_data;
+};
+static_assert(sizeof(XmaContextInit) == 56);
+
+// Sets the context's bit in one of the APU's per-context registers (0x1940 enable, 0x1A40 disable,
+// 0x1A80 initialise), as the title's write to the hardware register would.
+void StoreXmaContextRegister(uint32_t base_reg, uint32_t context) {
+  uint32_t physical = GuestToPhysical(context);
+  uint32_t index = (physical - g_xma->context_array_ptr()) / sizeof(xe::apu::XMA_CONTEXT_DATA);
+  g_xma->WriteRegister(base_reg + (index >> 5) * 4, xe::byte_swap(uint32_t(1) << (index & 0x1F)));
+}
+
+template <typename F>
+uint32_t UpdateXmaContext(uint32_t context, F&& update) {
+  if (!context) return 0;
+  xe::apu::XMA_CONTEXT_DATA data(Ptr<void>(context));
+  update(data);
+  data.Store(Ptr<void>(context));
+  return 0;
+}
+
+template <typename F>
+uint32_t ReadXmaContext(uint32_t context, F&& read) {
+  if (!context) return 0;
+  xe::apu::XMA_CONTEXT_DATA data(Ptr<void>(context));
+  return read(data);
+}
+
+uint32_t XMAInitializeContext(uint32_t context, uint32_t init_ptr) {
+  if (!g_xma || !context || !init_ptr) return 1;  // X_E_FALSE
+  const auto& init = *Ptr<XmaContextInit>(init_ptr);
+  uint32_t input_0 = init.input_buffer_0_ptr ? GuestToPhysical(init.input_buffer_0_ptr) : 0;
+  uint32_t input_1 = init.input_buffer_1_ptr ? GuestToPhysical(init.input_buffer_1_ptr) : 0;
+  uint32_t output = GuestToPhysical(init.output_buffer_ptr);
+  std::memset(Ptr<void>(context), 0, sizeof(xe::apu::XMA_CONTEXT_DATA));
+  xe::apu::XMA_CONTEXT_DATA data(Ptr<void>(context));
+  data.input_buffer_0_ptr = input_0;
+  data.input_buffer_0_packet_count = init.input_buffer_0_packet_count;
+  data.input_buffer_1_ptr = input_1;
+  data.input_buffer_1_packet_count = init.input_buffer_1_packet_count;
+  data.input_buffer_read_offset = init.input_buffer_read_offset;
+  data.output_buffer_ptr = output;
+  data.output_buffer_block_count = init.output_buffer_block_count;
+  data.subframe_decode_count = init.subframe_decode_count;
+  data.is_stereo = init.channel_count >= 1;
+  data.sample_rate = init.sample_rate;
+  data.loop_start = init.loop_data.loop_start;
+  data.loop_end = init.loop_data.loop_end;
+  data.loop_count = init.loop_data.loop_count;
+  data.loop_subframe_end = init.loop_data.loop_subframe_end;
+  data.loop_subframe_skip = init.loop_data.loop_subframe_skip;
+  data.Store(Ptr<void>(context));
+  StoreXmaContextRegister(0x1A80, context);
+  return 0;
+}
+
+uint32_t XMASetLoopData(uint32_t context, uint32_t loop_ptr) {
+  const auto& loop = *Ptr<XmaLoopData>(loop_ptr);
+  return UpdateXmaContext(context, [&](auto& d) {
+    d.loop_start = loop.loop_start;
+    d.loop_end = loop.loop_end;
+    d.loop_count = loop.loop_count;
+    d.loop_subframe_end = loop.loop_subframe_end;
+    d.loop_subframe_skip = loop.loop_subframe_skip;
+  });
+}
+
+uint32_t XMAGetInputBufferReadOffset(uint32_t context) {
+  return ReadXmaContext(context, [](auto& d) { return uint32_t(d.input_buffer_read_offset); });
+}
+uint32_t XMASetInputBufferReadOffset(uint32_t context, uint32_t value) {
+  return UpdateXmaContext(context, [&](auto& d) { d.input_buffer_read_offset = value; });
+}
+uint32_t XMASetInputBuffer0(uint32_t context, uint32_t buffer, uint32_t packets) {
+  return UpdateXmaContext(context, [&](auto& d) {
+    d.input_buffer_0_ptr = GuestToPhysical(buffer);
+    d.input_buffer_0_packet_count = packets;
+  });
+}
+uint32_t XMASetInputBuffer1(uint32_t context, uint32_t buffer, uint32_t packets) {
+  return UpdateXmaContext(context, [&](auto& d) {
+    d.input_buffer_1_ptr = GuestToPhysical(buffer);
+    d.input_buffer_1_packet_count = packets;
+  });
+}
+uint32_t XMAIsInputBuffer0Valid(uint32_t context) {
+  return ReadXmaContext(context, [](auto& d) { return uint32_t(d.input_buffer_0_valid); });
+}
+uint32_t XMAIsInputBuffer1Valid(uint32_t context) {
+  return ReadXmaContext(context, [](auto& d) { return uint32_t(d.input_buffer_1_valid); });
+}
+uint32_t XMASetInputBuffer0Valid(uint32_t context) {
+  return UpdateXmaContext(context, [](auto& d) { d.input_buffer_0_valid = 1; });
+}
+uint32_t XMASetInputBuffer1Valid(uint32_t context) {
+  return UpdateXmaContext(context, [](auto& d) { d.input_buffer_1_valid = 1; });
+}
+uint32_t XMAIsOutputBufferValid(uint32_t context) {
+  return ReadXmaContext(context, [](auto& d) { return uint32_t(d.output_buffer_valid); });
+}
+uint32_t XMASetOutputBufferValid(uint32_t context) {
+  return UpdateXmaContext(context, [](auto& d) { d.output_buffer_valid = 1; });
+}
+uint32_t XMAGetOutputBufferReadOffset(uint32_t context) {
+  return ReadXmaContext(context, [](auto& d) { return uint32_t(d.output_buffer_read_offset); });
+}
+uint32_t XMASetOutputBufferReadOffset(uint32_t context, uint32_t value) {
+  return UpdateXmaContext(context, [&](auto& d) { d.output_buffer_read_offset = value; });
+}
+uint32_t XMAGetOutputBufferWriteOffset(uint32_t context) {
+  return ReadXmaContext(context, [](auto& d) { return uint32_t(d.output_buffer_write_offset); });
+}
+uint32_t XMAGetPacketMetadata(uint32_t context) {
+  return ReadXmaContext(context, [](auto& d) { return uint32_t(d.packet_metadata); });
+}
+uint32_t XMAEnableContext(uint32_t context) {
+  if (g_xma && context) StoreXmaContextRegister(0x1940, context);
+  return 0;
+}
+uint32_t XMADisableContext(uint32_t context, uint32_t wait) {
+  if (!g_xma || !context) return 0;
+  StoreXmaContextRegister(0x1A40, context);
+  return g_xma->BlockOnContext(context, !wait) ? 0 : 1;  // X_E_FALSE: still in use
+}
+uint32_t XMABlockWhileInUse(uint32_t context) {
+  while (g_xma && context) {
+    xe::apu::XMA_CONTEXT_DATA data(Ptr<void>(context));
+    if (!data.input_buffer_0_valid && !data.input_buffer_1_valid) break;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return 0;
+}
+
 }  // namespace
 
 namespace x360::kernel {
@@ -286,3 +445,22 @@ X360_EXPORT(XAudioEnableDucker, XAudioEnableDucker)
 X360_EXPORT(XAudioOverrideSpeakerConfig, XAudioOverrideSpeakerConfig)
 X360_EXPORT(XMACreateContext, XMACreateContext)
 X360_EXPORT(XMAReleaseContext, XMAReleaseContext)
+X360_EXPORT(XMAInitializeContext, XMAInitializeContext)
+X360_EXPORT(XMASetLoopData, XMASetLoopData)
+X360_EXPORT(XMAGetInputBufferReadOffset, XMAGetInputBufferReadOffset)
+X360_EXPORT(XMASetInputBufferReadOffset, XMASetInputBufferReadOffset)
+X360_EXPORT(XMASetInputBuffer0, XMASetInputBuffer0)
+X360_EXPORT(XMASetInputBuffer1, XMASetInputBuffer1)
+X360_EXPORT(XMAIsInputBuffer0Valid, XMAIsInputBuffer0Valid)
+X360_EXPORT(XMAIsInputBuffer1Valid, XMAIsInputBuffer1Valid)
+X360_EXPORT(XMASetInputBuffer0Valid, XMASetInputBuffer0Valid)
+X360_EXPORT(XMASetInputBuffer1Valid, XMASetInputBuffer1Valid)
+X360_EXPORT(XMAIsOutputBufferValid, XMAIsOutputBufferValid)
+X360_EXPORT(XMASetOutputBufferValid, XMASetOutputBufferValid)
+X360_EXPORT(XMAGetOutputBufferReadOffset, XMAGetOutputBufferReadOffset)
+X360_EXPORT(XMASetOutputBufferReadOffset, XMASetOutputBufferReadOffset)
+X360_EXPORT(XMAGetOutputBufferWriteOffset, XMAGetOutputBufferWriteOffset)
+X360_EXPORT(XMAGetPacketMetadata, XMAGetPacketMetadata)
+X360_EXPORT(XMAEnableContext, XMAEnableContext)
+X360_EXPORT(XMADisableContext, XMADisableContext)
+X360_EXPORT(XMABlockWhileInUse, XMABlockWhileInUse)
