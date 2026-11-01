@@ -22,6 +22,7 @@
 #define NOMINMAX
 #include <windows.h>
 
+#include "avatar.h"
 #include "core/anyx.h"
 #include "core/avatar_motion.h"
 #include "core/catalog.h"
@@ -696,6 +697,36 @@ int main() {
     const LibraryGame entry = Entry(game);
     CHECK(entry.installed && !entry.location_gone && fs::equivalent(entry.dir, copy));
     CHECK(Add(copy / L"default.xex").message.id == kTextAddedFolder);  // default.xex itself
+  }
+
+  {  // The avatar pack's version: an older pack (Halo: Reach's, version 1) never replaces a later one
+     // (version 2), and RepairAvatarPack puts back the latest one a library game carries.
+    const auto toc = [](uint32_t version) {
+      std::string t(0x40, '\0');
+      const uint8_t magic[8] = {0x01, 0xC8, 0xF1, 0x09, 0xA1, 0x9C, 0xB2, 0xE0};
+      std::memcpy(t.data() + 0x10, magic, sizeof(magic));
+      t[0x1B] = char(version);
+      return t;
+    };
+    const auto read = [](const fs::path& path) {
+      std::ifstream in(path, std::ios::binary);
+      return std::string(std::istreambuf_iterator<char>(in), {});
+    };
+    const std::string original = read(copy / L"AvatarAssetPack");
+    const fs::path v1 = player / L"pack_v1", v2 = player / L"pack_v2";
+    WriteFile(v1, MakeStfs(x360tool::content_type::kMarketplace, 0xFFFE07DF, {{"AvatarAssetPack.toc", toc(1)}}));
+    WriteFile(v2, MakeStfs(x360tool::content_type::kMarketplace, 0xFFFE07DF, {{"AvatarAssetPack.toc", toc(2)}}));
+    CHECK(x360tool::avatar_pack_package_version(v1) == 1 && x360tool::avatar_pack_package_version(v2) == 2);
+    std::string error;
+    CHECK(x360tool::extract_avatar_pack(v2, avatar_pack, error));
+    CHECK(!x360tool::extract_avatar_pack(v1, avatar_pack, error) && !error.empty());
+    CHECK(x360tool::avatar_pack_file_version(avatar_pack) == 2);
+    WriteFile(avatar_pack, toc(1));  // as Halo: Reach's left it before 0.32.0
+    WriteFile(copy / L"AvatarAssetPack", read(v2));
+    RepairAvatarPack();
+    CHECK(x360tool::avatar_pack_file_version(avatar_pack) == 2);
+    WriteFile(copy / L"AvatarAssetPack", original);
+    WriteFile(avatar_pack, "avatar pack");
   }
 
   {  // Again: the player is asked, and can keep the one in the library.

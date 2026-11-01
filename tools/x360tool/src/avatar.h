@@ -94,8 +94,18 @@ class AvatarPack {
 inline constexpr const char* kAvatarPackPackage = "AvatarAssetPack";
 inline constexpr const char* kAvatarPackToc = "AvatarAssetPack.toc";
 
+// The table's format version (+0x18): 2 in the later consoles' pack (Kinect Sports, Mortal Kombat:
+// a 0x28-byte header), the one AvatarPack reads; 1 in the older one some discs carry (Halo: Reach: a
+// 0x20-byte header, other asset layouts). 0 if `header` (the table's first bytes) isn't a table.
+inline constexpr uint32_t kAvatarPackVersion = 2;
+uint32_t avatar_pack_version(std::span<const uint8_t> header);
+// The version of the table in a file, or in a game's AvatarAssetPack package; 0 if none or unreadable.
+uint32_t avatar_pack_file_version(const std::filesystem::path& toc);
+uint32_t avatar_pack_package_version(const std::filesystem::path& package);
+
 // Copies the table out of a game's AvatarAssetPack package to `toc` (written whole or not at all);
-// false with `error` if the package has none or can't be read.
+// false with `error` if the package has none or can't be read. A table already at `toc` with a later
+// version stays (an older pack never replaces a newer one).
 bool extract_avatar_pack(const std::filesystem::path& package, const std::filesystem::path& toc, std::string& error);
 
 }  // namespace x360tool

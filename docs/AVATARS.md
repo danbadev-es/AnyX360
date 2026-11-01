@@ -27,6 +27,13 @@ copies it there on its first run, so avatar games without a pack (Doritos Crash 
 `x360tool avatar-pack` lists it and unpacks every asset; `x360tool avatar-model` decodes a part
 (meshes, material parameters, textures) and writes it as OBJ.
 
+- **Versions.** The header's word at +0x18 is the table's version: 2 on the later discs (Kinect
+  Sports, Mortal Kombat; a 0x28-byte header), 1 on Halo: Reach's (a 0x20-byte header, 1282 entries
+  too, other asset layouts: "MaleBodyHead" for "Head"). Only version 2 is read; the others are
+  refused as if there were no pack. Before 0.32.0 adding Halo: Reach replaced a version 2 pack with
+  its version 1, and Doritos Crash Course then crashed on its first level. Now a pack never
+  replaces a later version, and before each game starts the launcher puts back the latest pack a
+  game in the library carries if the installed one is missing or older (`RepairAvatarPack`).
 - **Table** (big-endian): a 0x28-byte header (+0x1C entry count: 1282), entries of 0xF8 bytes
   (+0x00 the asset's category bits, +0x04 a second word, +0x98 a word (an ordering?), +0x9C the
   asset ID of a linked asset, +0xBC 13 offsets of its name per language, +0xF0 offset and size of

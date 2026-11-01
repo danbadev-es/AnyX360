@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "core/install.h"
 #include "games_catalog.h"
 
 namespace anyx360::launcher {
@@ -231,6 +232,7 @@ Message StartGame(const LibraryGame& game, const LaunchOptions& options, GameEve
   if (game.exe.empty() || !Exists(game.exe)) return {kTextErrorNoExe, {game.info->exe}, true};
   if (game.needs_update) return {kTextNeedsUpdate, {game.info->title, game.info->update_version}, true};
   SeedShaderCache(*game.info);
+  RepairAvatarPack();
   std::error_code ec;
   fs::path logs = LogDir(*game.info);
   fs::create_directories(logs, ec);

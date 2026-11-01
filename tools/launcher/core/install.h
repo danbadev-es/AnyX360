@@ -93,7 +93,13 @@ std::string ReadDisplayName(const fs::path& content_folder, const fs::path& pack
 // The avatar asset pack that discs of avatar games carry (AvatarAssetPack in the game's folder),
 // extracted where every game's avatar system looks for it (%LOCALAPPDATA%\AnyX360\system\): avatar
 // games without one (Doritos Crash Course) get their avatars from it. Nothing if the copy has none.
+// A newer pack than the one installed is kept (Halo: Reach's disc has an older version, which the
+// avatar system can't read).
 void InstallAvatarPack(const fs::path& game_root);
+// When the installed pack is missing or older than the version the avatar system reads, installs the
+// latest one a game in the library carries (an older pack replaced it before 0.32.0). Quick when the
+// installed one is current: run before each game starts.
+void RepairAvatarPack();
 
 // The copy written out or extracted into `extracted` (under WorkDir) becomes games\<id>\game, if it
 // is `game` and complete; then its icon, and the title's downloadable content and title update in

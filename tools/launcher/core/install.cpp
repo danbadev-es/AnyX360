@@ -337,6 +337,24 @@ void InstallAvatarPack(const fs::path& game_root) {
   x360tool::extract_avatar_pack(package, LocalAppData() / L"AnyX360" / L"system" / x360tool::kAvatarPackToc, error);
 }
 
+void RepairAvatarPack() {
+  const fs::path toc = LocalAppData() / L"AnyX360" / L"system" / x360tool::kAvatarPackToc;
+  uint32_t best_version = x360tool::avatar_pack_file_version(toc);
+  if (best_version >= x360tool::kAvatarPackVersion) return;
+  fs::path best;
+  for (const LibraryGame& game : ReadLibrary()) {
+    if (!game.installed || game.location_gone) continue;
+    const fs::path package = game.dir / x360tool::kAvatarPackPackage;
+    if (!Exists(package)) continue;
+    if (const uint32_t version = x360tool::avatar_pack_package_version(package); version > best_version) {
+      best = package;
+      best_version = version;
+    }
+  }
+  std::string error;
+  if (!best.empty()) x360tool::extract_avatar_pack(best, toc, error);
+}
+
 Outcome InstallExtracted(Job& job, const CatalogGame& game, const fs::path& extracted, const fs::path& content_source) {
   Message error;
   fs::path found = FindGameRoot(extracted);

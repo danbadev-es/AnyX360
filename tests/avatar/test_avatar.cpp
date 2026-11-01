@@ -11,6 +11,7 @@
 #define NOMINMAX
 #include <windows.h>
 
+#include "avatar.h"
 #include "avatar_editor.h"
 #include "avatar_look.h"
 #include "test_pack.h"
@@ -50,6 +51,19 @@ bool Offers(const std::vector<AvatarOption>& options, uint32_t index) {
 int main() {
   AvatarCatalog catalog;
   std::string error;
+  {  // A pack of another version (Halo: Reach's disc has version 1) is refused.
+    std::vector<uint8_t> old = MakeToc();
+    old[0x1B] = 1;
+    AvatarCatalog refused;
+    std::string why;
+    bool loaded = false;
+    try {
+      loaded = refused.load(old, why);
+    } catch (const std::exception&) {
+    }
+    CHECK(!loaded);
+    CHECK(x360tool::avatar_pack_version(MakeToc()) == 2 && x360tool::avatar_pack_version(old) == 1);
+  }
   CHECK(catalog.load(MakeToc(), error));
   // Components with a model, face textures and features; not the template, not the hat's hairstyle
   // as a choice.

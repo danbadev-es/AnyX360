@@ -92,6 +92,9 @@ inline std::vector<uint8_t> Strb(const Item& item, uint32_t index) {
 inline std::vector<uint8_t> MakeToc() {
   constexpr size_t kHeader = 0x28, kEntry = 0xF8;
   std::vector<uint8_t> toc(kHeader + kCount * kEntry, 0);
+  Be(toc, 0x10, 0x01C8F109);  // the header's marks and version 2, as Kinect Sports' pack
+  Be(toc, 0x14, 0xA19CB2E0);
+  Be(toc, 0x18, 2);
   Be(toc, 0x1C, kCount);
   std::vector<size_t> names;
   for (uint32_t i = 0; i < kCount; ++i) {

@@ -156,6 +156,12 @@ bool StfsPackage::extract(const StfsEntry& entry, const fs::path& dest, const Pr
   return true;
 }
 
+std::vector<uint8_t> StfsPackage::read_start(const StfsEntry& entry, size_t size) {
+  std::vector<uint8_t> out(std::min<size_t>({size, size_t(kBlockSize), size_t(entry.size)}));
+  if (!out.empty()) Read(BlockOffset(entry.start_block), out.data(), out.size());
+  return out;
+}
+
 StfsVerifyResult StfsPackage::verify(const Progress& progress) {
   StfsVerifyResult result;
   auto mismatch = [&](std::string what) {

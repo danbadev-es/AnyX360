@@ -38,6 +38,8 @@ class StfsPackage {
   const std::vector<StfsEntry>& entries() const { return entries_; }
   // Copies a file entry to `dest`. Returns false if `progress` stopped it (the file is incomplete).
   bool extract(const StfsEntry& entry, const fs::path& dest, const Progress& progress = {});
+  // The first `size` bytes of a file entry (at most a block, and at most the file).
+  std::vector<uint8_t> read_start(const StfsEntry& entry, size_t size);
   // Checks every data block's SHA-1 against its level-0 hash entry, every hash table against its
   // entry in the level above, and the top table against the volume descriptor. `progress` is told
   // the bytes of data blocks checked.

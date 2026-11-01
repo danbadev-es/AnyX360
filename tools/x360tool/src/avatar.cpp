@@ -2,6 +2,7 @@
 #include "avatar.h"
 
 #include <cstring>
+#include <fstream>
 
 #include "lzx_frames.h"
 #include "stfs.h"
@@ -118,8 +119,36 @@ bool avatar_unpack(std::span<const uint8_t> data, std::vector<uint8_t>& out, uin
   return false;
 }
 
+uint32_t avatar_pack_version(std::span<const uint8_t> header) {
+  // +0x10: the same 8 bytes in every version seen.
+  static constexpr uint8_t kMagic[8] = {0x01, 0xC8, 0xF1, 0x09, 0xA1, 0x9C, 0xB2, 0xE0};
+  if (header.size() < 0x20 || std::memcmp(header.data() + 0x10, kMagic, sizeof(kMagic)) != 0) return 0;
+  return x360::load_be<uint32_t>(header.data() + 0x18);
+}
+
+uint32_t avatar_pack_file_version(const std::filesystem::path& toc) {
+  std::ifstream file(toc, std::ios::binary);
+  uint8_t header[0x20];
+  if (!file.read(reinterpret_cast<char*>(header), sizeof(header))) return 0;
+  return avatar_pack_version(header);
+}
+
+uint32_t avatar_pack_package_version(const std::filesystem::path& package) {
+  try {
+    StfsPackage stfs(package);
+    for (const auto& entry : stfs.entries())
+      if (!entry.is_dir && entry.path == kAvatarPackToc) return avatar_pack_version(stfs.read_start(entry, 0x20));
+  } catch (const std::exception&) {
+  }
+  return 0;
+}
+
 AvatarPack::AvatarPack(std::vector<uint8_t> toc) : toc_(std::move(toc)) {
   if (toc_.size() < kEntriesOffset) throw Error("AvatarAssetPack.toc: too short");
+  // A table of another version is refused; data without the header's marks (tests) is read as one.
+  if (const uint32_t version = avatar_pack_version(toc_); version != 0 && version != kAvatarPackVersion)
+    throw Error("AvatarAssetPack.toc: version " + std::to_string(version) + ", only version " +
+                std::to_string(kAvatarPackVersion) + " is read");
   const uint32_t count = x360::load_be<uint32_t>(&toc_[0x1C]);
   if (kEntriesOffset + size_t(count) * kEntrySize > toc_.size()) throw Error("AvatarAssetPack.toc: bad entry count");
   for (uint32_t i = 0; i < count; ++i) {
@@ -155,6 +184,12 @@ bool extract_avatar_pack(const std::filesystem::path& package, const std::filesy
     StfsPackage stfs(package);
     for (const auto& entry : stfs.entries()) {
       if (entry.is_dir || entry.path != kAvatarPackToc) continue;
+      const uint32_t version = avatar_pack_version(stfs.read_start(entry, 0x20));
+      if (const uint32_t installed = avatar_pack_file_version(toc); installed > version) {
+        error = "the installed pack is a later version (" + std::to_string(installed) + ", this one " +
+                std::to_string(version) + ")";
+        return false;
+      }
       // Through a temporary file, so a game starting meanwhile never reads half a table.
       std::error_code ec;
       std::filesystem::create_directories(toc.parent_path(), ec);

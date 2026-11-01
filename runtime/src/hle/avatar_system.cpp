@@ -53,17 +53,19 @@ uint32_t AlignUp(uint32_t v, uint32_t a) { return (v + a - 1) & ~(a - 1); }
 fs::path SystemFolder() { return TitlePaths().user_root.parent_path() / "system"; }
 
 // The pack's table: the shared copy (the launcher writes it when it adds a game that has one), or
-// the game's own package (copied to the shared folder for avatar games that don't carry one).
+// the game's own package (copied to the shared folder for avatar games that don't carry one, and
+// over a shared copy of an older version, which the avatar system can't read).
 bool FindPack(fs::path& toc) {
   toc = SystemFolder() / x360tool::kAvatarPackToc;
   std::error_code ec;
-  if (fs::exists(toc, ec)) return true;
+  const bool exists = fs::exists(toc, ec);
+  if (exists && x360tool::avatar_pack_file_version(toc) >= x360tool::kAvatarPackVersion) return true;
   const fs::path package = TitlePaths().game_root / x360tool::kAvatarPackPackage;
-  if (!fs::exists(package, ec)) return false;
+  if (!fs::exists(package, ec)) return exists;
   std::string error;
   if (!x360tool::extract_avatar_pack(package, toc, error)) {
     KLOG_W("avatars: %s: %s", package.string().c_str(), error.c_str());
-    return false;
+    return exists;
   }
   KLOG_I("avatars: copied the disc's avatar asset pack to %s", toc.string().c_str());
   return true;
