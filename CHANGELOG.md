@@ -29,9 +29,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   the cache partitions are host folders mounted from the start, and its `XMountUtilityDriveEx` and
   `XFlushUtilityDrive` answer success (`x360::kernel::MountUtilityDrive`). Its campaign checkpoints
   now go to `cache1:` and its font cache to `cache0:`, as on the console.
+- **Halo: Reach**: its utility drive mounts too (the same two calls answered). The game then
+  copies the maps it plays to the cache partitions, as on the console (about 2 GB more in its user
+  folder's `cache` and `cache1`).
 - Downloadable content is found whoever plays as player 1: the content enumerations looked in
   player 1's own folder, which for a profile other than the first is `players\<XUID>` and holds
   none of the packages the launcher installs in the game's `content\00000002`.
+
+### Added
+
+- **Halo: Reach**: the map packs were tried: Custom games offers the Noble, Defiant and Anniversary
+  maps, and Slayer on Anchor 9 was played. Theater opens.
 
 ### Changed
 

@@ -105,6 +105,21 @@ that the co-op campaign in split screen stuttered.
   (the machine was busy; up to 90-100% idle), **0.3-1.2%** after with System Link off, and 0-0.6%
   hosting a System Link party.
 
+## Fixes after 0.32.0
+- **The utility drive mounts**, as in Halo 3 ([HALO3.md](HALO3.md#fixes-after-0320)): the game's
+  own `XMountUtilityDriveEx` (`827E2B38`) and `XFlushUtilityDrive` (`827E2358`) are replaced
+  ([games/reach/src/utility_drive.cpp](../games/reach/src/utility_drive.cpp)) and answer success,
+  so its "using utility drive" flag (`83151375`) is set after its `cache0:\test.dat` check. With
+  the drive the game copies the maps it plays to the cache partitions, as on the console:
+  `cache0:\cache000.map`-`cache007.map` and `cache1:` (about 2.2 GB in the user folder's `cache` and
+  `cache1` after a few minutes in the menus and a custom game).
+- **The map packs** are found and offered: at start the game enumerates its downloadable content
+  (`XamContentCreateEnumerator` type 2, the five packages) and opens each one; Custom games > Map
+  lists Anchor 9, Breakpoint and Tempest (Noble), Condemned (Defiant) and the Anniversary maps
+  (Battle Canyon, Ridgeline, High Noon, Penance, Solitary, Breakneck). **Slayer on Anchor 9** was
+  started and played.
+- **Theater** opens ("no film selected").
+
 ## Status (2026-11-01)
 - **Boot**: the first-run welcome screen (choose the Spartan's gender), the Armory (helmet,
   shoulders, chest... 5000 credits to start with) and the title menu (version 1.1: Start solo
@@ -115,8 +130,8 @@ that the co-op campaign in split screen stuttered.
 - **Split screen**: two players in the **co-op campaign** (the lobby: "this party is local to this
   Xbox 360", Preparing map, Start co-op campaign) on Winter Contingency, each with their view and
   HUD, with each player signed in (`[players] sign_in = "at_start"` and a controller each).
-- **Not tried yet**: a custom game, Firefight, three or four players, the map packs, Forge,
-  Theater.
+- **Custom games**: Slayer on Anchor 9 (a map pack's map), one player.
+- **Not tried yet**: Firefight, three or four players, Forge, recording a film.
 - **System Link** (with `[network] enabled`, each copy with its own profile): Y > System Link
   games hosts a party, and the other copy's roster lists it with "Join"; joining doesn't start
   yet (the game sends nothing). See [SYSTEMLINK.md](SYSTEMLINK.md#halo-reach).

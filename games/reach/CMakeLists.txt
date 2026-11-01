@@ -1,6 +1,6 @@
 # Halo: Reach. The recompiled sources are generated locally from the user's own copy of the game (see
 # docs/HALOREACH.md) and are never committed.
-anyx360_add_game(reach SOURCES src/main.cpp src/fibers.cpp src/network_thread.cpp)
+anyx360_add_game(reach SOURCES src/main.cpp src/fibers.cpp src/network_thread.cpp src/utility_drive.cpp)
 # The game's own DLLs, loaded with XexLoadImage at start: the Waves audio plug-in host, the Waves
 # library and its two plug-ins (which import from the library), as in Halo 3.
 anyx360_add_title_module(reach waveshell CONFIG config_waveshell.toml)
