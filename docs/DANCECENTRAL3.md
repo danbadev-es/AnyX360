@@ -247,6 +247,23 @@ downloadable songs: 32), about 160 songs. **None of them plays yet**:
   every player. The packages' own state in the game's content manager reaches "mounted". Next: the
   song's content check before its preload (`ContentMgr`, the message `content_read_failure`, sent
   from `82C1DFA4` when the preload fails).
+- **Findings of 2026-11-01** (0x271 answered again on a test build, then taken back out):
+  - The game looks up three XAM exports by ordinal through XAPI's lazy table (`sub_827FEB80`):
+    `0x271` `XamContentCreateInternal`, `0x270` `XamContentDeleteInternal` and `0x279`
+    `XamContentAggregateCreateEnumerator`.
+  - It enumerates the packages twice (`XamContentAggregateCreateEnumerator` for the player's XUID
+    and for `FFFFFFFFFFFFFFFF`, 20 each) and mounts each found package once per enumeration
+    (`cnt00000000`-`cnt00000027`), reads every `songs\songs.dta` and builds its song cache; the
+    DLC songs are listed (Poker Face, Sandstorm, Super Freak...). The packages are then closed.
+  - Highlighting a DLC song in the list mounts its package again through Milo's content object
+    (`sub_824EB3E8`: `XContentCreate` with flags 3, overlapped; it expects `ERROR_IO_PENDING`,
+    then polls `XGetOverlappedResult`): the mount succeeds (`cnt0000000c`, `cnt0000000f`...),
+    yet no file of the package (`<song>_prev.bik`, the `.mogg`) is opened afterwards, and
+    the song list's preview player reads a null stream (`sub_82629A48`, a crash).
+  - Not the cause: giving the aggregate enumerations' packages player 1's XUID as their owner
+    (tried with a probe, same result).
+  - Next: follow what Milo does after the mount completes (the content object's state 4, its
+    callback at vtable+44, and `obj+320`, where the open writes the license mask).
 
 The 10 avatar items in the archive (content type 0x9000) are left out by the launcher.
 

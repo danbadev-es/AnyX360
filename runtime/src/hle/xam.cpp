@@ -910,7 +910,8 @@ uint32_t XamContentCreateEx(uint32_t user_index, uint32_t root_name_ptr, uint32_
   }
   // A new package keeps the display name it was created with, for the enumerators.
   if (disposition == 1) SaveDisplayName(user_index, content_data);
-  KLOG_I("XamContentCreateEx %s (user %u): -> %s (%u)", root.c_str(), user_index, path.string().c_str(), result);
+  KLOG_I("XamContentCreateEx %s (user %u, flags %X%s): -> %s (%u)", root.c_str(), user_index, flags,
+         overlapped ? ", overlapped" : "", path.string().c_str(), result);
   if (disposition_ptr) Store<uint32_t>(disposition_ptr, disposition);
   if (license_mask_ptr) Store<uint32_t>(license_mask_ptr, 0xFFFFFFFF);
   // Asynchronously, the disposition is the request's result (XGetOverlappedResult's length), as on
@@ -920,6 +921,7 @@ uint32_t XamContentCreateEx(uint32_t user_index, uint32_t root_name_ptr, uint32_
 }
 
 uint32_t XamContentClose(uint32_t root_name_ptr, uint32_t overlapped) {
+  KLOG_T("XamContentClose %s", Ptr<const char>(root_name_ptr));
   UnmountContent(Ptr<const char>(root_name_ptr));
   return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
 }

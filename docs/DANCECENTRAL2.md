@@ -85,7 +85,9 @@ branch, then left out), the songs were listed (Party Rock Anthem, Promiscuous, t
 import pack's Poker Face, Pump Up the Jam...), but starting one ended on "the song data you accessed
 is no longer available, or the owning profile isn't signed in to Xbox LIVE": the game checks the
 packages' license further. Dance Central 3 had the same, and also crashed on the song list's
-previews, so the ordinal stays out until that is understood.
+previews, so the ordinal stays out until that is understood (Dance Central 3's findings of
+2026-11-01 are in [DANCECENTRAL3.md](DANCECENTRAL3.md#downloadable-content); the two games share
+the code).
 
 ## Status (2026-10-31)
 - **Boot**: logos, the intro video, the first-run "how to navigate" page, the title screen and the
