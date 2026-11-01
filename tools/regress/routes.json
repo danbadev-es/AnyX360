@@ -67,8 +67,8 @@
       "phases": { "menu": [40, 50], "song": [110, 160] }
     },
     "dcc": {
-      "title": "AnyX360 - Doritos Crash Course", "seconds": 110, "dlc": 1, "avatar_pack": true,
-      "input": "15:A,25:A,35:A,45:A,55:A,65:A,72:B,90:LRIGHT/8",
+      "title": "AnyX360 - Doritos Crash Course", "seconds": 110, "dlc": 1, "avatar_pack_from": "ks",
+      "input": "15:A,25:A,33:B,45:A,55:A,65:A,75:A,90:LRIGHT/8",
       "shots": [40, 70, 100],
       "phases": { "menu": [30, 50], "play": [80, 110] }
     },

@@ -26,6 +26,8 @@ param(
   [string]$Sandbox = 'C:\axreg',
   [string]$TermsHash = '',
   [string]$DataRoot = '',
+  # For Doritos' avatar pack (stfs-extract): the main checkout's build.
+  [string]$X360Tool = '',
   [string]$Routes = "$PSScriptRoot\routes.json",
   [switch]$KeepSandbox,
   [switch]$SkipImport,
@@ -46,6 +48,7 @@ if (-not $Release) {
 if (-not $Release -or -not (Test-Path "$Release\AnyX360.exe")) { throw "No release folder with AnyX360.exe (give -Release)" }
 if (-not $Anyx) { $Anyx = "$DataRoot\anyx" }
 if (-not $Out) { $Out = Join-Path $env:TEMP ("anyx360-regress\" + (Get-Date -Format 'yyyyMMdd-HHmm')) }
+if (-not $X360Tool) { $X360Tool = "$DataRoot\build\tools\x360tool\Release\x360tool.exe" }
 if (-not $TermsHash) { $TermsHash = Get-TermsHash "$DataRoot\build\launcher\launcher_terms.h" }
 $routeSet = (Get-Content -Raw -Encoding UTF8 $Routes | ConvertFrom-Json).games
 $ids = if ($Games -eq 'all') { @($routeSet.PSObject.Properties.Name) } else { @($Games -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
@@ -186,12 +189,18 @@ foreach ($id in $ids) {
       New-Item -ItemType Directory -Force "$user\cache\shaders" | Out-Null
       Copy-Item "$Release\bin\shader_cache\$id\*" "$user\cache\shaders\" -Recurse -Force
     }
-    if ($route.avatar_pack -and -not (Test-Path "$local\AnyX360\system\AvatarAssetPack.toc")) {
-      # Doritos has no Avatar data of its own: the one another game installed (read from this
-      # machine's AnyX360 folder, as the launcher's own repair would).
-      $toc = "$env:LOCALAPPDATA\AnyX360\system\AvatarAssetPack.toc"
-      if (Test-Path $toc) { New-Item -ItemType Directory -Force "$local\AnyX360\system" | Out-Null; Copy-Item $toc "$local\AnyX360\system\" }
-      else { $summary.notes += 'no AvatarAssetPack.toc to copy' }
+    if ($route.avatar_pack_from -and -not (Test-Path "$local\AnyX360\system\AvatarAssetPack.toc")) {
+      # Doritos has no Avatar data of its own: the pack another game's disc carries, as the launcher
+      # installs it (a version 2 table; this machine's own may be Reach's older one, which crashes it).
+      $pack = "$box\avatar_pack"
+      & "$Release\bin\7z.exe" e (Join-Path $Anyx "$($route.avatar_pack_from).anyx") 'game\AvatarAssetPack' "-o$pack" -y | Out-Null
+      & $X360Tool stfs-extract "$pack\AvatarAssetPack" "$pack\out" | Out-Null
+      if (Test-Path "$pack\out\AvatarAssetPack.toc") {
+        New-Item -ItemType Directory -Force "$local\AnyX360\system" | Out-Null
+        Move-Item "$pack\out\AvatarAssetPack.toc" "$local\AnyX360\system\"
+        Log "  avatar pack from $($route.avatar_pack_from).anyx"
+      } else { $summary.notes += "no avatar pack from $($route.avatar_pack_from).anyx" }
+      Remove-Item -LiteralPath $pack -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     # 3. The game with its route.
