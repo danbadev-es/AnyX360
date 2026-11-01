@@ -18239,8 +18239,6 @@ labels = [
 base = 0x82179F74
 r = 31
 default = 0x8217A2A4
-table = 0x82005830
-table_size = 0x10
 labels = [
     0x82179FA0,
     0x82179F9C,
@@ -18264,8 +18262,6 @@ labels = [
 base = 0x8259F054
 r = 11
 default = 0x8259F1CC
-table = 0x82002F00
-table_size = 0xC
 labels = [
     0x8259F07C,
     0x8259F088,
@@ -18282,8 +18278,6 @@ labels = [
 base = 0x825B2FAC
 r = 11
 default = 0x825B3314
-table = 0x82005110
-table_size = 0xC
 labels = [
     0x825B2FD4,
     0x825B3048,
@@ -18303,8 +18297,6 @@ labels = [
 base = 0x825B52FC
 r = 11
 default = 0x825B544C
-table = 0x82005140
-table_size = 0x6C
 labels = [
     0x825B532C,
     0x825B5324,
@@ -18417,8 +18409,6 @@ labels = [
 base = 0x825BD588
 r = 10
 default = 0x825BD728
-table = 0x82005738
-table_size = 0xC
 labels = [
     0x825BD640,
     0x825BD670,
@@ -18435,8 +18425,6 @@ labels = [
 base = 0x825D0D7C
 r = 20
 default = 0x825D114C
-table = 0x8200BBB0
-table_size = 0xC
 labels = [
     0x825D0DA4,
     0x825D0DC0,
@@ -18454,8 +18442,6 @@ labels = [
 base = 0x825D0A10
 r = 11
 default = 0x825D0AF0
-table = 0x8200BBA0
-table_size = 0xC
 labels = [
     0x825D0A38,
     0x825D0A78,
@@ -18472,8 +18458,6 @@ labels = [
 base = 0x8209258C
 r = 11
 default = 0x82092EA4
-table = 0x82003870
-table_size = 0x10
 labels = [
     0x82092780,
     0x820925B4,
@@ -18489,8 +18473,6 @@ labels = [
 base = 0x820927DC
 r = 11
 default = 0x82092CD0
-table = 0x82003800
-table_size = 0x70
 labels = [
     0x820929E0,
     0x82092CD0,
@@ -18554,8 +18536,6 @@ labels = [
 base = 0x820935A4
 r = 11
 default = 0x82094180
-table = 0x82003EC8
-table_size = 0x34
 labels = [
     0x820935CC,
     0x82093A68,
@@ -18588,8 +18568,6 @@ labels = [
 base = 0x82156B4C
 r = 31
 default = 0x82156FBC
-table = 0x820064E8
-table_size = 0x28
 labels = [
     0x82156B74,
     0x82156B94,
@@ -18616,8 +18594,6 @@ labels = [
 base = 0x82161480
 r = 11
 default = 0x82161D98
-table = 0x820040E8
-table_size = 0x10
 labels = [
     0x82161674,
     0x821614A8,
@@ -18633,8 +18609,6 @@ labels = [
 base = 0x821616D0
 r = 11
 default = 0x82161BC4
-table = 0x82004078
-table_size = 0x70
 labels = [
     0x821618D4,
     0x82161BC4,
@@ -18698,8 +18672,6 @@ labels = [
 base = 0x8219799C
 r = 11
 default = 0x82198350
-table = 0x82003980
-table_size = 0x10
 labels = [
     0x82197B78,
     0x821979C4,
@@ -18715,8 +18687,6 @@ labels = [
 base = 0x82197BA0
 r = 11
 default = 0x821980B0
-table = 0x82003910
-table_size = 0x70
 labels = [
     0x82197DD0,
     0x821980B0,
@@ -18780,8 +18750,6 @@ labels = [
 base = 0x82198540
 r = 11
 default = 0x82198EF4
-table = 0x82003900
-table_size = 0x10
 labels = [
     0x8219871C,
     0x82198568,
@@ -18797,8 +18765,6 @@ labels = [
 base = 0x82198744
 r = 11
 default = 0x82198C54
-table = 0x82003890
-table_size = 0x70
 labels = [
     0x82198974,
     0x82198C54,
@@ -18862,8 +18828,6 @@ labels = [
 base = 0x825F1578
 r = 10
 default = 0x825F18A0
-table = 0x820106D8
-table_size = 0x1C
 labels = [
     0x825F15A0,
     0x825F162C,
@@ -18885,8 +18849,6 @@ labels = [
 base = 0x826028D0
 r = 10
 default = 0x82602F94
-table = 0x820118F0
-table_size = 0x14
 labels = [
     0x8260291C,
     0x82602A14,
@@ -18904,8 +18866,6 @@ labels = [
 base = 0x82605AF0
 r = 9
 default = 0x82606014
-table = 0x82011920
-table_size = 0x14
 labels = [
     0x82605B18,
     0x82605BDC,

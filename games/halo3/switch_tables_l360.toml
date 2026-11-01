@@ -232,8 +232,6 @@ labels = [
 base = 0x89428D44
 r = 10
 default = 0x89428FF0
-table = 0x894016B0
-table_size = 0xC
 labels = [
     0x89428D6C,
     0x89428FF0,
@@ -253,8 +251,6 @@ labels = [
 base = 0x8942902C
 r = 11
 default = 0x89428DD8
-table = 0x894016A0
-table_size = 0xC
 labels = [
     0x89429054,
     0x89429084,
@@ -271,8 +267,6 @@ labels = [
 base = 0x8943064C
 r = 9
 default = 0x89430914
-table = 0x894016E8
-table_size = 0x20
 labels = [
     0x89430674,
     0x89430674,
@@ -309,8 +303,6 @@ labels = [
 base = 0x8943479C
 r = 11
 default = 0x89434B04
-table = 0x89401A88
-table_size = 0xC
 labels = [
     0x894347C4,
     0x89434838,
@@ -331,8 +323,6 @@ labels = [
 base = 0x8942B914
 r = 11
 default = 0x8942B9E4
-table = 0x894016C0
-table_size = 0x8
 labels = [
     0x8942B93C,
     0x8942B93C,
@@ -348,8 +338,6 @@ labels = [
 base = 0x8942CFE8
 r = 10
 default = 0x8942CFC0
-table = 0x894016C8
-table_size = 0x20
 labels = [
     0x8942D02C,
     0x8942CCF0,

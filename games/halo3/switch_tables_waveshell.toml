@@ -5430,8 +5430,6 @@ labels = [
 base = 0x88080414
 r = 11
 default = 0x8808077C
-table = 0x88002198
-table_size = 0xC
 labels = [
     0x8808043C,
     0x880804B0,
@@ -5452,8 +5450,6 @@ labels = [
 base = 0x8807B2EC
 r = 11
 default = 0x8807BC04
-table = 0x880016A8
-table_size = 0x10
 labels = [
     0x8807B4E0,
     0x8807B314,
@@ -5469,8 +5465,6 @@ labels = [
 base = 0x8807B53C
 r = 11
 default = 0x8807BA30
-table = 0x88001638
-table_size = 0x70
 labels = [
     0x8807B740,
     0x8807BA30,
@@ -5534,8 +5528,6 @@ labels = [
 base = 0x8807E5B0
 r = 11
 default = 0x8807EEC8
-table = 0x88002058
-table_size = 0x10
 labels = [
     0x8807E7A4,
     0x8807E5D8,
@@ -5551,8 +5543,6 @@ labels = [
 base = 0x8807E800
 r = 11
 default = 0x8807ECF4
-table = 0x88001FE8
-table_size = 0x70
 labels = [
     0x8807EA04,
     0x8807ECF4,
