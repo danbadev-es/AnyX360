@@ -203,11 +203,23 @@ Tested the same way, each copy with its own profile:
    copy's party (mode, players), and the player's card offers "X: Join". Both copies list each
    other.
 3. **Joining doesn't start**: Join (X, or A > Join player) does nothing, and the copy sends
-   nothing and makes no XNet call; the game refuses before connecting. On the press the game
-   thread enumerates downloadable content (`XamContentCreateEnumerator` type 2), hashes two
-   0xD9AC-byte blocks (`XeCryptSha`) and checks privileges, then stops: a local compatibility
-   check, not the network. Where to resume: the roster's join action, as Halo 3's join was found
-   (Halo 3's observer `823F35E0`/`823B7420`, its join state machine `8243BCB8`).
+   nothing and makes no XNet call; the game refuses before connecting. What is known
+   (2026-11-01):
+   - Joining a **Campaign** party, the main thread's only calls on the press are three heap
+     operations (`827D8A80`..`827D8C4C`): no XNet, socket, content, storage or crypto call. The
+     refusal is in game code, from data it already holds.
+   - Joining a **Custom** party, it also enumerates downloadable content (`XamContentCreateEnumerator`
+     type 2, any device: 0 packages, which is right with none installed) and hashes two 0xD9AC-byte
+     blocks (`XeCryptSha`), then stops.
+   - The privilege checks (`82805E90`, XAM's `XUserCheckPrivilege` wrapper: privileges 244-252)
+     run at start, not on the press, and all pass.
+   - No device or storage call (`XamContentGetDeviceData`, the device state) is made on the press,
+     so the refusal doesn't look like Halo 3's "hard drive" check.
+   Where to resume: what the roster's join action reads from the search result
+   (`8232DE90` stores the results; its fields include a byte at +46 compared with one at +86), as
+   Halo 3's join was found (Halo 3's observer `823F35E0`/`823B7420`, its join state machine
+   `8243BCB8`). Tracing the main thread (`ANYX360_TRACE=12:<s>`) slows the game to 3 FPS while it
+   runs: start it a few seconds before the press.
 
 What it took so far: the two players must have different XUIDs (above); with the same one each
 copy accepted the other's search replies (`8232DE90` adds them to the results) but its roster
