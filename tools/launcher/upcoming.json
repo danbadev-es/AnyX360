@@ -3,8 +3,6 @@
   "games": [
     {"title": "Halo: Reach", "cover": "halo-reach", "title_id": "4D53085B",
      "owners": "Microsoft Corporation, Xbox Game Studios, Bungie", "trademarks": ["Halo"]},
-    {"title": "Halo 3", "cover": "halo-3", "title_id": "4D5307E6",
-     "owners": "Microsoft Corporation, Xbox Game Studios, Bungie", "trademarks": ["Halo"]},
     {"title": "Dance Central", "cover": "dance-central", "title_id": "",
      "owners": "Harmonix Music Systems, Microsoft Corporation", "trademarks": ["Dance Central"]},
     {"title": "Gears of War 2", "cover": "gears-of-war-2", "title_id": "",

@@ -1,0 +1,17 @@
+HALO 3 (in testing)
+===================
+Your copy: the Games on Demand package (in an archive or a folder), and its title update (the
+TU_16L61V6_000000K000000.00000000000o5 file next to it, or added alone afterwards): the game needs it
+(version 0.0.3.5). Its map packs are installed too.
+Saved games and settings: %LOCALAPPDATA%\AnyX360\Halo3
+
+CONTROLS
+Played with a controller, as on the console. Split screen for up to four players: give each player
+a controller in F2 > Players, with "Players 2-4 sign in" set to "At startup"; in the lobby
+choose Campaign or Custom games, then Start game.
+
+KNOWN ISSUES
+- The picture stops for about 400 ms roughly once a second.
+- The map packs are installed but the game doesn't offer them yet.
+- In testing: the first missions, co-op and a custom game have been played; Forge and Theater
+  haven't been tried. Matchmaking needs Xbox LIVE, which is gone.

@@ -21,8 +21,8 @@
 > endorsed by Microsoft, Xbox Game Studios, The Coalition, Epic Games, Harmonix, Good Science Studio,
 > Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay, Activision, Infinity Ward, Sledgehammer
 > Games, Treyarch, Capcom, Mojang, 4J Studios, Turn 10 Studios, Warner Bros. Interactive
-> Entertainment, NetherRealm Studios, Neversoft, RedOctane, Blizzard Entertainment or any other rights
-> holder.
+> Entertainment, NetherRealm Studios, Neversoft, RedOctane, Blizzard Entertainment, Bungie or any other
+> rights holder.
 > It contains **no game code, assets or files**: you must own a legally acquired copy of the game,
 > and you provide its files yourself.
 
@@ -88,6 +88,10 @@ the sensor.
   a Games on Demand copy with its title update (version 0.0.2.14), with up to four players on one
   screen, each with a controller; hero creation, Act I's first fights and the saves work, with
   short freezes still to fix ([docs/DIABLO3.md](docs/DIABLO3.md)).
+- **Halo 3** (in testing): Bungie's shooter from a Games on Demand copy with its title update
+  (version 0.0.3.5): the campaign (Sierra 117, checkpoints, Save and quit) and split screen for up to
+  four players, in co-op or a custom game, each with a controller; a short pause about once a
+  second is still to fix and the map packs aren't offered yet ([docs/HALO3.md](docs/HALO3.md)).
 
 Avatar games get their **Xbox Avatars** from the console's avatar data, which the Kinect Sports disc
 carries: AnyX360 builds each avatar from it, with the clothes, hair and face the game asks for. Your
@@ -110,7 +114,8 @@ own avatar is made in the launcher's avatar editor and plays in every avatar gam
    2 GB for Kinect Joy Ride, 1 GB for Kinect Party, 8 GB for Resident Evil 6 (3 GB more for its
    downloadable content), 2 GB for Minecraft (1 GB more for its downloadable content) and 6 GB for
    Call of Duty: Black Ops III (4 GB more for its downloadable content) and 4 GB for Guitar Hero III
-   (3 GB more for its downloadable songs) and 8 GB for Diablo III.
+   (3 GB more for its downloadable songs), 8 GB for Diablo III and 6 GB for Halo 3 (2 GB more for
+   its map packs).
 3. Run **`AnyX360.exe`** and accept the terms of use.
 4. Choose **Add game** (the **+** tile), or drop your copy on the window, as you have it:
    - **A file**: an archive of any kind (.7z, .rar, .zip, split or not, .tar.gz...), a disc image
@@ -129,8 +134,8 @@ own avatar is made in the launcher's avatar editor and plays in every avatar gam
 
    **Title updates.** A game AnyX360 plays with its title update (Kinect Adventures, Fruit Ninja
    Kinect, Doritos Crash Course, Kinect Sports, Kinect Joy Ride, Resident Evil 6, Modern Warfare 3,
-   Black Ops II, Black Ops III, Minecraft, Guitar Hero III and Diablo III; for the Call of Duty
-   games, both programs) is
+   Black Ops II, Black Ops III, Minecraft, Guitar Hero III, Diablo III and Halo 3; for the Call of
+   Duty games, both programs) is
    recompiled from the updated executable: the launcher installs the update from the copy (the
    `TU_…` file, or a `<TitleID>\000B0000\` package) and the game is ready only with it. Its version
    must be the one AnyX360 plays; another is left out. A copy added without it shows "Needs its
@@ -433,6 +438,17 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Title update (0.0.2.14)          | ✅ Required: the game is recompiled from it    |
 | Xbox LIVE                        | ❌ Not available: Xbox LIVE is gone            |
 
+| Halo 3                           | Status                                         |
+| -------------------------------- | ---------------------------------------------- |
+| Start-up, menus, settings        | ✅ Working; preferences and the profile's settings are kept |
+| Campaign                         | 🧪 Arrival and Sierra 117 played; checkpoints, Save and quit and its progress kept |
+| Split screen (2-4 players)       | 🧪 Two players in co-op on Sierra 117; four in a custom game (Slayer, Last Resort) |
+| Smoothness                       | ❌ A pause of about 400 ms roughly once a second (being looked into) |
+| Map packs                        | ❌ Installed by the launcher, but the game doesn't offer them yet |
+| Forge, Theater                   | 🧪 Not tried yet                               |
+| Title update (0.0.3.5)           | ✅ Required: the game is recompiled from it    |
+| Matchmaking (Xbox LIVE)          | ❌ Not available: Xbox LIVE is gone            |
+
 ## Controls
 
 ### Gears of War 3
@@ -608,6 +624,12 @@ Played with a controller, as on the console (A attacks, the other buttons the sk
 the D-pad the menus): give each player a controller in F2 > Players. A second player joins by
 pressing a button on their controller and choosing their hero.
 
+### Halo 3
+
+Played with a controller, as on the console. For split screen give each player a controller in
+F2 > Players, with "Players 2-4 sign in" set to "At startup"; in the lobby choose Campaign or
+Custom games, then Start game.
+
 ### Program Keys
 
 | Key                      | Action                         |
@@ -747,6 +769,14 @@ Diablo III: Reaper of Souls – Ultimate Evil Edition:
 - Only hero creation and the start of Act I have been played; Adventure Mode hasn't been reached.
 - New heroes take the name the game proposes (there is no on-screen keyboard).
 
+Halo 3:
+
+- The picture stops for about 400 ms roughly once a second.
+- The map packs (Heroic, Legendary, Cold Storage, Mythic, Mythic II) are installed but not offered:
+  the game lists only the disc's maps.
+- Only the first missions, co-op and a custom game have been played; Forge and Theater haven't
+  been tried. Matchmaking needs Xbox LIVE, which is gone.
+
 Found something else? Open an issue with the version (shown in the launcher) and the game's
 `logs\<game>\last_run.log` file.
 
@@ -837,6 +867,8 @@ environment with pinned, hash-checked packages.
   (see [docs/GUITARHERO3.md](docs/GUITARHERO3.md#reproducing)).
 - Diablo III: Reaper of Souls: the same, to `extracted/d3/game/`, and its title update to
   `extracted/d3/update/` (see [docs/DIABLO3.md](docs/DIABLO3.md#reproducing)).
+- Halo 3: the same, to `extracted/halo3/game/`, and its title update (the `TU_…` file) to
+  `extracted/halo3/update/` (see [docs/HALO3.md](docs/HALO3.md#reproducing)).
 - Put the XEX2 retail key in `keys/xex2_retail.key` (see [keys/README.md](keys/README.md)).
 
 Both folders are git-ignored.
@@ -851,7 +883,8 @@ Both folders are git-ignored.
 > to 0.0.23.8), Call of Duty: Black Ops II (title `415608C3`, 0.0.0.14 to 0.0.18.14), Call of Duty:
 > Black Ops III (title `4156091D`, 0.0.0.5 to 0.0.8.5), Minecraft: Xbox 360 Edition (title
 > `584111F7`, 0.0.0.1 to 0.0.80.1) and Guitar Hero III: Legends of Rock (title `415607F7`, 0.0.0.2
-> to 0.0.3.2) and Diablo III: Reaper of Souls (title `394F07D4`, 0.0.0.14 to 0.0.2.14); for Modern Warfare 3 and Black Ops II, both the single-player
+> to 0.0.3.2), Diablo III: Reaper of Souls (title `394F07D4`, 0.0.0.14 to 0.0.2.14) and Halo 3
+> (title `4D5307E6`, 0.0.0.5 to 0.0.3.5); for Modern Warfare 3 and Black Ops II, both the single-player
 > `default.xex` and the multiplayer `default_mp.xex`, and for Black Ops III the multiplayer
 > `default.xex` and the Zombies `default_zm.xex`, each with its own `.xexp`.
 > Without one for Gears of War 3 (title `4D5308AB`) and Dance Central 3 (title `373307D9`).
@@ -870,8 +903,9 @@ names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing-fro
 [docs/BLACKOPS3.md](docs/BLACKOPS3.md#reproducing),
 [docs/RESIDENTEVIL6.md](docs/RESIDENTEVIL6.md#reproducing),
 [docs/MINECRAFT.md](docs/MINECRAFT.md#reproducing),
-[docs/GUITARHERO3.md](docs/GUITARHERO3.md#reproducing) and
-[docs/DIABLO3.md](docs/DIABLO3.md#reproducing). For Gears of War 3:
+[docs/GUITARHERO3.md](docs/GUITARHERO3.md#reproducing),
+[docs/DIABLO3.md](docs/DIABLO3.md#reproducing) and
+[docs/HALO3.md](docs/HALO3.md#reproducing). For Gears of War 3:
 
 ```bat
 build.bat
@@ -975,6 +1009,7 @@ games/mk/         Mortal Kombat Komplete Edition: recompiler config, entry point
 games/bo3/        Call of Duty: Black Ops III: recompiler configs (multiplayer and Zombies), entry points, notes
 games/gh3/        Guitar Hero III: Legends of Rock: recompiler config, entry point, notes
 games/d3/         Diablo III: Reaper of Souls: recompiler config, entry point, notes
+games/halo3/      Halo 3: recompiler configs (the game and its four Waves DLLs), entry point, fiber hooks, notes
 runtime/          Kernel and XAM reimplementation, input, settings, GPU and audio glue,
                   the virtual Kinect (runtime/src/nui) and its debug window (runtime/kinect_window)
 tools/x360tool/   Disc and XEX tooling
@@ -997,8 +1032,8 @@ anyx/            Your .anyx backups (git-ignored)
   Harmonix, Good Science Studio, Halfbrick Studios, Rare, Behaviour Interactive, Frito-Lay,
   Double Fine Productions, Activision, Infinity Ward, Sledgehammer Games, Treyarch, Capcom, Mojang,
   4J Studios, Turn 10 Studios, Warner Bros. Interactive Entertainment, NetherRealm Studios,
-  Neversoft, RedOctane, Blizzard Entertainment or any other rights holder, and it is not an official
-  product or port of any game.
+  Neversoft, RedOctane, Blizzard Entertainment, Bungie or any other rights holder, and it is not an
+  official product or port of any game.
 - This repository contains **no game code, assets or console keys**, and never will. The
   third-party XenonRecomp submodule (like Xenia) embeds the publicly known XEX2 retail key in its
   source to load executables; AnyX360's own tools read the key from `keys/` instead.
@@ -1014,7 +1049,7 @@ anyx/            Your .anyx backups (git-ignored)
   Ride, Kinect Party, Double Fine, BigPark, Fruit Ninja, Halfbrick, Doritos, Rare, Call of Duty,
   Modern Warfare, Black Ops, Treyarch, Activision, Resident Evil, Capcom, Minecraft, Mojang, Forza
   Motorsport, Turn 10, Mortal Kombat, NetherRealm, Warner Bros., Guitar Hero, Neversoft, RedOctane,
-  Diablo, Blizzard Entertainment, Xbox and Xbox 360 are trademarks of their
+  Diablo, Blizzard Entertainment, Halo, Bungie, Xbox and Xbox 360 are trademarks of their
   respective owners, used here only to identify the games
   AnyX360 is compatible with.
 - The box art in the release belongs to its publishers and is shown only to identify the games;

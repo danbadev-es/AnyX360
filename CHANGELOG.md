@@ -8,6 +8,36 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **Halo 3** (in testing, [docs/HALO3.md](docs/HALO3.md)): Bungie's shooter from a Games on Demand
+  copy with its title update (version 0.0.3.5, recompiled from it) and its four Waves audio DLLs,
+  recompiled into the game: the campaign (Arrival, Sierra 117, checkpoints, Save and quit) and split
+  screen for two to four players (co-op campaign, custom games). A pause of about 400 ms roughly
+  once a second is still to fix, and the map packs, installed, aren't offered yet.
+- I/O completion ports (`NtCreateIoCompletion`, `NtSetIoCompletion`, `NtRemoveIoCompletion`, files
+  associated with one), which Halo 3 reads its maps with, and the `cache0:`/`cache1:` partitions.
+- `XeCryptBnQwNeRsaPubCrypt` and `XeCryptBnDwLePkcs1Verify` (Halo 3 checks its maps' signatures),
+  and `XeCryptHmacShaInit`/`Update`/`Final`.
+- Title DLLs that import from each other, with their own resources (`XexGetModuleSection`), and
+  `GameDescriptor::separate_xex_4k_heap`, for a game whose DLLs' function tables fall in the
+  0x90000000 range (Xenia option `xex_4k_heap_mirrors_64k_heap`, turned off only for the Halo games).
+
+### Changed
+
+- Halo 3 leaves "Coming soon".
+- `XamUserGetSigninInfo` and `XamUserGetXUID` return `ERROR_NO_SUCH_USER` as an HRESULT
+  (`0x80070525`) for a slot nobody is signed in to, as XAM does: Halo 3's lobby counted the
+  empty slots as players without a controller.
+- `XMPGetPlaybackController` answers that the title has the playback (Halo 3 showed a music notice).
+- XenonAnalyse (the fork): a fixed-pattern jump table's bounds check must be on the table's own
+  register and inside the function; unchecked tables placed after their `bctr` are found by the
+  dataflow detector, and a case that branches to another function's start is a tail call (Halo 3:
+  6,840 switch cases were outside their function).
+- XenonRecomp (the fork): a title DLL's import thunks to another title DLL branch through the
+  import's record, and analysing a function no longer hangs on a conditional branch before its
+  start.
+
 ## [0.30.0] - 2026-11-01
 
 Guitar Hero III: Legends of Rock and Diablo III: Reaper of Souls, both in testing.
