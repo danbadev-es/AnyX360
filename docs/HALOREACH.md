@@ -69,7 +69,8 @@ playback controller, players 2-4's sign-in state. Reach needed besides:
 - **Xbox LIVE** is gone.
 
 ## Known issues
-- The same stutter as Halo 3's: a pause of about 400 ms roughly once a second.
+- The same stutter as Halo 3's: a pause of about 400 ms roughly once a second (seen that day in
+  Gears of War 3 and Black Ops II too: see [HALO3.md](HALO3.md#known-issues)).
 
 ## Routes (scripted input)
 On a new profile, with `ANYX360_INPUT_LIVE`: at about 75 s `A` (Male, to the Armory), `START`

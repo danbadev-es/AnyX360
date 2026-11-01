@@ -112,7 +112,9 @@ The launcher installs the title update and the map packs.
 ## Known issues
 - **Stutter**: frames come at 60 per second with a pause of about 400 ms roughly once a second
   ("no frame presented for 400 ms"); the main thread waits on a kernel object then. Not looked
-  into yet.
+  into yet: on the same day the same pauses (about 420-440 ms) showed in Gears of War 3 and Black
+  Ops II on the test machine, with the released 0.30.0 Gears of War 3 too, so they may come from
+  that machine rather than from the game; to be checked on another session.
 
 ## Routes (scripted input)
 With an existing user folder and the game at its main menu (about 50 s in), using

@@ -447,7 +447,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Start-up, menus, settings        | ✅ Working; preferences and the profile's settings are kept |
 | Campaign                         | 🧪 Arrival and Sierra 117 played; checkpoints, Save and quit and its progress kept |
 | Split screen (2-4 players)       | 🧪 Two players in co-op on Sierra 117; four in a custom game (Slayer, Last Resort) |
-| Smoothness                       | ❌ A pause of about 400 ms roughly once a second (being looked into) |
+| Smoothness                       | ❌ A pause of about 400 ms roughly once a second (also seen in other games on the test machine: to be checked) |
 | Map packs                        | ❌ Installed by the launcher, but the game doesn't offer them yet |
 | Forge, Theater                   | 🧪 Not tried yet                               |
 | Title update (0.0.3.5)           | ✅ Required: the game is recompiled from it    |
@@ -458,7 +458,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Start-up, menus, the Armory      | ✅ Working; the Spartan and the credits are kept |
 | Campaign                         | 🧪 Winter Contingency played; checkpoints      |
 | Split screen                     | 🧪 Two players in co-op on Winter Contingency; three or four not tried yet |
-| Smoothness                       | ❌ A pause of about 400 ms roughly once a second (being looked into) |
+| Smoothness                       | ❌ A pause of about 400 ms roughly once a second (also seen in other games on the test machine: to be checked) |
 | Firefight, custom games, Forge   | 🧪 Not tried yet                               |
 | Map packs                        | 🧪 Installed by the launcher; not tried yet    |
 | Title update (0.0.1.7)           | ✅ Required: the game is recompiled from it    |
