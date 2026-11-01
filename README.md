@@ -424,11 +424,11 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Minecraft: Xbox 360 Edition      | Status                                         |
 | -------------------------------- | ---------------------------------------------- |
 | Menus, a new world, playing      | ✅ Working (60 FPS with one player)            |
-| Saving and loading worlds        | ✅ Saved, listed with its name and seed, loaded again |
+| Saving and loading worlds        | 🧪 Saved, listed with its name, seed and picture, loaded again; saving over a loaded world fails ("storage device not available") |
 | Split screen (two to four players) | ✅ Each new player presses START twice in a game; all four moved, mined and built |
-| Downloadable content             | 🧪 Installed by the launcher, all 92 packs load; the Skyrim mash-up played, the other packs not tried one by one |
+| Downloadable content             | 🧪 Installed by the launcher, all 92 packs load; the Skyrim mash-up played; texture packs and mash-ups chosen at creation give the default textures (Halloween, Norse Mythology) |
 | Title update (0.0.80.1)          | ✅ Required: the game is recompiled from it    |
-| World pictures in the Load list  | ❌ Black                                       |
+| World pictures in the Load list  | ✅ Shown for worlds saved since 0.33.0 (about 1 FPS less) |
 | Online games, store, leaderboards | ❌ Not available: they need Xbox Live         |
 
 | Guitar Hero III: Legends of Rock | Status                                         |

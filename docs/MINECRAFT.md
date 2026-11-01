@@ -63,8 +63,17 @@ needed:
   is now the disposition, as on the console (all games).
 - **Thumbnails**: XamContentSetThumbnail and XamContentGetThumbnail keep a package's thumbnail as
   `__thumbnail.png` in its folder. The world list stores each world's thumbnail, and the game keeps
-  the world's seed and host options in that PNG's text chunks. The pictures themselves come out
-  black (see Pending).
+  the world's seed and host options in that PNG's text chunks. The pictures are drawn on the GPU
+  (below).
+- **The pictures** (0.33.0): the game renders the world into a resolve target and reads it back
+  through a memory export before it encodes the 64x64 PNG. Xenia copies neither to the CPU by
+  default (`readback_resolve = "none"`, `readback_memexport = false`), so every picture was black
+  (201 bytes of zeros). Minecraft now turns both on (`GameDescriptor::xenia_options`: `full` and
+  `true`): the Load tab shows each world saved since. Tried one at a time, neither alone was
+  enough; `fast` (a frame late) wasn't tried to the end. The cost, measured in a world: 59 FPS
+  against 60, p99 24-28 ms against 21-22. `[xenia] readback_resolve = "none"` and
+  `readback_memexport = false` in `settings.toml` go back. Worlds saved before keep their black
+  picture until they are saved again.
 
 ## Split screen
 
@@ -114,8 +123,21 @@ load, so the gaps are wide; on a busy machine use wider ones.
 
 ## Pending
 
-- **Thumbnails are black**: the 64x64 PNG the game makes for each world is black, so the Load tab
-  shows a black square. The game draws it from a frame on the GPU (a resolve); not looked at yet.
+- **Saving over a world** that was loaded (pause menu, Save game, "overwrite?" Accept) ends on
+  "Save error: the storage device is not available"; a new world's first save works. The release
+  0.32.0 does the same. The game opens the package, writes `savegame.dat` (2.6 MB, success), asks
+  for the device's data (`XamContentGetDeviceData`) and stops; not looked at further.
+- **The Halloween pack** (`C2D1809F...`, "Halloween", a texture pack): its display name matches
+  `X360ProductCodes.bin`'s short name ("Halloween", TP03), but at world creation the game looks
+  for `TPACK:\TexturePack.pck` and `TPACK:\Data\TexturePack.pck` with nothing mounted as `TPACK:`
+  (the package keeps `Data\` and `TexturePack.pck` at its root), and the Norse Mythology mash-up
+  (`res\DLC\Norse Mythology` in the title update) created a world with the default textures in the
+  same way. Not solved in 0.33.0: where the game mounts `TPACK:` (a `XamContentCreateEx` with that
+  root is never called) is the next step.
+- **Player 2 at start** (the DLC split between two players): not reproduced in 0.33.0. The content
+  enumerations now read the game's own `content\00000002` for every player, whoever is signed in
+  on player 1 (before, player 1's folder: none for a profile of its own); the packs all mount
+  under one user (92 in these runs).
 - **Split screen frame rate**: two views run uneven on a busy machine (above); not measured on an
   idle one.
 - **Downloadable content**: only the Skyrim mash-up was played; skins, texture packs and the

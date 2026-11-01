@@ -70,6 +70,9 @@ PPC_EXTERN_FUNC(__imp__XamUserGetXUID);
 PPC_EXTERN_FUNC(__imp__NtCreateFile);
 PPC_EXTERN_FUNC(__imp__NtClose);
 PPC_EXTERN_FUNC(__imp__XamContentCreateEnumerator);
+PPC_EXTERN_FUNC(__imp__XamContentCreateEx);
+PPC_EXTERN_FUNC(__imp__XamContentSetThumbnail);
+PPC_EXTERN_FUNC(__imp__XamContentGetThumbnail);
 
 // The kernel's loader fills the function table from this generated array; tests have no game.
 PPCFuncMapping PPCFuncMappings[] = {{0, nullptr}};
@@ -736,6 +739,32 @@ int main() {
     // A guest on player 2 (saves in players\guest1): the same packages.
     CHECK(kernel::SignInGuest(1) && packages(1) == 1);
     kernel::SignOutUser(1);
+    // A save's thumbnail (Minecraft's world pictures): set, then its size, then the bytes as given.
+    const guest_addr data = kArea + 0x800, png = kArea + 0xA00, out = kArea + 0xB00, size = kArea + 0xC;
+    std::memset(mem.translate(data), 0, 0x134);
+    mem.write<uint32_t>(data + 0, 1), mem.write<uint32_t>(data + 4, 1);
+    std::memcpy(mem.translate(data + 0x108), "Save20261101.bin", 16);
+    std::memcpy(mem.translate(kArea + 0x7F0), "savedrive", 10);
+    ctx.r3.u64 = 0, ctx.r4.u64 = kArea + 0x7F0, ctx.r5.u64 = data, ctx.r6.u64 = 1, ctx.r7.u64 = 0;
+    ctx.r8.u64 = 0, ctx.r9.u64 = 0, ctx.r10.u64 = 0;
+    const uint32_t saved_sp = ctx.r1.u32;
+    ctx.r1.u64 = kArea + 0x600;  // the ninth argument (no XOVERLAPPED) on the stack
+    mem.write<uint32_t>(kArea + 0x600 + 0x54, 0);
+    __imp__XamContentCreateEx(ctx, base);
+    ctx.r1.u64 = saved_sp;
+    CHECK(ctx.r3.u32 == 0);  // created (in player 1's folder)
+    const std::vector<uint8_t> picture = TinyPng();
+    std::memcpy(mem.translate(png), picture.data(), picture.size());
+    ctx.r3.u64 = 0, ctx.r4.u64 = data, ctx.r5.u64 = png, ctx.r6.u64 = picture.size(), ctx.r7.u64 = 0;
+    __imp__XamContentSetThumbnail(ctx, base);
+    CHECK(ctx.r3.u32 == 0);
+    mem.write<uint32_t>(size, 0);
+    ctx.r3.u64 = 0, ctx.r4.u64 = data, ctx.r5.u64 = 0, ctx.r6.u64 = size, ctx.r7.u64 = 0;
+    __imp__XamContentGetThumbnail(ctx, base);
+    CHECK(ctx.r3.u32 == 0 && mem.read<uint32_t>(size) == picture.size());
+    ctx.r3.u64 = 0, ctx.r4.u64 = data, ctx.r5.u64 = out, ctx.r6.u64 = size, ctx.r7.u64 = 0;
+    __imp__XamContentGetThumbnail(ctx, base);
+    CHECK(ctx.r3.u32 == 0 && std::memcmp(mem.translate(out), picture.data(), picture.size()) == 0);
     kernel::SetTitlePathsForTests({});
     fs::remove_all(folder);
   }

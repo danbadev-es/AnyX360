@@ -1079,6 +1079,7 @@ uint32_t XamContentSetThumbnail(uint32_t user_index, uint32_t content_data, uint
     std::ofstream(folder / kThumbnailFile, std::ios::binary).write(Ptr<const char>(buffer), size);
     result = X_ERROR_SUCCESS;
   }
+  KLOG_T("XamContentSetThumbnail(%s, %u bytes) -> %u", folder.filename().string().c_str(), size, result);
   return overlapped ? Complete(overlapped, result) : result;
 }
 

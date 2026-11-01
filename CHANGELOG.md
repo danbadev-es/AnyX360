@@ -36,6 +36,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   player 1's own folder, which for a profile other than the first is `players\<XUID>` and holds
   none of the packages the launcher installs in the game's `content\00000002`.
 
+- **Minecraft**: the worlds' pictures in the Load tab are no longer black. The game draws them on
+  the GPU and reads them back; Minecraft now turns on Xenia's resolve and memory-export readback
+  (about a frame a second at 60 FPS). Worlds saved before keep a black picture until saved again.
+
 ### Added
 
 - **Halo: Reach**: the map packs were tried: Custom games offers the Noble, Defiant and Anniversary
