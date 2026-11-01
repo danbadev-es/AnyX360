@@ -89,6 +89,33 @@ previews, so the ordinal stays out until that is understood (Dance Central 3's f
 2026-11-01 are in [DANCECENTRAL3.md](DANCECENTRAL3.md#downloadable-content); the two games share
 the code).
 
+## Status of the modes (2026-11-02)
+Played on release 0.33.0 from `dc2.anyx` (a fresh profile, the launcher's install), with two
+scripted players and a scripted controller; nothing needed fixing:
+
+- **Fitness**: the Fitness menu (session and total calories, the workouts: Easy Start, Warm-ups,
+  Toned, Gym...) and a workout started: its playlist plays song after song (Last Night, then the
+  next one), the session's song count goes up, and leaving through the pause menu ("Song list",
+  then Yes) comes back to the Fitness menu. Calories stay 0 with "Fitness mode" off, its default.
+- **Two players**: a second scripted player who walks in at "Waiting for another player" is
+  seen at once: the screen splits into the two players' sides (the first player moves to the left
+  one), the second chooses their difficulty and Ready with their own right-arm swipes, and the song
+  is played by both; both scores go up (34,440 each after a minute of `dance`, in a Fitness
+  workout). The first time, Perform's tutorial comes first.
+- **Dance Battle**: from the song list (song, "Dance Battle", each player's difficulty, a crew,
+  Ready), its tutorial, then the battle: both scores, and the results with the winner's crew
+  (5,000 to 3,000).
+- **Break It Down**: from the song list (song, "Break It Down", difficulty, Ready), its tutorial,
+  then "Full song session": the moves are taught one by one, a move not matched gets its cross. The
+  scripted `dance` doesn't match the taught moves, so it doesn't move on by itself; a person
+  should play it through.
+- **Pause and resume**: the controller's Start pauses (Resume, Skip song, Restart song, Song
+  list); **Resume works with the Kinect gestures**: the right arm out (`menu_right`) highlights
+  Resume, a swipe (`swipe_left`) chooses it, and the song goes on with the scores kept. It didn't
+  work before because the game was in controller mode: after a controller's press, the menus listen
+  to the controller only until "Exit controller mode" (the controller's Start, shown at the bottom)
+  is chosen. "Song list" asks to confirm (Yes is the upper item).
+
 ## Status (2026-10-31)
 - **Boot**: logos, the intro video, the first-run "how to navigate" page, the title screen and the
   main menu (Dance, Crew Challenge, Fitness, Options, Buy new dances), at 60 FPS. Saves, settings
@@ -100,15 +127,14 @@ the code).
   routine from the song's start) scored **5,424**; standing still, **0**. The post-song menu (New
   song, Photos, Break It Down, Restart song) follows.
 - **Break It Down**: the post-song menu opens its move list (Dance, the moves to practise), but the
-  scripted inputs didn't start it.
+  scripted inputs didn't start it (it starts from the song list: see above).
 - **Pause**: a controller's Start pauses a song (the pause menu: Resume, Break It Down, Restart
   song, Song list). The virtual sensor recognises the Kinect Guide gesture during the song and opens
   the system UI ("the Kinect guide gesture: the system UI opens"), but the song was already paused
   then, so the gesture's own pause wasn't seen. Resuming with the scripted inputs (A, Start, a swipe
-  on Resume) didn't work: the same as Break It Down's start, a person should try it.
-- **Not tried yet**: Fitness, Dance Battle, Crew Challenge, two players (both the scripted player
-  and the pose bridge give two skeletons; a second scripted player was seen by the game at
-  "waiting for another player").
+  on Resume) didn't work then: the menus were in controller mode (see above: with gestures it
+  works).
+- **Not tried yet**: Crew Challenge (Fitness, Dance Battle and two players: see above).
 - **A stale song cache**: with the downloadable songs once listed (the ordinal above), the song
   cache (`content\00000001\songcache`) and the save keep them; without the ordinal, choosing one
   ends on the "song data no longer available" message. Deleting `songcache` rebuilds it. Players
@@ -131,6 +157,24 @@ A at the title and the main menu (Dance), the song list (the last song played is
 changes the sort), the song, Perform, Easy, Ready, then "Play solo" on "Waiting for another
 player". The first time, the title screen comes after the "how to navigate" page (a swipe) and
 Perform shows its tutorial (about a minute; Continue at the bottom right, then "Got it" and Accept).
+
+**Only gestures** (a driver appending to a live script, `ANYX360_NUI_SCRIPT=@<file>`, and
+watching the screen): the menus are on the right; `menu_right` raises the right arm, the hand's
+height moves the highlight (`hand_down`, `hand_up` or `hand_y_<cm>`; the highlight follows the
+hand's movement, so check the screen), `swipe_left/0.8` chooses, and `menu_left` then
+`swipe_right/0.8` is Back. A press on the controller puts the menus in controller mode: press
+Start once to go back to gestures.
+
+- **Two players**: `enter@1` at "Waiting for another player"; the second player's menu is on the
+  right too: `menu_right@1`, `swipe_left/0.8@1` (difficulty, then Ready). Both then `lower`,
+  `dance/400` and `dance/400@1`.
+- **Dance Battle**: main menu Dance, a song, `hand_down` and a swipe (Dance Battle), each player's
+  difficulty and Ready (the first player's arrives at "Change dancer" with the hand too low: choose
+  a crew, then `hand_up` and Ready), a swipe on each tutorial page, then both dance.
+- **Break It Down**: main menu Dance, a song, the third mode, a difficulty, Ready, the tutorial's
+  pages, "Full song session".
+- **Pause and resume**: the controller's Start, then `lower`, `menu_right` (Resume) and
+  `swipe_left/0.8`.
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `373307D2`):

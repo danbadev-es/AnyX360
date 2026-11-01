@@ -8,6 +8,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **Dance Central 2**: Fitness, Dance Battle, Break It Down and two players were tried with two
+  scripted players: a Fitness workout's songs, a Dance Battle to its results and a two-player song
+  where both score; Break It Down starts and teaches the moves. Resuming from the pause menu works
+  with the arm and a swipe (the menus had been left in controller mode before). Routes in
+  [docs/DANCECENTRAL2.md](docs/DANCECENTRAL2.md).
+
 ## [0.33.0] - 2026-11-01
 
 System Link in Gears of War 3, Modern Warfare 3 and Black Ops II; Halo's hard drive, Reach's and Black Ops III's map packs, Minecraft's world pictures; one-command releases and a regression battery.

@@ -311,11 +311,13 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | -------------------------------- | ---------------------------------------------- |
 | Menus (Kinect gestures, controller) | ✅ Working                                  |
 | Perform                          | ✅ Playable; scoring follows the moves         |
-| Pause (controller's Start)       | ✅ Working; the gesture's pause in testing     |
-| Break It Down, Fitness, Dance Battle | 🧪 Not played yet                          |
+| Pause (controller's Start), resume | ✅ Working; resume with the arm and a swipe; the gesture's pause in testing |
+| Fitness, Dance Battle            | ✅ Played with two scripted players (a workout's songs; a battle to its results) |
+| Break It Down                    | 🧪 Starts and teaches the moves; not played through (needs a person) |
+| Two players                      | ✅ The second player joins and both score (scripted players); 🧪 with the webcam |
 | Title update (0.0.1.5)           | ✅ Required: the game is recompiled from it    |
 | Downloadable songs               | ❌ Installed, not listed yet                   |
-| Webcam tracking, two players     | 🧪 In testing                                  |
+| Webcam tracking                  | 🧪 In testing                                  |
 | Voice commands                   | ❌ Not available: no microphone support        |
 
 | Kinect Adventures                | Status                                         |
