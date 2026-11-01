@@ -332,7 +332,11 @@ try {
   }
 
   Step 10 'installs' "move the players' installs from the previous release folders in $DistDir, then delete those" {
-    $old = @(Get-ChildItem -LiteralPath $DistDir -Directory -Filter 'AnyX360-*' | Where-Object { $_.FullName -ne $newDist })
+    # Older releases by their names' versions (never by path: 8.3 and long forms of one folder differ).
+    $old = @(Get-ChildItem -LiteralPath $DistDir -Directory -Filter 'AnyX360-*' | Where-Object {
+        $_.Name -match '^AnyX360-(\d+\.\d+\.\d+)(\+.*)?$' -and [version]$Matches[1] -lt [version]$Version })
+    $others = @(Get-ChildItem -LiteralPath $DistDir -Directory -Filter 'AnyX360-*' | Where-Object { $_.Name -ne "AnyX360-$Version" -and $old.Name -notcontains $_.Name })
+    if ($others) { Log "  left alone (not older than $Version): $($others.Name -join ', ')" }
     foreach ($dir in $old) {
       $prefix = $dir.FullName.TrimEnd('\') + '\'
       $running = @(Get-CimInstance Win32_Process -Property ProcessId, Name, ExecutablePath |

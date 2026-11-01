@@ -40,7 +40,7 @@ if (-not (Test-Path $catalog)) { throw "$catalog is missing: build anyx360_launc
 $ids = [regex]::Matches((Get-Content $catalog -Raw), '\{L"([a-z0-9_]+)", L"') | ForEach-Object { $_.Groups[1].Value }
 if (-not $ids) { throw "The catalog lists no games" }
 $games = foreach ($id in $ids) {
-  $info = Get-Content "$root\games\$id\game.json" -Raw | ConvertFrom-Json
+  $info = Get-Content "$root\games\$id\game.json" -Raw -Encoding UTF8 | ConvertFrom-Json
   $info | Add-Member NoteProperty release "$root\build\games\$id\Release"
   # Every executable of the game: the one the launcher starts and those the game starts in turn
   # ("executables": {XEX: executable}), built with it.
@@ -131,7 +131,7 @@ if ($webcam) {
 # Box art (covers\, not in git): the front cover of every catalog and upcoming game that has one,
 # at 600x900 at most (x360tool cover).
 $slugs = @($games | ForEach-Object { $_.cover }) +
-  @((Get-Content "$root\tools\launcher\upcoming.json" -Raw | ConvertFrom-Json).games | ForEach-Object { $_.cover })
+  @((Get-Content "$root\tools\launcher\upcoming.json" -Raw -Encoding UTF8 | ConvertFrom-Json).games | ForEach-Object { $_.cover })
 $slugs = @($slugs | Where-Object { $_ } | Select-Object -Unique)
 New-Item -ItemType Directory "$dist\covers" | Out-Null
 foreach ($slug in $slugs) {
@@ -172,7 +172,7 @@ function Join-List([string[]]$items) {
   return (($items[0..($items.Count - 2)] -join ', ') + ' and ' + $items[-1])
 }
 # The upcoming games' too: their box art ships in covers\.
-$upcoming = @((Get-Content "$root\tools\launcher\upcoming.json" -Raw | ConvertFrom-Json).games)
+$upcoming = @((Get-Content "$root\tools\launcher\upcoming.json" -Raw -Encoding UTF8 | ConvertFrom-Json).games)
 $owners = @(@($games) + $upcoming | ForEach-Object { $_.owners -split ', ' } | Select-Object -Unique)
 $trademarks = @(@($games) + $upcoming | ForEach-Object { $_.trademarks } | Select-Object -Unique)
 $components = @($games | ForEach-Object { $_.components } | Where-Object { $_ } | ForEach-Object { ($_ -split ' \(')[0] } |
