@@ -1,7 +1,8 @@
 // System Link (x360/system_link.h): port mapping, the datagram header, XNADDRs, the address book,
 // adapter choice and the [network] settings; then two stacks in this process on the loopback
 // address, as two instances on one PC: a broadcast from one reaches the other, the reply comes back
-// to the right instance, and datagrams that aren't AnyX360's are dropped.
+// to the right instance, and datagrams that aren't AnyX360's are dropped. Then the synchronous
+// XMsgStartIORequest's last error, which a System Link join depends on.
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -22,6 +23,7 @@ using namespace x360::net;
 
 // The kernel's loader fills the function table from this generated array; tests have no game.
 PPCFuncMapping PPCFuncMappings[] = {{0, nullptr}};
+PPC_EXTERN_FUNC(__imp__XMsgStartIORequest);
 
 static int failures = 0;
 #define CHECK(cond)                                                 \
@@ -258,6 +260,32 @@ void TwoInstances() {
   CHECK(!off.Start(config, nullptr));
 }
 
+// A synchronous XMsgStartIORequest (no overlapped) leaves its result as the calling thread's last
+// error (KTHREAD+0x160): XAM's wrappers read GetLastError() after it returns, and Modern Warfare 3's
+// XSessionCreate failed a System Link join on a stale one. Runs on a guest thread of its own.
+void SynchronousXMsgLastError() {
+  CHECK(x360::kernel::InitMemory());
+  uint8_t* base = x360::kernel::g_base;
+  uint32_t stale_kept = 0, after_success = 0xFFFFFFFF, after_failure = 0;
+  auto thread = x360::kernel::CreateHostDrivenThread("xmsg test", 0, [&] {
+    const uint32_t kthread = x360::kernel::CurrentThread()->kthread;
+    alignas(64) PPCContext c{};
+    x360::kernel::Store<uint32_t>(kthread + 0x160, 0x12);  // stale: ERROR_NO_MORE_FILES
+    stale_kept = x360::kernel::Load<uint32_t>(kthread + 0x160);
+    c.r3.u64 = 0xFB, c.r4.u64 = 0x000B0014, c.r5.u64 = 0, c.r6.u64 = 0, c.r7.u64 = 0;  // XSessionStart
+    __imp__XMsgStartIORequest(c, base);
+    after_success = x360::kernel::Load<uint32_t>(kthread + 0x160);
+    c.r3.u64 = 0xFB, c.r4.u64 = 0x000BFFFF, c.r5.u64 = 0, c.r6.u64 = 0, c.r7.u64 = 0;  // unknown: fails
+    __imp__XMsgStartIORequest(c, base);
+    after_failure = x360::kernel::Load<uint32_t>(kthread + 0x160);
+  });
+  CHECK(thread != nullptr);
+  if (thread) WaitForSingleObject(static_cast<HANDLE>(thread->host), INFINITE);
+  CHECK(stale_kept == 0x12);
+  CHECK(after_success == 0);
+  CHECK(after_failure == 1627);  // ERROR_FUNCTION_FAILED
+}
+
 }  // namespace
 
 int main() {
@@ -270,6 +298,7 @@ int main() {
   Adapters();
   Settings(dir);
   TwoInstances();
+  SynchronousXMsgLastError();
   std::error_code ec;
   fs::remove_all(dir, ec);
   std::printf("%s (%d failures)\n", failures ? "FAILED" : "OK", failures);
