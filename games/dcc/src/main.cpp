@@ -19,5 +19,12 @@ int main(int argc, char** argv) {
   game.avatar_system = true;
   // The avatar library's default skeleton (this version has no shaping by height and weight).
   game.avatar_skeleton = 0x82506768;
+  // The game presents every vblank: 60 FPS, as on the console. With the default 120 Hz vblank it
+  // ran at up to 120 FPS on a fast display.
+  game.vblanks_per_frame = 1;
+  game.fixed_fps = 60;
+  // Its sound came late: 8 audio frames ahead of playback (43 ms) instead of 16 (85 ms). Its mixing
+  // keeps up (measured: never more than 2 frames behind, a callback under 0.5 ms).
+  game.audio_queued_frames = 8;
   return x360::host::RunHost(argc, argv, game);
 }

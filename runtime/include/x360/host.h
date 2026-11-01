@@ -94,6 +94,10 @@ struct GameDescriptor {
   // Reach's WavesLibDLL.dll at 0x8A000000 has them at 0x93200000, which overwrote the title's
   // image (its resources) and the start of its own table through the view.
   bool separate_xex_4k_heap = false;
+  // The 256-sample audio frames (5.33 ms each) queued ahead of the host's playback: 0 is 16 (85 ms),
+  // room for the title's mixing to come late without a cut. Fewer: less delay between what happens
+  // and its sound, for titles whose mixing keeps up (Doritos Crash Course: 8, 43 ms).
+  uint32_t audio_queued_frames = 0;
   // Options of Xenia's GPU code the title needs, by name, each value as TOML text ({"occlusion_query",
   // "\"strict\""}): set before the GPU starts, under the player's own [xenia] options in
   // settings.toml (which win). Not written to settings.toml.

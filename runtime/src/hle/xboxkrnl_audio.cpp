@@ -25,7 +25,9 @@ namespace {
 
 constexpr size_t kMaximumQueuedFrames = 64;  // XAudio2 voice buffers (as Xenia's AudioSystem)
 // Frames queued ahead of playback: 16 x 5.33 ms = 85 ms of latency, enough to absorb scheduling jitter.
+// A title can ask for fewer (GameDescriptor::audio_queued_frames).
 constexpr size_t kQueuedFrames = 16;
+size_t g_queued_frames = kQueuedFrames;
 
 struct AudioClient {
   uint32_t callback = 0;
@@ -34,6 +36,7 @@ struct AudioClient {
   std::unique_ptr<xe::threading::Semaphore> semaphore;
   std::unique_ptr<xe::apu::xaudio2::XAudio2AudioDriver> driver;
   std::chrono::steady_clock::time_point next_frame{};  // clients without host output
+  uint32_t underruns = 0;  // times its output had played every queued frame
 };
 
 std::mutex g_audio_mutex;
@@ -42,9 +45,9 @@ std::shared_ptr<Thread> g_audio_thread;
 std::unique_ptr<xe::apu::XmaDecoder> g_xma;
 std::atomic<uint32_t> g_xma_contexts{0};
 
-// Logs gaps between mix callbacks long enough to drain the queued frames (heard as a cut).
-std::atomic<int64_t> g_last_mix_us{0};
+// Mix callbacks so far (the first ones fill the queue), and when the last one started.
 std::atomic<uint32_t> g_mixes{0};
+std::atomic<int64_t> g_last_mix_us{0};
 
 int64_t NowUs() {
   return std::chrono::duration_cast<std::chrono::microseconds>(
@@ -52,11 +55,27 @@ int64_t NowUs() {
       .count();
 }
 
-void NoteMix() {
-  int64_t now = NowUs();
-  int64_t last = g_last_mix_us.exchange(now);
-  double gap = (now - last) / 1000.0;
-  if (++g_mixes > 100 && gap > 80.0) KLOG_W("audio: no frame mixed for %.0f ms (playback ran dry)", gap);
+extern "C" long __stdcall NtQuerySemaphore(void* handle, int information_class, void* information,
+                                           unsigned long length, unsigned long* return_length);
+
+// Buffers the client's output has played and not had replaced yet: its semaphore's count.
+long PlayedBuffers(xe::threading::Semaphore& semaphore) {
+  struct {
+    long current, maximum;
+  } info{};
+  unsigned long length = 0;
+  return NtQuerySemaphore(semaphore.native_handle(), 0, &info, sizeof(info), &length) == 0 ? info.current : 0;
+}
+
+// Before a client's mix: if its output has played every queued frame, it ran dry (heard as a cut).
+// Logged per client: a title with two (Doritos Crash Course, Minecraft) can starve one alone.
+void NoteMix(AudioClient& c, uint32_t index) {
+  ++g_mixes;
+  g_last_mix_us = NowUs();
+  if (g_mixes < 200 || PlayedBuffers(*c.semaphore) + 1 < long(g_queued_frames)) return;
+  ++c.underruns;
+  if (c.underruns <= 5 || c.underruns % 100 == 0)
+    KLOG_W("audio: client %u ran dry (%u times): the title's mixing came late", index, c.underruns);
 }
 
 // ANYX360_AUDIO_WATCHDOG: dumps the guest threads when mixing stalls for 70 ms (a few times), to see
@@ -120,8 +139,8 @@ void AudioThreadBody() {
           if (!owners[index]->active) continue;
           callback = owners[index]->callback;
           argument = owners[index]->argument;
+          NoteMix(*owners[index], uint32_t(owners[index] - g_clients));
         }
-        NoteMix();
         CallGuest(callback, {argument});
         continue;
       }
@@ -145,7 +164,7 @@ uint32_t XAudioRegisterRenderDriverClient(uint32_t callback_ptr, uint32_t driver
     c.callback = callback;
     c.argument = wrapped;
     c.semaphore = xe::threading::Semaphore::Create(0, kMaximumQueuedFrames);
-    c.semaphore->Release(kQueuedFrames, nullptr);
+    c.semaphore->Release(int(g_queued_frames), nullptr);
     c.driver = std::make_unique<xe::apu::xaudio2::XAudio2AudioDriver>(c.semaphore.get());
     if (!c.driver->Initialize()) {
       KLOG_W("XAudio2 output unavailable, client %u is silent", i);
@@ -422,6 +441,10 @@ uint32_t XMABlockWhileInUse(uint32_t context) {
 
 namespace x360::kernel {
 void InitAudio() {
+  if (uint32_t frames = TitlePaths().audio_queued_frames) {
+    g_queued_frames = std::clamp<size_t>(frames, 4, kMaximumQueuedFrames);
+    KLOG_I("audio: %zu frames queued ahead of playback (%.0f ms)", g_queued_frames, g_queued_frames * 256 / 48.0);
+  }
   g_xma = std::make_unique<xe::apu::XmaDecoder>(XeMemory());
   if (g_xma->Setup() != X_STATUS_SUCCESS) {
     KLOG_E("XMA decoder setup failed: audio stays silent");

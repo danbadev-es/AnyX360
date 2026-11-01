@@ -189,6 +189,7 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   info.separate_xex_4k_heap = game.separate_xex_4k_heap;
   info.kinect_sensor = game.kinect_sensor;
   info.keyboard_ui_accepts = game.keyboard_ui_accepts;
+  info.audio_queued_frames = game.audio_queued_frames;
   info.on_function_table = game.on_function_table;
   for (const TitleExecutable& executable : game.executables) {
     std::string xex = executable.xex;

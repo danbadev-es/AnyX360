@@ -393,6 +393,7 @@ struct TitleInfo {
   bool separate_xex_4k_heap = false;  // 0x90000000 isn't a view of 0x80000000 (GameDescriptor)
   bool kinect_sensor = true;  // a Kinect sensor is reported connected (GameDescriptor)
   bool keyboard_ui_accepts = false;  // XamShowKeyboardUI accepts its default text (GameDescriptor)
+  uint32_t audio_queued_frames = 0;  // audio frames queued ahead of playback, 0: 16 (GameDescriptor)
   // The title's executables XamLoaderLaunchTitle can start: {XEX name in lower case, host
   // executable} (GameDescriptor::executables).
   std::vector<std::pair<std::string, std::filesystem::path>> executables;
