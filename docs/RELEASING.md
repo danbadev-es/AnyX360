@@ -25,6 +25,7 @@ powershell -ExecutionPolicy Bypass -File tools\scripts\release.ps1 -Version 0.33
 | `-WhatIf` | Runs the checks (preconditions, game list, terms hash) and prints what every other step would do. Changes nothing. |
 | `-SkipBuild`, `-SkipTests` | For dry runs only. |
 | `-Jobs` | Parallel build jobs (default 6). |
+| `-From <n>` | Resumes a release that stopped: steps before `n` are taken as done (same `-Version` and `-WorkDir`; after step 5 the IDEAS.md copy is read from the work folder, after step 8 make_dist's output). |
 | `-WorkDir` | Logs, the IDEAS.md copy, the terms hash (default `%TEMP%\anyx360-release`). |
 | `-Trailer` | The commit message's last line (default the Co-Authored-By line; empty for none). |
 
@@ -66,6 +67,17 @@ powershell -ExecutionPolicy Bypass -File tools\scripts\release.ps1 -Version 0.33
 14. **.anyx** with `-AnyxGames`: make_anyx's report must end with "password found in the report
     files: no", and every game must PASS.
 
+## How it was tested
+On 2026-11-01, in a clone of `main` (ignored data linked in, a fake older release with a `games\fake`
+install, an edited IDEAS.md), as 0.32.1 into a scratch dist folder, with `-Branch`, `-SkipBuild`
+and `-AnyxGames dcc`: `-WhatIf`; a stale `GOW3_PPC_DIR` and an unknown `FOO_PPC_DIR` in a fake
+CMakeCache (both refused); then the real run: merge, edits, commit and tag, the 10 test programs,
+make_dist (20 games), the install moved and the old folder deleted (a newer `AnyX360-0.40.0` left
+alone), IDEAS.md back with its hash, the terms hash, `dcc.anyx` PASS with "password found in the
+report files: no". It found three bugs, fixed: the new folder taken for an old one through its 8.3
+path, make_dist reading game.json in the ANSI code page (the README's Diablo III title), and a log
+locked by a viewer stopping the release before IDEAS.md went back.
+
 ## Before and after
 - **Before:** refresh the shipped shader caches (`python -I tools\package\merge_shader_caches.py
   shader_cache "%LOCALAPPDATA%\AnyX360" <scratch>`, from Bash) so first plays don't compile shaders.
@@ -73,9 +85,10 @@ powershell -ExecutionPolicy Bypass -File tools\scripts\release.ps1 -Version 0.33
 - **Submodules:** push the XenonRecomp and xenia branches the release pins before `-Push`.
 
 ## When a step fails
-The log says which step failed and why. Steps 1-4 are ordinary git changes (`git reset --hard
-ORIG_HEAD`, `git tag -d vX` undo them). After step 8, delete the half-made `dist\AnyX360-X` and its
-zip before running again. If step 10 refused because a game or the launcher runs from the old
+The log says which step failed and why. Fix the cause and run again with `-From <step>`. Steps 1-4
+are ordinary git changes (`git reset --hard ORIG_HEAD`, `git tag -d vX` undo them) if you'd rather
+start over. A failure in step 8 can leave a half-made `dist\AnyX360-X`: delete it and its zip
+before `-From 8`. Don't hold the log open in a viewer that locks it. If step 10 refused because a game or the launcher runs from the old
 folder, close it and move `games\*` and `logs` by hand, then delete the old folder.
 
 ## Stray processes

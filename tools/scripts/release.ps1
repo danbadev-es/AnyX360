@@ -47,6 +47,9 @@ param(
   [switch]$SkipBuild,
   [switch]$SkipTests,
   [int]$Jobs = 6,
+  # Resumes a release that stopped: the steps before this one are taken as done (same -Version and
+  # -WorkDir: the IDEAS.md copy and make_dist's output are read from there).
+  [int]$From = 0,
   [string]$WorkDir = '',
   [string]$MainBranch = 'main',
   [string]$Remote = 'origin',
@@ -66,7 +69,17 @@ $repoUrl = 'https://github.com/danielbarretoes/AnyX360'
 function Log([string]$text) {
   $line = "[$(Get-Date -Format 'HH:mm:ss')] $text"
   Write-Host $line
-  Add-Content -LiteralPath $logFile -Value $line -Encoding UTF8
+  # Shared, retried and never failing: a viewer holding the log (tail -f) once stopped a release
+  # mid-way, before it could put IDEAS.md back.
+  $bytes = [Text.Encoding]::UTF8.GetBytes("$line`r`n")
+  for ($i = 0; $i -lt 20; $i++) {
+    try {
+      $fs = [IO.File]::Open($logFile, 'Append', 'Write', 'ReadWrite, Delete')
+      try { $fs.Write($bytes, 0, $bytes.Length) } finally { $fs.Close() }
+      return
+    } catch { Start-Sleep -Milliseconds 100 }
+  }
+  Write-Host "(could not write to $logFile)"
 }
 function Fail([string]$text) { throw $text }
 
@@ -82,6 +95,7 @@ $script:current = ''
 # Runs one step. -ReadOnly steps (checks) also run with -WhatIf; the others print what they'd do.
 function Step([int]$n, [string]$name, [string]$what, [scriptblock]$action, [switch]$ReadOnly) {
   $script:current = "$n. $name"
+  if ($n -gt 0 -and $n -lt $From) { Log "step $n ($name): skipped (-From $From)"; return }
   if ($WhatIf -and -not $ReadOnly) { Log "WHATIF step $n ($name): would $what"; return }
   Log "step $n ($name): $what"
   & $action
@@ -196,27 +210,37 @@ try {
     if (-not $Summary.Trim()) { Fail '-Summary is empty' }
     $branchNow = (Invoke-Git rev-parse --abbrev-ref HEAD | Select-Object -First 1).Trim()
     if ($branchNow -ne $MainBranch) { Fail "the checkout is on '$branchNow', not '$MainBranch'" }
-    if (Invoke-Git tag --list "v$Version") { Fail "the tag v$Version exists already" }
     $old = (Get-Content "$root\VERSION" -TotalCount 1).Trim()
-    if ([version]$old -ge [version]$Version) { Fail "VERSION is ${old}: $Version isn't newer" }
+    if ($From -le 4) {
+      if (Invoke-Git tag --list "v$Version") { Fail "the tag v$Version exists already" }
+      if ([version]$old -ge [version]$Version) { Fail "VERSION is ${old}: $Version isn't newer" }
+    } elseif ($old -ne $Version -or -not (Invoke-Git tag --list "v$Version")) { Fail "-From ${From}: VERSION isn't $Version or v$Version isn't tagged (steps 3-4 aren't done)" }
     $script:oldVersion = $old
     # Tracked changes other than IDEAS.md would end up in the release (or block the merge).
     $dirty = @(Invoke-Git status --porcelain --untracked-files=no | Where-Object { $_ -and $_.Substring(3).Trim() -ne 'docs/IDEAS.md' })
     if ($dirty) { Fail "uncommitted changes: $($dirty -join '; ')" }
     if ($AnyxGames -and -not $PasswordNote) { Fail '-AnyxGames needs -PasswordNote (the note holding the archives'' password)' }
     if ($PasswordNote -and -not (Test-Path -LiteralPath $PasswordNote)) { Fail "-PasswordNote: $PasswordNote is missing" }
-    if (Test-Path $newDist) { Fail "$newDist exists already" }
+    if ($From -le 8 -and (Test-Path $newDist)) { Fail "$newDist exists already" }
     Log "  $old -> $Version on $MainBranch; dist folder $DistDir"
   }
 
-  Step 0 'IDEAS.md copy' 'keep a copy of docs\IDEAS.md and its SHA-256 (step 5 checks it out, step 11 puts it back)' {
+  if ($From -gt 5) {
+    # Resuming after step 5: IDEAS.md is checked out, its copy waits in the work folder.
+    if (Test-Path "$ideasBackup.sha256") {
+      $script:ideasHash = (Get-Content -LiteralPath "$ideasBackup.sha256" -TotalCount 1).Trim()
+      $script:ideasAside = $true
+      Log "  IDEAS.md copy from the stopped run: $ideasBackup"
+    }
+    if ($From -gt 8) { $script:distOutput = Get-Content -LiteralPath (Join-Path $WorkDir "dist-$Version.log") -Encoding UTF8 }
+  } else { Step 0 'IDEAS.md copy' 'keep a copy of docs\IDEAS.md and its SHA-256 (step 5 checks it out, step 11 puts it back)' {
     if (Test-Path $ideas) {
       Copy-Item -LiteralPath $ideas $ideasBackup -Force
       $script:ideasHash = (Get-FileHash -LiteralPath $ideas -Algorithm SHA256).Hash
       Set-Content -LiteralPath "$ideasBackup.sha256" -Value $script:ideasHash -Encoding ascii
       Log "  copy: $ideasBackup (SHA-256 $($script:ideasHash))"
     } else { Log '  no docs\IDEAS.md' }
-  }
+  } }
 
   if ($Branch) {
     Step 1 'merge' "merge $Branch into $MainBranch (--ff-only)" { Invoke-Git merge --ff-only $Branch | ForEach-Object { Log "  $_" } }
