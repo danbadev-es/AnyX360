@@ -1,0 +1,150 @@
+# Halo 3: target notes
+
+These are working notes for Halo 3, Bungie's game of 2007 and the first title on its own engine
+(not Unreal, not IW). Every value below comes from its executables, read with `x360tool
+xex-info`; the dumps are in [games/halo3/notes/](../games/halo3/notes/).
+
+| Item | Value |
+|---|---|
+| Developer | Bungie (Microsoft Game Studios, 2007) |
+| Title ID / media ID | `4D5307E6` / `3DFC2730`, version 0.0.0.5, disc 1 of 1 |
+| Source used | The **Games on Demand** package (`x360tool god-extract`: 166 files, 5.68 GiB), its title update and 5 map packs |
+| XEX | `default.xex` (`halo3_cache_release.exe`): AES-encrypted with the retail key, basic compression, base `0x82000000` |
+| Image | 19.12 MiB with the title update: 6.69 MiB code (`.text`, `BINK`), 11.69 MiB data, 0.6 MiB read-only |
+| Functions | 34,002 |
+| XDK | **2.0.6132** (the oldest of the ports); links XAPILIB, D3D9, D3DX9, XGRAPHC, XNET, XONLINE, XAUD, X3DAUD, XHV, XMP, LIBCPMT |
+| Imports | `xboxkrnl.exe`: 180 functions; `xam.xex`: 110 ([list](../games/halo3/notes/imports.txt)) |
+| Target version | Patched with the title update (`TU_16L61V6_000000K000000.00000000000o5`): 0.0.0.5 to **0.0.3.5** |
+| Title DLLs | `WaveShell-Xbox.dll`, `WavesLibDLL.dll`, `waves\L360.dll`, `waves\Q10.dll`: Waves audio processing, recompiled into the executable |
+
+The game's data are Bungie's cache files (`maps\*.map`: `mainmenu`, `shared`, `campaign`, the
+campaign's levels `005_intro` to `130_epilogue` and the multiplayer maps), fonts and Bink videos.
+
+## The copy
+`raw\H3-DLC-TU-GOD.rar` (not encrypted) holds:
+
+- `4D5307E6\00007000\B5659FF16461F3362243` and its data files: the Games on Demand package;
+- `TU_16L61V6_000000K000000.00000000000o5` at the root: the title update as the console's cache
+  keeps it (an STFS package of type `000B0000`, 0.9 MiB: `default.xexp` and a `.dllp` for each of
+  the four DLLs);
+- `4D5307E6\00000002`: 5 map packs (Heroic, Legendary, Cold Storage, Mythic, Mythic II);
+- `4D5307E6\00009000`: avatar items, not used.
+
+The launcher installs the title update and the map packs.
+
+## Recompiler configuration
+- **From the title update**: [config.toml](../games/halo3/config.toml) names the base, the patch and
+  the patched executable. Output: `games/halo3/recomp6`.
+- **Register save/restore helpers** from find_helpers.py on the patched image.
+- **setjmp/longjmp** `82709CB0`/`82709870`, checked by hand: this old CRT keeps CR, LR and a flag
+  at words 304-312 of the jmp_buf; the other longjmp candidates are ordinary functions.
+- **Jump tables placed after the `bctr`** (XenonRecomp `anyx360-halo`): this compiler puts each
+  table right behind its dispatch. The fixed patterns found 626, but for tables without a bounds
+  check they took a `cmplwi` from a function before (another register, another count), and with
+  no table location the recompiler ended each function at its `bctr`: 6,840 cases were "outside
+  the function". The patterns now need the check on the table's own register within the
+  function and emit `table`/`table_size`; unchecked tables after their `bctr` are dispatched on
+  the target address (4); a case that branches to another function's start is a tail call.
+- **The "ERROR" branches left** (about 170): exception funclets and `__finally` blocks that branch
+  back into their parent, functions made of the 8 bytes of exception data before a function with
+  a handler, and cases that point at the padding after a function (never taken).
+
+## Bring-up
+- **I/O completion ports**: the game reads its maps asynchronously from an `ASYNC_IO` thread
+  (`NtCreateIoCompletion`, files associated with `FileCompletionInformation`,
+  `NtRemoveIoCompletion`). The runtime has them now, for every title.
+- **The cache partitions** by their own names, `cache0:` and `cache1:`, as Xenia's `mount_cache`:
+  the game keeps `preferences.dat` there and looks for map copies (`cache000.map`...).
+- **Map signatures**: `XeCryptBnQwNeRsaPubCrypt` (RSA with the public key, Xenia's code) and
+  `XeCryptBnDwLePkcs1Verify`; without them the game reported a disc read error.
+- **The Waves DLLs**: at start the game loads `WaveShell-Xbox.dll`, `WavesLibDLL.dll`,
+  `waves\L360.dll` and `waves\Q10.dll` with `XexLoadImage`, checks each one's version (export 1),
+  creates the L360 limiter and the Q10 equalizer on its mix and loads their presets from its own
+  resources (`mix_l360`...); any failure is a disc read error. They are recompiled as title
+  modules (`config_waveshell.toml`, `config_waveslib.toml`, `config_l360.toml`,
+  `config_q10.toml`, as Forza Motorsport 4's), with three changes:
+  - the plug-ins import from `WavesLibDLL.dll`: the recompiler makes those thunks branch through
+    the import's variable record, and the loader fills it with the other DLL's export;
+  - `XexGetModuleSection` answers for the DLL it is given (the plug-ins describe themselves in
+    resources, `xinf1000`, `xcli1000`...);
+  - the function-table slots of `WavesLibDLL.dll` (at `0x8A000000`) fall at `0x93200000`, and
+    Xenia's 0x90000000 heap is a view of the 0x80000000 one: they overwrote the title's resources
+    at `0x833xxxxx` (the presets) and the start of its own table.
+    `GameDescriptor::separate_xex_4k_heap` gives that heap memory of its own (Xenia option
+    `xex_4k_heap_mirrors_64k_heap`, fork branch `anyx360-halo`).
+  The title update's `.dllp` patches change only the DLLs' headers.
+- **XenonRecomp hang**: analysing `WaveShell-Xbox.dll` never ended (a conditional branch before
+  the function's start, in code analysed from its middle); fixed in the recompiler.
+- **Fibers**: XAPI's `SwitchToFiber` (`825B5FE0`) is a branch to stack-switching assembly
+  (`825B8320`) the recompiler can't follow. The map loader (`822C51F0`) switches to a fiber and
+  polls until it is done, so the first loading screen never ended: the runtime's host fibers run
+  them ([games/halo3/src/fibers.cpp](../games/halo3/src/fibers.cpp): `ConvertThreadToFiber`
+  `825B5DC0`, `ConvertFiberToThread` `825B5E50`, `CreateFiber` `825B5EA0`, `DeleteFiber`
+  `825B5F80`), as for Forza Motorsport 4 and Mortal Kombat.
+- **The music notice**: `XMPGetPlaybackController` (XMP message `0x0007001B`) didn't answer, and
+  the game found the user's music playing: "music notice" before every campaign. It answers that
+  the title has the playback now.
+- **Players 2-4**: `XamUserGetSigninInfo` and `XamUserGetXUID` answered `ERROR_NO_SUCH_USER` for a
+  slot nobody is signed in to; XAPI's wrapper checks the HRESULT's sign bit, so that read as
+  success, and the lobby had four players, three without a controller: "the Xbox 360 controller
+  is disconnected" and "Error starting the game". They return the HRESULT now, as XAM does.
+
+## Status (2026-11-01)
+- **Boot**: the loading screen, the main menu (version 1.2: Start solo game, Campaign,
+  Matchmaking, Custom games, Forge, Theater), at 60 FPS with stutters (below). Preferences are
+  kept in `cache0:` and the profile's settings in its title-specific settings.
+- **Campaign**: Start solo game, difficulty, the lobby ("Ready: this party is local to this Xbox
+  360"), Arrival (the opening cinematic, subtitled) and **Sierra 117**: the look calibration
+  prompts, then gameplay with the HUD (assault rifle, radar). The pause menu offers the last
+  checkpoint (one is saved at the mission's start) and Save and quit; after Save and quit the
+  lobby's mission is Sierra 117: the campaign's progress is kept.
+- **Split screen**: two players in **co-op on Sierra 117** (Master Chief and the Arbiter, each
+  with their HUD), and four players in a **custom game** (Slayer on Last Resort), from the lobby
+  with each player signed in (`[players] sign_in = "at_start"` and a controller each, or the
+  sign-in picker).
+- **Not working yet**: the map packs. The game enumerates only saved games (content type 1) at
+  start and lists the 11 maps of the disc; it never asks for its downloadable content in these
+  runs (`XamContentCreateEnumerator` type 2 is never called), so Heroic, Legendary, Cold Storage,
+  Mythic and Mythic II aren't offered.
+- **Not tried yet**: Forge, Theater, further campaign missions, a whole custom game.
+- **Xbox LIVE** (Matchmaking) is gone; System Link isn't offered.
+
+## Known issues
+- **Stutter**: frames come at 60 per second with a pause of about 400 ms roughly once a second
+  ("no frame presented for 400 ms"); the main thread waits on a kernel object then. Not looked
+  into yet.
+
+## Routes (scripted input)
+With an existing user folder and the game at its main menu (about 50 s in), using
+`ANYX360_INPUT_LIVE` to append presses as screens come:
+
+- **Campaign**: `A` (Start solo game), `A` (difficulty Normal): the lobby starts Arrival; after the
+  cinematic, `RUP/1.0`, `RDOWN/1.0` for the look prompts, then Sierra 117 loads (about 60 s).
+  `START`, `DOWN`, `DOWN`, `A`, `UP`, `A` saves and quits.
+- **Co-op and split screen**: `settings.toml` with `[players] sign_in = "at_start"`, `p1 = {
+  device = "pad" }`, `p2 = { device = "pad2" }` (and `p3`/`p4`), scripted presses on each player
+  (`9999:BACK@1`...) so the controllers are connected; in the lobby Change mode > Campaign (or
+  Custom games), then Start game.
+
+## Reproducing
+From the Games on Demand package (`<package>` is the folder that holds `4D5307E6`):
+
+```
+build.bat
+set T=build\tools\x360tool\release\x360tool.exe
+%T% god-extract "<package>\4D5307E6\00007000\B5659FF16461F3362243" extracted\halo3\game
+%T% stfs-extract "<package>\TU_16L61V6_000000K000000.00000000000o5" extracted\halo3\update
+%T% xex-patch extracted\halo3\game\default.xex extracted\halo3\update\default.xexp extracted\halo3\update\default_0.0.3.5.xex
+%T% xex-extract extracted\halo3\update\default_0.0.3.5.xex extracted\halo3\default_patched.bin --key keys\xex2_retail.key
+python -I tools\scripts\find_helpers.py extracted\halo3\default_patched.bin
+cd games\halo3
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\halo3\update\default_0.0.3.5.xex switch_tables.toml
+mkdir recomp6
+..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
+```
+
+and for each DLL (`waveshell`, `waveslib`, `l360`, `q10`) the same with its `config_<name>.toml`
+(XenonAnalyse on `..\..\extracted\halo3\game\<file>` into `switch_tables_<name>.toml`, output
+`recomp_<name>`), then `build.bat release halo3`. To play a development build, the update's files
+go in `<user>\content\000B0000\TU_16L61V6_000000K000000.00000000000o5\` and each map pack,
+extracted, in `<user>\content\00000002\<package file name>\` (the launcher does both).
