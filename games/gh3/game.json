@@ -1,0 +1,20 @@
+{
+  "id": "gh3",
+  "title": "Guitar Hero III: Legends of Rock",
+  "cover": "guitar-hero-iii-legends-of-rock",
+  "status": "testing",
+  "exe": "GuitarHero3",
+  "user_dir": "GuitarHero3",
+  "title_id": "415607F7",
+  "xex": {"version": "0.0.0.2", "media_id": "2C5FAD73"},
+  "update": {"version": "0.0.3.2", "package": "TU_10LC1VN_0000008000000.00000000000O2"},
+  "dev_game_dir": "extracted/gh3/game",
+  "launcher_name": "AnyX360 Guitar Hero III: Legends of Rock",
+  "size_gb": 4,
+  "archive_hint": "Guitar Hero III: Legends of Rock (Games on Demand)",
+  "input": "keyboard_pad",
+  "required_files": ["DATA/COMPRESSED/PAK/qb.pak.xen", "DATA/STREAMS/streamall.fsb.xen"],
+  "owners": "Activision Publishing, Neversoft Entertainment, RedOctane",
+  "trademarks": ["Xbox", "Xbox 360", "Guitar Hero"],
+  "components": []
+}

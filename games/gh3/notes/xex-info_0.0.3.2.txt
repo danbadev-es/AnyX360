@@ -1,0 +1,59 @@
+== XEX2 header ==
+module flags:     0x00000001 title
+PE data offset:   0x00003000
+base address:     0x82000000
+entry point:      0x82136AD8
+image size:       0x00F20000 (15.12 MiB)
+page size:        0x10000
+encryption:       none
+compression:      none
+region:           0xFFFFFFFF
+allowed media:    0x18000000
+original PE name: gh3_Final.exe
+
+== Execution info ==
+title id:         415607F7
+media id:         2C5FAD73
+version:          0.0.3.2 (base 0.0.3.2)
+disc:             0 of 0
+savegame id:      00000000
+default stack:    0x40000
+system flags:     0x00000600
+
+== Optional headers (15) ==
+  000002FF  RESOURCE_INFO                  value/offset 0x000018C4
+  000003FF  FILE_FORMAT_INFO               value/offset 0x000018D8
+  00010100  ENTRY_POINT                    value/offset 0x82136AD8
+  00010201  IMAGE_BASE_ADDRESS             value/offset 0x82000000
+  000103FF  IMPORT_LIBRARIES               value/offset 0x00002528
+  00018002  CHECKSUM_TIMESTAMP             value/offset 0x000018F8
+  000183FF  ORIGINAL_PE_NAME               value/offset 0x00001900
+  000200FF  STATIC_LIBRARIES               value/offset 0x00001914
+  00020104  TLS_INFO                       value/offset 0x000019B8
+  00020200  DEFAULT_STACK_SIZE             value/offset 0x00040000
+  00030000  SYSTEM_FLAGS                   value/offset 0x00000600
+  00040006  EXECUTION_INFO                 value/offset 0x000019C8
+  00040310  GAME_RATINGS                   value/offset 0x000019E0
+  00040404  LAN_KEY                        value/offset 0x00001A20
+  000405FF  XBOX360_LOGO                   value/offset 0x00001A30
+
+== Import libraries (2) ==
+  xam.xex          v2.0.6132.0     (min 2.0.5766.0)  302 import records
+  xboxkrnl.exe     v2.0.6132.0     (min 2.0.5766.0)  363 import records
+
+== Statically linked SDK libraries (10) ==
+  XAPILIB  2.0.6132  (tail 0x4000)
+  XBOXKRNL 2.0.6132  (tail 0x4000)
+  LIBCPMT  2.0.6132  (tail 0x4000)
+  D3D9     2.0.6132  (tail 0x4000)
+  D3DX9    2.0.6132  (tail 0x4000)
+  XONLINE  2.0.6132  (tail 0x4000)
+  XGRAPHC  2.0.6132  (tail 0x4000)
+  XHV      2.0.6132  (tail 0x4000)
+  XMP      2.0.6132  (tail 0x4000)
+  XAUD     2.0.6132  (tail 0x4000)
+
+== Page descriptors (242) ==
+  code       8.00 MiB
+  data       5.56 MiB
+  read-only  1.56 MiB

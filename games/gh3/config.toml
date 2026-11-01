@@ -1,0 +1,44 @@
+# Guitar Hero III: Legends of Rock recompiler configuration (XenonRecomp format). Paths are relative
+# to this file. This file contains no game code or data; it only describes where things are.
+#
+# The game is recompiled from its title update's executable (version 0.0.3.2): XenonRecomp applies
+# patch_file_path to file_path and writes patched_file_path, which XenonAnalyse reads (x360tool
+# xex-patch makes the same file). file_path is default.xex from the Games on Demand package
+# (415607F7\00007000, x360tool god-extract: gh3_Final.exe, version 0.0.0.2, disc 1 of 1, encrypted
+# with the retail key, basic compression); patch_file_path is default.xexp from the update's package
+# (TU_10LC1VN_0000008000000.00000000000O2, "Title Update #3", x360tool stfs-extract). See
+# docs/GUITARHERO3.md.
+
+[main]
+file_path = "../../extracted/gh3/game/default.xex"
+patch_file_path = "../../extracted/gh3/update/default.xexp"
+patched_file_path = "../../extracted/gh3/update/default_0.0.3.2.xex"
+out_directory_path = "recomp3"
+switch_table_file_path = "switch_tables.toml"
+
+# Optimisations stay off until the game runs (XenonRecomp recommendation).
+skip_lr = false
+skip_msr = false
+ctr_as_local = false
+xer_as_local = false
+reserved_as_local = false
+cr_as_local = false
+non_argument_as_local = false
+non_volatile_as_local = false
+
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x8248F010
+savegprlr_14_address = 0x8248EFC0
+restfpr_14_address = 0x8248F90C
+savefpr_14_address = 0x8248F8C0
+restvmx_14_address = 0x82490878
+savevmx_14_address = 0x824905E0
+restvmx_64_address = 0x8249090C
+savevmx_64_address = 0x82490674
+
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: setjmp first calls through
+# a global when it is set, then saves f14-f31 and r13-r31 at r3; longjmp restores them through r7).
+# The other longjmp candidate, 824D4EE0, is a function with a switch.
+setjmp_address = 0x82787880
+longjmp_address = 0x82787200
