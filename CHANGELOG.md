@@ -8,6 +8,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+
+- **System Link** (in testing, [docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)): the console's
+  local-network play between copies of AnyX360, on one PC (up to four copies), on a LAN or over the
+  internet through a LAN-style VPN (ZeroTier, Radmin VPN, Tailscale with `peers`), with no server
+  and nothing of Microsoft's. Off by default: F2 > General > System Link, or `[network]` in
+  `settings.toml` (`enabled`, `adapter`, `port_offset`, `instance`, `peers`). The game's sockets
+  become host sockets, its ports are moved by `port_offset` (and 100 per copy on one PC), its
+  broadcasts reach every copy, and XNADDRs translate to the addresses peers are reached at. A second
+  copy on one PC adds "(System Link 2)" to its window's title. `ANYX360_NET_TRACE=1` logs every
+  XNet call and datagram.
+- **Halo 3**: System Link custom games: a copy hosts, another finds it, joins and plays (Slayer on
+  Last Resort, two copies on one PC).
+
 ## [0.31.0] - 2026-11-01
 
 Halo 3 and Halo: Reach, both in testing, with split screen.

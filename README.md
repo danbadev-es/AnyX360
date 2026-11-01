@@ -90,7 +90,8 @@ the sensor.
   short freezes still to fix ([docs/DIABLO3.md](docs/DIABLO3.md)).
 - **Halo 3** (in testing): Bungie's shooter from a Games on Demand copy with its title update
   (version 0.0.3.5): the campaign (Sierra 117, checkpoints, Save and quit) and split screen for up to
-  four players, in co-op or a custom game, each with a controller; a short pause about once a
+  four players, in co-op or a custom game, each with a controller, and System Link custom games
+  between copies of AnyX360 ([docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)); a short pause about once a
   second is still to fix and the map packs aren't offered yet ([docs/HALO3.md](docs/HALO3.md)).
 - **Halo: Reach** (in testing): Bungie's prequel from a Games on Demand copy with its title update
   (version 0.0.1.7): the first-run Spartan, the Armory, the campaign (Winter Contingency,
@@ -197,6 +198,10 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   with their own profile, and gets their own saves: the game's sign-in screen lists the profiles,
   and each player chooses theirs (or creates one) with their own controller, or plays as a guest
   ("Daniel (1)", as on the console: nothing of theirs is kept after the game).
+- **System Link** (in testing) - The console's local-network play between copies of AnyX360: two
+  to four on one PC, PCs on a LAN, or PCs over the internet through a LAN-style VPN (ZeroTier,
+  Radmin VPN, Tailscale), with no server. Off by default: F2 > General > System Link, or
+  `[network]` in `settings.toml`. Halo 3 so far ([docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)).
 
 ### General
 
@@ -450,6 +455,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Smoothness                       | 🧪 To be checked by a player (the test machine stuttered in every game that day) |
 | Map packs                        | ❌ Installed by the launcher, but the game doesn't offer them yet |
 | Forge, Theater                   | 🧪 Not tried yet                               |
+| System Link                      | 🧪 Two copies on one PC: a custom game (Slayer, Last Resort) hosted, found, joined and played; two PCs and VPNs not tried yet; co-op refused (hard drive check) |
 | Title update (0.0.3.5)           | ✅ Required: the game is recompiled from it    |
 | Matchmaking (Xbox LIVE)          | ❌ Not available: Xbox LIVE is gone            |
 
@@ -795,6 +801,8 @@ Halo 3:
   the game lists only the disc's maps.
 - Only the first missions, co-op and a custom game have been played; Forge and Theater haven't
   been tried. Matchmaking needs Xbox LIVE, which is gone.
+- System Link: campaign co-op is refused ("one or more players don't have an Xbox 360 hard
+  drive", as Theater says even offline); custom games work. Only tested on one PC so far.
 
 Halo: Reach:
 

@@ -107,7 +107,11 @@ The launcher installs the title update and the map packs.
   runs (`XamContentCreateEnumerator` type 2 is never called), so Heroic, Legendary, Cold Storage,
   Mythic and Mythic II aren't offered.
 - **Not tried yet**: Forge, Theater, further campaign missions, a whole custom game.
-- **Xbox LIVE** (Matchmaking) is gone; System Link isn't offered.
+- **System Link** (with `[network] enabled`): the lobby's Network > System Link hosts and finds
+  games; a second copy joins and a custom game is played ([SYSTEMLINK.md](SYSTEMLINK.md)). The
+  observer only connects to secure-style addresses (first byte 0, `823B7420`). Campaign co-op
+  over System Link and Theater stop at "one or more players don't have an Xbox 360 hard drive".
+- **Xbox LIVE** (Matchmaking) is gone.
 
 ## Known issues
 - **Smoothness, to be checked by a player**: on the bring-up day the test machine showed a pause
