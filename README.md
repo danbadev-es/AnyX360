@@ -201,7 +201,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 - **System Link** (in testing) - The console's local-network play between copies of AnyX360: two
   to four on one PC, PCs on a LAN, or PCs over the internet through a LAN-style VPN (ZeroTier,
   Radmin VPN, Tailscale), with no server. Off by default: F2 > General > System Link, or
-  `[network]` in `settings.toml`. Halo 3 so far ([docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)).
+  `[network]` in `settings.toml`. Each player needs a profile of their own. Halo 3 so far
+  ([docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)).
 
 ### General
 
@@ -467,6 +468,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Smoothness                       | 🧪 To be checked by a player (the test machine stuttered in every game that day) |
 | Firefight, custom games, Forge   | 🧪 Not tried yet                               |
 | Map packs                        | 🧪 Installed by the launcher; not tried yet    |
+| System Link                      | 🧪 Hosts and finds: each copy's roster lists the other's party; joining doesn't start yet |
 | Title update (0.0.1.7)           | ✅ Required: the game is recompiled from it    |
 | Matchmaking (Xbox LIVE)          | ❌ Not available: Xbox LIVE is gone            |
 

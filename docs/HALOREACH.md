@@ -66,6 +66,9 @@ playback controller, players 2-4's sign-in state. Reach needed besides:
   HUD, with each player signed in (`[players] sign_in = "at_start"` and a controller each).
 - **Not tried yet**: a custom game, Firefight, three or four players, the map packs, Forge,
   Theater.
+- **System Link** (with `[network] enabled`, each copy with its own profile): Y > System Link
+  games hosts a party, and the other copy's roster lists it with "Join"; joining doesn't start
+  yet (the game sends nothing). See [SYSTEMLINK.md](SYSTEMLINK.md#halo-reach).
 - **Xbox LIVE** is gone.
 
 ## Known issues

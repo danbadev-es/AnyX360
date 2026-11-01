@@ -21,6 +21,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   XNet call and datagram.
 - **Halo 3**: System Link custom games: a copy hosts, another finds it, joins and plays (Slayer on
   Last Resort, two copies on one PC).
+- **Halo: Reach**: System Link parties are hosted and found (each copy's roster lists the
+  other's); joining doesn't start yet.
+- With System Link on, the log warns when player 1 plays as the XUID every copy without a profile
+  of its own shares (games take such a peer for themselves).
 
 ## [0.31.0] - 2026-11-01
 
