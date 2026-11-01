@@ -14,6 +14,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   played), **Modern Warfare 3** (a match hosted, found once it has started, joined in progress and
   played) and **Black Ops II** (a lobby hosted, found, joined and a match played), each tested
   with two copies on one PC ([docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)).
+- **Halo: Reach**: the map packs were tried: Custom games offers the Noble, Defiant and Anniversary
+  maps, and Slayer on Anchor 9 was played. Theater opens.
+- **Call of Duty: Black Ops III**: the downloadable maps were tried: The Giant (Zombies) and Rise
+  (Awakening, multiplayer) played; Der Eisendrache, Splash, Skyjacked and Gauntlet offered.
+
+### Changed
+
+- Trace logs (`ANYX360_TRACE`) for `XamContentGetDeviceData`, `XamContentGetDeviceState`,
+  `XamShowDeviceSelectorUI`, `XNotifyGetNext` and every `XMsgStartIORequest`.
 
 ### Fixed
 
@@ -35,22 +44,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - Downloadable content is found whoever plays as player 1: the content enumerations looked in
   player 1's own folder, which for a profile other than the first is `players\<XUID>` and holds
   none of the packages the launcher installs in the game's `content\00000002`.
-
 - **Minecraft**: the worlds' pictures in the Load tab are no longer black. The game draws them on
   the GPU and reads them back; Minecraft now turns on Xenia's resolve and memory-export readback
   (about a frame a second at 60 FPS). Worlds saved before keep a black picture until saved again.
-
-### Added
-
-- **Halo: Reach**: the map packs were tried: Custom games offers the Noble, Defiant and Anniversary
-  maps, and Slayer on Anchor 9 was played. Theater opens.
-- **Call of Duty: Black Ops III**: the downloadable maps were tried: The Giant (Zombies) and Rise
-  (Awakening, multiplayer) played; Der Eisendrache, Splash, Skyjacked and Gauntlet offered.
-
-### Changed
-
-- Trace logs (`ANYX360_TRACE`) for `XamContentGetDeviceData`, `XamContentGetDeviceState`,
-  `XamShowDeviceSelectorUI`, `XNotifyGetNext` and every `XMsgStartIORequest`.
 
 ## [0.32.0] - 2026-11-01
 
