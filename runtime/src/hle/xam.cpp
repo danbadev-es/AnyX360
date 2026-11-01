@@ -842,11 +842,14 @@ constexpr uint32_t kHddDeviceId = 1;
 constexpr uint32_t kContentMarketplace = 0x00000002;
 
 // <user>\content\<type>. Downloadable content belongs to the console, not a player: every player
-// sees the shared folder's (the launcher extracts a game's DLC there).
+// sees the game's own folder's (<game>\content\00000002, where the launcher extracts a game's DLC),
+// whoever is signed in on player 1. It used to be player 1's folder: with a profile of its own there
+// (<game>\players\<XUID>), no package was found.
 fs::path ContentFolder(uint32_t user_index, uint32_t type) {
   char type_dir[16];
   std::snprintf(type_dir, sizeof(type_dir), "%08X", type);
-  return UserRoot(type == kContentMarketplace ? 0 : user_index) / "content" / type_dir;
+  if (type == kContentMarketplace) return TitlePaths().user_root / "content" / type_dir;
+  return UserRoot(user_index) / "content" / type_dir;
 }
 
 fs::path ContentPath(uint32_t user_index, uint32_t content_data) {
@@ -1025,6 +1028,7 @@ uint32_t XamContentGetCreator(uint32_t user_index, uint32_t content_data, uint32
 }
 
 uint32_t XamContentGetDeviceData(uint32_t device_id, uint32_t data) {
+  KLOG_T("XamContentGetDeviceData(device %08X)", device_id);
   if (device_id != kHddDeviceId) return X_ERROR_DEVICE_NOT_CONNECTED;
   std::memset(Ptr(data), 0, 0x50);
   Store<uint32_t>(data + 0x00, kHddDeviceId);
@@ -1049,6 +1053,7 @@ uint32_t XamContentGetDeviceName(uint32_t device_id, uint32_t buffer, uint32_t c
 }
 
 uint32_t XamContentGetDeviceState(uint32_t device_id, uint32_t overlapped) {
+  KLOG_T("XamContentGetDeviceState(device %08X)", device_id);
   uint32_t result = device_id == kHddDeviceId || device_id == 0 ? X_ERROR_SUCCESS : X_ERROR_DEVICE_NOT_CONNECTED;
   return overlapped ? Complete(overlapped, result) : result;
 }
@@ -1099,6 +1104,7 @@ uint32_t XamContentGetThumbnail(uint32_t user_index, uint32_t content_data, uint
 uint32_t XamShowDeviceSelectorUI(uint32_t user_index, uint32_t content_type, uint32_t content_flags,
                                  uint64_t total_requested, uint32_t device_id_ptr, uint32_t overlapped) {
   (void)user_index, (void)content_type, (void)content_flags, (void)total_requested;
+  KLOG_T("XamShowDeviceSelectorUI(player %u, type %08X, flags %08X)", user_index + 1, content_type, content_flags);
   if (device_id_ptr) Store<uint32_t>(device_id_ptr, kHddDeviceId);
   return overlapped ? Complete(overlapped, X_ERROR_SUCCESS) : X_ERROR_SUCCESS;
 }
@@ -1158,6 +1164,7 @@ uint32_t XNotifyGetNext(uint32_t handle, uint32_t match_id, uint32_t id_ptr, uin
   std::lock_guard lock(g_listener_mutex);
   for (auto it = listener->queue.begin(); it != listener->queue.end(); ++it) {
     if (match_id && it->first != match_id) continue;
+    KLOG_T("XNotifyGetNext(%08X): %08X (%08X)", handle, it->first, it->second);
     if (id_ptr) Store<uint32_t>(id_ptr, it->first);
     if (param_ptr) Store<uint32_t>(param_ptr, it->second);
     listener->queue.erase(it);
@@ -1960,6 +1967,7 @@ uint32_t DispatchXamApp(uint32_t app, uint32_t message, uint32_t buffer, uint32_
 
 uint32_t XMsgStartIORequest(uint32_t app, uint32_t message, uint32_t overlapped, uint32_t buffer, uint32_t size) {
   uint32_t hr = DispatchXamApp(app, message, buffer, size);
+  KLOG_T("XMsgStartIORequest(app %X, message %08X, %u bytes) -> %08X", app, message, size, hr);
   if (hr != kHrSuccess) KLOG_I("XMsgStartIORequest(app %X, message %08X) -> %08X", app, message, hr);
   const uint32_t result = hr == kHrSuccess ? X_ERROR_SUCCESS : X_ERROR_FUNCTION_FAILED;
   if (overlapped) return Complete(overlapped, result, 0, hr);

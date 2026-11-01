@@ -132,9 +132,24 @@ The launcher installs the title update and the map packs.
   with each player signed in (`[players] sign_in = "at_start"` and a controller each, or the
   sign-in picker).
 - **Not working yet**: the map packs. The game enumerates only saved games (content type 1) at
-  start and lists the 11 maps of the disc; it never asks for its downloadable content in these
-  runs (`XamContentCreateEnumerator` type 2 is never called), so Heroic, Legendary, Cold Storage,
-  Mythic and Mythic II aren't offered.
+  start and lists the 11 maps of the disc (Forge's and Custom games' map list); it never asks for
+  its downloadable content (`XamContentCreateEnumerator` type 2 is never called), so Heroic,
+  Legendary, Cold Storage, Mythic and Mythic II aren't offered. What is known (2026-11-01):
+  - The only call of `XamContentCreateEnumerator` is the content catalogue's enumeration task
+    (`sub_8230D2D8`, vtable `82042ADC`, "XContentCreateEnumerator"): content type 2 on every
+    device when the task's kind (task+20) is 1, else type 1 on the player's device. Each
+    player's catalogue (four, built by `sub_82293CD8`) embeds the task at +616, and the only code
+    that starts it (`sub_82296438`, from the storage check `sub_8230BB08`) sets the kind to 0. No
+    other code was found that sets kind 1 or uses the task's vtable.
+  - The game sends no XAM content messages (`XMsgStartIORequest` only to XMP) and never calls
+    `XamContentCreateEx` for a package of type 2. The packages' maps would be read through a
+    content root (`%s:\%s`, `sub_821F5AB8`) once mounted.
+  - Not the cause: the hard drive (the utility drive mounts since 0.33.0), the notifications
+    (`XN_LIVE_CONTENT_INSTALLED` at start was tried: its handler only refreshes the four
+    file-share/film browsers at `831A87F0`, stride 0x1050), the device data (an HDD, type 1).
+  - Next: find what sets the catalogue task's kind to 1 (a probe on writes to catalogue+636, or
+    the title update's own DLC check: the update's `default.xexp` changed the catalogue), and
+    whether an Xbox LIVE sign-in state gates it.
 - **Theater**: the lobby opens and asks for a film (none recorded yet).
 - **Not tried yet**: Forge, further campaign missions, a whole custom game, recording a film.
 - **System Link** (with `[network] enabled`): the lobby's Network > System Link hosts and finds

@@ -434,6 +434,8 @@ struct LoadedTitle {
 
 const LoadedTitle& Title();
 const TitleInfo& TitlePaths();
+// Tests only: the paths TitlePaths() gives, with no title loaded (LoadTitle sets them).
+void SetTitlePathsForTests(const TitleInfo& info);
 // Finds a resource of the title's XEX (RESOURCE_INFO header), or of a title DLL's given its module
 // handle: its guest address and size.
 bool FindXexResource(const std::string& name, uint32_t& address, uint32_t& size, uint32_t module = 0);

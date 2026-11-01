@@ -69,6 +69,7 @@ PPC_EXTERN_FUNC(__imp__XamUserGetSigninInfo);
 PPC_EXTERN_FUNC(__imp__XamUserGetXUID);
 PPC_EXTERN_FUNC(__imp__NtCreateFile);
 PPC_EXTERN_FUNC(__imp__NtClose);
+PPC_EXTERN_FUNC(__imp__XamContentCreateEnumerator);
 
 // The kernel's loader fills the function table from this generated array; tests have no game.
 PPCFuncMapping PPCFuncMappings[] = {{0, nullptr}};
@@ -699,6 +700,43 @@ int main() {
     CHECK(ctx.r3.u32 == 0 && fs::is_regular_file(info.user_root / "cache" / "test.dat"));
     ctx.r3.u64 = mem.read<uint32_t>(handle);
     __imp__NtClose(ctx, base);
+    fs::remove_all(folder);
+  }
+
+  // Downloadable content (xam.cpp): the game's own content\00000002, where the launcher installs it,
+  // for every player, whoever is signed in (it was player 1's folder: none with a profile of its own).
+  {
+    namespace fs = std::filesystem;
+    const fs::path folder = fs::temp_directory_path() / "anyx360_test_content";
+    fs::remove_all(folder);
+    kernel::TitleInfo info;
+    info.user_root = folder / "Halo3";
+    kernel::SetTitlePathsForTests(info);
+    constexpr guest_addr kArea = 0x40009000;
+    const guest_addr size_ptr = kArea, handle_ptr = kArea + 4, returned = kArea + 8,
+                     buffer = kArea + 0x100;
+    auto packages = [&](uint32_t user) {
+      ctx.r3.u64 = user, ctx.r4.u64 = 0, ctx.r5.u64 = 2, ctx.r6.u64 = 0, ctx.r7.u64 = 8;
+      ctx.r8.u64 = size_ptr, ctx.r9.u64 = handle_ptr;
+      __imp__XamContentCreateEnumerator(ctx, base);
+      if (ctx.r3.u32) return ~0u;
+      ctx.r3.u64 = mem.read<uint32_t>(handle_ptr), ctx.r4.u64 = 0, ctx.r5.u64 = buffer;
+      ctx.r6.u64 = mem.read<uint32_t>(size_ptr), ctx.r7.u64 = returned, ctx.r8.u64 = 0;
+      __imp__XamEnumerate(ctx, base);
+      const uint32_t count = ctx.r3.u32 ? 0 : mem.read<uint32_t>(returned);
+      ctx.r3.u64 = mem.read<uint32_t>(handle_ptr);
+      __imp__NtClose(ctx, base);
+      return count;
+    };
+    CHECK(packages(0) == 0);  // nothing installed
+    fs::create_directories(info.user_root / "content" / "00000002" / "A625E0D7ED51ADDA217AD5F150C843988717E9BD4D");
+    CHECK(packages(0) == 1 && packages(1) == 1);
+    CHECK(mem.read<uint32_t>(buffer + 4) == 2 &&
+          std::string(mem.translate<const char>(buffer + 0x108), 42) == "A625E0D7ED51ADDA217AD5F150C843988717E9BD4D");
+    // A guest on player 2 (saves in players\guest1): the same packages.
+    CHECK(kernel::SignInGuest(1) && packages(1) == 1);
+    kernel::SignOutUser(1);
+    kernel::SetTitlePathsForTests({});
     fs::remove_all(folder);
   }
 

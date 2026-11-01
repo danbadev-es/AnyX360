@@ -206,6 +206,7 @@ std::optional<std::array<uint8_t, 16>> LoadKey(const std::filesystem::path& path
 
 const LoadedTitle& Title() { return g_title; }
 const TitleInfo& TitlePaths() { return g_paths; }
+void SetTitlePathsForTests(const TitleInfo& info) { g_paths = info; }
 
 uint32_t KernelVariable(const char* name) {
   auto it = g_variables.find(name);
