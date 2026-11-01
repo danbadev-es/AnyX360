@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-01
+
+Halo 3 and Halo: Reach, both in testing, with split screen.
+
 ### Added
 
 - **Halo 3** (in testing, [docs/HALO3.md](docs/HALO3.md)): Bungie's shooter from a Games on Demand
@@ -1270,7 +1274,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.30.0...v0.31.0
 [0.30.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.29.1...v0.30.0
 [0.29.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.29.0...v0.29.1
 [0.29.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.28.0...v0.29.0
