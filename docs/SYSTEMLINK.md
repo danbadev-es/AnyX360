@@ -20,7 +20,7 @@ locally, nothing goes to the network, no firewall prompt.
 
 ## Turning it on
 
-In the game's settings (F2 > General > System Link), or in its `settings.toml` (in the game's
+In the game's settings (F2 > Players > System Link), or in its `settings.toml` (in the game's
 user folder, `%LOCALAPPDATA%\AnyX360\<game>\settings.toml`):
 
 ```toml
@@ -201,9 +201,11 @@ Tested the same way, each copy with its own profile:
    copy's party (mode, players), and the player's card offers "X: Join". Both copies list each
    other.
 3. **Joining doesn't start**: Join (X, or A > Join player) does nothing, and the copy sends
-   nothing and makes no XNet call; the game refuses before connecting. Where to resume: the
-   roster's join action, as Halo 3's join was found (Halo 3's observer `823F35E0`/`823B7420`, its
-   join state machine `8243BCB8`).
+   nothing and makes no XNet call; the game refuses before connecting. On the press the game
+   thread enumerates downloadable content (`XamContentCreateEnumerator` type 2), hashes two
+   0xD9AC-byte blocks (`XeCryptSha`) and checks privileges, then stops: a local compatibility
+   check, not the network. Where to resume: the roster's join action, as Halo 3's join was found
+   (Halo 3's observer `823F35E0`/`823B7420`, its join state machine `8243BCB8`).
 
 What it took so far: the two players must have different XUIDs (above); with the same one each
 copy accepted the other's search replies (`8232DE90` adds them to the results) but its roster

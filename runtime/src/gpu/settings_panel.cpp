@@ -460,8 +460,10 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
       ImGui::EndTable();
     }
     EndCard();
+  }
 
-    // System Link ([network]): read when the game starts.
+  // System Link ([network]): read when the game starts.
+  void DrawSystemLink(const Settings& s) {
     BeginCard("System Link");
     if (BeginRows("##network")) {
       bool on = s.network.enabled;
@@ -619,6 +621,7 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
          "game asks, each player chooses their profile (or creates one) with their own controller; \"at once\" signs "
          "them in as the profile last used on their slot. Playing alone with a controller: set player 1 to it.");
     EndCard();
+    DrawSystemLink(s);
   }
 
   void DrawKinect(const Settings& s) {

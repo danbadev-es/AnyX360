@@ -13,7 +13,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - **System Link** (in testing, [docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)): the console's
   local-network play between copies of AnyX360, on one PC (up to four copies), on a LAN or over the
   internet through a LAN-style VPN (ZeroTier, Radmin VPN, Tailscale with `peers`), with no server
-  and nothing of Microsoft's. Off by default: F2 > General > System Link, or `[network]` in
+  and nothing of Microsoft's. Off by default: F2 > Players > System Link, or `[network]` in
   `settings.toml` (`enabled`, `adapter`, `port_offset`, `instance`, `peers`). The game's sockets
   become host sockets, its ports are moved by `port_offset` (and 100 per copy on one PC), its
   broadcasts reach every copy, and XNADDRs translate to the addresses peers are reached at. A second

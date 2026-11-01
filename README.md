@@ -200,7 +200,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
   ("Daniel (1)", as on the console: nothing of theirs is kept after the game).
 - **System Link** (in testing) - The console's local-network play between copies of AnyX360: two
   to four on one PC, PCs on a LAN, or PCs over the internet through a LAN-style VPN (ZeroTier,
-  Radmin VPN, Tailscale), with no server. Off by default: F2 > General > System Link, or
+  Radmin VPN, Tailscale), with no server. Off by default: F2 > Players > System Link, or
   `[network]` in `settings.toml`. Each player needs a profile of their own. Halo 3 so far
   ([docs/SYSTEMLINK.md](docs/SYSTEMLINK.md)).
 
