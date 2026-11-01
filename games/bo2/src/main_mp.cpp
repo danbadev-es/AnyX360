@@ -50,5 +50,8 @@ int main(int argc, char** argv) {
   game.vblanks_per_frame = 1;
   // The main thread on hardware thread 0, as on the console and in the campaign.
   game.main_thread_processor = 0;
+  // One GPU submission per frame, as in the campaign (main.cpp): in two-player Zombies the command
+  // processor sets the frame rate.
+  game.xenia_options = {{"d3d12_submit_on_primary_buffer_end", "false"}};
   return x360::host::RunHost(argc, argv, game);
 }

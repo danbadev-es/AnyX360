@@ -8,6 +8,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Changed
+
+- **Black Ops II split screen**: Xenia's command processor, which sets the frame rate in
+  draw-heavy scenes (two-player Zombies, the hellhound rounds), costs 15-27% less per draw
+  ([docs/BLACKOPS2.md](docs/BLACKOPS2.md#hellhound-rounds-2026-11-01)): on a processor with
+  performance and efficiency cores its threads stay on the performance cores (every game; Xenia
+  option `gpu_threads_on_performance_cores`), it remembers the samplers it computes for each draw
+  (every game), and Black Ops II sends the GPU one submission a frame instead of about three.
+
 ## [0.29.0] - 2026-10-31
 
 Dance Central 2, in testing, and Dance Central 3 on its Games on Demand copy with its title update:

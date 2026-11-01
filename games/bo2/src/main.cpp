@@ -22,5 +22,10 @@ int main(int argc, char** argv) {
   // The main thread on hardware thread 0, as on the console (the engine places its other threads on
   // the remaining hardware threads, as Modern Warfare 3's does).
   game.main_thread_processor = 0;
+  // One submission to the GPU per frame instead of one each time the command processor reaches the
+  // end of the ring (about three a frame): Xenia's command processor sets the frame rate in heavy
+  // scenes, and each submission costs it the wait for the D3D12 Replay thread's tail and the
+  // driver's ExecuteCommandLists. The GPU, busy a quarter of the frame, starts it a little later.
+  game.xenia_options = {{"d3d12_submit_on_primary_buffer_end", "false"}};
   return x360::host::RunHost(argc, argv, game);
 }

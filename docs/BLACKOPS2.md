@@ -339,6 +339,67 @@ not because the game did more.
 `draws2500` waits for a 5 s window with at least 2,500 draws a frame (loading times vary a lot on a
 busy machine).
 
+### Hellhound rounds (2026-11-01)
+A player's two-player TranZit on 0.29.0 held 60 FPS through round 6 and fell to 35-37 FPS in round
+7, when the hellhounds come and lightning strikes: 9,500-10,300 draws a frame, the command processor
+working 99-100% of the time, the GPU busy 25% (6.6 ms a frame), no pipeline waits, and seven
+threads near a full core (the main thread, Backend, the three JQ Workers, Server, GPU Commands at
+85%). Ordinary play, 3,000-6,500 draws, ran at 45-57 FPS with missed vblanks. The frame is set by
+the command processor's cost per draw, about 2.7 us at 10,000 draws (27 ms a frame).
+
+**Where its time goes**, profiled in the scripted fight (`ANYX360_PROFILE`): `IssueDraw` 58% of
+the thread (bindings 11%, guest memory uploads 10%, textures 10%, render targets 7%, pipelines 4%,
+primitive processing 4%), ending submissions 13% (9% of it waiting for the D3D12 Replay thread to
+replay the tail of each one, the rest the driver's `ExecuteCommandLists`), the global lock 6%,
+register writes and PM4 parsing about 8%. No single hot spot. Two more things showed up:
+
+- **Efficiency cores.** The laptop's i7-13620H has 6 performance cores (12 threads) and 4
+  efficiency cores. With seven busy game threads, Windows ran the command processor on an
+  efficiency core for 3-20% of its draws on a quiet machine and 33-50% with other programs busy;
+  there it is about half as fast.
+- **Mid-frame submissions.** The command processor ended a submission each time it caught up with
+  the ring (about three a frame), each one waiting for the replay thread's tail.
+
+**Changes**, each measured inside one run with a temporary build that switched it on and off every
+5-10 s (only whole 5 s windows in one state count; cost per draw is the command processor's
+working time over draws):
+
+| | Campaign main menu (3,530 draws, quiet machine) | Two-player TranZit fights (3,000-3,500 draws, other programs busy) |
+|---|---|---|
+| Before | 2.28 us a draw | 5.66 us a draw, 50.6 FPS, p99 60 ms, 33% of draws on efficiency cores |
+| GPU threads on performance cores | - | 4.66 us (-18%), 54.1 FPS, p99 32 ms |
+| Sampler parameters remembered | 2.13 us (-7%) | - |
+| One submission a frame | 2.04 us (-11%) | - |
+| Both of these | 1.93 us (-15%) | 4.19 us (-26%), 53.8 FPS, p99 38 ms |
+| All three | - | 4.14 us (-27%), 53.2 FPS, p99 34 ms |
+
+An earlier run on a quieter machine gave the performance cores 4.44 to 3.80 us a draw (-14%),
+55.4 to 57.4 FPS and a p99 of 35 to 27 ms. The fights were under the command processor's limit
+much of the time, so the frame rate moves less than its cost.
+
+- **GPU threads on performance cores** (Xenia option `gpu_threads_on_performance_cores`, on): the
+  command processor and the D3D12 Replay thread are kept on the most performant cores of a hybrid
+  processor (`SetThreadSelectedCpuSets`); they run above normal priority, so they take a
+  performance core from the game's threads instead of falling back to an idle efficiency core.
+  Nothing changes on a processor with one kind of core.
+- **Sampler parameters remembered**: every draw recomputed the sampler of each of its textures from
+  the fetch constant; Xenia now keeps the last 256 results by their inputs (the fetch constant, the
+  shader's filter overrides, `anisotropic_override`).
+- **One submission a frame** (`d3d12_submit_on_primary_buffer_end = false`, for Black Ops II only,
+  in both programs): 3.1 submissions a frame became 1.0 and the waits for the replay tail went from
+  4.8% to 2.9% of the time. The GPU, a quarter busy, starts each frame a little later.
+
+Tried and dropped: waking the replay thread every 32 draws (no gain), the command processor alone
+on a performance core with every other thread kept off it (no better than the performance cores),
+skipping texture bindings whose fetch constant was written again unchanged (-2%, within the noise).
+
+**What is left.** At 10,000 draws a quarter less is about 20 ms a frame: the hellhound rounds should
+reach about 50 FPS, not 60. The rest is spread over `IssueDraw` (no item above 5% of the thread),
+and the game's own threads are near a full core each too (the main thread at 98% in the player's
+heavy log). 60 FPS there needs a cheaper command processor in general: the D3D12 Replay thread
+also closing and executing the command lists (the swap's submission has to stay synchronous for
+the presenter), uploads without the global lock and the write-watch faults, cheaper bindings.
+
 ### Routes
 Times from the first input poll, with an existing user folder; give the second program its
 script with `ANYX360_INPUT_NEXT`.
