@@ -1,0 +1,136 @@
+{
+  "_comment": [
+    "One short scripted route per game for tools/regress/run_regress.ps1 (docs/REGRESSION.md).",
+    "Every run starts from a fresh import of anyx/<id>.anyx: a new profile, no saves, the first-run screens.",
+    "seconds: how long the game runs (from its start). input: ANYX360_INPUT (seconds from the first input poll).",
+    "input_clock: ANYX360_INPUT_CLOCK (frames:<fps> counts the game's frames). nui: the scripted Kinect player",
+    "(ANYX360_NUI_SCRIPT, actions separated by commas). shots: screenshot times (seconds from the start).",
+    "phases: windows (seconds from the start) whose frames/p99 are summarised and compared; probe: the phase",
+    "whose p99 tells whether the machine is steady (Mortal Kombat's and Gears' menus). title: the window's exact",
+    "title (null: the first 'AnyX360 - ' window of the game's processes, reported). settings: extra lines for",
+    "the sandbox settings.toml (every player's device is \"none\": scripted input only, never a real pad).",
+    "dlc: the packs the .anyx holds."
+  ],
+  "games": {
+    "gow3": {
+      "title": "AnyX360 - Gears of War 3", "seconds": 160, "dlc": 0,
+      "input": "25:START,30:START,35:START,45:A,55:A,65:A,75:A,85:A,140:LUP/5",
+      "shots": [40, 60, 100, 150],
+      "phases": { "menu": [50, 75], "play": [120, 160] }, "probe": "menu"
+    },
+    "mk": {
+      "title": null, "seconds": 150, "dlc": 17,
+      "input": "45:START,55:A,62:A,70:A,78:DOWN,80:DOWN,83:A,100:X~0.35x4000,100.15:A~0.35x4000,100.3:Y~1.3x1100",
+      "shots": [40, 60, 90, 120, 145],
+      "phases": { "menu": [50, 75], "fight": [110, 150] }, "probe": "menu"
+    },
+    "bo2": {
+      "title": "AnyX360 - COD: Black Ops II", "seconds": 320, "dlc": 8,
+      "input": "15:START,23:START,31:START,50:LRIGHT/0.5,54:A,60:A,66:A,72:A,80:A,86:A,92:A,135:A,141:A,150:A,285:LUP/12,290:RT/0.4,293:RT/0.4,299:LT/3,300:RT/0.3,305:LUP/15",
+      "shots": [45, 90, 200, 300],
+      "phases": { "menu": [75, 90], "play": [280, 320] }
+    },
+    "mw3": {
+      "title": "AnyX360 - Modern Warfare® 3", "seconds": 240, "dlc": 0,
+      "input": "25:START,35:START,45:LRIGHT/0.5,48:A,52:LRIGHT/0.5,55:A,58:LRIGHT/0.5,61:A,66:START,72:A,78:A,84:A,92:DOWN,95:A,99:A,103:A",
+      "shots": [40, 90, 150, 235],
+      "phases": { "menu": [75, 90], "play": [190, 240] }
+    },
+    "re6": {
+      "title": null, "seconds": 200, "dlc": 11, "input_clock": "frames:30",
+      "input": "12:START,30:A,37:A,46:A,54:A,70:START,82:A,90:A",
+      "shots": [30, 60, 100, 150, 195],
+      "phases": { "menu": [55, 70], "late": [150, 200] }
+    },
+    "minecraft": {
+      "title": null, "seconds": 160, "dlc": 92,
+      "input": "25:A,35:A,45:DOWN,48:A,60:RB,66:A,74:DOWN~0.7x6,80:A,125:LUP/5,132:RT/2,136:LT~0.6x4",
+      "shots": [40, 70, 110, 150],
+      "phases": { "menu": [50, 60], "play": [115, 160] }
+    },
+    "halo3": {
+      "title": "AnyX360 - Halo 3", "seconds": 200, "dlc": 5,
+      "input": "55:A,62:A,70:A,130:RUP/1.0,135:RDOWN/1.0,145:RUP/1.0,150:RDOWN/1.0",
+      "shots": [45, 75, 120, 160, 195],
+      "phases": { "menu": [40, 55], "late": [150, 200] }
+    },
+    "reach": {
+      "title": "AnyX360 - Halo: Reach", "seconds": 240, "dlc": 5,
+      "input": "75:A,80:START,86:A,92:A,99:A",
+      "shots": [60, 90, 120, 180, 235],
+      "phases": { "menu": [55, 75], "late": [180, 240] }
+    },
+    "gh3": {
+      "title": "AnyX360 - Guitar Hero III", "seconds": 160, "dlc": 25, "input_clock": "frames:60",
+      "input": "15:START,20:START,25:A,30:START,40:A,50:UP,51:UP,52:UP,53.5:A,57:A,61:A,64:A,67:A,70:A,73:A",
+      "shots": [45, 80, 120, 155],
+      "phases": { "menu": [40, 50], "song": [110, 160] }
+    },
+    "dcc": {
+      "title": "AnyX360 - Doritos Crash Course", "seconds": 110, "dlc": 1, "avatar_pack": true,
+      "input": "15:A,25:A,35:A,45:A,55:A,65:A,72:B,90:LRIGHT/8",
+      "shots": [40, 70, 100],
+      "phases": { "menu": [30, 50], "play": [80, 110] }
+    },
+    "d3": {
+      "title": "AnyX360 - Diablo III: RoS", "seconds": 170, "dlc": 1, "input_clock": "frames:60",
+      "input": "20:START,22:A,30:START,32:A,40:START,42:A,55:A,65:A,75:A,100:LUP/1.5,102:LRIGHT/7,112:A~0.5x20",
+      "shots": [45, 70, 100, 130, 165],
+      "phases": { "menu": [45, 60], "play": [120, 170] }
+    },
+    "fm4": {
+      "title": null, "seconds": 210, "dlc": 21,
+      "input": "28:A,40:A,60:A~15x6,155:RT/50",
+      "shots": [35, 70, 150, 180, 205],
+      "phases": { "intro": [60, 90], "race": [165, 210] }
+    },
+    "bo3": {
+      "title": null, "seconds": 180, "dlc": 5,
+      "input": "20:START,30:START,40:START,52:A,64:A,80:A,92:A,125:A,135:A,145:A",
+      "shots": [45, 80, 120, 175],
+      "phases": { "menu": [60, 80], "late": [150, 180] }
+    },
+    "dc2": {
+      "title": "AnyX360 - Dance Central 2", "seconds": 130, "dlc": 29,
+      "nui": "3:enter",
+      "shots": [60, 90, 125],
+      "phases": { "title": [90, 130] }
+    },
+    "dc3": {
+      "title": "AnyX360 - Dance Central 3", "seconds": 130, "dlc": 20,
+      "nui": "2:enter",
+      "shots": [60, 90, 125],
+      "phases": { "title": [90, 130] }
+    },
+    "ka": {
+      "title": "AnyX360 - Kinect Adventures", "seconds": 110, "dlc": 1,
+      "nui": "3:enter",
+      "shots": [50, 80, 105],
+      "phases": { "menu": [70, 110] }
+    },
+    "fnk": {
+      "title": "AnyX360 - Fruit Ninja Kinect", "seconds": 90, "dlc": 8,
+      "nui": "3:enter,20:arm_right_100_-70,21:arm_right_100_30,22:arm_right_95_-70,23:arm_right_95_30,24:arm_right_105_-70,25:arm_right_105_30,26:arm_right_100_-70,27:arm_right_100_30,28:arm_right_90_-70,29:arm_right_90_30,30:arm_right_110_-70,31:arm_right_110_30,32:arm_right_100_-70,33:arm_right_100_30,34:arm_right_95_-70,35:arm_right_95_30,36:arm_right_105_-70,37:arm_right_105_30,38:arm_right_100_-70,39:arm_right_100_30",
+      "shots": [30, 60, 85],
+      "phases": { "play": [45, 90] }
+    },
+    "ks": {
+      "title": "AnyX360 - Kinect Sports", "seconds": 100, "dlc": 2,
+      "nui": "3:enter,5:walk_out,27:arm_right_10_80,40:lower,50:arm_right_84_-24,62:lower",
+      "shots": [40, 60, 95],
+      "phases": { "menu": [60, 100] }
+    },
+    "kjr": {
+      "title": "AnyX360 - Kinect Joy Ride", "seconds": 120, "dlc": 2,
+      "nui": "3:enter,45:menu_right,45:arm_right_79_-24/0.3,51:arm_right_78_-37/0.3,56:lower",
+      "shots": [40, 80, 115],
+      "phases": { "garage": [85, 120] }
+    },
+    "kp": {
+      "title": "AnyX360 - Kinect Party", "seconds": 170, "dlc": 1,
+      "nui": "3:enter,120:arm_right_60_30,124:lower,125:wave,128:lower,129:dance",
+      "shots": [60, 110, 130, 165],
+      "phases": { "channel": [120, 170] }
+    }
+  }
+}

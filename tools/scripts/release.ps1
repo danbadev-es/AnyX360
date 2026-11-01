@@ -303,10 +303,12 @@ try {
 
   Step 8 'package' "tools\package\make_dist.ps1 -NoBuild -OutDir $DistDir" {
     $distLog = Join-Path $WorkDir "dist-$Version.log"
-    $code = Invoke-Low 'powershell.exe' "-NoProfile -ExecutionPolicy Bypass -File `"$root\tools\package\make_dist.ps1`" -NoBuild -OutDir `"$DistDir`"" $distLog
+    # Its output as UTF-8 (titles such as Diablo III's have non-ASCII characters).
+    $command = "[Console]::OutputEncoding = [Text.Encoding]::UTF8; & '$root\tools\package\make_dist.ps1' -NoBuild -OutDir '$DistDir'"
+    $code = Invoke-Low 'powershell.exe' "-NoProfile -ExecutionPolicy Bypass -Command `"$command`"" $distLog
     $script:distOutput = Get-Content -LiteralPath $distLog -Encoding UTF8
-    if ($code -ne 0) { Fail "make_dist.ps1 failed (exit $code): see $distLog" }
-    $script:distOutput | Where-Object { $_ -match '^(Packaged|Zip):' } | ForEach-Object { Log "  $_" }
+    if ($code -ne 0) { Fail "make_dist.ps1 failed (exit $code): see $distLog and $distLog.err" }
+    $script:distOutput | Where-Object { $_ -match '^(Packaged |Zip: )' } | ForEach-Object { Log "  $_" }
   }
 
   Step 9 'catalog check' 'check the release has every game in games\*\game.json' {
@@ -320,7 +322,9 @@ try {
       $info = Get-Content -Raw -Encoding UTF8 $json.FullName | ConvertFrom-Json
       $exes = @($info.exe)
       if ($info.executables) { $exes = @($info.executables.PSObject.Properties | ForEach-Object { $_.Value }) }
-      if (-not $packaged.Contains($info.title)) { $missing += "$($info.id) ($($info.title)) isn't in the Packaged list" }
+      # Exact, or with its non-ASCII characters as wildcards (should the output's encoding change).
+      $loose = '(?i)' + (($info.title.ToCharArray() | ForEach-Object { if ([int]$_ -gt 127) { '.{1,3}' } else { [regex]::Escape([string]$_) } }) -join '')
+      if (-not $packaged.Contains($info.title) -and $packaged -notmatch $loose) { $missing += "$($info.id) ($($info.title)) isn't in the Packaged list" }
       foreach ($exe in $exes) { if (-not (Test-Path "$newDist\bin\$exe.exe")) { $missing += "$($info.id): bin\$exe.exe is missing" } }
     }
     if ($missing) { Fail ("the release lacks games:`n  " + ($missing -join "`n  ")) }
