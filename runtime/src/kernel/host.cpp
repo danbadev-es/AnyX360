@@ -15,6 +15,7 @@
 #include "x360/kernel.h"
 #include "x360/profile.h"
 #include "x360/profiles.h"
+#include "x360/system_link.h"
 #include "xex.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -251,6 +252,9 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   gpu::SetLaunchWindow(launch);
   if (game.fixed_fps) settings::Override([&](Settings& s) { s.display.target_fps = game.fixed_fps; });
   info.display = settings::Get().display;
+  // System Link: the adapter and this PC's instance are chosen now (the window's title names it).
+  if (settings::Get().network.enabled)
+    net::Global().Start(settings::Get().network, [](const std::string& line) { KLOG_I("%s", line.c_str()); });
   gpu::SetVblanksPerFrame(game.vblanks_per_frame);
   gpu::SetFixedFps(game.fixed_fps);
   {

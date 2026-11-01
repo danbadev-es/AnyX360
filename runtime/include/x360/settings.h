@@ -1,4 +1,5 @@
-// Persistent settings (<user root>\settings.toml): display, mouse and keyboard, players, pacing.
+// Persistent settings (<user root>\settings.toml): display, mouse and keyboard, players, pacing,
+// network.
 //
 // Precedence: built-in defaults, then settings.toml, then command-line flags. Command-line values
 // apply to the current session only (Override) and are written to the file only if the user changes
@@ -12,6 +13,7 @@
 #include <string>
 
 #include "x360/gpu.h"
+#include "x360/system_link.h"
 
 namespace x360::settings {
 
@@ -95,6 +97,9 @@ struct Settings {
   // only).
   std::string sign_in = "on_demand";
   PacingSettings pacing;
+  // [network]: System Link between AnyX360 instances (docs/SYSTEMLINK.md). Off by default: the
+  // sockets stay local, as before. Read at start.
+  net::Config network;
   // [xenia]: options of Xenia's GPU code by name, each value as TOML text (half_pixel_offset = false):
   // advanced, for trying a fix on one GPU without rebuilding. Applied when the game starts.
   std::map<std::string, std::string> xenia;

@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <utility>
 #include "x360/kernel.h"
+#include "x360/system_link.h"
 #include "xex.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -560,7 +561,7 @@ int Run(const TitleInfo& info) {
   // UI thread.
   RaiseTimerResolution();
   DisablePowerThrottling();
-  std::string window_title = info.title_name.empty() ? "AnyX360" : "AnyX360 - " + info.title_name;
+  std::string window_title = (info.title_name.empty() ? "AnyX360" : "AnyX360 - " + info.title_name) + net::WindowTitleSuffix();
   if (!gpu::Initialize(window_title.c_str(), info.display)) return 1;
   if (!LoadTitle(info)) return 1;
   std::string name = ReadTitleName();
@@ -570,7 +571,7 @@ int Run(const TitleInfo& info) {
     std::snprintf(fallback, sizeof(fallback), "Title %08X", g_title.title_id);
     name = fallback;
   }
-  gpu::SetWindowTitle("AnyX360 - " + name);
+  gpu::SetWindowTitle("AnyX360 - " + name + net::WindowTitleSuffix());
   gpu::InitializeShaderStorage(info.user_root / "cache", g_title.title_id);
 
   std::thread([processor = info.main_thread_processor] {

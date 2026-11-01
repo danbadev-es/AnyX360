@@ -133,6 +133,19 @@ void Parse(const toml::table& t, Settings& s) {
   s.kinect.smoothing = std::clamp(s.kinect.smoothing, 0.0f, 1.0f);
   s.kinect.players = std::clamp(s.kinect.players, 1u, 2u);
   s.kinect.camera_height = std::clamp(s.kinect.camera_height, 0.2f, 2.0f);
+
+  auto network = t["network"];
+  Read(network["enabled"], s.network.enabled);
+  Read(network["adapter"], s.network.adapter);
+  Read(network["port_offset"], s.network.port_offset);
+  s.network.port_offset = std::min(s.network.port_offset, 60000u);
+  if (auto n = network["instance"].value<int64_t>()) s.network.instance = int(std::clamp<int64_t>(*n, 0, 3));
+  else if (network["instance"].value<std::string>()) s.network.instance = -1;  // "auto"
+  if (const toml::array* peers = network["peers"].as_array()) {
+    s.network.peers.clear();
+    for (const auto& peer : *peers)
+      if (auto v = peer.value<std::string>()) s.network.peers.push_back(*v);
+  }
   if (const toml::table* xenia = t["xenia"].as_table()) {
     for (const auto& [key, node] : *xenia) {
       std::ostringstream text;
@@ -219,6 +232,18 @@ std::string Serialize(const Settings& s) {
       << "centre_player = " << (s.kinect.centre_player ? "true" : "false")
       << "  # false: the game sees you where you are; true: centred 2.3 m from the virtual Kinect\n";
   }
+  o << "\n# System Link with other AnyX360 instances on this PC, the LAN or a LAN-style VPN\n"
+    << "# (docs/SYSTEMLINK.md). Every PC uses the same port_offset. Read when the game starts.\n"
+    << "[network]\n"
+    << "enabled = " << (s.network.enabled ? "true" : "false") << "\n"
+    << "adapter = " << Quote(s.network.adapter)
+    << "  # auto, loopback (this PC only), or an adapter's name or address: Tailscale, ZeroTier, Radmin...\n"
+    << "port_offset = " << s.network.port_offset << "  # added to the game's ports\n"
+    << "instance = " << (s.network.instance < 0 ? std::string("\"auto\"") : std::to_string(s.network.instance))
+    << "  # auto, or 0-3: each copy running on one PC has its own\n"
+    << "peers = [";
+  for (size_t i = 0; i < s.network.peers.size(); ++i) o << (i ? ", " : "") << Quote(s.network.peers[i]);
+  o << "]  # addresses that also get the game's broadcasts (VPNs without them, like Tailscale)\n";
   if (!s.xenia.empty()) {
     o << "\n# Options of Xenia's GPU code, by name (advanced: for trying a fix on one GPU).\n[xenia]\n";
     for (const auto& [name, value] : s.xenia) o << name << " = " << value << "\n";

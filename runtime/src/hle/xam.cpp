@@ -1836,9 +1836,14 @@ void CreateSessionInfo(uint32_t buffer) {
   if (uint32_t info = Load<uint32_t>(buffer + 0x14)) {
     uint64_t id = rng() & 0x0FFFFFFFFFFFFFFFull;
     Store<uint64_t>(info, id ? id : 1);
-    std::memset(Ptr(info + 8), 0, 0x24);  // the address XNetGetTitleXnAddr reports
-    Store<uint32_t>(info + 8, 0x7F000001);
-    std::memset(Ptr(info + 8 + 10), 0xCC, 6);
+    // The address XNetGetTitleXnAddr reports (System Link's, when it's on).
+    if (x360::net::Global().started()) {
+      x360::net::WriteXnAddr(Ptr(info + 8), x360::net::Global().own_ip(), x360::net::Global().instance());
+    } else {
+      std::memset(Ptr(info + 8), 0, 0x24);
+      Store<uint32_t>(info + 8, 0x7F000001);
+      std::memset(Ptr(info + 8 + 10), 0xCC, 6);
+    }
     Store<uint64_t>(info + 0x2C, rng());
     Store<uint64_t>(info + 0x34, rng());
   }
