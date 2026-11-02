@@ -205,7 +205,10 @@ server for co-op, so a failing socket layer ("Error initializing network layer."
 player in the empty `GearGame_P`. Sockets are emulated locally for this reason (`xam_net.cpp`).
 
 ### Known issues
-- The Horde pre-wave counter stays at 0:30 (it may wait for the command post to be built; unverified).
+- Not a bug: Horde's counter stays at 0:30 until a Command Post is built, as the game's first
+  objective says ("Create a base": `GearHordeObjective_BuildFlag`). The post is free: the green ghost
+  towers on the overhead map's post icons (BACK, then B), "Buy Command Post: 0"; **hold Y** next to the
+  ghost, looking at its base. Every purchase in Horde is a held Y, not X (Use).
 - An intermittent crash while the async loader creates objects (corrupt link in the object hash
   chains, `sub_8230F098`); seen loading Horde maps, not reproducible on demand.
 

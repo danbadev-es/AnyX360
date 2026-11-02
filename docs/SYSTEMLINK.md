@@ -15,7 +15,7 @@ locally, nothing goes to the network, no firewall prompt.
 | Game | Status |
 |---|---|
 | Halo 3 | **Works on one PC**: host, find, join, custom game (Slayer on Last Resort) with two players. A campaign lobby over System Link is hosted and starts (co-op with a second copy to be tried). |
-| Halo: Reach | **Hosts and finds**: each copy's roster lists the other's System Link party. Joining doesn't start yet (below). |
+| Halo: Reach | **Works on one PC**: a party hosted, listed, joined and a match played (Slayer on Sword Base), since the utility drive of 0.33.0. |
 | Gears of War 3 | **Works on one PC**: a System Link party hosted, found and joined, a private Versus match (Team Deathmatch on Sandbar) with both players. |
 | Modern Warfare 3 | **Works on one PC**: a match hosted, listed once it has started, joined in progress and played (Team Deathmatch on Seatown). |
 | Black Ops II | **Works on one PC**: a lobby hosted, listed, joined and a match played (Team Deathmatch on Aftermath). Zombies not tried yet. |
@@ -203,24 +203,12 @@ Tested the same way, each copy with its own profile:
 2. The other copy does the same: its roster gets a **System Link** section listing the first
    copy's party (mode, players), and the player's card offers "X: Join". Both copies list each
    other.
-3. **Joining doesn't start**: Join (X, or A > Join player) does nothing, and the copy sends
-   nothing and makes no XNet call; the game refuses before connecting. What is known
-   (2026-11-01):
-   - Joining a **Campaign** party, the main thread's only calls on the press are three heap
-     operations (`827D8A80`..`827D8C4C`): no XNet, socket, content, storage or crypto call. The
-     refusal is in game code, from data it already holds.
-   - Joining a **Custom** party, it also enumerates downloadable content (`XamContentCreateEnumerator`
-     type 2, any device: 0 packages, which is right with none installed) and hashes two 0xD9AC-byte
-     blocks (`XeCryptSha`), then stops.
-   - The privilege checks (`82805E90`, XAM's `XUserCheckPrivilege` wrapper: privileges 244-252)
-     run at start, not on the press, and all pass.
-   - No device or storage call (`XamContentGetDeviceData`, the device state) is made on the press,
-     so the refusal doesn't look like Halo 3's "hard drive" check.
-   Where to resume: what the roster's join action reads from the search result
-   (`8232DE90` stores the results; its fields include a byte at +46 compared with one at +86), as
-   Halo 3's join was found (Halo 3's observer `823F35E0`/`823B7420`, its join state machine
-   `8243BCB8`). Tracing the main thread (`ANYX360_TRACE=12:<s>`) slows the game to 3 FPS while it
-   runs: start it a few seconds before the press.
+3. **Joining works** (2026-11-02, 0.33.0, both copies with the map packs installed): on the other
+   copy's card (RIGHT, DOWN to it) X joins: "Bravo is the party leader", 2/16. The leader picks the
+   game type and map and starts: a Slayer match on Sword Base played on both, with the same clock.
+   Before 0.33.0 Join did nothing: nothing was sent and the game refused from data it held. No fix
+   was made for it here; what changed since is the utility drive and the map packs (which of the two
+   was needed wasn't isolated).
 
 What it took so far: the two players must have different XUIDs (above); with the same one each
 copy accepted the other's search replies (`8232DE90` adds them to the results) but its roster
@@ -239,6 +227,23 @@ Works with no change to the game (two copies on one PC, each with its own profil
 3. A: **Versus > Private > Team Deathmatch** > A (start) > A (yes): the pre-game lobby with both
    players and bots; START (choose map: Sandbar), START (start): **both play the match**, the
    scoreboard listing both.
+
+**Horde** (2026-11-02, the same party, release 0.33.0 with no change): A: **Horde > Private** >
+difficulty > A (start) > A (yes): the pre-game lobby with both; START (choose map: Sandbar), START
+(start). Seen on both copies:
+- the same match: the scoreboard lists Alpha and Bravo on each (BACK), with each other's cash;
+- the "Create a base" objective: a Command Post bought by the host (hold Y at the green tower) stands
+  in the client's game and starts the countdown (0:30) on both;
+- wave 1 and wave 2 with the Locust: each player sees the other and the same enemy; a dead player
+  spectating the other gets the same picture (buy back, $1500); the enemies' count and the match
+  clock agree on both;
+- a whole wave of ten minutes, and several failed waves ("Wave failed", 10:13 on both, the same
+  scores); the host chooses "Restart from the current wave" or "from the beginning" while the client
+  says "Waiting for the host", and both restart. No crash and no disconnect (about 30 FPS each,
+  two copies sharing this machine with a build).
+
+**Not seen**: a wave won and the shop between waves: the scripted players fire but don't aim, so they
+kill nothing; a person is needed. Nor two PCs, more than two players, or a host leaving mid-match.
 
 The game sets its system link port to 14000 (`XNetSetSystemLinkPort`) and binds VDP 1000 (the
 game), UDP 14001 (the party browser's broadcasts) and VDP 1001. The host registers QoS data

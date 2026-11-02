@@ -294,7 +294,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Mode                             | Status                                         |
 | -------------------------------- | ---------------------------------------------- |
 | Campaign                         | ✅ Playable                                    |
-| Private Horde                    | ✅ Playable                                    |
+| Private Horde                    | ✅ Playable; the first wave starts once a Command Post is built (hold Y at the green tower) |
+| Horde over System Link           | 🧪 Two copies on one PC: both in one match for 10 minutes, enemies and scoreboards in step, no disconnect; a wave won and the shop between waves not seen yet (they need a person who can aim); two PCs untested |
 | Local split screen (2-4 players) | ✅ Playable                                    |
 | System Link                      | 🧪 Two copies on one PC: a party hosted, found and joined, a private Versus match (Team Deathmatch on Sandbar) played |
 | Online (Xbox Live, Versus)       | ❌ Not available: Xbox 360's Xbox Live is gone |
@@ -496,7 +497,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Cover, roadie run, evade | Space (also Left Shift, Enter) | A                  |
 | Melee, chainsaw          | V (also Backspace)             | B                  |
 | Use, pick up, revive     | E                              | X                  |
-| Point of interest        | F                              | Y                  |
+| Point of interest; hold to buy in Horde | F               | Y                  |
 | Reload                   | R                              | RB                 |
 | Tac-Com                  | Q                              | LB                 |
 | Switch weapon            | Arrows, 1-4, mouse wheel       | D-pad              |
@@ -687,7 +688,8 @@ two players signed in the title menu offers the co-op campaign.
 Gears of War 3:
 
 - Cinematics and videos run at 30 FPS, as in the original game.
-- In Horde, the counter before the first wave can stay at 0:30.
+- In Horde, the counter before the first wave waits for a Command Post: walk to a green ghost tower
+  (Back, then B, shows them on the map) and hold Y (F on the keyboard): purchases are a held Y.
 - The game can occasionally crash while loading a Horde map.
 - On an AMD RX 570 the title screen (before Start) shows an artefact on the skull; the main menu is
   fine. If you see it, send the game's log: it names your GPU, and `docs/GEARS3.md` lists options
