@@ -96,10 +96,27 @@ The 33 avatar items (`00009000`) aren't used.
 - **Frame rate**: 60 FPS in the menus and the fights (33-35 on the title screen's first seconds
   and in loading screens while shaders are compiled the first time).
 - **Audio**: FMOD with XMA (music, announcer, effects).
-- **Not tried yet**: Story mode, the Challenge Tower, Training, Test Your Might and the other
-  tests, the Krypt, the costumes and Klassic skins, the unofficial boss packages (Goro, Kintaro,
-  Shao Kahn), the tag ladder and a whole tag match. The latent tasks that use fibers haven't been
-  seen running (no "guest fiber" in the logs so far).
+- **Story mode** (2026-11-02): the opening cinematic (`Movies\mk001_002_003.wmv`, 165 MB, more than
+  five minutes), then chapter 1's first fight (Johnny Cage against Reptile), played: rounds, "Reptile
+  wins", the Continue menu. On 0.33.0 the cinematic froze about 90 s in on 3 of 5 tries with other
+  programs loading the machine: picture and sound stop for good. It is a deadlock in the game's
+  stream reader, which held its lock while waiting for a block only the other reader could free
+  ([games/mk/src/movies.cpp](../games/mk/src/movies.cpp) has the details); with the fix it passed
+  on all 3 tries, with a build running. The story's difficulty is in Options > Gameplay (Novato here).
+- **Challenge Tower** (2026-11-02): the tower, the first challenge (Specials training, Sonya against
+  Jax: the dialogue, the move prompts and timer, the count going 1/5 when a move lands), and the
+  Continue menu. Passing a challenge needs a person; scripted, one move in five landed.
+- **Krypt** (2026-11-02): Extras > Krypt: the welcome, the free first item (a Kombat Kode), walking in
+  the graveyard (buying more needs Koins). 30 FPS there (60 elsewhere; whether the console does the same isn't
+  known).
+- **The downloaded fighters** (2026-11-02): the character select's bottom row is a carousel (`LEFT`
+  from Quan Chi): Rain, Kenshi, Skarlet, Freddy Krueger and the unofficial **Shao Kahn, Kintaro, Goro**.
+  Shao Kahn against Raiden and Goro against Freddy Krueger were played in the ladder. Goro's portrait
+  in the carousel is blank (the package's; his fighter and his card are fine). Kintaro was
+  highlighted but not played.
+- **Not tried yet**: Training, Test Your Might and the other tests, the costumes and Klassic skins,
+  the tag ladder and a whole tag match, the story past its first fight (a person). The latent tasks
+  that use fibers haven't been seen running (no "guest fiber" in the logs so far).
 - **First appearances**: on a cold shader cache a fight skips a few draws a frame for a moment
   while Xenia creates their pipelines (up to 11 a frame in the first fight); the release's shader
   cache, collected while testing, covers what was played.
@@ -122,6 +139,12 @@ settings.toml (player 2 is connected by its scripted presses):
   start there, and the presses opened Extras), chooses Modo Versus and Uno contra uno; player 2
   joins and takes Sub-Zero, player 1 Scorpion; player 1 wins the match (about 150 s) and player 2
   chooses Revancha at 180 s.
+- **Mashing that wins on Novato**: `X~0.35`, `A~0.35`, `Y~1.3`, each 0.15 s apart. Other mixes (X+B+a
+  step forward) land nothing.
+- **Story**: on the main menu `DOWN`, `A/0.4`; the fight starts about 330 s later. `A/0.4` chooses on
+  menus (a short press is lost during a mash).
+- **Bosses**: in the ladder's character select `DOWN` x6, then `LEFT` x7 (Kintaro); `RIGHT` Goro, `LEFT`
+  Shao Kahn.
 - **Tag versus** (with `p3`/`p4` given `pad3`/`pad4`): `ANYX360_INPUT=45:START,50:RB,55:A,59:DOWN,61:A,66:START@1,68:START@2,70:START@3,74:A,76:A@1,78:A@2,80:A@3,84:A,86:A@1,110:X~0.35x150,110.15:A~0.35x150`
   chooses Dos contra dos; the tag fight starts at about 110 s.
 

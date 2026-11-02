@@ -232,8 +232,8 @@ Works with no change to the game (two copies on one PC, each with its own profil
 difficulty > A (start) > A (yes): the pre-game lobby with both; START (choose map: Sandbar), START
 (start). Seen on both copies:
 - the same match: the scoreboard lists Alpha and Bravo on each (BACK), with each other's cash;
-- the "Create a base" objective: a Command Post bought by the host (hold Y at the green tower) stands
-  in the client's game and starts the countdown (0:30) on both;
+- the "Create a base" objective: a Command Post bought by the host (hold Y at the green tower) starts
+  the countdown on both (0:22 on one, 0:21 on the other a second later);
 - wave 1 and wave 2 with the Locust: the client sees the host walking; each is shot at by the Locust;
   a dead player spectating the other gets the same picture as the other's own (buy back, $1500); the
   enemies' count and the match clock read the same on both. (The same enemy on both screens at once

@@ -47,6 +47,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - `tools\regress\run_regress.ps1`: routes for a game's modes (`"game": "<id>"`, run by name or with
   `-Games modes`; `-Games all` stays the games' own routes).
 
+- The "Horde counter stays at 0:30" known issue of **Gears of War 3** was no bug: the first objective
+  is a Command Post, bought by holding Y at its green tower.
+
 ### Fixed
 
 - **Kinect Sports**: skipping Beach Volleyball's intro video crashed the game (a jump table the
@@ -54,6 +57,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - `tools\regress\run_regress.ps1`: the Kinect routes never ran. Their script file had no final line
   end and the scripted source reads whole lines, so the games ran with nobody in view, the stored
   baseline's Kinect rows included (they need a new baseline).
+- **Gears of War 3**: Horde over System Link was tried with two copies on one PC: one match, both on
+  the scoreboard, a Command Post bought by the host starting the countdown on both, waves of up to ten minutes with no
+  disconnect, the host restarting failed waves. A wave won and the shop between waves weren't seen:
+  they need a person who can aim. Two PCs are untested
+  ([docs/SYSTEMLINK.md](docs/SYSTEMLINK.md#gears-of-war-3)).
+- **Halo 3** and **Halo: Reach**: Theater: games are recorded, listed and played back.
+- **Halo: Reach**: System Link's Join works; a Slayer match played by two copies. Firefight with two
+  players, custom games with four and Forge (objects placed, a map variant saved) were tried.
+- **Halo 3**: Forge with four players was tried (objects placed; saving a map variant still fails).
+- **Black Ops II**: Zombies with four players, and Zombies over System Link with two copies.
+- **Modern Warfare 3**: the Special Ops missions, alone and in split screen.
+- **Guitar Hero III**: co-op career and battle played with two controllers.
+- **Diablo III**: New Tristram reached; the pre-order Infernal Pauldrons worn. Adventure Mode is locked
+  until Act V, as on the console.
+- **Mortal Kombat**: Story's first fight, the Challenge Tower, the Krypt, and the downloaded fighters
+  (Rain, Kenshi, Skarlet, Freddy Krueger; the unofficial Shao Kahn, Kintaro and Goro) were tried.
+
+- **System Link with a switch of executables**: Black Ops II restarted itself for ever entering Zombies
+  with System Link on. The next executable inherited the old one's sockets and couldn't bind its port;
+  sockets are no longer inherited.
+- **Halo 3** and **Halo: Reach**: films were deleted while being recorded, and couldn't be renamed when
+  they ended. Opt-in `GameDescriptor::file_share_access`: opens keep the title's sharing, as on the
+  console, and renames work.
+- **Halo 3** and **Halo: Reach**: Forge's Save as new did nothing: the on-screen keyboard now accepts
+  the name the game proposes.
+- **Mortal Kombat**: Story's opening cinematic could freeze for good about 90 s in, on a busy machine:
+  a deadlock between the two readers of the game's movie stream.
+- `ANYX360_INPUT_LIVE`: a press with `~<period>x<count>` was dropped after its first repeat.
 
 ## [0.33.0] - 2026-11-01
 

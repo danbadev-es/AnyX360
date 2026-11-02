@@ -74,7 +74,8 @@ the sensor.
   ([docs/FORZAMOTORSPORT4.md](docs/FORZAMOTORSPORT4.md)).
 - **Mortal Kombat Komplete Edition** (in testing): NetherRealm's fighting game from a Games on
   Demand copy with its downloadable content, at 60 FPS: the arcade ladder's fights, local versus
-  with two players and tag versus; Story mode and the Challenge Tower are still to be checked
+  with two players and tag versus; Story's first fight, the Challenge Tower, the Krypt and the
+  downloaded fighters (with the unofficial bosses) tried too
   ([docs/MORTALKOMBAT.md](docs/MORTALKOMBAT.md)).
 - **Call of Duty: Black Ops III** (in testing): the Xbox 360 version's multiplayer (local matches,
   with bots) and Zombies (Shadows of Evil) at 60 FPS, with its title update (version 0.0.8.5) and
