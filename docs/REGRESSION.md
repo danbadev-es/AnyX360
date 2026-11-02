@@ -61,7 +61,7 @@ fixed sequence of presses gets there from a new profile, a little gameplay.
 
 | Game | Route | Phases |
 |---|---|---|
-| gow3 | START through the intro, A through the first-run screens and Campaign | menu, play |
+| gow3 | START through the intro, A through the first-run screens and Campaign (route not re-run on the title update 0.0.6.7; its baseline still has 0 DLC) | menu, play |
 | mk | START at the title, Fight > Ladder > Scorpion > Novice, attacks | menu (probe), fight |
 | bo2 | the campaign route up to the first mission | menu, play |
 | mw3 | the campaign route (content warning, first mission) | menu, play |

@@ -35,7 +35,7 @@ the sensor.
 **Games:**
 
 - **Gears of War 3**: an unofficial native PC port with campaign, private Horde and local split
-  screen at 60 FPS.
+  screen at 60 FPS, on its title update with its downloadable content (RAAM's Shadow, the map packs).
 - **Dance Central 3** (in testing): the Kinect dance game, played with a webcam. A pose estimator
   turns the webcam's image into the Kinect's skeletons, color image and depth image. From a Games
   on Demand copy with its title update (version 0.0.1.5); its downloadable songs don't play yet.
@@ -112,7 +112,7 @@ own avatar is made in the launcher's avatar editor and plays in every avatar gam
 1. Download the release from [Releases](https://github.com/danielbarretoes/AnyX360/releases):
    `AnyX360-<version>.zip`. One release has every game.
 2. Extract it to a regular folder (not inside _Program Files_), on a drive with room for the games
-   you add from an archive: about 8 GB for Gears of War 3, 7 GB for Dance Central 3 (3 GB more for
+   you add from an archive: about 11 GB for Gears of War 3, 7 GB for Dance Central 3 (3 GB more for
    its downloadable content), 4 GB for Dance Central 2 (1 GB more for its downloadable content),
    8 GB for Kinect Adventures, 1 GB for Fruit Ninja Kinect, 1 GB for
    Doritos Crash Course, 4 GB for
@@ -877,7 +877,8 @@ environment with pinned, hash-checked packages.
 
 ### 3. Add the Required Game Files
 
-- Gears of War 3: put the `.7z` of your disc in `Raw/` and extract it to `extracted/gow3/`.
+- Gears of War 3: extract the Games on Demand package's disc files to `extracted/gow3/game/` with
+  `x360tool god-extract`, and the title update to `extracted/gow3/update/` with `x360tool stfs-extract`.
 - Dance Central 3: extract the Games on Demand package's disc files to `extracted/dc3/game/` with
   `x360tool god-extract`, and the title update to `extracted/dc3/update/` with
   `x360tool stfs-extract`; its songs also need `keys/title_keys.txt` (see
@@ -943,7 +944,7 @@ Both folders are git-ignored.
 ### 4. Recompile the Game
 
 Build the tools, analyse the executable and generate the C++ sources in the folder `config.toml`
-names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing-from-the-7z-in-raw),
+names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing),
 [docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md#reproducing),
 [docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md#reproducing),
 [docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md#reproducing),
@@ -962,7 +963,7 @@ names. The exact commands are in [docs/GEARS3.md](docs/GEARS3.md#reproducing-fro
 ```bat
 build.bat
 cd games\gow3
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe "..\..\extracted\gow3\Gears Of War 3\AP7kB\default.xex" switch_tables.toml
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\gow3\update\default_0.0.6.7.xex switch_tables.toml
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 ```
 

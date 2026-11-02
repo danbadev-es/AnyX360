@@ -1,20 +1,56 @@
 # Gears of War 3: target notes
 
-Working notes for the first title. All values below come from the retail `default.xex`
-(`x360tool xex-info`; full dump in [games/gow3/notes/xex-info.txt](../games/gow3/notes/xex-info.txt)).
+Working notes for the first title. The values below come from the retail `default.xex`
+(`x360tool xex-info`; the dump in [games/gow3/notes/xex-info.txt](../games/gow3/notes/xex-info.txt) is of
+the disc's 0.0.0.7, and the section addresses and the analysis notes further down are too).
 
 | Item | Value |
 |---|---|
 | Engine | Unreal Engine 3 (`GearGame-Xbox360-Shipping.pe`) |
 | Title ID / media ID | `4D5308AB` / `02EEE060`, version 0.0.0.7, disc 1 of 1 |
-| Source used | Extracted disc folder (2537 files, 7.3 GB) in a 7z, not an ISO |
+| Source used | The **Games on Demand** package (`x360tool god-extract`: 2568 files, 7.37 GiB), its title update and 33 downloadable content packages |
 | XEX | AES-encrypted (retail key), **basic** compression (not LZX), base `0x82000000`, entry `0x82CE8EB0` (`_xstart`) |
-| Image | 21.7 MiB: 13.3 MiB code, 5.7 MiB data, 2.7 MiB read-only |
+| Image | 22.12 MiB with the title update (0.0.0.7: 21.7 MiB) |
 | Functions in `.pdata` | 41,369 (leaf functions without a frame are not listed there) |
 | XDK | 2.0.20500 (D3D9LTCG, XAUDIO2, XMP, XHV2, XONLINE…); compiler C1/C2 16.0.11886 |
 | Imports | `xboxkrnl.exe`: 163 functions + 13 variables; `xam.xex`: 117 functions ([list](../games/gow3/notes/imported_functions.txt)) |
 | Middleware in its own sections | Bink video (`BINK*`), RAD (`RAD*`) |
-| Target version | Base disc executable; no Title Update |
+| Target version | Patched with the title update (`TU_16L625B_000000S000000.00000000001G7`): 0.0.0.7 to **0.0.6.7** |
+
+## The copy
+`raw\GOW3-DLC-TU-GOD.rar` (10.55 GB, not encrypted) holds:
+
+- `4D5308AB\00007000\F6C2E5667ED7928B1A9E` and its data files: the Games on Demand package;
+- `TU_16L625B_000000S000000.00000000001G7` at the root: the title update as the console's cache keeps
+  it, an STFS package of type `000B0000` (101 files, 2.9 MiB: `default.xexp`, `TU__*` configuration and
+  text files, `GearGame\Patches\ScriptPatch_*.bin`);
+- `4D5308AB\00000002`: 33 packages, including `Campaign` (RAAM's Shadow, 2.1 GB), `NatureMP`, `FenixMP`
+  and `FreeMP` (the maps), the Horde Command Pack, characters and weapon skins.
+
+**`SKINS Guz`** is a third party's mod, not an official package: its header says "Custom Skins Pack",
+downloadable content of this title, and it holds two text files, `GearGame.int` and
+`Xbox360-GearGame.ini` (836 `GearWeaponSkinProvider` sections, 2 `GearGameWeaponSummary`, 153
+`bHasPurchased` lines): no code. The launcher goes by the header, so it installs it like the others (33
+packages; `make_anyx.ps1` expects 33). The game mounts it at start. Every run below had it installed;
+its effect wasn't isolated, and a run without it wasn't made.
+
+The launcher (`--archive`, in a sandbox) reported the game ready with 33 packages and the update
+0.0.6.7. **A copy without the update no longer plays**: the executable is recompiled from 0.0.6.7.
+
+## Recompiler configuration from the title update
+- [config.toml](../games/gow3/config.toml) names the base, the patch and the patched executable. Output:
+  `games/gow3/recomp3`.
+- **Register save/restore helpers** from find_helpers.py on the patched image. **setjmp/longjmp**
+  `82CDFE80`/`82CDFB60`: the CRT's (nothing calls setjmp directly; longjmp has 3 direct calls). The
+  other longjmp candidates, `82470810` and `82B19F98`, weren't used.
+- **Jump tables**: 108 from the dataflow detector and 19 unresolved table-driven `bctr`, the same counts
+  as 0.0.0.7. The unresolved sites weren't inspected again on this image.
+- **The 49 `// ERROR` branches** in the output are in functions around `82CC03C0`-`82D00110` and three
+  more (`82B25940`, `82B44F58`, `82B55D70`). Of nine looked at, six go to a `blr` or to
+  `addi r1, r31, n` (exception funclets returning into their parent) and three into the CRT's code.
+- **[ue3_trace.cpp](../games/gow3/src/ue3_trace.cpp)**: its addresses were remapped by matching the
+  functions' code between the two images. The old probes (chapter load, `wcsicmp`, the memset experiment,
+  `82683148`) were removed. The trace itself (`ANYX360_UE3_TRACE`) wasn't run on the new build.
 
 ## Sections
 See [games/gow3/notes/sections.txt](../games/gow3/notes/sections.txt). Code lives in `.text`
@@ -62,21 +98,29 @@ reads as a PPC405 instruction. Bink is better replaced by a native decoder anywa
   offline, and System Link between copies of AnyX360 ([SYSTEMLINK.md](SYSTEMLINK.md#gears-of-war-3):
   a private Versus match played by two copies on one PC, with no change to the game).
 
-## Reproducing (from the 7z in `Raw/`)
+## Reproducing
+From the archive extracted to `extracted\gow3\rar`:
 ```bat
 build.bat
-"C:\Program Files\7-Zip\7z.exe" x "Raw\Gears Of War 3.7z" -oextracted\gow3
 set T=build\tools\x360tool\Release\x360tool.exe
-%T% xex-info    "extracted\gow3\Gears Of War 3\AP7kB\default.xex"
-%T% xex-extract "extracted\gow3\Gears Of War 3\AP7kB\default.xex" extracted\gow3\basefile.bin
+set R=extracted\gow3\rar
+%T% god-extract "%R%\4D5308AB\00007000\F6C2E5667ED7928B1A9E" extracted\gow3\game
+%T% stfs-extract "%R%\TU_16L625B_000000S000000.00000000001G7" extracted\gow3\update
+%T% xex-patch extracted\gow3\game\default.xex extracted\gow3\update\default.xexp extracted\gow3\update\default_0.0.6.7.xex
+%T% xex-extract extracted\gow3\update\default_0.0.6.7.xex extracted\gow3\default_patched.bin --key keys\xex2_retail.key
+python -I tools\scripts\find_helpers.py extracted\gow3\default_patched.bin
 cd games\gow3
-..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe "..\..\extracted\gow3\Gears Of War 3\AP7kB\default.xex" switch_tables.toml
-mkdir recomp
+..\..\build\thirdparty\XenonRecomp\XenonAnalyse\Release\XenonAnalyse.exe ..\..\extracted\gow3\update\default_0.0.6.7.xex switch_tables.toml
+mkdir recomp3
 ..\..\build\thirdparty\XenonRecomp\XenonRecomp\Release\XenonRecomp.exe config.toml ..\..\thirdparty\XenonRecomp\XenonUtils\ppc_context.h
 cd ..\..
 build.bat
 ```
-`recomp/` must be empty before regenerating: XenonRecomp does not delete output files from an earlier
+To play a development build, the update's files go in
+`<user>\content\000B0000\TU_16L625B_000000S000000.00000000001G7\` and each package, extracted, in
+`<user>\content\00000002\<package file name>\` (the launcher does both).
+
+`recomp3/` must be empty before regenerating: XenonRecomp does not delete output files from an earlier
 run whose function split was different, which leads to duplicate symbols at link time.
 
 ## Distribution
@@ -105,6 +149,32 @@ What the launcher does:
   where it is (`games\<id>\location.txt`).
 - Starts the game without a console window, writing its output to `logs\<id>\last_run.log`.
 - If the game exits with an error, shows the launcher again and points to the log.
+
+## Status on the title update 0.0.6.7 (2026-11-03)
+Seen on a build from this code, one PC, scripted input, with all 33 packages installed. FPS from the
+log's samples.
+
+- **Campaign**: new game on Normal, the cinematics, walking through the prologue, then the Lancer aimed
+  and fired at the fountain. A checkpoint was written there (`GearsCheckpoint0.sav`). After stopping and
+  restarting the game the menu offered **Continue**, and it came back at the fountain. 60 FPS (59.6 in
+  one sample). Enemies weren't fought and no chapter was finished. Co-op wasn't tried.
+- **RAAM's Shadow** (the `Campaign` package): offered in the menu, New > Normal started "Evacuation": its
+  opening, then gameplay with the weapon fired. 53-60 FPS. Not played further.
+- **Versus over System Link**, two copies on loopback: the party hosted, listed and joined, Private > Team
+  Deathmatch, the lobby with both players and bots. **Sandbar**, and **Jacinto** (no files for it on the
+  disc): both copies in the match, each scoreboard listing Alpha and Bravo with the clock within a
+  second. On Jacinto the bots had characters such as Classic Dom and Savage Kantus LE. About 58-59 FPS on Sandbar and 52-54 on Jacinto,
+  two copies sharing the machine. The host's "back to the main menu" kept the party, and the next match
+  started from there. The matches lasted under a minute each: no kills by the scripted players, no match
+  finished. Forces of Nature is offered in the Versus menu; choosing it wasn't tried.
+- **Map list**: 25 maps in the lobby's chooser (RT and LT cycle them), in Versus and Horde. A copy without
+  packages wasn't run, so the list of a local-only copy, and whether the two agree, isn't known.
+- **Weapon skins** from the packages show in the character setup (Gnasher).
+- **Horde**: see [SYSTEMLINK.md](SYSTEMLINK.md#gears-of-war-3); on this build only as far as the start of
+  a match.
+- **Stopped by the release**, to be tested by a person: Horde's Command Post, waves and shop on this build,
+  co-op, the `FenixMP` and `FreeMP` Versus maps, a whole match, the regression route.
+- Versus > Casual over System Link asks for Xbox LIVE Gold; Private is the way in.
 
 ## Status (2026-10-16)
 - Boots through the Epic/Microsoft logos (Bink), title screen, brightness setup and every menu.

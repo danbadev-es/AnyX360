@@ -1,6 +1,7 @@
 GEARS OF WAR 3
 ==========================================================
-Your copy: the disc's archive (for example "Gears Of War 3.7z") or its folder.
+Your copy: the Games on Demand package with its title update (0.0.6.7), for example
+"GOW3-DLC-TU-GOD.rar". Its downloadable content is installed with it.
 Saved games and settings: %LOCALAPPDATA%\AnyX360\GearsOfWar3
 
 CONTROLS
@@ -30,6 +31,7 @@ Then go into Campaign as usual: the screen splits in two.
 
 KNOWN ISSUES
 - Cinematics and videos run at 30 FPS: that is how they are in the original game.
-- In Horde, the counter before the first wave may stay at 0:30.
+- In Horde, the counter before the first wave stays at 0:30 until a Command Post is built:
+  hold Y (F) at a green ghost tower.
 - The game may occasionally close while loading Horde maps.
 - Online play doesn't work; campaign, private Horde and split screen do.

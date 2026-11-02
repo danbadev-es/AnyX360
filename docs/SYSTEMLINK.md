@@ -16,7 +16,7 @@ locally, nothing goes to the network, no firewall prompt.
 |---|---|
 | Halo 3 | **Works on one PC**: host, find, join, custom game (Slayer on Last Resort) with two players. A campaign lobby over System Link is hosted and starts (co-op with a second copy to be tried). |
 | Halo: Reach | **Works on one PC**: a party hosted, listed, joined and a match played (Slayer on Sword Base), since the utility drive of 0.33.0. |
-| Gears of War 3 | **Works on one PC**: a System Link party hosted, found and joined, a private Versus match (Team Deathmatch on Sandbar) with both players. |
+| Gears of War 3 | **Works on one PC**: a System Link party hosted, found and joined, a private Versus match with both players (Team Deathmatch on Sandbar and, with the downloadable content, Jacinto). Horde played on the disc's version; on the title update only its start was seen. |
 | Modern Warfare 3 | **Works on one PC**: a match hosted, listed once it has started, joined in progress and played (Team Deathmatch on Seatown). |
 | Black Ops II | **Works on one PC**: a lobby hosted, listed, joined and a match played (Team Deathmatch on Aftermath); the same in Zombies (TranZit, to the game over and back to the lobby). |
 
@@ -245,6 +245,17 @@ difficulty > A (start) > A (yes): the pre-game lobby with both; START (choose ma
 
 **Not seen**: a wave won and the shop between waves: the scripted players fire but don't aim, so they
 kill nothing; a person is needed. Nor two PCs, more than two players, or a host leaving mid-match.
+
+**On the title update 0.0.6.7 with its downloadable content** (2026-11-03, two copies on loopback):
+- Versus: Team Deathmatch on Sandbar and on Jacinto (a downloadable map), both in the match, the
+  scoreboard listing both, the clock within a second. Under a minute each, nothing finished.
+- Horde: Private on Casual; the lobby with both, no bots offered; 25 maps. On Anvil (a downloadable map)
+  both copies were in the match at wave 1, with $1000 and the counter at 0:30 (50-55 FPS each); the overhead map on one
+  copy showed both players. **No more than that**: the scripted player didn't reach a green tower, so no
+  Command Post, no countdown, no wave, no shop and no scoreboard were seen on this build. The session was
+  stopped there; a person is to test it. All mutators but two are locked ("No ammo", "Headless chicken").
+
+The findings above are from the disc's version 0.0.0.7 (release 0.33.0).
 
 The game sets its system link port to 14000 (`XNetSetSystemLinkPort`) and binds VDP 1000 (the
 game), UDP 14001 (the party browser's broadcasts) and VDP 1001. The host registers QoS data

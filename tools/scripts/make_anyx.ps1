@@ -56,7 +56,7 @@ $archives = @{
   ka = 'KA-DLC-TU-GOD.rar'; kjr = 'KJR-DLC-TU-GOD.rar'; kp = 'KP-DLC-XBLA.rar'; fnk = 'FNK-DLC-TU-XBLA.rar';
   re6 = 'RE6-DLC-TU-GOD.part1.rar'; minecraft = 'Minecraft-X360-E-DLC-TU-XBLA.rar'; fm4 = 'FM4-DLC-GOD.part1.rar'; mk = 'MKCE-DLC-GOD.rar'; bo3 = 'CODBO3-DLC-TU-GOD.rar'; dc2 = 'DC2-DLC-TU-GOD.rar'; gh3 = 'GH3LOR-DLC-TU-GOD.rar'; d3 = 'D3ROSUEE-DLC-TU-GOD.rar'; halo3 = 'H3-DLC-TU-GOD.rar'; reach = 'HR-DLC-TU-GOD.rar'
 }
-$expectedDlc = @{ dcc = 1; bo2 = 8; mw3 = 26; gow3 = 0; dc3 = 20; ks = 2; ka = 1; kjr = 2; kp = 1; fnk = 8; re6 = 11; minecraft = 92; fm4 = 21; mk = 17; bo3 = 5; dc2 = 29; gh3 = 25; d3 = 1; halo3 = 5; reach = 5 }
+$expectedDlc = @{ dcc = 1; bo2 = 8; mw3 = 26; gow3 = 33; dc3 = 20; ks = 2; ka = 1; kjr = 2; kp = 1; fnk = 8; re6 = 11; minecraft = 92; fm4 = 21; mk = 17; bo3 = 5; dc2 = 29; gh3 = 25; d3 = 1; halo3 = 5; reach = 5 }
 
 # The password, never shown.
 if (-not (Test-Path -LiteralPath $PasswordNote)) { throw "The password note is missing: $PasswordNote" }

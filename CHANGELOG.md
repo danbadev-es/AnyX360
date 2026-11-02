@@ -8,6 +8,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Changed
+- **Gears of War 3 is now recompiled from its title update (0.0.6.7)** and takes its downloadable content:
+  the launcher installs the update and 33 packages from the Games on Demand copy. A copy without the update
+  no longer plays. Seen: the campaign from a new game to a checkpoint and Continue; RAAM's Shadow started
+  and played; over System Link, Team Deathmatch on Sandbar and on the downloadable map Jacinto with both
+  players on the scoreboard; 25 maps in the chooser; Horde over System Link only as far as both copies
+  at wave 1 on Anvil (the Command Post and the waves weren't tested on this version).
+
 ## [0.34.0] - 2026-11-02
 
 Kinect Adventures' avatars and its last three activities; Horde and Reach's Join over System Link confirmed; Halo's films and Reach's Forge saves; Mortal Kombat's Story and Black Ops II's Zombies over System Link no longer hang; Beach Volleyball and Doritos crashes fixed.
