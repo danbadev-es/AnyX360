@@ -19,6 +19,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   side fires the item held), and Stunt, Sprint and Smash played to their results with the scripted
   player; Trick runs to its results (copying its poses needs a person). Routes in
   [docs/KINECTJOYRIDE.md](docs/KINECTJOYRIDE.md).
+- **Kinect Party**: 17 minutes of auto play with the scripted player dancing went through eight
+  channels (Kung Fu, Monster Attack, Dress Up, balloons, a picture booth, Bath Time, a rainy forest,
+  a shadow play) without an error ([docs/KINECTPARTY.md](docs/KINECTPARTY.md)).
 
 ## [0.33.0] - 2026-11-01
 
