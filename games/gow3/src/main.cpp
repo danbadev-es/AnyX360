@@ -18,6 +18,9 @@ int main(int argc, char** argv) {
   game.user_dir = game_info::kUserDir;
   game.dev_game_dir = game_info::kDevGameDir;
   game.title_id = game_info::kTitleId;
+  // Recompiled from its title update (0.0.6.7): the copy's 0.0.0.7 is patched with it at start.
+  game.update_package = game_info::kUpdatePackage;
+  game.update_version = game_info::kUpdateVersion;
   game.vblanks_per_frame = 2;
   game.on_function_table = gow3::InstallUe3Trace;
   return x360::host::RunHost(argc, argv, game);

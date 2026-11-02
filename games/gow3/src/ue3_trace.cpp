@@ -4,12 +4,12 @@
 // function ("Class.Function" of the calling object) made through EX_VirtualFunction and
 // EX_FinalFunction. With a filter, every call whose text contains it is logged instead.
 //
-// Addresses below belong to this build of the game (TU0 default.xex):
-//   GNatives            0x833CDFD8 (EX_VirtualFunction = 0x1B, EX_FinalFunction = 0x1C)
+// Addresses below belong to the build it is recompiled from (the title update's 0.0.6.7), remapped
+// from the disc's 0.0.0.7 by matching the functions' code:
+//   GNatives holds EX_VirtualFunction (0x1B) and EX_FinalFunction (0x1C)
 //   FFrame              Object +0x14, Code +0x18
 //   UObject             Outer +0x28, Name +0x2C, Class +0x34
 // Names are resolved by walking the FNameEntry pools ([be32 index << 1][be32 hash next][ANSI text]).
-#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
@@ -30,8 +30,8 @@ using namespace x360::kernel;
 namespace gow3 {
 namespace {
 
-constexpr uint32_t kExecVirtualFunction = 0x822CD110;
-constexpr uint32_t kExecFinalFunction = 0x822CD180;
+constexpr uint32_t kExecVirtualFunction = 0x822DD460;
+constexpr uint32_t kExecFinalFunction = 0x822DD4D0;
 
 PPCFunc* g_virtual_original = nullptr;
 PPCFunc* g_final_original = nullptr;
@@ -115,7 +115,7 @@ std::string Name(uint32_t index) {
 // (intrinsic classes), and are aligned.
 bool ValidObject(uint32_t object) {
   if (object & 3) return false;
-  return (object >= 0x00010000 && object < 0x70000000) || (object >= 0x82000000 && object < 0x835B0000);
+  return (object >= 0x00010000 && object < 0x70000000) || (object >= 0x82000000 && object < 0x83620000);
 }
 
 std::string ObjectName(uint32_t object) {
@@ -184,17 +184,6 @@ std::string FString(uint32_t address) {
   return out;
 }
 
-// NUL-terminated UTF-16BE text as ASCII.
-std::string WideString(uint32_t address) {
-  std::string out;
-  for (uint32_t i = 0; address && i < 256; ++i) {
-    uint16_t c = Load<uint16_t>(address + i * 2);
-    if (!c) break;
-    out += (c >= 0x20 && c < 0x7F) ? char(c) : '?';
-  }
-  return out;
-}
-
 bool g_hooks_enabled = false;
 
 }  // namespace
@@ -228,8 +217,8 @@ void InstallUe3Trace() {
     __imp__sub_##address(ctx, base);                                                    \
   }
 
-extern "C" PPC_FUNC(__imp__sub_822B6CD0);
-PPC_FUNC(sub_822B6CD0) {
+extern "C" PPC_FUNC(__imp__sub_822C7218);
+PPC_FUNC(sub_822C7218) {
   // FAsyncPackage::CreateLinker (polled every tick while the package is pending): name at +4.
   if (gow3::g_hooks_enabled) {
     static std::string last;
@@ -237,12 +226,12 @@ PPC_FUNC(sub_822B6CD0) {
     if (name != last) KLOG_I("async package %s", name.c_str());
     last = name;
   }
-  __imp__sub_822B6CD0(ctx, base);
+  __imp__sub_822C7218(ctx, base);
 }
 
 // GearEngine::LoadMap(FURL& URL, ...): FURL Map at +28, options TArray<FString> at +40.
-extern "C" PPC_FUNC(__imp__sub_82A0B7A0);
-PPC_FUNC(sub_82A0B7A0) {
+extern "C" PPC_FUNC(__imp__sub_82A1D420);
+PPC_FUNC(sub_82A1D420) {
   if (gow3::g_hooks_enabled) {
     uint32_t url = ctx.r4.u32;
     std::string options;
@@ -252,109 +241,20 @@ PPC_FUNC(sub_82A0B7A0) {
     KLOG_I("call GearEngine::LoadMap(%s%s)", gow3::FString(url + 28).c_str(), options.c_str());
   }
   uint32_t error = ctx.r6.u32;
-  __imp__sub_82A0B7A0(ctx, base);
+  __imp__sub_82A1D420(ctx, base);
   if (gow3::g_hooks_enabled) {
-    uint32_t world = Load<uint32_t>(0x83429828);
+    uint32_t world = Load<uint32_t>(0x83439FE8);
     uint32_t world_info = world ? Load<uint32_t>(Load<uint32_t>(Load<uint32_t>(world + 80) + 60)) : 0;
     KLOG_I("     LoadMap -> %u, error '%s', WorldInfo+916 = %u", ctx.r3.u32, gow3::FString(error).c_str(),
            world_info ? Load<uint8_t>(world_info + 916) : 0xFF);
   }
 }
-GOW3_TRACE_CALL(82A10F38, "GearEngine::LoadCheckpoint")
-GOW3_TRACE_CALL(82A11138, "GearEngine::ApplyCheckpoint?")
-GOW3_TRACE_CALL(82A0B678, "GearEngine stream checkpoint levels")
-GOW3_TRACE_CALL(82A0BF40, "GearEngine checkpoint state 3")
-GOW3_TRACE_CALL(82A08250, "Checkpoint kismet events")
-GOW3_TRACE_CALL(82A10E38, "GearEngine::SaveCheckpoint")
-
-// _wcsicmp (case-insensitive UTF-16 compare): logged when comparing game class names.
-extern "C" PPC_FUNC(__imp__sub_82CCAB98);
-PPC_FUNC(sub_82CCAB98) {
-  std::string a, b;
-  if (gow3::g_hooks_enabled) {
-    a = gow3::WideString(ctx.r3.u32);
-    b = gow3::WideString(ctx.r4.u32);
-  }
-  uint64_t lr = ctx.lr;
-  __imp__sub_82CCAB98(ctx, base);
-  ctx.lr = lr;
-  if (gow3::g_hooks_enabled && (a.find("GameSP") != std::string::npos || b.find("GameSP") != std::string::npos ||
-                                 ctx.lr == 0x826DE7AC))
-    KLOG_I("call wcsicmp(%s, %s) = %d", a.c_str(), b.c_str(), ctx.r3.s32);
-}
-
-GOW3_TRACE_CALL(82A40E50, "LoadMap chapter: get chapter list")
-GOW3_TRACE_CALL(8253C3F8, "LoadMap chapter: 8253C3F8")
-GOW3_TRACE_CALL(8253C728, "LoadMap chapter: 8253C728")
-GOW3_TRACE_CALL(82A3FBC0, "LoadMap chapter: 82A3FBC0")
-GOW3_TRACE_CALL(82651D80, "LoadMap chapter: 82651D80")
-GOW3_TRACE_CALL(8253A428, "UGameEngine::LoadMap")
-
-// IsTransitionMap-like check used by GearEngine::LoadMap to skip the chapter start.
-extern "C" PPC_FUNC(__imp__sub_826E80B8);
-PPC_FUNC(sub_826E80B8) {
-  uint32_t world_info = ctx.r3.u32;
-  uint32_t flags = gow3::g_hooks_enabled ? Load<uint32_t>(world_info + 696) : 0;
-  uint64_t lr = ctx.lr;
-  __imp__sub_826E80B8(ctx, base);
-  if (gow3::g_hooks_enabled)
-    KLOG_I("call IsTransitionMap(%s %08X, flags %08X) = %u lr %08llX", gow3::ClassName(world_info).c_str(),
-           world_info, flags, ctx.r3.u32, (unsigned long long)lr);
-}
-
-GOW3_TRACE_CALL(826DE390, "826DE390 (sets WorldInfo transition flag)")
-
-// Crash investigation: sub_82683148(this, index, a, b, object, ...) walks object+292 entries chosen
-// through a byte table at this+828/840.
-extern "C" PPC_FUNC(__imp__sub_82683148);
-PPC_FUNC(sub_82683148) {
-  if (gow3::g_hooks_enabled) {
-    std::lock_guard lock(gow3::g_mutex);
-    uint32_t self = ctx.r3.u32, object = ctx.r7.u32, index = ctx.r4.u32;
-    uint32_t table = (ctx.r5.u32 || ctx.r6.u32) ? self + 828 : self + 840;
-    uint32_t count = Load<uint32_t>(table + 4);
-    uint32_t mapped = count > 0 ? Load<uint8_t>(Load<uint32_t>(table) + index) : 255;
-    uint32_t entries = gow3::ValidObject(object) ? Load<uint32_t>(object + 292) : 0;
-    uint32_t entry_count = gow3::ValidObject(object) ? Load<uint32_t>(object + 296) : 0;
-    uint32_t node = (entries && mapped != 255 && mapped < entry_count) ? Load<uint32_t>(entries + mapped * 12 + 8) : 0;
-    static int logged = 0;
-    bool bad = mapped != 255 && (mapped >= entry_count || (node && !gow3::ValidObject(node)));
-    if (bad || logged < 10) {
-      ++logged;
-      KLOG_I("82683148: self %s %08X index %u table[%u]=%u object %s.%s %08X entries %u node %08X%s",
-             gow3::ClassName(self).c_str(), self, index, count, mapped, gow3::ClassName(object).c_str(),
-             gow3::ObjectName(object).c_str(), object, entry_count, node, bad ? "  <-- BAD" : "");
-      if (bad) {
-        std::string bytes;
-        char hex[4];
-        uint32_t data = Load<uint32_t>(table);
-        for (uint32_t i = 0; i < count; ++i) {
-          std::snprintf(hex, sizeof(hex), "%02X ", Load<uint8_t>(data + i));
-          bytes += hex;
-        }
-        KLOG_I("82683148: table data %08X (max %u): %s", data, Load<uint32_t>(table + 8), bytes.c_str());
-      }
-    }
-  }
-  __imp__sub_82683148(ctx, base);
-}
-
-// Experiment switch: ANYX360_OLD_MEMSET reproduces the truncated memset (tail bytes 2-3 not written).
-extern "C" PPC_FUNC(__imp__sub_82CC9EA0);
-PPC_FUNC(sub_82CC9EA0) {
-  static const bool old = std::getenv("ANYX360_OLD_MEMSET") != nullptr;
-  if (!old) {
-    __imp__sub_82CC9EA0(ctx, base);
-    return;
-  }
-  uint32_t dst = ctx.r3.u32, value = ctx.r4.u8, size = ctx.r5.u32;
-  // Byte stores up to 4-byte alignment, words for the body, then only the first tail byte.
-  uint32_t prefix = std::min<uint32_t>(size, (4 - (dst & 3)) & 3);
-  uint32_t body = (size - prefix) & ~3u;
-  uint32_t tail = size - prefix - body;
-  for (uint32_t i = 0; i < prefix + body; ++i) Store<uint8_t>(dst + i, uint8_t(value));
-  if (tail) Store<uint8_t>(dst + prefix + body, uint8_t(value));
-}
+GOW3_TRACE_CALL(82A22B40, "GearEngine::LoadCheckpoint")
+GOW3_TRACE_CALL(82A22D40, "GearEngine::ApplyCheckpoint?")
+GOW3_TRACE_CALL(82A1D2F8, "GearEngine stream checkpoint levels")
+GOW3_TRACE_CALL(82A1DBC0, "GearEngine checkpoint state 3")
+GOW3_TRACE_CALL(82A19E80, "Checkpoint kismet events")
+GOW3_TRACE_CALL(82A22A40, "GearEngine::SaveCheckpoint")
 
 #endif  // GOW3_DISABLE_HOOKS
 
@@ -362,12 +262,12 @@ PPC_FUNC(sub_82CC9EA0) {
 // Crash investigation: StaticFindObjectFastInternal walks GObjHashOuter chains through
 // UObject::HashOuterNext (+0x10). Before walking, validate the chain and report the object whose
 // link is corrupt (with ANYX360_UE3_TRACE).
-extern "C" PPC_FUNC(__imp__sub_8230F098);
-PPC_FUNC(sub_8230F098) {
+extern "C" PPC_FUNC(__imp__sub_8231F8B8);
+PPC_FUNC(sub_8231F8B8) {
   if (gow3::g_hooks_enabled && ctx.r4.u32) {
     // (srawi outer,4) ^ FName.Index ^ FName.Number, 0x8000 buckets (rlwinm ...,2,15,29).
     uint32_t hash = (uint32_t(ctx.r4.s32 >> 4) ^ ctx.r5.u32 ^ uint32_t(ctx.r5.u64 >> 32)) & 0x7FFF;
-    uint32_t object = Load<uint32_t>(0x833D63E8 + hash * 4);
+    uint32_t object = Load<uint32_t>(0x833E6BA8 + hash * 4);
     uint32_t previous = 0;
     for (int n = 0; object && n < 100000; ++n) {
       if (!gow3::ValidObject(object)) {
@@ -387,6 +287,6 @@ PPC_FUNC(sub_8230F098) {
       object = Load<uint32_t>(object + 16);
     }
   }
-  __imp__sub_8230F098(ctx, base);
+  __imp__sub_8231F8B8(ctx, base);
 }
 #endif

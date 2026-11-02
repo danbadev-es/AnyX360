@@ -1,11 +1,18 @@
-# Gears of War 3 recompiler configuration (XenonRecomp format).
-# Addresses are filled in during Phase 1/2 from Ghidra analysis. Paths are relative to this file.
+# Gears of War 3 recompiler configuration (XenonRecomp format). Paths are relative to this file.
 # This file contains no game code or data; it only describes where things are.
+#
+# The game is recompiled from its title update's executable (version 0.0.6.7): XenonRecomp applies
+# patch_file_path to file_path and writes patched_file_path, which XenonAnalyse reads (x360tool
+# xex-patch makes the same file). file_path is the default.xex of the disc files extracted from the
+# Games on Demand package (version 0.0.0.7, encrypted with the retail key); patch_file_path is
+# default.xexp from the update's package (TU_16L625B_000000S000000.00000000001G7, x360tool
+# stfs-extract), see docs/GEARS3.md.
 
 [main]
-file_path = "../../extracted/gow3/Gears Of War 3/AP7kB/default.xex"
-# patch_file_path = "../../extracted/gow3/default.xexp"   # Title Update, if we target one
-out_directory_path = "recomp2"
+file_path = "../../extracted/gow3/game/default.xex"
+patch_file_path = "../../extracted/gow3/update/default.xexp"
+patched_file_path = "../../extracted/gow3/update/default_0.0.6.7.xex"
+out_directory_path = "recomp3"
 switch_table_file_path = "switch_tables.toml"
 
 # Optimisations stay off until the game runs (XenonRecomp recommendation).
@@ -18,29 +25,19 @@ cr_as_local = false
 non_argument_as_local = false
 non_volatile_as_local = false
 
-# Compiler-generated register save/restore helpers. Each byte pattern from the XenonRecomp README
-# occurs exactly once in .text (tools/scripts/find_helpers.py on the extracted image).
-restgprlr_14_address = 0x82CC9910
-savegprlr_14_address = 0x82CC98C0
-restfpr_14_address = 0x82CCA1CC
-savefpr_14_address = 0x82CCA180
-restvmx_14_address = 0x82CCA518
-savevmx_14_address = 0x82CCA280
-restvmx_64_address = 0x82CCA5AC
-savevmx_64_address = 0x82CCA314
+# Compiler-generated register save/restore helpers (tools/scripts/find_helpers.py on the patched
+# image: each pattern occurs exactly once).
+restgprlr_14_address = 0x82CDD080
+savegprlr_14_address = 0x82CDD030
+restfpr_14_address = 0x82CDD93C
+savefpr_14_address = 0x82CDD8F0
+restvmx_14_address = 0x82CDDC88
+savevmx_14_address = 0x82CDD9F0
+restvmx_64_address = 0x82CDDD1C
+savevmx_64_address = 0x82CDDA84
 
-# CRT setjmp/longjmp: no setjmp-shaped function found; probably unused (UE3 does not use them).
-# Candidate to check in Ghidra: 0x82CCC3F0 (calls RtlUnwind, saves non-volatile registers).
-# setjmp_address = 0x0
-# longjmp_address = 0x0
-
-# Functions the analyser misses (address + size), added as they are found.
-# functions = [
-#   { address = 0x0, size = 0x0 },
-# ]
-
-# Hooks into recompiled code, e.g. to replace UE3's Xenon RHI entry points.
-# [[midasm_hook]]
-# name = "GoW3_RHI_Present"
-# address = 0x0
-# registers = ["r3"]
+# The CRT's setjmp/longjmp (find_helpers.py candidates, checked by hand: the same code as Dance
+# Central 2's and Black Ops II's). The code never calls setjmp directly; longjmp has 3 direct calls.
+# The other longjmp candidates (82470810, 82B19F98) are ordinary functions.
+setjmp_address = 0x82CDFE80
+longjmp_address = 0x82CDFB60

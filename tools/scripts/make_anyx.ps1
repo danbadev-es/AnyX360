@@ -52,7 +52,7 @@ function Log([string]$text) {
 
 $archives = @{
   dcc = 'DCC-DLC-TU-XBLA.rar'; bo2 = 'CODBO2-DLC-TU-GOD.part1.rar'; mw3 = 'CODMW3-DLC-TU-GOD.rar';
-  gow3 = 'Gears Of War 3.7z'; dc3 = 'DC3-DLC-TU-GOD.rar'; ks = 'KiSp-DLC-TU-GOD.rar';
+  gow3 = 'GOW3-DLC-TU-GOD.rar'; dc3 = 'DC3-DLC-TU-GOD.rar'; ks = 'KiSp-DLC-TU-GOD.rar';
   ka = 'KA-DLC-TU-GOD.rar'; kjr = 'KJR-DLC-TU-GOD.rar'; kp = 'KP-DLC-XBLA.rar'; fnk = 'FNK-DLC-TU-XBLA.rar';
   re6 = 'RE6-DLC-TU-GOD.part1.rar'; minecraft = 'Minecraft-X360-E-DLC-TU-XBLA.rar'; fm4 = 'FM4-DLC-GOD.part1.rar'; mk = 'MKCE-DLC-GOD.rar'; bo3 = 'CODBO3-DLC-TU-GOD.rar'; dc2 = 'DC2-DLC-TU-GOD.rar'; gh3 = 'GH3LOR-DLC-TU-GOD.rar'; d3 = 'D3ROSUEE-DLC-TU-GOD.rar'; halo3 = 'H3-DLC-TU-GOD.rar'; reach = 'HR-DLC-TU-GOD.rar'
 }
