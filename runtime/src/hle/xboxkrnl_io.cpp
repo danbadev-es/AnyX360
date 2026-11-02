@@ -339,7 +339,8 @@ uint32_t OpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_
   // The title's sharing (TitleInfo::file_share_access): checked against its other handles of the file.
   std::wstring share_key;
   const uint32_t share_parts = ShareRelevantAccess(desired_access);
-  if (TitlePaths().file_share_access && exists) {
+  const bool share_checked = TitlePaths().file_share_access && !r.read_only;  // the disc can't change
+  if (share_checked && exists) {
     share_key = ShareKey(r.host);
     if (!AddShareOpen(share_key, share_parts, share_access & 7)) {
       if (log_files) KLOG_I("open %s: sharing violation", guest.c_str());
@@ -364,7 +365,7 @@ uint32_t OpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_
   }
 
   auto file = std::make_shared<File>();
-  if (TitlePaths().file_share_access) {
+  if (share_checked) {
     // A new file is recorded now that it exists.
     if (share_key.empty()) {
       share_key = ShareKey(r.host);
