@@ -87,8 +87,8 @@ the sensor.
   gig and face-offs for two players ([docs/GUITARHERO3.md](docs/GUITARHERO3.md)).
 - **Diablo III: Reaper of Souls – Ultimate Evil Edition** (in testing): Blizzard's action RPG from
   a Games on Demand copy with its title update (version 0.0.2.14), with up to four players on one
-  screen, each with a controller; hero creation, Act I's first fights and the saves work, with
-  short freezes still to fix ([docs/DIABLO3.md](docs/DIABLO3.md)).
+  screen, each with a controller; hero creation, Act I's first fights and the saves work
+  ([docs/DIABLO3.md](docs/DIABLO3.md)).
 - **Halo 3** (in testing): Bungie's shooter from a Games on Demand copy with its title update
   (version 0.0.3.5): the campaign (Sierra 117, checkpoints, Save and quit) and split screen for up to
   four players, in co-op or a custom game, each with a controller, at the console's 30 FPS, and
@@ -349,7 +349,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Menus, country and level choice  | ✅ Working with a controller or the keyboard   |
 | Levels                           | 🧪 Running, jumping, checkpoints; a blind scripted run doesn't finish one (needs a person) |
 | Sound                            | 🧪 43 ms less delay; cuts a player heard not reproduced (the log now reports them) |
-| Avatars (player, crowd)          | ✅ With the avatar data from Kinect Sports or Mortal Kombat |
+| Avatars (player, crowd)          | ✅ With the avatar data from Kinect Sports or Mortal Kombat; without it the game starts, no player on screen (levels to be checked by a person) |
 | Saving progress                  | ✅ Saved and loaded again                      |
 | Title update (0.0.2.2)           | ✅ Required: the game is recompiled from it    |
 | Leaderboards                     | ❌ Not available: they need Xbox Live          |
@@ -457,7 +457,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Hero creation, Act I             | 🧪 The road and the defence of the gate played to New Tristram |
 | Pre-order shoulders              | ✅ The Infernal Pauldrons are in a new hero's inventory and can be worn |
 | Local co-op (2-4 players)        | 🧪 Two players fought together; four joined    |
-| Smoothness                       | ❌ Freezes of about half a second every few seconds (being looked into) |
+| Smoothness                       | 🧪 60 FPS without recurring freezes walking Act I's road, in most runs; fights to be checked by a player |
 | Adventure Mode                   | 🧪 Locked until Act V is finished, as on the console (needs the story played) |
 | Title update (0.0.2.14)          | ✅ Required: the game is recompiled from it    |
 | Xbox LIVE                        | ❌ Not available: Xbox LIVE is gone            |
@@ -810,7 +810,6 @@ Guitar Hero III: Legends of Rock:
 
 Diablo III: Reaper of Souls – Ultimate Evil Edition:
 
-- The picture freezes for about half a second several times every few seconds while playing.
 - Only Act I up to New Tristram has been played; Adventure Mode opens once Act V is finished.
 - New heroes take the name the game proposes (there is no on-screen keyboard).
 

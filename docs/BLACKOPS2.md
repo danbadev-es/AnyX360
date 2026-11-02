@@ -402,6 +402,26 @@ heavy log). 60 FPS there needs a cheaper command processor in general: the D3D12
 also closing and executing the command lists (the swap's submission has to stay synchronous for
 the presenter), uploads without the global lock and the write-watch faults, cheaper bindings.
 
+**Tried on 2026-11-02, nothing kept.** Same fights, a temporary build switching each change every 5
+or 10 s, comparing neighbouring 5 s windows with similar draw counts (about 3,500 draws; the machine
+was heavily loaded by other programs, 1-2 GB of RAM free, 6-7 us a draw instead of 4-5, about 40 FPS):
+
+| Change | Cost per draw, on / off (95% interval), paired windows | Frame rate, on / off |
+|---|---|---|
+| Valid ranges answered without the global lock (`SharedMemory::RequestRange`) | 0.924 (0.889-0.958), 11; again in a longer run 0.989 (0.953-1.035), 30 | 1.010; 0.997 |
+| A small cache in front of the bindless sampler map (3% of the thread in the profile) | 0.992 (0.910-1.134), 10 | 1.007 |
+| Both | 0.955 (0.934-0.984), 29; 0.976 (0.934-1.040), 14 | 1.037; 1.008 |
+
+The sampler cache does nothing measurable. The lock-free path may save a few percent of the command
+processor's time, but the longer run doesn't confirm it and the frame rate doesn't move, so it stayed
+out (it changes a concurrency path every game uses). Changes this small can't be told apart on a
+machine this busy: the rest of the list should be measured on a quiet one.
+
+The replay thread closing and executing the non-swap lists wasn't built: since "one submission a
+frame" this game has about 1.0 submissions a frame, all of them the swap's, which has to stay
+synchronous. It would help games with many submissions (Diablo III has about 11), not this one, and
+it needs a second deferred list and command list, and ordering against direct queue operations.
+
 ### Routes
 Times from the first input poll, with an existing user folder; give the second program its
 script with `ANYX360_INPUT_NEXT`.

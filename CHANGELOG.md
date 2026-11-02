@@ -50,6 +50,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - The "Horde counter stays at 0:30" known issue of **Gears of War 3** was no bug: the first objective
   is a Command Post, bought by holding Y at its green tower.
 
+- The regression baseline is now 0.33.0's, all 20 games (a loaded machine again: other games
+  running beside it; `tools/regress/baseline/README.md`).
+- The log's warning for a display that returns no vblanks now says that pauses of about 0.4 s go with
+  it. In the logs of 2026-10-31 to 11-02 they went together (docs/ARCHITECTURE.md, Troubleshooting).
+- **Diablo III**: the warning about freezes every few seconds is gone: walking Act I's road it held
+  60 FPS in four of five runs with other programs running (the longest about 9 minutes). The freezes
+  came back only when another game
+  started beside it, and that night's log has the warning above. Fights weren't measured
+  ([docs/DIABLO3.md](docs/DIABLO3.md)).
+
 ### Fixed
 
 - **Kinect Sports**: skipping Beach Volleyball's intro video crashed the game (a jump table the
@@ -85,6 +95,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - **Mortal Kombat**: Story's opening cinematic could freeze for good about 90 s in, on a busy machine:
   a deadlock between the two readers of the game's movie stream.
 - `ANYX360_INPUT_LIVE`: a press with `~<period>x<count>` was dropped after its first repeat.
+
+- **Doritos Crash Course** no longer crashes about 10 s after starting when there's no avatar pack
+  (no Kinect Sports or Mortal Kombat in the library): the avatar system now stays off for it without
+  a pack (`GameDescriptor::avatar_system_needs_pack`).
 
 ## [0.33.0] - 2026-11-01
 
