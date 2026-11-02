@@ -137,11 +137,72 @@ struct IoCompletion : Object {
 
 // ---- file objects -----------------------------------------------------------------------------
 
+// ---- share access (TitleInfo::file_share_access) ------------------------------------------------
+// The console's file systems keep each open's access and sharing, as Windows does (IoCheckShareAccess):
+// an open that wants to read, write or delete conflicts with another handle of the same file that
+// doesn't share that, and with one that reads, writes or deletes what it doesn't share. Host files
+// are opened sharing everything (the runtime's own reads), so the guest's opens are checked here.
+constexpr uint32_t kShareRead = 1, kShareWrite = 2, kShareDelete = 4;
+
+// The read (1), write (2) and delete (4) parts of an access mask, generic rights included.
+uint32_t ShareRelevantAccess(uint32_t access) {
+  uint32_t parts = 0;
+  if (access & (0x1 | 0x20 | 0x80000000 | 0x20000000 | 0x10000000)) parts |= kShareRead;
+  if (access & (0x2 | 0x4 | 0x40000000 | 0x10000000)) parts |= kShareWrite;
+  if (access & (0x10000 | 0x10000000)) parts |= kShareDelete;
+  return parts;
+}
+
+struct ShareOpen {
+  uint32_t access;  // ShareRelevantAccess
+  uint32_t share;   // FILE_SHARE_*
+};
+std::mutex g_share_mutex;
+std::unordered_map<std::wstring, std::vector<ShareOpen>> g_share_opens;
+
+std::wstring ShareKey(const fs::path& host) {
+  std::wstring key = host.lexically_normal().wstring();
+  for (wchar_t& c : key) c = wchar_t(towlower(c));
+  return key;
+}
+
+// Records an open of `key` unless it conflicts with one already there; false: a sharing violation.
+bool AddShareOpen(const std::wstring& key, uint32_t access, uint32_t share) {
+  std::lock_guard lock(g_share_mutex);
+  std::vector<ShareOpen>& opens = g_share_opens[key];
+  if (access) {
+    for (const ShareOpen& o : opens) {
+      if (!o.access) continue;
+      if ((access & ~o.share) || (o.access & ~share)) return false;
+    }
+  }
+  opens.push_back({access, share});
+  return true;
+}
+
+void RemoveShareOpen(const std::wstring& key, uint32_t access, uint32_t share) {
+  std::lock_guard lock(g_share_mutex);
+  auto it = g_share_opens.find(key);
+  if (it == g_share_opens.end()) return;
+  std::vector<ShareOpen>& opens = it->second;
+  for (auto o = opens.begin(); o != opens.end(); ++o) {
+    if (o->access == access && o->share == share) {
+      opens.erase(o);
+      break;
+    }
+  }
+  if (opens.empty()) g_share_opens.erase(it);
+}
+
 struct File : Object {
   const char* TypeName() const override { return "File"; }
   ~File() override {
     if (handle != INVALID_HANDLE_VALUE) ::CloseHandle(handle);
+    if (!share_key.empty()) RemoveShareOpen(share_key, share_access_parts, share_mode);
   }
+  // Recorded in g_share_opens while open (TitleInfo::file_share_access).
+  std::wstring share_key;
+  uint32_t share_access_parts = 0, share_mode = 0;
   HANDLE handle = INVALID_HANDLE_VALUE;
   fs::path host_path;
   std::string guest_path;
@@ -197,7 +258,7 @@ constexpr uint32_t kFileNonDirectoryFile = 0x40;
 constexpr uint32_t kFileSynchronousIo = 0x30;  // FILE_SYNCHRONOUS_IO_ALERT | FILE_SYNCHRONOUS_IO_NONALERT
 
 uint32_t OpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_attributes, uint32_t io_status,
-                  uint32_t disposition, uint32_t create_options) {
+                  uint32_t share_access, uint32_t disposition, uint32_t create_options) {
   if (!object_attributes) return X_STATUS_INVALID_PARAMETER;
   std::string guest = ReadAnsi(Load<uint32_t>(object_attributes + 4));
   uint32_t root = Load<uint32_t>(object_attributes + 0);
@@ -207,7 +268,9 @@ uint32_t OpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_
 
   Resolved r = Resolve(guest);
   static const bool log_files = std::getenv("ANYX360_LOG_FILES") != nullptr;
-  if (log_files) KLOG_I("open %s (access %08X, disposition %u, options %08X)", guest.c_str(), desired_access, disposition, create_options);
+  if (log_files)
+    KLOG_I("open %s (access %08X, share %X, disposition %u, options %08X)", guest.c_str(), desired_access, share_access,
+           disposition, create_options);
   // The whole hard disk, which the XDK's XMountUtilityDrive opens to ask its geometry
   // (NtDeviceIoControlFile) before it mounts the cache partition (Forza Motorsport 4): a file with
   // nothing behind it, as Xenia's null device.
@@ -273,6 +336,17 @@ uint32_t OpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_
     default: return X_STATUS_INVALID_PARAMETER;
   }
   if (r.read_only) create = OPEN_EXISTING;
+  // The title's sharing (TitleInfo::file_share_access): checked against its other handles of the file.
+  std::wstring share_key;
+  const uint32_t share_parts = ShareRelevantAccess(desired_access);
+  if (TitlePaths().file_share_access && exists) {
+    share_key = ShareKey(r.host);
+    if (!AddShareOpen(share_key, share_parts, share_access & 7)) {
+      if (log_files) KLOG_I("open %s: sharing violation", guest.c_str());
+      SetIoStatus(io_status, X_STATUS_SHARING_VIOLATION, 0);
+      return X_STATUS_SHARING_VIOLATION;
+    }
+  }
   DWORD access = (!r.read_only && wants_write) ? (GENERIC_READ | GENERIC_WRITE) : GENERIC_READ;
   if (create != OPEN_EXISTING) fs::create_directories(r.host.parent_path(), ec);
 
@@ -284,11 +358,22 @@ uint32_t OpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_
                       : error == ERROR_FILE_EXISTS                                     ? X_STATUS_OBJECT_NAME_COLLISION
                                                                                        : X_STATUS_ACCESS_DENIED;
     KLOG_T("NtCreateFile '%s' -> %08X", guest.c_str(), status);
+    if (!share_key.empty()) RemoveShareOpen(share_key, share_parts, share_access & 7);
     SetIoStatus(io_status, status, 0);
     return status;
   }
 
   auto file = std::make_shared<File>();
+  if (TitlePaths().file_share_access) {
+    // A new file is recorded now that it exists.
+    if (share_key.empty()) {
+      share_key = ShareKey(r.host);
+      AddShareOpen(share_key, share_parts, share_access & 7);
+    }
+    file->share_key = share_key;
+    file->share_access_parts = share_parts;
+    file->share_mode = share_access & 7;
+  }
   file->handle = h;
   file->asynchronous = (create_options & kFileSynchronousIo) == 0;
   file->host_path = r.host;
@@ -305,14 +390,12 @@ uint32_t NtCreateFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t obj
                       uint32_t disposition, uint32_t create_options) {
   (void)allocation_size_ptr;
   (void)file_attributes;
-  (void)share_access;
-  return OpenFile(handle_ptr, desired_access, object_attributes, io_status, disposition, create_options);
+  return OpenFile(handle_ptr, desired_access, object_attributes, io_status, share_access, disposition, create_options);
 }
 
 uint32_t NtOpenFile(uint32_t handle_ptr, uint32_t desired_access, uint32_t object_attributes, uint32_t io_status,
                     uint32_t share_access, uint32_t open_options) {
-  (void)share_access;
-  return OpenFile(handle_ptr, desired_access, object_attributes, io_status, 1, open_options);
+  return OpenFile(handle_ptr, desired_access, object_attributes, io_status, share_access, 1, open_options);
 }
 
 // Reads `length` bytes at `offset` (or the current position) into guest memory.
@@ -595,6 +678,43 @@ uint32_t NtSetInformationFile(uint32_t handle, uint32_t io_status, uint32_t info
       break;
     case 4:  // FileBasicInformation (timestamps/attributes): ignored
       break;
+    case 10: {  // FileRenameInformation: replace existing (+0), root handle (+4), the new name (+8)
+      if (!TitlePaths().file_share_access) {
+        KLOG_W("NtSetInformationFile: unsupported class %u", info_class);
+        return X_STATUS_INVALID_INFO_CLASS;
+      }
+      std::string target = ReadAnsi(info + 8);
+      if (target.find(':') == std::string::npos && !target.starts_with("\\")) {
+        // A name without a device is next to the file.
+        const size_t slash = file->guest_path.find_last_of('\\');
+        if (slash != std::string::npos) target = file->guest_path.substr(0, slash + 1) + target;
+      }
+      Resolved to = Resolve(target);
+      if (!to.ok || to.read_only) {
+        SetIoStatus(io_status, X_STATUS_ACCESS_DENIED, 0);
+        return X_STATUS_ACCESS_DENIED;
+      }
+      const DWORD flags = Load<uint32_t>(info) ? MOVEFILE_REPLACE_EXISTING : 0;
+      if (!MoveFileExW(file->host_path.c_str(), to.host.c_str(), flags)) {
+        const DWORD error = GetLastError();
+        const uint32_t status = error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS ? X_STATUS_OBJECT_NAME_COLLISION
+                                                                                            : X_STATUS_ACCESS_DENIED;
+        if (log_files) KLOG_I("rename %s to %s failed (%lu)", file->guest_path.c_str(), target.c_str(), error);
+        SetIoStatus(io_status, status, 0);
+        return status;
+      }
+      if (log_files) KLOG_I("renamed %s to %s", file->guest_path.c_str(), target.c_str());
+      if (!file->share_key.empty()) {
+        // Its sharing goes on under the new name.
+        RemoveShareOpen(file->share_key, file->share_access_parts, file->share_mode);
+        file->share_key = ShareKey(to.host);
+        std::lock_guard lock(g_share_mutex);
+        g_share_opens[file->share_key].push_back({file->share_access_parts, file->share_mode});
+      }
+      file->host_path = to.host;
+      file->guest_path = target;
+      break;
+    }
     case 30: {  // FileCompletionInformation: the port (a handle) and the key of its packets
       auto port = LookupHandleAs<IoCompletion>(Load<uint32_t>(info));
       if (!port) return X_STATUS_INVALID_HANDLE;

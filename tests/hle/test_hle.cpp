@@ -69,6 +69,7 @@ PPC_EXTERN_FUNC(__imp__XamUserGetSigninInfo);
 PPC_EXTERN_FUNC(__imp__XamUserGetXUID);
 PPC_EXTERN_FUNC(__imp__NtCreateFile);
 PPC_EXTERN_FUNC(__imp__NtClose);
+PPC_EXTERN_FUNC(__imp__NtSetInformationFile);
 PPC_EXTERN_FUNC(__imp__XamContentCreateEnumerator);
 PPC_EXTERN_FUNC(__imp__XamContentCreateEx);
 PPC_EXTERN_FUNC(__imp__XamContentSetThumbnail);
@@ -703,6 +704,82 @@ int main() {
     CHECK(ctx.r3.u32 == 0 && fs::is_regular_file(info.user_root / "cache" / "test.dat"));
     ctx.r3.u64 = mem.read<uint32_t>(handle);
     __imp__NtClose(ctx, base);
+    fs::remove_all(folder);
+  }
+
+  // The title's share access and renames (TitleInfo::file_share_access), as Halo's films need them:
+  // the recorder shares nothing, so the delete the game tries meanwhile fails; ended, it is renamed.
+  {
+    namespace fs = std::filesystem;
+    const fs::path folder = fs::temp_directory_path() / "anyx360_test_utility_drive";  // the devices keep their first mount
+    fs::remove_all(folder);
+    kernel::TitleInfo info;
+    info.game_root = folder / "game";
+    info.user_root = folder / "user";
+    info.file_share_access = true;
+    fs::create_directories(info.game_root);
+    kernel::InitIo(info);
+    kernel::SetTitlePathsForTests(info);
+    CHECK(kernel::MountUtilityDrive() == 0);
+    constexpr guest_addr kArea = 0x40008000;
+    const guest_addr name = kArea, text = kArea + 0x10, attributes = kArea + 0x40, io = kArea + 0x50,
+                     handle = kArea + 0x60, rename_info = kArea + 0x70, new_text = kArea + 0x90;
+    const char path[] = "cache0:\\film.temp";
+    std::memcpy(mem.translate(text), path, sizeof(path));
+    mem.write<uint16_t>(name, uint16_t(sizeof(path) - 1)), mem.write<uint16_t>(name + 2, uint16_t(sizeof(path)));
+    mem.write<uint32_t>(name + 4, text);
+    mem.write<uint32_t>(attributes + 0, 0), mem.write<uint32_t>(attributes + 4, name), mem.write<uint32_t>(attributes + 8, 0);
+    auto open = [&](uint32_t access, uint32_t share, uint32_t disposition) {
+      ctx.r3.u64 = handle, ctx.r4.u64 = access, ctx.r5.u64 = attributes, ctx.r6.u64 = io, ctx.r7.u64 = 0;
+      ctx.r8.u64 = 0x80, ctx.r9.u64 = share, ctx.r10.u64 = disposition;
+      const uint32_t saved_sp = ctx.r1.u32;
+      ctx.r1.u64 = kArea + 0x200;
+      mem.write<uint32_t>(kArea + 0x200 + 0x54, 0x60);
+      __imp__NtCreateFile(ctx, base);
+      ctx.r1.u64 = saved_sp;
+      return ctx.r3.u32;
+    };
+    auto close = [&] {
+      ctx.r3.u64 = mem.read<uint32_t>(handle);
+      __imp__NtClose(ctx, base);
+    };
+    const char new_path[] = "cache0:\\film.film";
+    std::memcpy(mem.translate(new_text), new_path, sizeof(new_path));
+    auto rename = [&] {
+      mem.write<uint32_t>(rename_info + 0, 0), mem.write<uint32_t>(rename_info + 4, 0);
+      mem.write<uint16_t>(rename_info + 8, uint16_t(sizeof(new_path) - 1));
+      mem.write<uint16_t>(rename_info + 10, uint16_t(sizeof(new_path)));
+      mem.write<uint32_t>(rename_info + 12, new_text);
+      ctx.r3.u64 = mem.read<uint32_t>(handle), ctx.r4.u64 = io, ctx.r5.u64 = rename_info, ctx.r6.u64 = 16, ctx.r7.u64 = 10;
+      __imp__NtSetInformationFile(ctx, base);
+      return ctx.r3.u32;
+    };
+    constexpr uint32_t kDelete = 0x00010000, kGenericWrite = 0x40000000, kSharingViolation = 0xC0000043;
+    CHECK(open(kGenericWrite | 0x100080, 0, 5) == 0);  // the recorder: shares nothing
+    const uint32_t recorder = mem.read<uint32_t>(handle);
+    CHECK(open(kDelete, 7, 1) == kSharingViolation);   // the delete it tries meanwhile
+    CHECK(open(0x100100, 7, 1) == 0);                  // attributes only: no conflict
+    close();
+    mem.write<uint32_t>(handle, recorder);
+    close();
+    CHECK(open(kDelete | 0x100000, 7, 1) == 0);        // the recorder gone
+    CHECK(rename() == 0);
+    close();
+    CHECK(fs::is_regular_file(info.user_root / "cache" / "film.film") && !fs::exists(info.user_root / "cache" / "film.temp"));
+    // Without the option: everything shared and no renames, as the other games.
+    info.file_share_access = false;
+    kernel::SetTitlePathsForTests(info);
+    std::error_code renamed;
+    fs::rename(info.user_root / "cache" / "film.film", info.user_root / "cache" / "film.temp", renamed);
+    CHECK(!renamed);
+    CHECK(open(kGenericWrite | 0x100080, 0, 3) == 0);
+    const uint32_t first = mem.read<uint32_t>(handle);
+    CHECK(open(kDelete, 7, 1) == 0);
+    CHECK(rename() == 0xC0000003);  // X_STATUS_INVALID_INFO_CLASS
+    close();
+    mem.write<uint32_t>(handle, first);
+    close();
+    kernel::SetTitlePathsForTests({});
     fs::remove_all(folder);
   }
 

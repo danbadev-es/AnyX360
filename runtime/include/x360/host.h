@@ -116,6 +116,12 @@ struct GameDescriptor {
   // other games, which were brought up that way. Diablo III asks a new hero's name with it and
   // can't create one when it is cancelled.
   bool keyboard_ui_accepts = false;
+  // Files opened by the title keep the sharing it asks for (NtCreateFile's share access), as the
+  // console's file systems do: an open that conflicts with another handle's access or sharing fails
+  // with STATUS_SHARING_VIOLATION; and it can rename its files (FileRenameInformation). false: every
+  // open shares everything and renames are refused, as the other games were brought up. Halo 3 and
+  // Reach try to delete the film they are recording, which must fail, and rename it when it ends.
+  bool file_share_access = false;
   // Game-specific default settings, applied before settings.toml is read.
   std::function<void(settings::Settings&)> defaults;
   // Called once the function table is filled, before the title runs (game-specific debug hooks).

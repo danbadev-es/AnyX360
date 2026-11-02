@@ -36,5 +36,9 @@ int main(int argc, char** argv) {
   // fast, the cinematics' voices overlapping. Gameplay keeps time on its own clock.
   game.vblanks_per_frame = 2;
   game.fixed_fps = 30;
+  // Its films, as Halo 3's: the film being recorded (cache1:\autosave\<name>.temp) is deleted right
+  // after it is created unless that delete fails as on the console, where the open handle doesn't
+  // share delete; here the temporary history listed no films.
+  game.file_share_access = true;
   return x360::host::RunHost(argc, argv, game);
 }

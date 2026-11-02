@@ -74,6 +74,7 @@ enum : uint32_t {
   X_STATUS_OBJECT_NAME_NOT_FOUND = 0xC0000034,
   X_STATUS_OBJECT_NAME_COLLISION = 0xC0000035,
   X_STATUS_OBJECT_PATH_NOT_FOUND = 0xC000003A,
+  X_STATUS_SHARING_VIOLATION = 0xC0000043,
   X_STATUS_MUTANT_NOT_OWNED = 0xC0000046,
   X_STATUS_SEMAPHORE_LIMIT_EXCEEDED = 0xC0000047,
   X_STATUS_FILE_IS_A_DIRECTORY = 0xC00000BA,
@@ -393,6 +394,7 @@ struct TitleInfo {
   bool separate_xex_4k_heap = false;  // 0x90000000 isn't a view of 0x80000000 (GameDescriptor)
   bool kinect_sensor = true;  // a Kinect sensor is reported connected (GameDescriptor)
   bool keyboard_ui_accepts = false;  // XamShowKeyboardUI accepts its default text (GameDescriptor)
+  bool file_share_access = false;    // opens keep the title's share access, renames work (GameDescriptor)
   uint32_t audio_queued_frames = 0;  // audio frames queued ahead of playback, 0: 16 (GameDescriptor)
   // The title's executables XamLoaderLaunchTitle can start: {XEX name in lower case, host
   // executable} (GameDescriptor::executables).

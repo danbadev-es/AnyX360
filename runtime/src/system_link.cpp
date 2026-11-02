@@ -410,6 +410,10 @@ int32_t Stack::Socket(uint32_t af, uint32_t type, uint32_t protocol) {
   // length: both ends are AnyX360, so it goes as it is.
   SOCKET host = ::socket(AF_INET, udp ? SOCK_DGRAM : SOCK_STREAM, udp ? IPPROTO_UDP : IPPROTO_TCP);
   if (host == INVALID_SOCKET) return FailHost();
+  // Sockets are inheritable by default, and a title's switch to another of its executables starts the
+  // next process inheriting the handles (the standard ones are why): it would keep this socket's port
+  // bound and couldn't bind it itself. Black Ops II then restarted itself for ever entering Zombies.
+  SetHandleInformation(reinterpret_cast<HANDLE>(host), HANDLE_FLAG_INHERIT, 0);
   if (udp) {
     // A datagram to a port nobody listens on (another instance's) must not fail the next receive.
     BOOL report = FALSE;

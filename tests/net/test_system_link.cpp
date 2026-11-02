@@ -241,6 +241,25 @@ void TwoInstances() {
   readable = {uint32_t(sb)};
   CHECK(b.Select(&readable, nullptr, nullptr, 100000) == 0 && readable.empty());
 
+  // A process started with inherited handles (a title's switch to another of its executables) doesn't
+  // keep a closed socket's port: Black Ops II couldn't bind its port again, and restarted for ever.
+  {
+    int32_t first = a.Socket(2, 2, 17);
+    CHECK(a.Bind(uint32_t(first), {0, 1234}) == 0);
+    wchar_t command[] = L"cmd.exe /c ping -n 4 127.0.0.1";
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
+    PROCESS_INFORMATION child{};
+    CHECK(CreateProcessW(nullptr, command, nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &child));
+    CHECK(a.Close(uint32_t(first)) == 0);
+    int32_t again = a.Socket(2, 2, 17);
+    CHECK(a.Bind(uint32_t(again), {0, 1234}) == 0);
+    a.Close(uint32_t(again));
+    TerminateProcess(child.hProcess, 0);
+    CloseHandle(child.hThread);
+    CloseHandle(child.hProcess);
+  }
+
   // A port 0 bind gets a guest port of its own; a too small buffer is WSAEMSGSIZE with the sender.
   int32_t sc = a.Socket(2, 2, 17);
   CHECK(a.SendTo(uint32_t(sc), reinterpret_cast<const uint8_t*>(hello), sizeof(hello), 0, &broadcast) == sizeof(hello));
