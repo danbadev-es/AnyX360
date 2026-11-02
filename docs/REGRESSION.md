@@ -91,7 +91,7 @@ first-run screens and tutorials first) and are run when a change touches those m
 |---|---|---|
 | ka_reflex | ka | the first start, Free Play, Reflex Ridge's first level: the avatar on the platform, the start, the jumps |
 
-What each route really reaches on 0.32.0 is in `tools\regress\baseline\README.md`; a route that
+What each route really reached on 0.33.0 (kjr stops at the title screen, ka at "Is anyone there?", re6 at a notice) is in `tools\regress\baseline\README.md`; a route that
 stops short of gameplay still compares boot, menus and pacing. Doritos Crash Course gets the version 2
 avatar pack from `ks.anyx` (`"avatar_pack_from"`, extracted with the main checkout's x360tool), as
 the launcher would install it: with Reach's older pack it crashes 10 s in.
