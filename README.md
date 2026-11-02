@@ -380,8 +380,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Call of Duty: Modern Warfare 3   | Status                                         |
 | -------------------------------- | ---------------------------------------------- |
 | Menus, settings, saves           | ✅ Working                                     |
-| Campaign                         | 🧪 The opening missions played; the rest not tried yet |
-| Special Ops, Survival            | 🧪 Survival played alone and in split screen; the missions not tried yet |
+| Campaign                         | 🧪 The opening missions played; later ones unlock as the campaign is played (a person) |
+| Special Ops                      | 🧪 Survival and the missions (Flight, Over Reactor) played alone and in split screen |
 | Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; split screen matches on Seatown played (two and three players) |
 | Downloadable maps                | 🧪 Offered (Game Setup > Map > Bonus maps); a split screen match on Piazza played |
 | Title Update (0.0.23.8)          | ✅ Required: both programs are recompiled from it |

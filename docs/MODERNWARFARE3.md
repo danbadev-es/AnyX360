@@ -139,8 +139,11 @@ maps" to Piazza; back, Start Match; teams and classes for both.
     d3d12_replay_thread = false`) didn't avoid it (3 of 3 hung).
   - In the intro level the snowy trees look flat white against a black sky (possibly a
     rendering difference; not compared with a console).
-  - Not tried: Special Ops missions, the DLC, later missions, saving mid-mission. Survival and
+  - Not tried: later missions (the mission select offers those already reached, so they need the
+    campaign played: a person), saving mid-mission. Special Ops and
     split screen: see [Multiplayer](#multiplayer).
+  - On 2026-11-02 the start hang came once in two starts of 0.33.0 (the regression battery's,
+    with the machine busy building): no frame at all, as above; the next start was fine.
 
 ## Multiplayer
 
@@ -189,6 +192,13 @@ On the console, `XamLoaderLaunchTitle` ends the title and boots the XEX it names
 - **Special Ops** (the campaign's executable): Split Screen joins player 2 the same way and offers
   Survival or Missions. Survival on Resistance plays in split screen (wave 1, a player downed and
   the revive prompt for the other) and alone.
+- **Special Ops missions** (2026-11-02): Missions > On-disc content lists the first four on a new
+  profile (Eyes Kill... "Mucho ojo", Flight "Vuelo secuestrado", Over Reactor "Reacción excesiva",
+  Blitz "Ataque relámpago"; the rest "Clasificado" until earned). **Flight** played alone (the
+  hijacked plane, its HUD with time, kills and accuracy, "Mission failed" and Play again) and
+  **Over Reactor** in split screen (the helicopter ride to the submarine, then its deck; MW3's
+  staggered split screen views, each with its minimap in the free corner; both players' results).
+  19-25 FPS in split screen here, with the machine busy building.
 
 ### Routes
 Multiplayer split screen match, from `ModernWarfare3MP.exe` with an existing user folder (times
@@ -212,6 +222,12 @@ Special Ops split screen Survival, after the campaign route up to `72:A`:
 `78:LEFT,81:A,88:A,98:DOWN,100:DOWN,102:DOWN,105:A,112:A@1,118:A,122:A@1,146:A,152:A,158:A`
 (Special Ops, past the notice, Split Screen, both join and continue, Survival, the first map,
 start). Alone: `78:LEFT,81:A,88:A,98:DOWN,100:DOWN,105:A,112:A,118:A,124:A,130:A`.
+
+Special Ops missions, from the Special Ops menu (`LEFT`, `A`, `A` from the main menu): alone,
+`DOWN`, `DOWN`, `A` (Solo), `DOWN`, `A` (Missions), `A` (On-disc content), the mission (`DOWN` for
+Flight), `A` and `A` (Regular); in split screen, `DOWN` x3, `A`, `A@1` and `A`, `A@1` (both join and
+continue), then the same from Missions (`DOWN`, `DOWN` for Over Reactor). On "Mission failed" `Y`
+plays again and `B` goes back.
 
 ### Known issues
 - **Fixed: loading a Survival map stopped** in 4 of 16 tries (alone and in split screen). The
@@ -237,8 +253,7 @@ start). Alone: `78:LEFT,81:A,88:A,98:DOWN,100:DOWN,105:A,112:A,118:A,124:A,130:A
   memory), and in none of 6 starts (3 of 0.17.0's base build, 3 of the updated one) once it was
   quieter. Starting again works.
 - Fixed by the Title Update (0.18.0): the DLC maps weren't offered on the base executables.
-- Not tried: four players, a match played to its end, other modes, System Link between PCs, the
-  Special Ops missions.
+- Not tried: four players, a match played to its end, other modes, System Link between PCs.
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `415608CB`):
