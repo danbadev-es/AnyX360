@@ -16,6 +16,7 @@ games carry. These notes collect what is known.
 | `XamAvatarGetAssetsResultSize(components)` | The sizes of a CPU result buffer and a GPU resource buffer for those components. |
 | `XamAvatarGetAssets(metadata, components, flags, result, gpu, overlapped)` | Fills both buffers (layout below). The library's `XAvatarGetAssets` (Kinect Sports `82A821B0`) passes the title's buffers straight through. |
 | `XamAvatarLoadAnimation` | One of the system's animations (not implemented yet). |
+| `XamAvatarGenerateMipMaps(result, 0, 0x64000, 0x1D0000, overlapped)` | The smaller levels of an avatar's textures, after each `XamAvatarGetAssets` (Kinect Adventures). It succeeds without making any; refused, Kinect Adventures dropped the avatar. |
 | `XamAvatarSetCustomAsset` | A title's own part (Kinect Sports gives six). |
 
 ## The data: the avatar asset pack

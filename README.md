@@ -276,7 +276,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 - **Private** - The webcam's images are processed on your computer in real time, and never saved
   or sent.
 
-### Xbox Avatars (Doritos Crash Course, Kinect Sports, Kinect Joy Ride)
+### Xbox Avatars (Doritos Crash Course, Kinect Sports, Kinect Joy Ride, Kinect Adventures)
 
 - **Avatars from the Console's Data** - On the console the avatars' clothes, hair and faces come
   from the system, not from the game. AnyX360 reads the console's avatar asset pack, which the
@@ -324,11 +324,11 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | -------------------------------- | ---------------------------------------------- |
 | Menus (hand cursor)              | ✅ Working                                     |
 | Rallyball, River Rush            | ✅ Playable with the scripted player           |
-| Reflex Ridge, Space Pop          | 🧪 They load; starting them needs a person     |
-| 20,000 Leaks                     | 🧪 Not tried yet                               |
+| Reflex Ridge, Space Pop, 20,000 Leaks | ✅ Played to their results with the scripted player (they need the avatars) |
+| Avatars                          | ✅ The players' avatars in every activity, from the disc's avatar data |
 | Downloadable content             | ✅ Installed by the launcher                   |
 | Title Update #1 (0.0.1.3)        | ✅ Required: the game is recompiled from it    |
-| Avatars, voice, online           | ❌ Not available (the game uses its stand-ins) |
+| Two players, voice, online       | 🧪 Two players with a person; ❌ voice and online not available |
 
 | Fruit Ninja Kinect               | Status                                         |
 | -------------------------------- | ---------------------------------------------- |

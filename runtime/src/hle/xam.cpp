@@ -1792,7 +1792,13 @@ uint32_t XamAvatarGetMetadataRandom(uint32_t body_types, uint32_t count, uint32_
 }
 uint32_t XamAvatarLoadAnimation(uint32_t, uint32_t, uint32_t, uint32_t overlapped) { return AvatarFailed(overlapped); }
 uint32_t XamAvatarManifestGetBodyType(uint32_t metadata) { return x360::avatar::BodyType(metadata); }
+// (the XamAvatarGetAssets result, 0, 0x64000, 0x1D0000, overlapped) in Kinect Adventures, after each
+// XamAvatarGetAssets: the smaller levels of the parts' textures. It succeeds without making any (the
+// avatars are drawn from the textures' full-size level, as in the other avatar games); refused,
+// Kinect Adventures threw the avatar away and its activities had no player in them (Reflex Ridge,
+// Space Pop and 20,000 Leaks never started). Titles without avatars are still refused.
 uint32_t XamAvatarGenerateMipMaps(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t overlapped) {
+  if (x360::avatar::Available()) return AvatarDone(overlapped);
   return AvatarFailed(overlapped);
 }
 uint32_t XamAvatarSetCustomAsset() { return X_ERROR_SUCCESS; }
@@ -1988,7 +1994,20 @@ uint32_t XMsgStartIORequestEx(uint32_t app, uint32_t message, uint32_t overlappe
 }
 uint32_t XMsgInProcessCall(uint32_t app, uint32_t message, uint32_t arg1, uint32_t arg2) {
   uint32_t hr = DispatchXamApp(app, message, arg1, arg2);
-  if (hr != kHrSuccess) KLOG_I("XMsgInProcessCall(app %X, message %08X) -> %08X", app, message, hr);
+  if (hr != kHrSuccess) {
+    // Logged the first few times per message: Kinect Adventures asks XLiveBase 0005800E every
+    // frame from its main menu on (9,000 lines in a quarter of an hour).
+    static std::mutex mutex;
+    static std::map<uint64_t, uint32_t> counts;
+    uint32_t count;
+    {
+      std::lock_guard lock(mutex);
+      count = ++counts[(uint64_t(app) << 32) | message];
+    }
+    if (count <= 5)
+      KLOG_I("XMsgInProcessCall(app %X, message %08X) -> %08X%s", app, message, hr,
+             count == 5 ? " (not logged again)" : "");
+  }
   return hr;
 }
 uint32_t XMsgSystemProcessCall(uint32_t app, uint32_t message, uint32_t buffer, uint32_t length) {

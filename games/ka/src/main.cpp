@@ -19,6 +19,12 @@ int main(int argc, char** argv) {
   game.update_package = game_info::kUpdatePackage;
   game.update_version = game_info::kUpdateVersion;
   game.vblanks_per_frame = 2;
+  // The players are avatars, made from the avatar asset pack on the disc (docs/AVATARS.md) with the
+  // avatar library's skeleton builder (the same XAVATAR build as Kinect Joy Ride's 82CCFBD8).
+  // Without them Reflex Ridge and Space Pop never put the player on the platform, so they never
+  // start.
+  game.avatar_system = true;
+  game.avatar_skeleton = 0x82C02728;
   game.defaults = [](x360::settings::Settings& s) {
     s.kinect.enabled = true;
     // Played with the body: keyboard and mouse don't drive a pad, so the cursor stays free.

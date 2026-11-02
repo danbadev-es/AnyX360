@@ -10,6 +10,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ### Added
 
+- **Kinect Adventures** has Xbox Avatars: the players are their avatars in every activity, made
+  from the avatar data on its disc as in the other avatar games. With them **Reflex Ridge, Space
+  Pop and 20,000 Leaks start and play**: they wait for the avatar's hands on the bars or a crack,
+  or for it to flap, and without an avatar they never started (River Rush's raft was empty too).
+  Each was played to its results with the scripted player
+  ([docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md)).
 - **Dance Central 2**: Fitness, Dance Battle, Break It Down and two players were tried with two
   scripted players: a Fitness workout's songs, a Dance Battle to its results and a two-player song
   where both score; Break It Down starts and teaches the moves. Resuming from the pause menu works
@@ -22,6 +28,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - **Kinect Party**: 17 minutes of auto play with the scripted player dancing went through eight
   channels (Kung Fu, Monster Attack, Dress Up, balloons, a picture booth, Bath Time, a rainy forest,
   a shadow play) without an error ([docs/KINECTPARTY.md](docs/KINECTPARTY.md)).
+
+### Changed
+
+- `XamAvatarGenerateMipMaps` succeeds for avatar games (it was refused): only Kinect Adventures
+  and Mortal Kombat import it, and Mortal Kombat has no avatars.
+- A failed `XMsgInProcessCall` is logged the first five times per message: Kinect Adventures asks
+  for one every frame from its main menu on (9,000 log lines in a quarter of an hour).
 
 ## [0.33.0] - 2026-11-01
 

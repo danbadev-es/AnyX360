@@ -139,10 +139,51 @@ DLC in a developer build, copy `extracted\ka\dlc` to
 - **DLC**: content names are 42 characters (they were cut at 41), marketplace content is shared by
   every player, and content paths use long-path names (the DLC's are over 260 characters).
 - **Avatars**: unimplemented imports return 0, which the avatar calls read as success with nothing
-  written, and Reflex Ridge crashed reading asset data that wasn't there. The avatar system now
-  fails to initialise, as Xenia's default does, and its calls say there's nothing; the game plays
-  with its stand-ins.
+  written, and Reflex Ridge crashed reading asset data that wasn't there. The avatar system then
+  failed to initialise, as Xenia's default does, and its calls said there was nothing; the game
+  played with nobody in its activities, which kept three of them from starting. Since 2026-11-02
+  it has real avatars (see "Avatars, and every activity started").
 - **Pacing**: two vblanks per frame (`GameDescriptor::vblanks_per_frame`): 60 FPS.
+
+## Avatars, and every activity started (2026-11-02)
+**Why Reflex Ridge, Space Pop and 20,000 Leaks never started.** The game draws each player as
+their Xbox Avatar and puts it in the activity: on Reflex Ridge's platform, in River Rush's raft,
+in 20,000 Leaks' glass cube, in Space Pop's room. Until now it had no avatar: the avatar system
+was refused (since 0.5.0, when answering its calls as successes with nothing written crashed
+Reflex Ridge), so every activity ran with nobody in it (River Rush's raft was empty, 20,000 Leaks
+showed a faint outline). River Rush and Rallyball still start from the skeleton alone (a jump, a
+hit); Reflex Ridge, Space Pop and 20,000 Leaks start when the avatar's hands touch something (the
+bars, a crack) or the avatar flaps, so with no avatar the scripted player's poses did nothing.
+
+**The fix.** Kinect Adventures now has the avatar system, as Kinect Sports, Kinect Joy Ride and
+Doritos Crash Course have ([main.cpp](../games/ka/src/main.cpp), [AVATARS.md](AVATARS.md)): avatars
+are made from the avatar asset pack on its own disc, with its avatar library's skeleton builder
+`82C02728` (the same XAVATAR build as Kinect Joy Ride's `82CCFBD8`, found by its code). This game
+also asks the system for each avatar's textures' smaller levels (`XamAvatarGenerateMipMaps`, after
+every `XamAvatarGetAssets`); refused, it threw the avatar away. It now succeeds for the avatar
+games (only Kinect Adventures and Mortal Kombat import it, and Mortal Kombat has no avatars).
+
+Played with the scripted player on the build with the fix (release 0.33.0's `ka.anyx`, a fresh
+profile):
+
+- **Reflex Ridge** (Jumper): the player's avatar stands on the platform; "GRAB BARS" waits until
+  both hands are held out to the sides and a little down (`arm_right_10_-20,arm_left_10_-20`),
+  then the lights count down ("PREPÁRATE") and the platform runs; jumps (`jump`) speed it up and
+  crouches duck. Played to the results: 47 points, bronze.
+- **Space Pop** (the first level): "ALETEA PARA COMENZAR" after the arms are held out
+  (`arms_out`), then `flap` lifts the avatar and pops bubbles; steps and walks move it. Played to
+  the results: 108 points, bronze.
+- **20,000 Leaks** (the first level): "TAPA LA GRIETA E INICIA": a hand on the first crack
+  (`arm_right_45_15/0.5`) starts it; cracks are plugged with the hands (left, right, high, low) and
+  steps. Played to the results: 10 points.
+- **River Rush** and **Rallyball** still play, now with the avatar in the raft and in the court.
+- **Still for a person**: good scores (the scripted moves are blind), two players in these
+  activities, the photos (taken from the camera's picture: the scripted source's picture is a
+  drawing, and the photo cards came out black).
+
+Menu note: on a results screen the top-right "SALIR" (`52_19`) went back to the activity select
+once and to the next level's tutorial another time; the Kinect Guide pause and "Leave activity"
+(`59_15`, then `84_-23`) always goes back to the activity select.
 
 ## Status with Title Update #1 (2026-10-24)
 Played again on the build recompiled from 0.0.1.3, with the scripted player:
@@ -160,11 +201,11 @@ Played again on the build recompiled from 0.0.1.3, with the scripted player:
 - **Rallyball**: serving and hitting score.
 - **River Rush**: a jump starts it, leaning steers, and pins are collected.
 - **Reflex Ridge and Space Pop**: they load and wait at their start ("grab bars", "flap your arms
-  to start"). The scripted player hasn't found the pose that starts them; this needs a person.
-- **20,000 Leaks**: not tried yet.
+  to start"). The scripted player hasn't found the pose that starts them (the avatar was missing:
+  fixed on 2026-11-02, see above).
+- **20,000 Leaks**: not tried yet (played on 2026-11-02, see above).
 - **Pause**: the Kinect Guide gesture pauses an activity; "Leave activity" goes back to the
   activity select.
-- **To verify with a real webcam and a person**: the start of Reflex Ridge and Space Pop, jumping
-  and ducking in Reflex Ridge, 20,000 Leaks, two players.
-- **Not supported**: avatars (the game uses its stand-ins), voice, online play, photos uploaded
-  to Kinect Share.
+- **To verify with a real webcam and a person**: jumping and ducking in Reflex Ridge, 20,000
+  Leaks, two players.
+- **Not supported**: voice, online play, photos uploaded to Kinect Share.
