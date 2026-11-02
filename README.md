@@ -334,7 +334,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | -------------------------------- | ---------------------------------------------- |
 | Calibration, menus               | ✅ Working (slice a fruit to choose)           |
 | Arcade, Classic                  | ✅ Playable with the scripted player           |
-| Zen, Party (two players)         | 🧪 Not tried yet                               |
+| Zen, Party (two players)         | 🧪 Offered on the mode selection; the scripted player's slices don't pick them reliably (needs a person) |
 | Progress and best scores         | ✅ Saved                                       |
 | Downloadable content             | ✅ Installed by the launcher                   |
 | Title update (0.0.1.3)           | ✅ Required: the game is recompiled from it    |
