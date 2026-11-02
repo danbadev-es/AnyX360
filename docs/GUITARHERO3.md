@@ -98,8 +98,18 @@ The launcher installs the title update and the 25 packages.
   a song 0.14-0.46); the audio clock runs at the 187.5 frames a second XAudio needs, with no
   dropouts logged. Whether the notes stay in time with the music over a whole song, and the
   latency, need a person listening: the scripted runs can't hear.
-- **Not tried yet**: star power (and which button it is on a controller), co-op career, the battle
-  mode, a whole career gig played to its end.
+- **Co-op career** (2026-11-02, two scripted controllers): Carrera coop. asks each player to move
+  their controller to their side, then for the band's name (on a new band: UP changes the letter, A
+  moves to the next, START accepts; with no name it says "you must name your band"), both
+  difficulties, both characters, the co-op career's opening Bink cinematic, the first venue (Mitch's
+  Moose Lounge), the setlist and the parts (guitar and bass, "Jugador 1 / Jugador 2"); the gig
+  (Barracuda) plays with two highways, the shared rock meter and the star notes. Unplayed, it fails
+  part-way ("hecho 12% en Fácil"), as on the console.
+- **Battle** (Multijugador > Guerra): the characters, the venue, the song and both difficulties; the
+  battle plays with two highways and each player's rock meter.
+- **Need a person**: star power and the battle's attacks (both are earned by hitting the star or
+  battle notes, which the scripted inputs can't: which button activates star power on a controller
+  is still to be seen), a whole career gig played to its end, the notes' timing with the music.
 
 ## Routes (scripted input)
 With a user folder past the first start (times from the first input poll; with
@@ -116,6 +126,11 @@ With a user folder past the first start (times from the first input poll; with
 - **Face-off**: Multijugador is DOWN x3 from Carrera; at "Seleccionar mando" player 2 presses DOWN
   (`DOWN@1`), then A and `A@1`; A for Duelo; A and `A@1` twice (characters, "Actuar"); A on the venue
   and the song; A and `A@1` on the difficulties.
+- **Co-op career**: Carrera coop. is DOWN from Carrera; at "Seleccionar mando" `DOWN@1`, A, `A@1`;
+  the band's name (a new band: `UP`, `A` for each letter, then `START`); A and `A@1` on the
+  difficulties and twice on the characters; the cinematic (about 40 s); A on the venue and on the
+  song; A (guitar) and `DOWN@1`, `A@1` (bass).
+- **Battle**: as the face-off, with DOWN, DOWN, A (Guerra) instead of A (Duelo).
 
 ## Reproducing
 From the archive's contents (`<package>` is the folder that holds `415607F7`):

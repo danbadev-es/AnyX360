@@ -444,7 +444,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Quick Play, Practice             | ✅ Songs play with their music; a whole song played to its results in Practice |
 | Career                           | 🧪 The opening cinematic and the first gig load and play; a gig not finished yet |
 | Downloadable songs               | ✅ Listed in the song list's "descargas" tab, and they play |
-| Two players (face-off)           | 🧪 Face-off with two controllers plays; battle and co-op career not tried yet |
+| Two players                      | 🧪 Face-off, battle and co-op career play with two controllers; star power and the battle's attacks need notes hit (a person) |
 | Title update (0.0.3.2)           | ✅ Required: the game is recompiled from it    |
 | Audio in time with the notes     | 🧪 To be checked by a person                   |
 | Guitar controllers, Xbox LIVE    | ❌ Not available: a controller or the keyboard; Xbox LIVE is gone |
@@ -452,10 +452,11 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Diablo III: Reaper of Souls      | Status                                         |
 | -------------------------------- | ---------------------------------------------- |
 | Start-up, menus, saves           | ✅ Working; heroes are kept between sessions   |
-| Hero creation, Act I             | 🧪 The first fights on the road to New Tristram played |
+| Hero creation, Act I             | 🧪 The road and the defence of the gate played to New Tristram |
+| Pre-order shoulders              | ✅ The Infernal Pauldrons are in a new hero's inventory and can be worn |
 | Local co-op (2-4 players)        | 🧪 Two players fought together; four joined    |
 | Smoothness                       | ❌ Freezes of about half a second every few seconds (being looked into) |
-| Adventure Mode                   | 🧪 Not reached yet (opens once the story is finished) |
+| Adventure Mode                   | 🧪 Locked until Act V is finished, as on the console (needs the story played) |
 | Title update (0.0.2.14)          | ✅ Required: the game is recompiled from it    |
 | Xbox LIVE                        | ❌ Not available: Xbox LIVE is gone            |
 

@@ -76,7 +76,16 @@ The launcher installs the title update and the package.
   fighting the zombies, with the multiplayer bonus; **four players** joined (player 3 created a witch
   doctor), each with their own HUD in a corner.
 - **Title update**: the game runs from it (0.0.2.14); the pre-order shoulders' package is mounted
-  (`XamContentCreateEx DLC1`); whether the shoulders appear wasn't checked.
+  (`XamContentCreateEx DLC1`).
+- **New Tristram** (2026-11-02, a new crusader): the road, the zombies, the defence of the gate with
+  the militia ("Kill the undead attacking the gates", a few hundred zombies) and the town past the
+  gate ("You've reached a checkpoint", the Tristram militia), at 60 FPS with the stalls below.
+- **The pre-order shoulders**: a new hero has the **Infernal Pauldrons** ("Cubrehombros
+  infernales", legendary, 39 armour, a Patron reward) in the inventory (BACK, the shoulders slot);
+  worn, they show on the hero in the game and in the main menu.
+- **Adventure Mode**: Game settings (Ajustes de partida) offers it locked ("Complete Act V to
+  unlock Adventure mode"), as on the console; Acts II-V are locked too on a new save. It needs the
+  story played through (a person).
 - **Known issue: stalls**. During play the picture freezes for about 430 ms several times every few
   seconds (`[gpu] no frame presented for 430 ms` in the log; 30-40 frames a second on average). The
   render thread (`guest 31`, `82D1D368`) spends them in the D3D library's wait for room in the
@@ -85,9 +94,10 @@ The launcher installs the title update and the package.
   (a fence the CPU writes, or a register wait) in Xenia's command processor. That day the test
   machine paused every game the same way (about 430 ms, Mortal Kombat built from 0.29.0's code
   too: [HALO3.md](HALO3.md#known-issues)), so the stalls may come from that machine: to be checked by
-  a player first.
-- **Not tried yet**: New Tristram itself and the quests after it, Adventure Mode (opened once the
-  story has been finished), the town's vendors and the stash, the shoulders.
+  a player first. On 2026-11-02 (0.33.0, the machine busy with a build at 6 jobs) the walk to New
+  Tristram ran at a median 60 FPS with 44 stalls over 300 ms in about 17 minutes (the longest 2.7 s,
+  at the gate's fight).
+- **Not tried yet**: the quests after New Tristram, the town's vendors and the stash.
 
 ## Routes (scripted input)
 With `[players] p1 = { device = "pad" }, p2 = { device = "pad2" }` in the sandbox's settings.toml
@@ -101,6 +111,12 @@ With `[players] p1 = { device = "pad" }, p2 = { device = "pad2" }` in the sandbo
   `START@3`) once in the game, then A.
 - **First fight**: from the start, `LUP/1.5` then `LRIGHT/7` (both players) reach the zombies on
   the road; A attacks.
+- **New Tristram**: the road from the start runs east below the town's wall: move east past the
+  fence (`LDOWN/2`, then `LRIGHT/6`) to the road's first zombies, then north-east (`LUP/6` with
+  `LRIGHT%70/6`) to the gate; A (`A~0.3x400`, LB for a potion now and then) holds the gate for
+  about three minutes; then west and north (`LLEFT/3.5` with `LUP%45/3.5`) through it. The stick
+  steps were found looking at the screen (`ANYX360_INPUT_LIVE`): from another spot they differ.
+- **Inventory**: BACK opens it; the stick picks a slot (up and left: the shoulders), A equips.
 
 ## Reproducing
 From the archive's contents (`<package>` is the folder that holds `394F07D4`):
