@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-02
+
+Kinect Adventures' avatars and its last three activities; Horde and Reach's Join over System Link confirmed; Halo's films and Reach's Forge saves; Mortal Kombat's Story and Black Ops II's Zombies over System Link no longer hang; Beach Volleyball and Doritos crashes fixed.
+
 ### Added
 
 - **Kinect Adventures** has Xbox Avatars: the players are their avatars in every activity, made
@@ -1458,7 +1462,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.33.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.34.0...HEAD
+[0.34.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.31.0...v0.32.0
 [0.31.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.30.0...v0.31.0
