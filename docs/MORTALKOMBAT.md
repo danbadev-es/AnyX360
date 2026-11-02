@@ -97,8 +97,9 @@ The 33 avatar items (`00009000`) aren't used.
   and in loading screens while shaders are compiled the first time).
 - **Audio**: FMOD with XMA (music, announcer, effects).
 - **Story mode** (2026-11-02): the opening cinematic (`Movies\mk001_002_003.wmv`, 165 MB, more than
-  five minutes), then chapter 1's first fight (Johnny Cage against Reptile), played: rounds, "Reptile
-  wins", the Continue menu. On 0.33.0 the cinematic froze about 90 s in on 3 of 5 tries with other
+  five minutes), chapter 1's first fight (Johnny Cage against Reptile) won by the scripted player on
+  Novato, the in-engine cinematics after it, and the second fight (against Sonya). Losing brings the
+  Continue menu. On 0.33.0 the cinematic froze about 90 s in on 3 of 5 tries with other
   programs loading the machine: picture and sound stop for good. It is a deadlock in the game's
   stream reader, which held its lock while waiting for a block only the other reader could free
   ([games/mk/src/movies.cpp](../games/mk/src/movies.cpp) has the details); with the fix it passed
@@ -115,7 +116,8 @@ The 33 avatar items (`00009000`) aren't used.
   in the carousel is blank (the package's; his fighter and his card are fine). Kintaro was
   highlighted but not played.
 - **Not tried yet**: Training, Test Your Might and the other tests, the costumes and Klassic skins,
-  the tag ladder and a whole tag match, the story past its first fight (a person). The latent tasks
+  the tag ladder and a whole tag match, the story past its second fight (it should go on with the
+  same mash, for a long while). The latent tasks
   that use fibers haven't been seen running (no "guest fiber" in the logs so far).
 - **First appearances**: on a cold shader cache a fight skips a few draws a frame for a moment
   while Xenia creates their pipelines (up to 11 a frame in the first fight); the release's shader
@@ -141,7 +143,8 @@ settings.toml (player 2 is connected by its scripted presses):
   chooses Revancha at 180 s.
 - **Mashing that wins on Novato**: `X~0.35`, `A~0.35`, `Y~1.3`, each 0.15 s apart. Other mixes (X+B+a
   step forward) land nothing.
-- **Story**: on the main menu `DOWN`, `A/0.4`; the fight starts about 330 s later. `A/0.4` chooses on
+- **Story**: on the main menu `DOWN`, `A/0.4`; the fight starts about 330 s later; with the mash
+  above from then on, Johnny Cage reaches the second fight about 7 minutes after that. `A/0.4` chooses on
   menus (a short press is lost during a mash).
 - **Bosses**: in the ladder's character select `DOWN` x6, then `LEFT` x7 (Kintaro); `RIGHT` Goro, `LEFT`
   Shao Kahn.

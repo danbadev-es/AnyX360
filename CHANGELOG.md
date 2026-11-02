@@ -71,7 +71,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - **Guitar Hero III**: co-op career and battle played with two controllers.
 - **Diablo III**: New Tristram reached; the pre-order Infernal Pauldrons worn. Adventure Mode is locked
   until Act V, as on the console.
-- **Mortal Kombat**: Story's first fight, the Challenge Tower, the Krypt, and the downloaded fighters
+- **Mortal Kombat**: Story's first two fights, the Challenge Tower, the Krypt, and the downloaded fighters
   (Rain, Kenshi, Skarlet, Freddy Krueger; the unofficial Shao Kahn, Kintaro and Goro) were tried.
 
 - **System Link with a switch of executables**: Black Ops II restarted itself for ever entering Zombies
