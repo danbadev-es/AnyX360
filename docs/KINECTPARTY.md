@@ -74,6 +74,12 @@ table below are guesses from the pictures; the booth, the forest and the shadow 
 to a name, and only Kung Fu, Monster Attack and Dress Up are certain. Being played doesn't mean
 played through: nothing was aimed, the dance just went on.
 
+**The hub, 2026-11-02**: five channels tuned in by hand, one after another with no error lines: a
+lava channel (the player's cut-out standing in it, presumably Hot Lava), a black-and-white one with
+a star, a monitor in a blue frame, Dress Up again and a pile of popcorn. Each took
+`ANYX360_INPUT_LIVE` START (about 20 s to the hub), `arm_right_70_30`, then 3-7 s of
+`arm_right_40_0` (scrolling) and about 20 s of `arm_right_75_0` (tuning in): see Routes.
+
 **Two players on auto play, 2026-11-02**: `3:enter,4:step_left,6:enter@1,7:step_right@1`, then both
 dancing, for 12 minutes (Monster Attack, Dress Up, a bath and others): both cut out, each in its own
 colour on the scripted source, no error lines.
@@ -147,7 +153,8 @@ Times are seconds from the start; the scripted player is `ANYX360_NUI_SCRIPT` (a
   raises the hand (the "raise your hand" sign goes); `arm_right_130_0` holds it on the left arrow and
   `arm_right_40_0` on the right one (the stagehands scroll); held about 2 s on a stagehand near the
   middle (`arm_right_60_0` to `arm_right_90_0`) it tunes in that channel (Invaders in the test run,
-  after a scroll). The hand's mapping to the hub isn't charted finely yet.
+  after a scroll). The hand's mapping to the hub isn't charted finely yet. Which channel comes depends
+  on how long the arrow is held, so aim by the screen.
 - **Two players**: `3:enter,4:step_left,6:enter@1,7:step_right@1`, then each player's moves with
   `@1` for the second.
 

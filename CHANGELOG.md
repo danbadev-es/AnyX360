@@ -29,7 +29,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   [docs/KINECTJOYRIDE.md](docs/KINECTJOYRIDE.md).
 - **Kinect Party**: 17 minutes of auto play with the scripted player dancing went through eight
   channels (Kung Fu, Monster Attack and six not tried before: Dress Up, balloons, a picture booth, a
-  bath, a rainy forest, a shadow play) without an error ([docs/KINECTPARTY.md](docs/KINECTPARTY.md)).
+  bath, a rainy forest, a shadow play) without an error, and five were tuned in by hand from the hub
+  (lava and popcorn among them); two players on auto play too
+  ([docs/KINECTPARTY.md](docs/KINECTPARTY.md)).
 - **Kinect Sports**: Boxing with two players in split screen, both scripted players punching,
   into the second round ([docs/KINECTSPORTS.md](docs/KINECTSPORTS.md)).
 - **Fruit Ninja Kinect**: Zen and Party weren't entered: the scripted player's slices don't pick the

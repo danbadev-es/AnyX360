@@ -393,7 +393,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Start-up, channels on auto play  | ✅ Working (30 FPS)                            |
 | The camera picture, the cut-out  | ✅ One or two players cut out; effects follow the body |
 | Kung Fu, Monster Attack, Invaders | ✅ Played with the scripted player            |
-| Other channels                   | 🧪 Six more ran on auto play with the scripted player dancing (Dress Up, balloons, a bath...), without errors; the rest not tried yet |
+| Other channels                   | 🧪 Ten more ran on auto play or tuned in from the hub, with the scripted player dancing, without errors; the rest not tried yet |
 | Channel guide (hub)              | 🧪 START on a controller, then the hand        |
 | Full Unlock                      | ✅ Installed by the launcher; every channel opens |
 | Voice, photo sharing             | ❌ Not available (no microphones; sharing needs Xbox Live) |
