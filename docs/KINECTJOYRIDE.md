@@ -135,6 +135,29 @@ finish, the results, the fans, back to the main menu, at a steady 30 FPS (median
 with it. The game reads `update.bpk` from `update:\` (63 reads). Started without the update, it
 ends at once with the message.
 
+## Status of the other activities (2026-11-02)
+Played on release 0.33.0 from `kjr.anyx` (a fresh profile: the driving tutorial first, then the
+welcome and the garage) with the scripted player; nothing needed fixing:
+
+- **Battle Race** (Curva del Faro): item boxes are picked up (the item's icon floats beside the
+  car, "Prueba a utilizar tu objeto"), and **an item is used by taking the left hand off the wheel
+  and holding it out to the side** (`arm_left_0_-10/0.3`, then `wheel_0` again): "¡Buen disparo!"
+  when it hits a rival. Finished 6th of 8 (2:58.017).
+- **Stunt** (Garganta Carmesí): the timed stunt run, tricks in the air with leans (combos up to
+  x3), 21,687 points at the end.
+- **Sprint** (Autopista del Páramo): the short sprint with `boost` whenever the bar fills,
+  finished in 0:42.199.
+- **Smash** (Templo de las Nubes): the arena, knocking things down while turning the wheel both
+  ways, 680 points at the end.
+- **Trick** (Puerto Atardecer): standing on the flying car's wing, the game shows silhouettes to
+  copy ("Fiebre del sábado noche": one arm up, a foot forward); the scripted arm poses didn't match
+  them (the scripted player has no leg poses), three misses end it: 39 points. Copying the poses
+  needs a person.
+- Each ends on its results, the fans earned (the first time, the fans tutorial) and the session's
+  best results, back to the garage.
+- The activity menu shows the player's avatar from behind with its hair drawn as a dark block
+  (seen once, from that angle only).
+
 ## Routes (scripted player)
 The game was driven live (`ANYX360_NUI_SCRIPT=@<file>`, appending lines while it runs). The hand
 cursor follows the right hand; `arm_right_<azimuth>_<elevation>` puts it on an item, which is chosen
@@ -154,10 +177,11 @@ cursor's positions, not tried):
 | Garage: Play / Vehicles / Recent photos* | `72_-44` / `95_-42` / `54_-42` |
 | Garage: achievements* / settings* / Add me* | `71_-9` / `66_-8` / `60_-7` |
 | How-to card (first run): choose it | `78_-28` |
-| Activity menu: Pro Race* / Stunt* | `78_-9` / `63_-9` |
-| Activity menu: Battle Race / Sprint* | `76_-23` / `60_-22` |
-| Activity menu: Xbox LIVE* / Smash* | `75_-33` / `57_-32` |
+| Activity menu: Pro Race* / Stunt | `78_-9` / `61_-11` |
+| Activity menu: Battle Race / Sprint | `76_-23` / `60_-22` |
+| Activity menu: Xbox LIVE* / Smash | `75_-33` / `59_-32` |
 | Activity menu: How to play* / Trick*; Back | `73_-43` / `54_-41`; `106_18` |
+| Lobby: How to play / Play; the how-to card's Back | `110_-25` / `55_-25`; `99_-11` |
 | Track and vehicle choice: the card shown / next | `77_-29` / `51_-27` |
 | Lobby: Play (one player) | `57_-30` |
 | Lobby with two: 2P / 1P* | `56_-21` / `51_-34` |
@@ -172,8 +196,15 @@ wheel_0          grab the wheel: the race starts; held level, the car follows th
 boost            at the start, and whenever the turbo bar is charged
 wheel_-35 ...    steer left; wheel_35 right; wheel_0 straight again
 lean_back/1.2, lean_forward/1.2, lean_left/1.2, lean_right/1.2   repeated: tricks in the air, mini drifts
+arm_left_0_-10/0.3, then wheel_0   Battle Race: use the item held
 lower            after the finish, before the menus
 ```
+
+The cursor moves about 14 pixels (of 800 across) per degree of azimuth and 10 (of 450 down) per
+degree of elevation: `75_-25` lands at (435, 200) of 800 x 450. A screen just loaded may ignore the
+first hold: hold again. Holding on the how-to carousel's arrow keeps turning cards (the first time
+through the garage's Play, the carousel comes instead of the activity menu: a hold on the arrow
+went from Pro Race to the last card, Trick).
 
 A whole race held level: `wheel_0` and nothing else finishes it (about 3 minutes, 3 laps). Two
 players: `enter@1` in the lobby, `menu_right` + `arm_right_56_-21` (2P, chosen by the player the
@@ -226,8 +257,7 @@ needs them).
 - **Frame rate under load**: at the earlier 60 FPS pacing, races and the results screen dropped to
   20-40 FPS (2P split screen to 18) while two other games ran on the test machine. At 30 FPS a race
   held 30.0 on a quieter machine; two players at 30 FPS weren't measured.
-- **Not tried**: finishing Battle Race, using items, Stunt, Sprint, Smash and Trick, the other six
-  tracks, unlocking cars with fans, the photo album, changing avatar ("Cambiar avatar"), "Añádeme"
+- **Not tried**: copying Trick's poses (needs a person), most of the other tracks, unlocking cars with fans, the photo album, changing avatar ("Cambiar avatar"), "Añádeme"
   (adding an avatar), the settings, three or more people in view.
 - **A person with a webcam**: the steering, pushes, drifts and tricks were only made by the
   scripted player (`wheel_*`, `boost`, `lean_*`); how the bridge's skeletons steer is untested.

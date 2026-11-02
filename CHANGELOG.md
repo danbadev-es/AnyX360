@@ -15,6 +15,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   where both score; Break It Down starts and teaches the moves. Resuming from the pause menu works
   with the arm and a swipe (the menus had been left in controller mode before). Routes in
   [docs/DANCECENTRAL2.md](docs/DANCECENTRAL2.md).
+- **Kinect Joy Ride**: Battle Race played to the finish using items (the left hand held out to the
+  side fires the item held), and Stunt, Sprint and Smash played to their results with the scripted
+  player; Trick runs to its results (copying its poses needs a person). Routes in
+  [docs/KINECTJOYRIDE.md](docs/KINECTJOYRIDE.md).
 
 ## [0.33.0] - 2026-11-01
 

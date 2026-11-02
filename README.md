@@ -364,9 +364,10 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | -------------------------------- | ---------------------------------------------- |
 | Menus, garage, vehicles, results | ✅ Working (hand cursor), at 30 FPS as on the console |
 | Pro Race                         | ✅ Played to the finish with the scripted player: steering, turbo, drifts, tricks |
-| Battle Race                      | 🧪 Starts; items not tried yet                 |
+| Battle Race                      | ✅ Played to the finish; items picked up and used (the left hand off the wheel) |
 | Two players (split screen)       | 🧪 A race played to the finish with two scripted players |
-| Stunt, Sprint, Smash, Trick      | 🧪 Offered; not tried yet                      |
+| Stunt, Sprint, Smash             | ✅ Played to their results with the scripted player |
+| Trick                            | 🧪 Runs to its results; copying the poses needs a person |
 | Avatars                          | ✅ The drivers; you drive as your profile's avatar |
 | Downloadable content             | ✅ The Chevy Volt and the Chevrolet Car Pack (Camaro, Corvette, Cruze) |
 | Title Update #3 (0.0.3.1)        | ✅ Required: the game is recompiled from it    |
