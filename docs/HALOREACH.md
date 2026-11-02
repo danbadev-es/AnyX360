@@ -130,11 +130,24 @@ that the co-op campaign in split screen stuttered.
 - **Split screen**: two players in the **co-op campaign** (the lobby: "this party is local to this
   Xbox 360", Preparing map, Start co-op campaign) on Winter Contingency, each with their view and
   HUD, with each player signed in (`[players] sign_in = "at_start"` and a controller each).
-- **Custom games**: Slayer on Anchor 9 (a map pack's map), one player.
-- **Not tried yet**: Firefight, three or four players, Forge, recording a film.
+- **Custom games** (2026-11-02): **four players in split screen**, Slayer on Battle Canyon (the
+  Anniversary pack), 30 FPS; alone on Anchor 9 and Battle Canyon. A match ended by hand goes through
+  the credits and the carnage report.
+- **Firefight** (2026-11-02): two players in split screen on Overlook: set 1, wave 1 with the enemies
+  (23-24 FPS with the machine building). The lobby says only two can play split screen per console
+  in Firefight and in campaign, as on the console.
+- **Forge** (2026-11-02): four players in split screen on Sword Base: the
+  Monitor (D-pad up), the object menu (X), placing objects (A), and **Save as new map**: the name and
+  the description (the on-screen keyboard answers at once with what the game proposes,
+  `keyboard_ui_accepts`), "Save succeeded", the variant written as the player's content
+  (`sandbox.map`). Loading it back wasn't tried.
+- **Theater** (2026-11-02): each game is recorded; Temporary history lists it with its picture, author,
+  date and length, and it plays (the same two fixes as Halo 3's:
+  [HALO3.md](HALO3.md#status-2026-11-01)).
 - **System Link** (with `[network] enabled`, each copy with its own profile): Y > System Link
-  games hosts a party, and the other copy's roster lists it with "Join"; joining doesn't start
-  yet (the game sends nothing). See [SYSTEMLINK.md](SYSTEMLINK.md#halo-reach).
+  games hosts a party, and the other copy joins from its roster (X on the player's card); a Slayer
+  match on Sword Base played on both. See [SYSTEMLINK.md](SYSTEMLINK.md#halo-reach).
+- **Further campaign missions** need a person: only those reached are offered.
 - **Xbox LIVE** is gone.
 
 ## Known issues
@@ -148,7 +161,10 @@ On a new profile, with `ANYX360_INPUT_LIVE`: at about 75 s `A` (Male, to the Arm
 (leave the Armory: the title menu), `A` (Start solo campaign), `A` (Normal): the cinematic, then
 Winter Contingency's gameplay about 280 s later (155 s before the 30 FPS fix). Co-op: with two
 players signed in, the title menu offers Campaign: `A` (the lobby prepares the map), then `A`
-(Start co-op campaign): the same cinematic, then gameplay about 300 s later. With
+(Start co-op campaign): the same cinematic, then gameplay about 300 s later. The main menu lists
+Campaign, Matchmaking, Firefight, Custom, Forge and Theater (it remembers the last one): on Custom
+`A`, then `A` starts; `START`, `A`, `UP`, `A` ends a match. In Theater `A`, `A`, `A`, `UP`, `A` plays
+the latest film. In Forge `START`, `DOWN`, `A` saves as a new map. With
 `[players] p1`/`p2` `device = "none"`, scripted input alone drives both players
 (`ANYX360_INPUT=9999:BACK,9999:BACK@1` connects them).
 

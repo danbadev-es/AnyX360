@@ -41,5 +41,7 @@ int main(int argc, char** argv) {
   // that delete fails (the recorder doesn't share delete), and here Theater's Recent films stayed
   // empty.
   game.file_share_access = true;
+  // Forge's "Save as new" asks for a name; cancelled, it does nothing.
+  game.keyboard_ui_accepts = true;
   return x360::host::RunHost(argc, argv, game);
 }

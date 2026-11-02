@@ -382,7 +382,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | -------------------------------- | ---------------------------------------------- |
 | Menus, settings, saves           | ✅ Working                                     |
 | Campaign                         | 🧪 The opening missions played; later ones unlock as the campaign is played (a person) |
-| Special Ops                      | 🧪 Survival and the missions (Flight, Over Reactor) played alone and in split screen |
+| Special Ops                      | 🧪 Survival and the missions (Vuelo secuestrado, Reacción excesiva) played alone and in split screen |
 | Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; split screen matches on Seatown played (two and three players) |
 | Downloadable maps                | 🧪 Offered (Game Setup > Map > Bonus maps); a split screen match on Piazza played |
 | Title Update (0.0.23.8)          | ✅ Required: both programs are recompiled from it |
@@ -404,10 +404,10 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Menus, settings, saves           | ✅ Working                                     |
 | Campaign                         | 🧪 The first mission played; the rest not tried yet |
 | Multiplayer, split screen        | 🧪 Its own program, started from the main menu and back; Local matches with two to four players and with bots played |
-| Zombies, split screen            | 🧪 TranZit alone and with two players, Grief with two played; three or four players not tried yet |
+| Zombies, split screen            | 🧪 TranZit alone and with two and four players, Grief with two played |
 | Downloadable maps                | 🧪 Offered; Magma (Uprising) in split screen and Die Rise (Zombies) with two players played |
 | Title Update (0.0.18.14)         | ✅ Required: both programs are recompiled from it |
-| System Link                      | 🧪 Two copies on one PC: a lobby hosted, found, joined and a match played (Team Deathmatch on Aftermath); Zombies not tried yet |
+| System Link                      | 🧪 Two copies on one PC: a lobby hosted, found, joined and a match played (Team Deathmatch on Aftermath, and Zombies on TranZit) |
 | Xbox LIVE                        | ❌ Not available: Xbox LIVE is gone            |
 
 | Call of Duty: Black Ops III      | Status                                         |
@@ -468,7 +468,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Split screen (2-4 players)       | 🧪 Two players in co-op on Sierra 117; four in a custom game (Slayer, Last Resort) |
 | Speed, smoothness                | ✅ 30 FPS, as on the console: menus and cinematics at their speed |
 | Map packs                        | ❌ Installed by the launcher, but the game never asks for them yet (see docs/HALO3.md) |
-| Forge, Theater                   | 🧪 Theater's lobby opens (no film recorded yet); Forge not tried yet |
+| Theater                          | 🧪 Games are recorded, listed and played back  |
+| Forge                            | 🧪 Up to four players, objects placed; saving a map fails ("couldn't be saved to the device") |
 | System Link                      | 🧪 Two copies on one PC: a custom game (Slayer, Last Resort) hosted, found, joined and played; a campaign lobby hosted and started (co-op with a second copy not tried yet); two PCs and VPNs not tried yet |
 | Title update (0.0.3.5)           | ✅ Required: the game is recompiled from it    |
 | Matchmaking (Xbox LIVE)          | ❌ Not available: Xbox LIVE is gone            |
@@ -477,11 +478,11 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | -------------------------------- | ---------------------------------------------- |
 | Start-up, menus, the Armory      | ✅ Working; the Spartan and the credits are kept |
 | Campaign                         | 🧪 Winter Contingency played; checkpoints; the cinematics with their faces |
-| Split screen                     | 🧪 Two players in co-op on Winter Contingency, a steady 30 FPS; three or four not tried yet |
+| Split screen                     | 🧪 Two players in co-op and Firefight; four in a custom game (the game limits campaign and Firefight to two per console) |
 | Speed, smoothness                | ✅ 30 FPS, as on the console: menus, videos and cinematics at their speed |
-| Firefight, custom games, Forge   | 🧪 A custom game (Slayer on Anchor 9) played; Firefight and Forge not tried yet |
-| Map packs                        | 🧪 Offered in custom games (Noble, Defiant, Anniversary); Slayer on Anchor 9 played |
-| Theater                          | 🧪 Opens (no film recorded yet)                |
+| Firefight, custom games, Forge   | 🧪 Firefight's first wave played; custom games with up to four; Forge with objects placed and a map saved |
+| Map packs                        | 🧪 Offered in custom games (Noble, Defiant, Anniversary); Anchor 9 and Battle Canyon played |
+| Theater                          | 🧪 Games are recorded, listed and played back  |
 | System Link                      | 🧪 Two copies on one PC: a party hosted, listed, joined and a Slayer match played on Sword Base |
 | Title update (0.0.1.7)           | ✅ Required: the game is recompiled from it    |
 | Matchmaking (Xbox LIVE)          | ❌ Not available: Xbox LIVE is gone            |
@@ -809,22 +810,21 @@ Guitar Hero III: Legends of Rock:
 Diablo III: Reaper of Souls – Ultimate Evil Edition:
 
 - The picture freezes for about half a second several times every few seconds while playing.
-- Only hero creation and the start of Act I have been played; Adventure Mode hasn't been reached.
+- Only Act I up to New Tristram has been played; Adventure Mode opens once Act V is finished.
 - New heroes take the name the game proposes (there is no on-screen keyboard).
 
 Halo 3:
 
 - The map packs (Heroic, Legendary, Cold Storage, Mythic, Mythic II) are installed but not offered:
   the game lists only the disc's maps.
-- Only the first missions, co-op and a custom game have been played; Forge and Theater haven't
-  been tried. Matchmaking needs Xbox LIVE, which is gone.
+- Only the first missions have been played. Forge can't save a map yet. Matchmaking needs Xbox LIVE,
+  which is gone.
 - System Link: campaign co-op is refused ("one or more players don't have an Xbox 360 hard
   drive", as Theater says even offline); custom games work. Only tested on one PC so far.
 
 Halo: Reach:
 
-- Only Winter Contingency, alone and in co-op for two, has been played; Firefight, custom games,
-  Forge, three or four players and the map packs haven't been tried.
+- Only Winter Contingency has been played of the campaign, and Firefight's first wave.
 
 Found something else? Open an issue with the version (shown in the launcher) and the game's
 `logs\<game>\last_run.log` file.

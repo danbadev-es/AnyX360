@@ -418,6 +418,11 @@ class. Four players: `60:A@1,62:A@2,64:A@3,72:A`, then A twice for each. Bots: i
 `54:DOWN,56:DOWN,58:A` opens Adjust bots (RIGHT adds, DOWN moves to the next row), then B, UP,
 UP and A start the match.
 
+Zombies with four players (2026-11-02, `sign_in = "at_start"`, the four connected by `9999:BACK@n`):
+in the Zombies program Local, `A` on the globe, `A`, `A`, `A` on the difficulty box; `A@1`, `A@2`, `A@3`
+join; `A` starts: four views, TranZit's bus station, the zombies, the revive prompt; the game over
+goes back to the lobby with the four.
+
 Zombies, from the campaign: the campaign route up to `72:A` reaches the main menu, then
 `82:DOWN,86:A,92:A` picks Zombies (`82:UP,86:A,92:A` picks Multiplayer). The Zombies program
 then takes:
@@ -509,11 +514,13 @@ accepts and V or Backspace goes back.
   "ELIMINA 3 458 4368...").
 - Four players run at 37-51 FPS on the test machine, and two players at 45-60 in heavy moments
   (Zombies especially: see the split screen frame rate above).
-- Xbox LIVE isn't available. System Link is: a multiplayer match between two copies on one PC was
-  played; Zombies over System Link and two PCs haven't been tried.
-- Not tried: Zombies with three or four players, Survival and the Farm location, Zombies'
-  custom game options, other multiplayer modes and maps, a match played to its end, the Zombies
-  box's Multiplayer choice.
+- Four players in Zombies (TranZit) ran at 18-25 FPS on the test machine, with a build running at
+  the same time.
+- Xbox LIVE isn't available. System Link is, in multiplayer and Zombies between two copies on one
+  PC; two PCs haven't been tried.
+- Campaign beyond the first mission needs a person: the mission select offers what has been reached.
+- Not tried: Survival and the Farm location, Zombies' custom game options, other multiplayer modes
+  and maps, a match played to its end, the Zombies box's Multiplayer choice.
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `415608C3`):

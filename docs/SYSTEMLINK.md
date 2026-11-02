@@ -18,7 +18,7 @@ locally, nothing goes to the network, no firewall prompt.
 | Halo: Reach | **Works on one PC**: a party hosted, listed, joined and a match played (Slayer on Sword Base), since the utility drive of 0.33.0. |
 | Gears of War 3 | **Works on one PC**: a System Link party hosted, found and joined, a private Versus match (Team Deathmatch on Sandbar) with both players. |
 | Modern Warfare 3 | **Works on one PC**: a match hosted, listed once it has started, joined in progress and played (Team Deathmatch on Seatown). |
-| Black Ops II | **Works on one PC**: a lobby hosted, listed, joined and a match played (Team Deathmatch on Aftermath). Zombies not tried yet. |
+| Black Ops II | **Works on one PC**: a lobby hosted, listed, joined and a match played (Team Deathmatch on Aftermath); the same in Zombies (TranZit, to the game over and back to the lobby). |
 
 ## Turning it on
 
@@ -284,7 +284,19 @@ with no change to the game:
 
 It binds VDP 1000 and UDP 1001, registers the session key (`XNetRegisterKey`) and connects to the
 host's secure-style address (`XNetConnect`). "NAT: Strict" in the lobby is the Xbox LIVE NAT type;
-it doesn't affect System Link. Zombies over System Link hasn't been tried.
+it doesn't affect System Link.
+
+**Zombies** (2026-11-02): in the Zombies program **System Link > Create game**, `A` on the globe, the
+location and the mode, `A` on the difficulty box: the lobby; the other copy's **Join game** lists it
+(host, Green Run, 1, TranZit, Lobby); `A` joins, the host's `A` starts: both in TranZit, the
+scoreboard listing both with their points; both down, "Game over", and both back in the lobby.
+
+**Switching executables** used to break this: multiplayer to Zombies with System Link on restarted
+the game for ever. The switch starts the next process inheriting handles, and sockets are inheritable
+by default: it kept the old process's bound port and couldn't bind its own (`can't be bound (10048)`
+in the log), and the game answers that by launching itself again. Sockets are now not inherited. This
+applies to any title that switches executables with System Link on (Modern Warfare 3's campaign to
+multiplayer, Black Ops III's Zombies), though only Black Ops II was run to check it.
 
 ## Known issues and limits
 

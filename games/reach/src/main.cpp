@@ -40,5 +40,7 @@ int main(int argc, char** argv) {
   // after it is created unless that delete fails as on the console, where the open handle doesn't
   // share delete; here the temporary history listed no films.
   game.file_share_access = true;
+  // Forge's "Save as new map" asks for a name; cancelled, it does nothing.
+  game.keyboard_ui_accepts = true;
   return x360::host::RunHost(argc, argv, game);
 }

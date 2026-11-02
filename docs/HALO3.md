@@ -150,8 +150,24 @@ The launcher installs the title update and the map packs.
   - Next: find what sets the catalogue task's kind to 1 (a probe on writes to catalogue+636, or
     the title update's own DLC check: the update's `default.xexp` changed the catalogue), and
     whether an Xbox LIVE sign-in state gates it.
-- **Theater**: the lobby opens and asks for a film (none recorded yet).
-- **Not tried yet**: Forge, further campaign missions, a whole custom game, recording a film.
+- **Theater** (2026-11-02): every custom game and Forge session is recorded, and Recent videos lists
+  it ("Slayer"); Start video plays it (the timeline, the recorded player's view, 0:38 of 1:05 seen).
+  Two things stood in the way, both shared with Reach. While recording, the game tries to delete the
+  film's file (`cache1:\autosave\asq_<map>_<id>.temp`): the recorder opened it sharing nothing, so on
+  the console that fails; here every open shared everything, so the film was deleted a moment after
+  it was created. And at its end it is renamed to `.film` (`FileRenameInformation`), which the runtime
+  didn't have. Both are `GameDescriptor::file_share_access`, on for the two Halos.
+- **Forge** (2026-11-02): up to four players in split screen (Last Resort), the Monitor (D-pad up),
+  the object menu (X), placing objects (A). **Not working**: saving. Save as new asks for a name (the
+  on-screen keyboard answers at once with what the game proposes, `keyboard_ui_accepts`), then
+  "Failed to save: the variant couldn't be saved to the saved games device", with no system call at
+  all: the game refuses from its own state. It looks like the map packs' question below, its content
+  catalogue never getting past saved games; Reach saves.
+- **Split screen, campaign**: for three or more players on one console the game says only two can
+  play split screen in campaign, as on the console.
+- **Further campaign missions** need a person: a new profile's mission list offers Arrival and
+  Sierra 117.
+- **Not tried yet**: a whole custom game to its score limit, saving a film to the film library.
 - **System Link** (with `[network] enabled`): the lobby's Network > System Link hosts and finds
   games; a second copy joins and a custom game is played ([SYSTEMLINK.md](SYSTEMLINK.md)). The
   observer only connects to secure-style addresses (first byte 0, `823B7420`). A campaign lobby
@@ -168,7 +184,11 @@ The launcher installs the title update and the map packs.
 
 ## Routes (scripted input)
 With an existing user folder and the game at its main menu (about 50 s in), using
-`ANYX360_INPUT_LIVE` to append presses as screens come:
+`ANYX360_INPUT_LIVE` to append presses as screens come (the menu remembers the last entry chosen):
+
+- **A film**: on Custom games `A`, `A` (Slayer on Last Resort); after a while `START`, `A`, `UP`, `A`
+  ends it; `B`; on Theater `A`, `UP`, `A`: Recent videos; `A`, `A`; `DOWN` to Start video, `A`.
+- **Forge**: on Forge `A`, `A`; D-pad up turns into the Monitor, `X` opens the objects, `A` places.
 
 - **Campaign**: `A` (Start solo game), `A` (difficulty Normal): the lobby starts Arrival; after the
   cinematic, `RUP/1.0`, `RDOWN/1.0` for the look prompts, then Sierra 117 loads (about 60 s).

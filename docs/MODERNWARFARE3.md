@@ -193,10 +193,10 @@ On the console, `XamLoaderLaunchTitle` ends the title and boots the XEX it names
   Survival or Missions. Survival on Resistance plays in split screen (wave 1, a player downed and
   the revive prompt for the other) and alone.
 - **Special Ops missions** (2026-11-02): Missions > On-disc content lists the first four on a new
-  profile (Eyes Kill... "Mucho ojo", Flight "Vuelo secuestrado", Over Reactor "Reacción excesiva",
-  Blitz "Ataque relámpago"; the rest "Clasificado" until earned). **Flight** played alone (the
+  profile (named here as on the Spanish copy: Mucho ojo, Vuelo secuestrado, Reacción excesiva,
+  Ataque relámpago; the rest "Clasificado" until earned). **Vuelo secuestrado** played alone (the
   hijacked plane, its HUD with time, kills and accuracy, "Mission failed" and Play again) and
-  **Over Reactor** in split screen (the helicopter ride to the submarine, then its deck; MW3's
+  **Reacción excesiva** in split screen (the helicopter ride to the submarine, then its deck; MW3's
   staggered split screen views, each with its minimap in the free corner; both players' results).
   19-25 FPS in split screen here, with the machine busy building.
 
@@ -225,8 +225,8 @@ start). Alone: `78:LEFT,81:A,88:A,98:DOWN,100:DOWN,105:A,112:A,118:A,124:A,130:A
 
 Special Ops missions, from the Special Ops menu (`LEFT`, `A`, `A` from the main menu): alone,
 `DOWN`, `DOWN`, `A` (Solo), `DOWN`, `A` (Missions), `A` (On-disc content), the mission (`DOWN` for
-Flight), `A` and `A` (Regular); in split screen, `DOWN` x3, `A`, `A@1` and `A`, `A@1` (both join and
-continue), then the same from Missions (`DOWN`, `DOWN` for Over Reactor). On "Mission failed" `Y`
+Vuelo secuestrado), `A` and `A` (Regular); in split screen, `DOWN` x3, `A`, `A@1` and `A`, `A@1` (both join and
+continue), then the same from Missions (`DOWN`, `DOWN` for Reacción excesiva). On "Mission failed" `Y`
 plays again and `B` goes back.
 
 ### Known issues
