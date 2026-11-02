@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-03
+
+Gears of War 3 recompiled from its title update 0.0.6.7, with its 33 downloadable packages, and a new backup.
+
 ### Changed
 - **Gears of War 3 is now recompiled from its title update (0.0.6.7)** and takes its downloadable content:
   the launcher installs the update and 33 packages from the Games on Demand copy. A copy without the update
@@ -1470,7 +1474,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.34.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.35.0...HEAD
+[0.35.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.32.0...v0.33.0
 [0.32.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.31.0...v0.32.0
