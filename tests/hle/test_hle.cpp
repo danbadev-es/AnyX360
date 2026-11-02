@@ -782,6 +782,8 @@ int main() {
     close();
     kernel::SetTitlePathsForTests({});
     fs::remove_all(folder);
+  }
+
   // The avatar system (xam.cpp): titles with avatar_system get it started; with
   // avatar_system_needs_pack (Doritos Crash Course) not without an avatar pack, so they go without
   // avatars (no skeleton builder here: never a pack available).

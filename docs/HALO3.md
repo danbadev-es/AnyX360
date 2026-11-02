@@ -176,11 +176,11 @@ The launcher installs the title update and the map packs.
 - **Xbox LIVE** (Matchmaking) is gone.
 
 ## Known issues
-- **Smoothness, to be checked by a player**: on the bring-up day the test machine showed a pause
-  of about 420-440 ms roughly once a second in every game it ran: Halo 3, Halo: Reach, Gears of
-  War 3, Black Ops II, and Mortal Kombat built from 0.29.0's code, which players had run at a
-  steady 60 FPS. So the pauses came from that machine's state, not from the ports; the games'
-  smoothness still has to be judged on a normal session.
+- **Smoothness**: on the bring-up night the test machine showed a pause of about 420-440 ms
+  roughly once a second in every game it ran (Halo 3, Halo: Reach, Gears of War 3, Black Ops II,
+  and Mortal Kombat built from 0.29.0's code). Those logs all tracked a display that returned no
+  vblanks ([ARCHITECTURE.md](ARCHITECTURE.md#pauses-of-about-04-s-a-display-that-gives-no-vblanks)). On a display that gives them
+  (the 0.33.0 regression baseline) Halo 3 holds its 30 frames a second.
 
 ## Routes (scripted input)
 With an existing user folder and the game at its main menu (about 50 s in), using

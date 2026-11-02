@@ -87,7 +87,10 @@ void ThreadBody(HWND hwnd) {
     const int64_t returned = QpcNow();
     if (returned - wait_start < min_wait) {
       if (++fast == 3) {
-        KLOG_W("display vblank: the display returns no vblanks (power saving?); vblank free-running");
+        // In the logs this goes with presents taking about 430 ms, so pauses in every game
+        // (docs/ARCHITECTURE.md, Troubleshooting).
+        KLOG_W("display vblank: the display returns no vblanks (off or asleep?); vblank free-running; "
+               "pauses of about 0.4 s go with this: use a display that is on");
         predicted = period = 0;
         good = 0;
         g_locked = false;

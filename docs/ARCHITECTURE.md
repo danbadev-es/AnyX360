@@ -120,6 +120,27 @@ itself (a laptop on battery stalls every process for seconds) times the heartbea
 again, and logs the stall.
 
 
+## Troubleshooting
+
+### Pauses of about 0.4 s: a display that gives no vblanks
+If every game pauses for about 430 ms once or twice a second (`[gpu] no frame presented for 430 ms`,
+`present p99` of about 430 ms in the `frames:` lines), check the log for `display vblank: the display
+returns no vblanks`. The present call itself takes that long, on the GPU thread, so the command
+processor stops draining the guest's ring and the game's render thread waits for room in it.
+
+What was measured: all the game logs from 2026-10-31 12 h to 2026-11-02 02 h with enough samples
+(80 logs). Of the 69 without that warning, none had the pauses; of the 11 with it, 9 did (at least
+30% of the 5-second samples with a present p99 of 300-600 ms). All the paused ones tracked
+`DISPLAY1` and were run between 03:40 and 06:21 on 2026-11-01; Mortal Kombat built from 0.29.0's
+code was among them, so no recent change caused it. The evening's runs tracked `DISPLAY5`.
+A warning alone isn't enough: one log with it, on DISPLAY5, had no pauses.
+
+What is inferred, not reproduced: that DISPLAY1 was off, asleep or a closed lid's panel, and that
+Windows was holding the presents to it. DISPLAY1 isn't attached any more, and nobody switched a display
+off on purpose to confirm it. The event log shows no power event in those hours. The timer resolution
+was 0.5 ms in every log. To check it on a PC: note the log's warning, then put the game on a display
+that is on.
+
 ## Why the Xbox 360 is harder
 
 | | Original Xbox | PS5 (AnyPS5) | Xbox 360 |

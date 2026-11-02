@@ -45,8 +45,9 @@ powershell -ExecutionPolicy Bypass -File tools\regress\compare.ps1 -Run <folder>
 
 ## The machine's state
 A baseline is only as good as the machine was quiet. On 2026-11-01 between 03 and 06 h the machine
-paused every game for about 430 ms once a second, for reasons never found; numbers taken then are
-invalid. Mortal Kombat's and Gears of War 3's menus are the probes: with a p99 above 300 ms there the
+paused every game for about 430 ms once a second, on a display that returned no vblanks (the log says
+`display vblank: the display returns no vblanks`; [ARCHITECTURE.md](ARCHITECTURE.md#pauses-of-about-04-s-a-display-that-gives-no-vblanks)).
+Numbers taken with that warning are invalid. Mortal Kombat's and Gears of War 3's menus are the probes: with a p99 above 300 ms there the
 run is marked **machine unsteady** (`steady: false`), and compare.ps1 turns its performance flags into
 warnings. The machine's state is in every summary: check `other_games` (other agents' copies) and
 `busy_processes` before trusting a slower result, and run again when the machine is idle.

@@ -86,17 +86,34 @@ The launcher installs the title update and the package.
 - **Adventure Mode**: Game settings (Ajustes de partida) offers it locked ("Complete Act V to
   unlock Adventure mode"), as on the console; Acts II-V are locked too on a new save. It needs the
   story played through (a person).
-- **Known issue: stalls**. During play the picture freezes for about 430 ms several times every few
-  seconds (`[gpu] no frame presented for 430 ms` in the log; 30-40 frames a second on average). The
-  render thread (`guest 31`, `82D1D368`) spends them in the D3D library's wait for room in the
-  command ring (`82D5C5B0` → `82D4DED8`, polling the read pointer written back at device+0x2B10),
-  while the command processor is mostly idle. Next: find what the command stream waits on there
-  (a fence the CPU writes, or a register wait) in Xenia's command processor. That day the test
-  machine paused every game the same way (about 430 ms, Mortal Kombat built from 0.29.0's code
-  too: [HALO3.md](HALO3.md#known-issues)), so the stalls may come from that machine: to be checked by
-  a player first. On 2026-11-02 (0.33.0, the machine busy with a build at 6 jobs) the walk to New
-  Tristram ran at a median 60 FPS with 44 stalls over 300 ms in about 17 minutes (the longest 2.7 s,
-  at the gate's fight).
+- **Stalls: not reproduced on their own; a player should confirm.** On the bring-up night (2026-11-01,
+  03-06 h) the picture froze for about 430 ms several times every few seconds, with the render thread
+  (`guest 31`, `82D1D368`) waiting for room in the command ring (`82D5C5B0` -> `82D4DED8`, polling the
+  read pointer written back at device+0x2B10) and the command processor mostly idle. That log has the
+  warning `the display returns no vblanks`, like all the paused logs of that night, in every game
+  ([ARCHITECTURE.md](ARCHITECTURE.md#pauses-of-about-04-s-a-display-that-gives-no-vblanks)).
+
+  Measured on 2026-11-02 with 0.33.0, on a display giving vblanks, other games and compilers running
+  beside it, from a new hero on the road in Act I (five runs, 160 to 530 s of play). Four held 60 frames
+  a second with a p99 of 19-21 ms, about 600 draws a frame and the GPU 45-58% busy, one of them for 530
+  s without a stall. The other, the first, ran at a median of 46 frames a second (p99 48 ms, the GPU
+  65-77% busy at 13-16 ms a frame) with Halo 3 and Kinect Joy Ride beside it; a later run beside Halo:
+  Reach and Kinect Joy Ride held 60, so that difference isn't explained.
+  The only stalls in play, 280 ms to 2.4 s, came in two of the runs at the moments another agent's Black
+  Ops II started on the same machine (at over 700% CPU in the one run with a process log, 21:50:56),
+  with the present call itself taking 280-490 ms. They stopped when it had started, except in one run
+  that ended first. A copy of Mortal Kombat starting beside it caused none. Also seen: a hitch of 1.4-2 s
+  as the game world loads, about 105 s in, before play.
+
+  So the recurring freezes need one of those two outside causes in everything measured here. **Not
+  covered:** none of these five runs reached an enemy (the script walks the road and attacks the air),
+  and why another
+  program's start holds the presents is unknown. If a player sees freezes alone on the machine, with
+  no warning in the log, this needs looking at again, starting from the ring wait above.
+
+  The one walk that reached the fights, the same day, was on a machine busy with a build at 6 jobs:
+  to New Tristram at a median of 60 FPS, with 44 stalls over 300 ms in about 17 minutes (the longest
+  2.7 s, at the gate's fight). So fights on a free machine are still unmeasured.
 - **Not tried yet**: the quests after New Tristram, the town's vendors and the stash.
 
 ## Routes (scripted input)

@@ -6,7 +6,7 @@
 #   - error lines the baseline doesn't have (numbers masked), a crash, a game that exited by itself;
 #   - a different number of DLC packs, an import that failed.
 # A run or a baseline made while the machine was unsteady (Mortal Kombat's or Gears' menus with a p99
-# above 300 ms: the machine paused every game ~430 ms once a second on 2026-11-01 03-06 h) has its
+# above 300 ms: every game paused ~430 ms once a second on 2026-11-01 03-06 h, on a display giving no vblanks) has its
 # performance flags shown as warnings only.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\regress\compare.ps1 -Run <Out> [-Baseline tools\regress\baseline]
