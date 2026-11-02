@@ -131,6 +131,12 @@
       "nui": "3:enter,120:arm_right_60_30,124:lower,125:wave,128:lower,129:dance",
       "shots": [60, 110, 130, 165],
       "phases": { "channel": [120, 170] }
+    },
+    "ka_reflex": {
+      "game": "ka", "title": "AnyX360 - Kinect Adventures", "seconds": 300, "dlc": 1,
+      "nui": "3:enter,92:guide,97:lower,107:arm_right_82_-12,112:lower,120:arm_right_99_-23,124:lower,132:arm_right_91_-6,136:lower,142:arm_right_75_-6,146:lower,152:arm_right_112_-6,156:lower,172:arm_right_82_-25,176:lower,195:arm_right_10_-20,195:arm_left_10_-20,212:lower,214:jump,217:jump,220:jump,223:crouch,226:jump,229:jump,232:jump,235:crouch,238:jump,241:jump,244:jump,247:crouch,250:jump,253:jump,256:jump",
+      "shots": [190, 210, 240, 295],
+      "phases": { "play": [215, 260] }
     }
   }
 }

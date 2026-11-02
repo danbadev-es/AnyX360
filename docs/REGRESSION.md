@@ -80,6 +80,16 @@ fixed sequence of presses gets there from a new profile, a little gameplay.
 | kjr | Start and the autosave notice with the hand: the garage | garage |
 | kp | the player enters: the first channel, then arm moves | channel |
 
+**Modes' routes.** A route with `"game": "<id>"` (e.g. `"kjr_battle"`) plays that game's mode: it
+takes the game's `game.json`, `.anyx`, shader cache and folder, and has its own sandbox, report and
+baseline under the route's name. `-Games all` runs the games' own routes only; `-Games modes` runs
+the modes' routes, or name them one by one. They are longer (a fresh profile goes through the
+first-run screens and tutorials first) and are run when a change touches those modes.
+
+| Mode route | Game | What it plays |
+|---|---|---|
+| ka_reflex | ka | the first start, Free Play, Reflex Ridge's first level: the avatar on the platform, the start, the jumps |
+
 What each route really reaches on 0.32.0 is in `tools\regress\baseline\README.md`; a route that
 stops short of gameplay still compares boot, menus and pacing. Doritos Crash Course gets the version 2
 avatar pack from `ks.anyx` (`"avatar_pack_from"`, extracted with the main checkout's x360tool), as

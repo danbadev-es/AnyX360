@@ -259,6 +259,12 @@ needs them).
   held 30.0 on a quieter machine; two players at 30 FPS weren't measured.
 - **Not tried**: copying Trick's poses (needs a person), most of the other tracks, unlocking cars with fans, the photo album, changing avatar ("Cambiar avatar"), "Añádeme"
   (adding an avatar), the settings, three or more people in view.
+- **Hitches entering the garage, open**: the battery's route on a fresh profile, 85-105 s in, two runs
+  each on a machine loaded by other games: release 0.33.0's 5-second p99 was 137, 35, 35, 40 ms and
+  82, 68, 36, 35, 43 ms; the 0.34.0 work's build 183, 94, 89, 93 ms and 177, 50, 103, 84 ms, with
+  frame rates of 26-30 in both. The only runtime change this game can reach is fewer log lines, and
+  no cause was found, so it may be the load or the build: measure again on an idle machine. The
+  stored baseline (33.7 ms) doesn't compare: it ran with nobody in view.
 - **A person with a webcam**: the steering, pushes, drifts and tricks were only made by the
   scripted player (`wheel_*`, `boost`, `lean_*`); how the bridge's skeletons steer is untested.
 - **Avatars**: `XamAvatarLoadAnimation` (imported) fails. The default avatar's half-closed eyes

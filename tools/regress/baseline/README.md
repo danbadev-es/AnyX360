@@ -55,6 +55,10 @@ The 30 frames/s games run at their own speed (Halo 3, Reach, RE6; the Kinect gam
 videos).
 
 ## Notes
+- **The Kinect games' rows ran with nobody in front of the sensor** (dc2, dc3, ka, fnk, ks, kjr, kp):
+  until 2026-11-02 the battery wrote their scripts without a final line end, and the scripted source
+  reads whole lines, so no action ran. Their "where the route gets" column describes what the games
+  show on their own. Make a new baseline for them with the next release.
 - Doritos Crash Course needs a version 2 avatar pack: the battery takes it from `ks.anyx` (this
   machine's own `%LOCALAPPDATA%\AnyX360\system` pack was Reach's version 1, with which Doritos
   crashes 10 s in, as the 0.32.0 changelog says; the launcher repairs it before each start, the

@@ -54,7 +54,9 @@ if (-not $Out) { $Out = Join-Path $env:TEMP ("anyx360-regress\" + (Get-Date -For
 if (-not $X360Tool) { $X360Tool = "$DataRoot\build\tools\x360tool\Release\x360tool.exe" }
 if (-not $TermsHash) { $TermsHash = Get-TermsHash "$DataRoot\build\launcher\launcher_terms.h" }
 $routeSet = (Get-Content -Raw -Encoding UTF8 $Routes | ConvertFrom-Json).games
-$ids = if ($Games -eq 'all') { @($routeSet.PSObject.Properties.Name) } else { @($Games -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+# "all": every game's own route; the modes' routes (with "game") run when named, or with "modes".
+$ids = if ($Games -eq 'all') { @($routeSet.PSObject.Properties | Where-Object { -not $_.Value.game } | ForEach-Object { $_.Name }) }
+  elseif ($Games -eq 'modes') { @($routeSet.PSObject.Properties | Where-Object { $_.Value.game } | ForEach-Object { $_.Name }) } else { @($Games -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
 New-Item -ItemType Directory -Force $Out, $Sandbox | Out-Null
 $runLog = Join-Path $Out 'run.log'
 function Log([string]$text) {
@@ -133,7 +135,10 @@ Log "regression run: $($ids -join ', ') with $Release into $Out"
 foreach ($id in $ids) {
   $route = $routeSet.$id
   if (-not $route) { Log "== $id`: no route in routes.json, skipped"; continue }
-  $info = Get-Content -Raw -Encoding UTF8 "$repo\games\$id\game.json" | ConvertFrom-Json
+  # A mode's route ("ka_reflex": {"game": "ka", ...}) plays that game: its game.json, .anyx, shader
+  # cache and folder; its sandbox, report and baseline are the route's own.
+  $gid = if ($route.game) { $route.game } else { $id }
+  $info = Get-Content -Raw -Encoding UTF8 "$repo\games\$gid\game.json" | ConvertFrom-Json
   $gameOut = Join-Path $Out $id
   if (Test-Path $gameOut) { Remove-Item -LiteralPath $gameOut -Recurse -Force }
   New-Item -ItemType Directory -Force $gameOut | Out-Null
@@ -158,7 +163,7 @@ foreach ($id in $ids) {
       Copy-Item "$DataRoot\keys\xex2_retail.key" "$root\keys\"
       if (Test-Path "$DataRoot\keys\title_keys.txt") { Copy-Item "$DataRoot\keys\title_keys.txt" "$root\keys\" }
       [IO.File]::WriteAllText("$local\AnyX360\terms_accepted.txt", $TermsHash)
-      $archive = Join-Path $Anyx "$id.anyx"
+      $archive = Join-Path $Anyx "$gid.anyx"
       if (-not (Test-Path $archive)) { throw "no $archive" }
       $resultFile = "$box\import.txt"
       $started = Get-Date
@@ -188,9 +193,9 @@ foreach ($id in $ids) {
     $settings += @('', '[network]', 'enabled = false')
     if ($route.settings) { $settings += @('') + @($route.settings) }
     [IO.File]::WriteAllText("$user\settings.toml", ($settings -join "`n") + "`n")
-    if (Test-Path "$Release\bin\shader_cache\$id") {
+    if (Test-Path "$Release\bin\shader_cache\$gid") {
       New-Item -ItemType Directory -Force "$user\cache\shaders" | Out-Null
-      Copy-Item "$Release\bin\shader_cache\$id\*" "$user\cache\shaders\" -Recurse -Force
+      Copy-Item "$Release\bin\shader_cache\$gid\*" "$user\cache\shaders\" -Recurse -Force
     }
     if ($route.avatar_pack_from -and -not (Test-Path "$local\AnyX360\system\AvatarAssetPack.toc")) {
       # Doritos has no Avatar data of its own: the pack another game's disc carries, as the launcher
@@ -213,14 +218,16 @@ foreach ($id in $ids) {
     if ($route.input_clock) { $env1.ANYX360_INPUT_CLOCK = $route.input_clock }
     if ($route.nui) {
       $scriptFile = Join-Path $gameOut 'nui_script.txt'
-      [IO.File]::WriteAllText($scriptFile, ($route.nui -replace ';', ','))
+      # The scripted source reads whole lines of a script file: without the final line end it read
+      # nothing, and the Kinect routes ran with nobody in front of the sensor.
+      [IO.File]::WriteAllText($scriptFile, ($route.nui -replace ';', ',') + "`n")
       $env1.ANYX360_NUI_SCRIPT = "@$scriptFile"
     }
     $saved = @{}
     foreach ($k in $env1.Keys) { $saved[$k] = [Environment]::GetEnvironmentVariable($k); [Environment]::SetEnvironmentVariable($k, $env1[$k]) }
     try {
       $game = Start-Process -FilePath $exe -PassThru -RedirectStandardOutput "$gameOut\stdout.log" -RedirectStandardError "$gameOut\stderr.log" `
-        -ArgumentList "--game `"$root\games\$id\game`" --user `"$user`" --key `"$root\keys\xex2_retail.key`""
+        -ArgumentList "--game `"$root\games\$gid\game`" --user `"$user`" --key `"$root\keys\xex2_retail.key`""
     } finally {
       foreach ($k in $saved.Keys) { [Environment]::SetEnvironmentVariable($k, $saved[$k]) }
     }

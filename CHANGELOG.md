@@ -51,6 +51,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 - **Kinect Sports**: skipping Beach Volleyball's intro video crashed the game (a jump table the
   recompiler's analyser misread; `sub_8236B200` is overridden in `games/ks/src/main.cpp`).
+- `tools\regress\run_regress.ps1`: the Kinect routes never ran. Their script file had no final line
+  end and the scripted source reads whole lines, so the games ran with nobody in view, the stored
+  baseline's Kinect rows included (they need a new baseline).
 
 ## [0.33.0] - 2026-11-01
 
