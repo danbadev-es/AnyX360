@@ -97,6 +97,17 @@ with the message.
 
 Scripted pad: `15:A,25:A,35:A,45:A,55:A,65:A,72:B,90:LRIGHT/50` and `A/0.5` every 3 s to jump.
 
+## Finishing a level (2026-11-02)
+Tried on release 0.33.0 from `dcc.anyx` with a scripted controller, live (`ANYX360_INPUT_LIVE`):
+the main menu (Single Player is the top-left tile: `LEFT`, `LEFT` from where the cursor starts,
+then `A`), USA, "USA 1: Safety First" (`A`, then `B` on the sign-in question), the level. Holding
+right with a jump every 2 s (`LRIGHT/400`, `A/0.4~2x200`) the avatar ran the first conveyors and
+ramps, past the silver time (1:25) at 1:33 near the first water gap, then fell into the water
+again and again at the raised blocks after it, and the "RB to skip ahead" offer moved it on only
+to the next fall: 4:33 in, still a third of the way. **Finishing a level needs a person** (timed
+jumps over gaps the camera shows); nothing went wrong in the game (60 FPS, no error lines, the
+avatar, the timer, the checkpoints and the respawns all worked).
+
 ## Audio (2026-11-01)
 A player heard the sound late, with cuts (0.29.0). What the investigation found:
 

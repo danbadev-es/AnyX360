@@ -343,7 +343,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Doritos Crash Course             | Status                                         |
 | -------------------------------- | ---------------------------------------------- |
 | Menus, country and level choice  | ✅ Working with a controller or the keyboard   |
-| Levels                           | 🧪 Running, jumping, checkpoints; finishing one not tried yet |
+| Levels                           | 🧪 Running, jumping, checkpoints; a blind scripted run doesn't finish one (needs a person) |
 | Sound                            | 🧪 43 ms less delay; cuts a player heard not reproduced (the log now reports them) |
 | Avatars (player, crowd)          | ✅ With the avatar data from Kinect Sports or Mortal Kombat |
 | Saving progress                  | ✅ Saved and loaded again                      |
