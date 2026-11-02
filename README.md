@@ -820,8 +820,8 @@ Halo 3:
   the game lists only the disc's maps.
 - Only the first missions have been played. Forge can't save a map yet. Matchmaking needs Xbox LIVE,
   which is gone.
-- System Link: campaign co-op is refused ("one or more players don't have an Xbox 360 hard
-  drive", as Theater says even offline); custom games work. Only tested on one PC so far.
+- System Link: custom games work; campaign co-op with a second copy joining hasn't been tried. Only
+  tested on one PC so far.
 
 Halo: Reach:
 
