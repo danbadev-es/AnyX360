@@ -482,7 +482,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Firefight, custom games, Forge   | 🧪 A custom game (Slayer on Anchor 9) played; Firefight and Forge not tried yet |
 | Map packs                        | 🧪 Offered in custom games (Noble, Defiant, Anniversary); Slayer on Anchor 9 played |
 | Theater                          | 🧪 Opens (no film recorded yet)                |
-| System Link                      | 🧪 Hosts and finds: each copy's roster lists the other's party; joining doesn't start yet |
+| System Link                      | 🧪 Two copies on one PC: a party hosted, listed, joined and a Slayer match played on Sword Base |
 | Title update (0.0.1.7)           | ✅ Required: the game is recompiled from it    |
 | Matchmaking (Xbox LIVE)          | ❌ Not available: Xbox LIVE is gone            |
 

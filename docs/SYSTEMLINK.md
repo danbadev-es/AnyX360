@@ -234,9 +234,10 @@ difficulty > A (start) > A (yes): the pre-game lobby with both; START (choose ma
 - the same match: the scoreboard lists Alpha and Bravo on each (BACK), with each other's cash;
 - the "Create a base" objective: a Command Post bought by the host (hold Y at the green tower) stands
   in the client's game and starts the countdown (0:30) on both;
-- wave 1 and wave 2 with the Locust: each player sees the other and the same enemy; a dead player
-  spectating the other gets the same picture (buy back, $1500); the enemies' count and the match
-  clock agree on both;
+- wave 1 and wave 2 with the Locust: the client sees the host walking; each is shot at by the Locust;
+  a dead player spectating the other gets the same picture as the other's own (buy back, $1500); the
+  enemies' count and the match clock read the same on both. (The same enemy on both screens at once
+  wasn't captured: the two looked in different directions.)
 - a whole wave of ten minutes, and several failed waves ("Wave failed", 10:13 on both, the same
   scores); the host chooses "Restart from the current wave" or "from the beginning" while the client
   says "Waiting for the host", and both restart. No crash and no disconnect (about 30 FPS each,

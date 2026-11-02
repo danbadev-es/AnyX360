@@ -177,7 +177,10 @@ std::vector<Press> LivePresses(double now) {
       }
     }
   }
-  std::erase_if(pending, [now](const Press& p) { return now >= p.at + p.hold + 1.0; });
+  // Kept until its last repeat is over (a press with ~<period>x<count> repeats like a scripted one).
+  std::erase_if(pending, [now](const Press& p) {
+    return now >= p.at + (p.period > 0 ? p.period * (p.count - 1) : 0.0) + p.hold + 1.0;
+  });
   return pending;
 }
 
