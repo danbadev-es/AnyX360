@@ -17,17 +17,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   Each was played to its results with the scripted player
   ([docs/KINECTADVENTURES.md](docs/KINECTADVENTURES.md)).
 - **Dance Central 2**: Fitness, Dance Battle, Break It Down and two players were tried with two
-  scripted players: a Fitness workout's songs, a Dance Battle to its results and a two-player song
-  where both score; Break It Down starts and teaches the moves. Resuming from the pause menu works
-  with the arm and a swipe (the menus had been left in controller mode before). Routes in
-  [docs/DANCECENTRAL2.md](docs/DANCECENTRAL2.md).
+  scripted players: a Fitness workout's songs (its calories and time stay at 0: open), a Dance
+  Battle to its results and a two-player song where both score; Break It Down starts and teaches the
+  moves. Resuming from the pause menu works with the arm and a swipe (the menus had been left in
+  controller mode before). Routes in [docs/DANCECENTRAL2.md](docs/DANCECENTRAL2.md).
+- **Dance Central 3**: a song played to its results by two scripted players, both scoring; the mode
+  list's route with gestures ([docs/DANCECENTRAL3.md](docs/DANCECENTRAL3.md)).
 - **Kinect Joy Ride**: Battle Race played to the finish using items (the left hand held out to the
   side fires the item held), and Stunt, Sprint and Smash played to their results with the scripted
   player; Trick runs to its results (copying its poses needs a person). Routes in
   [docs/KINECTJOYRIDE.md](docs/KINECTJOYRIDE.md).
 - **Kinect Party**: 17 minutes of auto play with the scripted player dancing went through eight
-  channels (Kung Fu, Monster Attack, Dress Up, balloons, a picture booth, Bath Time, a rainy forest,
-  a shadow play) without an error ([docs/KINECTPARTY.md](docs/KINECTPARTY.md)).
+  channels (Kung Fu, Monster Attack and six not tried before: Dress Up, balloons, a picture booth, a
+  bath, a rainy forest, a shadow play) without an error ([docs/KINECTPARTY.md](docs/KINECTPARTY.md)).
 - **Kinect Sports**: Boxing with two players in split screen, both scripted players punching,
   into the second round; the menu aims for every sport ([docs/KINECTSPORTS.md](docs/KINECTSPORTS.md)).
 - **Fruit Ninja Kinect**: Zen and Party were tried, but the scripted player's slices pick the

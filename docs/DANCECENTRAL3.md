@@ -278,6 +278,27 @@ The 10 avatar items in the archive (content type 0x9000) are left out by the lau
   player whose GPU can't keep up can go back with `[xenia] render_target_path_d3d12 = "rtv"` in
   `settings.toml`.
 
+## Two players (2026-11-02)
+Played on release 0.33.0 from `dc3.anyx` (a fresh profile) with two scripted players and only
+gestures, no error lines:
+
+- **The way there**: `menu_right`, a swipe past the intro, Main menu, the voice control notice and
+  tutorial (swipes), which end on Rehearse's song list. The left hand goes back: `lower`,
+  `menu_left`, `hand_y_-36` and `swipe_right/1.0` (the first swipe may only highlight it) reach the
+  mode list: Perform (1-2 players), Rehearse, Battle, Make Some Noise, Crew Throwdown.
+- **The second player**: `enter@1` on the mode list is seen at once: the first player's icon moves
+  to the left corner and the second's takes the right one.
+- **Perform, two players**: Perform (`lower`, `menu_right`, a swipe), Random Song (`hand_y_-12`, a
+  swipe; `hand_y_6` opens the playlists and their tutorial), then two difficulty lists side by side.
+  Each player chooses with their own right arm and swipes (`menu_right@1`, `swipe_left/0.8@1`). The
+  first time, Perform's tutorial comes next (swipes). Then both `dance/400`.
+- **Disco Inferno played to its results**, each with their dancer and move cards: 37,501 on Easy and
+  25,440 on Beginner, the crown on the winner. The second player landed on Beginner because the
+  hand's height chooses the row; the scripted `dance` routine matches no particular move (0% and no
+  stars), so scores say the scoring runs for both, not how well a real pair would do.
+- **Not tried**: Battle, Make Some Noise, Crew Throwdown. A real pair with webcams is still for
+  people: the scripted skeletons are clean and don't overlap.
+
 ## Status with the title update (2026-10-31)
 Played with the scripted player on the build recompiled from 0.0.1.5, from the Games on Demand
 copy installed by the launcher, with a copy of the user's save:

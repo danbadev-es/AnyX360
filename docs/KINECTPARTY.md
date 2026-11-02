@@ -53,12 +53,12 @@ no licence; the others need the bit of the pack that sells them, and the Full Un
 |---|---|---|
 | Kung Fu | free | ✅ played with the scripted player: cut-out, arms followed, objects to break |
 | Monster Attack | free | ✅ played (auto play after Kung Fu): the giant in the city, the newspaper recap |
-| Dress Up, Balloons | free | ✅ played on auto play with the dancing scripted player (2026-11-02) |
-| Future Booth, Funhouse Mirror, Kaleidoscope | free | not tried |
+| Dress Up, Balloons | free | ✅ ran on auto play with the dancing scripted player (2026-11-02) |
+| Future Booth, Funhouse Mirror, Kaleidoscope | free | not identified (the booth seen on auto play may be Future Booth) |
 | The Gilliams (15 micro-channels: bowling, chickens, monsters, salon, turkey...) | free | not tried |
 | Invaders | `0x80` (Full Unlock) | ✅ played: butterfly wings, shooting, the score |
-| Bath Time; a rainy forest growing mushrooms (Growing Garden or Rain Cloud), a picture booth (Video Booth), a shadow play | `0x8`-`0x40000000` (Full Unlock) | ✅ played on auto play with the dancing scripted player (2026-11-02) |
-| Side Scroller, Ball Pit, Dance Party, Pigeon Chaser, Arkanoid, Hot Lava, Fireworks, Magic Hands, Seventies Video, Growing Planes, Fish Tank, Blizzard, Tesla, Voxel Runner, Parrot, Grid World, Dubstep, Paint, Ribbon Dancer, Constellation, Building Blocks, Popcorn, Slit Scan | `0x8`-`0x40000000` (Full Unlock) | seen on the hub's stagehands; not played yet |
+| Bath Time | `0x8`-`0x40000000` (Full Unlock) | ✅ ran on auto play with the dancing scripted player (2026-11-02) |
+| Side Scroller, Ball Pit, Dance Party, Pigeon Chaser, Arkanoid, Hot Lava, Fireworks, Magic Hands, Seventies Video, Growing Planes, Fish Tank, Growing Garden, Blizzard, Tesla, Voxel Runner, Parrot, Video Booth, Grid World, Dubstep, Rain Cloud, Paint, Ribbon Dancer, Constellation, Building Blocks, Popcorn, Slit Scan | `0x8`-`0x40000000` (Full Unlock) | seen on the hub's stagehands; not played yet (the forest seen on auto play may be Growing Garden or Rain Cloud) |
 | The trial's scrambled channel | (no pack) | ✅ shown as "trial mode" with the player's coloured outline |
 
 Nothing was seen failing: the untried channels are untried, not known broken.
@@ -66,11 +66,13 @@ Nothing was seen failing: the untried channels are untried, not known broken.
 **Auto play, 2026-11-02** (release 0.33.0 from `kp.anyx`, a fresh profile, the scripted player
 dancing the whole time: `3:enter,100:dance/3000`): in 17 minutes auto play went through Kung Fu,
 Monster Attack, Dress Up (the player cut out and dressed: a mask, a belt, boots, props thrown in),
-a ball pit of balloons, a booth on a monitor that takes five pictures ("4/5"), Bath Time (bubbles up
+a tub of balloons, a booth on a monitor counting five pictures ("4/5", "5/5"), a bath (bubbles up
 to the chest, a rubber duck), a rainy forest with mushrooms growing at the player's feet, and a
 shadow-play scene with the player outlined. Each followed the dancing cut-out; no error lines, no
-crash. Which licence each of those needs is in the table above; the ones not named there
-(the forest, the booth, the shadow play) are among the Full Unlock's.
+crash. These were seen on screen every 40 s, with nothing naming the channel, so their names in the
+table below are guesses from the pictures; the booth, the forest and the shadow play aren't matched
+to a name, and only Kung Fu, Monster Attack and Dress Up are certain. Being played doesn't mean
+played through: nothing was aimed, the dance just went on.
 
 ## The Full Unlock
 

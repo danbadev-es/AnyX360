@@ -304,7 +304,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Menus (Kinect gestures, mouse)   | ✅ Working                                     |
 | Perform and Rehearse songs       | ✅ Playable; scoring follows the moves         |
 | Webcam tracking                  | 🧪 In testing                                  |
-| Two players                      | 🧪 In testing                                  |
+| Two players                      | 🧪 A song played to its results by two scripted players, both scoring; with webcams in testing |
 | Voice commands                   | ❌ Not available: no microphone support        |
 
 | Dance Central 2                  | Status                                         |
@@ -312,7 +312,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Menus (Kinect gestures, controller) | ✅ Working                                  |
 | Perform                          | ✅ Playable; scoring follows the moves         |
 | Pause (controller's Start), resume | ✅ Working; resume with the arm and a swipe; the gesture's pause in testing |
-| Fitness, Dance Battle            | ✅ Played with two scripted players (a workout's songs; a battle to its results) |
+| Dance Battle                     | ✅ Played to its results by two scripted players |
+| Fitness                          | 🧪 A workout's songs play; its calories and time stay at 0 (open) |
 | Break It Down                    | 🧪 Starts and teaches the moves; not played through (needs a person) |
 | Two players                      | ✅ The second player joins and both score (scripted players); 🧪 with the webcam |
 | Title update (0.0.1.5)           | ✅ Required: the game is recompiled from it    |
@@ -390,7 +391,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Start-up, channels on auto play  | ✅ Working (30 FPS)                            |
 | The camera picture, the cut-out  | ✅ One or two players cut out; effects follow the body |
 | Kung Fu, Monster Attack, Invaders | ✅ Played with the scripted player            |
-| Other channels                   | 🧪 Eight more seen on auto play with the scripted player (Dress Up, balloons, Bath Time...); the rest not tried yet |
+| Other channels                   | 🧪 Six more ran on auto play with the scripted player dancing (Dress Up, balloons, a bath...), without errors; the rest not tried yet |
 | Channel guide (hub)              | 🧪 START on a controller, then the hand        |
 | Full Unlock                      | ✅ Installed by the launcher; every channel opens |
 | Voice, photo sharing             | ❌ Not available (no microphones; sharing needs Xbox Live) |

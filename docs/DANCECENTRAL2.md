@@ -96,7 +96,14 @@ scripted players and a scripted controller; nothing needed fixing:
 - **Fitness**: the Fitness menu (session and total calories, the workouts: Easy Start, Warm-ups,
   Toned, Gym...) and a workout started: its playlist plays song after song (Last Night, then the
   next one), the session's song count goes up, and leaving through the pause menu ("Song list",
-  then Yes) comes back to the Fitness menu. Calories stay 0 with "Fitness mode" off, its default.
+  then Yes) comes back to the Fitness menu.
+  **Open: calories and time stay at 0.** The top row, "Fitness mode on", has its box filled (on) by
+  default, and with it on a whole workout song was danced by the scripted player: "songs played"
+  went up each time (4 in the end), but the session's and the total calories and durations stayed
+  at 0, and no calorie count showed during the song. A press on the row empties the box; the box was
+  filled again after the next workout. The cause isn't known (this game doesn't link the Kinect's
+  FITNESS library, which Dance Central 3 does, so it counts them in its own code, not found yet): it
+  needs comparing with a person on a webcam.
 - **Two players**: a second scripted player who walks in at "Waiting for another player" is
   seen at once: the screen splits into the two players' sides (the first player moves to the left
   one), the second chooses their difficulty and Ready with their own right-arm swipes, and the song
