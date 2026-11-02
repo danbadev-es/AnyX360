@@ -80,6 +80,10 @@ struct GameDescriptor {
   // the system returns avatars made from the console's avatar asset pack (docs/AVATARS.md); 0: asset
   // requests return nothing.
   uint32_t avatar_skeleton = 0;
+  // Without an avatar asset pack the avatar system doesn't start (XamAvatarInitialize fails, as for
+  // titles without avatar_system): for titles that run without avatars but crash on empty ones
+  // (Doritos Crash Course on its title update). With a pack it starts as usual.
+  bool avatar_system_needs_pack = false;
   // The hardware thread (0-5) the title's main thread starts on; threads it creates inherit it
   // unless they are given one. The console starts it on 0. The games before Modern Warfare 3 were
   // brought up and tested with 1, so that stays the default; Modern Warfare 3 needs 0 (it places its

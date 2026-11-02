@@ -184,6 +184,7 @@ int RunHost(int argc, char** argv, const GameDescriptor& game) {
   info.arcade = game.arcade;
   info.avatar_system = game.avatar_system;
   info.avatar_skeleton = game.avatar_skeleton;
+  info.avatar_system_needs_pack = game.avatar_system_needs_pack;
   info.main_thread_processor = game.main_thread_processor;
   info.game_region_from_country = game.game_region_from_country;
   info.separate_xex_4k_heap = game.separate_xex_4k_heap;

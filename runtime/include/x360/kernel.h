@@ -389,6 +389,7 @@ struct TitleInfo {
   bool arcade = false;                // an Xbox Live Arcade title: game:\ is its package's contents
   bool avatar_system = false;         // XamAvatarInitialize succeeds (GameDescriptor::avatar_system)
   uint32_t avatar_skeleton = 0;       // the avatar library's skeleton builder (GameDescriptor)
+  bool avatar_system_needs_pack = false;  // no avatar system without a pack (GameDescriptor)
   uint8_t main_thread_processor = 1;  // hardware thread of the main thread (GameDescriptor)
   bool game_region_from_country = false;  // XGetGameRegion from the country (GameDescriptor)
   bool separate_xex_4k_heap = false;  // 0x90000000 isn't a view of 0x80000000 (GameDescriptor)

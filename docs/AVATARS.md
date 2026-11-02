@@ -32,7 +32,8 @@ copies it there on its first run, so avatar games without a pack (Doritos Crash 
   Sports, Mortal Kombat; a 0x28-byte header), 1 on Halo: Reach's (a 0x20-byte header, 1282 entries
   too, other asset layouts: "MaleBodyHead" for "Head"). Only version 2 is read; the others are
   refused as if there were no pack. Before 0.32.0 adding Halo: Reach replaced a version 2 pack with
-  its version 1, and Doritos Crash Course then crashed on its first level. Now a pack never
+  its version 1, and Doritos Crash Course then crashed on its first level (since 0.34.0 it goes
+  without avatars when no usable pack is there: `GameDescriptor::avatar_system_needs_pack`). Now a pack never
   replaces a later version, and before each game starts the launcher puts back the latest pack a
   game in the library carries if the installed one is missing or older (`RepairAvatarPack`).
 - **Table** (big-endian): a 0x28-byte header (+0x1C entry count: 1282), entries of 0xF8 bytes

@@ -69,7 +69,8 @@ from the console's system software (`XamAvatarGetAssets`), which AnyX360 provide
 console's **avatar asset pack** ([AVATARS.md](AVATARS.md)). This game doesn't carry the pack;
 discs of avatar games do (Kinect Sports): the launcher installs it when such a game is added, and
 a game that has one copies it on its first run, to `%LOCALAPPDATA%\AnyX360\system`. Without it
-the game runs, with an invisible player.
+the game runs, with an invisible player (on the title update since 0.34.0: see "Without any avatar
+pack" below).
 
 The game's avatar library (2.0.11626) is older than Kinect Sports': it has no shaping of the
 skeleton by height and weight, so the system gives every avatar the library's default skeleton
@@ -139,11 +140,21 @@ A player heard the sound late, with cuts (0.29.0). What the investigation found:
   with cuts will show whether the output starved.
 - **Avatar pack.** Adding Halo: Reach replaced the shared avatar asset pack with its disc's older
   version (1), which the avatar system can't read. With it this game crashed on its first level
-  (a null read in `sub_82877CC8`, thread 20/21), as it does with no pack at all (checked: the
-  version with its title update needs the avatars; the notes above about an invisible player are
-  from the base game). Since 0.32.0 an older pack never replaces a later one, and the launcher
-  puts the latest one back before each game starts ([AVATARS.md](AVATARS.md)). Without any game
-  that carries a version 2 pack (Kinect Sports, Mortal Kombat...) the game still crashes there.
+  (a null read in `sub_82877CC8`, thread 20/21), as it did with no pack at all. Since 0.32.0 an
+  older pack never replaces a later one, and the launcher puts the latest one back before each
+  game starts ([AVATARS.md](AVATARS.md)).
+- **Without any avatar pack (since 0.34.0).** With no game that carries a version 2 pack (Kinect
+  Sports, Mortal Kombat...), the avatar system now doesn't start for this game
+  (`GameDescriptor::avatar_system_needs_pack`: `XamAvatarInitialize` fails, as for titles without
+  avatars), and the game goes without avatars as the base game did; the log says `avatars: no
+  avatar system without an avatar asset pack`. Given the system with empty assets, the version
+  with its title update crashed in `sub_82877CC8` (+0x711, a null read on thread 21) about 10 s
+  after starting.
+  Checked on 2026-11-02 from a fresh import with no pack: no crash in seven runs of 130 to 460 s, the
+  menus as with a pack, and in one run, with the save an earlier run made, level 1 loaded and ran (the timer counting, the camera following,
+  "Stuck? Press RB", 60 FPS). The scripted press got no further than the start of the level there, and
+  no player was seen on screen, so whether a person can play a level like that is **still to be
+  checked**: the avatars come back as soon as Kinect Sports or Mortal Kombat is added.
 
 ## Reproducing
 From the arcade package (`<package>` is the folder that holds `58410A71`):

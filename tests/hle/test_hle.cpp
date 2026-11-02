@@ -70,6 +70,7 @@ PPC_EXTERN_FUNC(__imp__XamUserGetXUID);
 PPC_EXTERN_FUNC(__imp__NtCreateFile);
 PPC_EXTERN_FUNC(__imp__NtClose);
 PPC_EXTERN_FUNC(__imp__NtSetInformationFile);
+PPC_EXTERN_FUNC(__imp__XamAvatarInitialize);
 PPC_EXTERN_FUNC(__imp__XamContentCreateEnumerator);
 PPC_EXTERN_FUNC(__imp__XamContentCreateEx);
 PPC_EXTERN_FUNC(__imp__XamContentSetThumbnail);
@@ -781,6 +782,22 @@ int main() {
     close();
     kernel::SetTitlePathsForTests({});
     fs::remove_all(folder);
+  // The avatar system (xam.cpp): titles with avatar_system get it started; with
+  // avatar_system_needs_pack (Doritos Crash Course) not without an avatar pack, so they go without
+  // avatars (no skeleton builder here: never a pack available).
+  {
+    kernel::TitleInfo info;
+    info.avatar_system = true;
+    kernel::SetTitlePathsForTests(info);
+    ctx.r3.u64 = 4, ctx.r4.u64 = 1;
+    __imp__XamAvatarInitialize(ctx, base);
+    CHECK(ctx.r3.u32 == 0);
+    info.avatar_system_needs_pack = true;
+    kernel::SetTitlePathsForTests(info);
+    ctx.r3.u64 = 4, ctx.r4.u64 = 1;
+    __imp__XamAvatarInitialize(ctx, base);
+    CHECK(ctx.r3.u32 != 0);
+    kernel::SetTitlePathsForTests({});
   }
 
   // Downloadable content (xam.cpp): the game's own content\00000002, where the launcher installs it,

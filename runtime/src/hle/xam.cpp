@@ -1705,6 +1705,10 @@ constexpr uint32_t kAvatarEmptyAssets = 0x100;  // an XAvatarGetAssets result wi
 // its size) (Kinect Sports 82A820DC): the coordinate system is the second argument, 1 right-handed.
 uint32_t XamAvatarInitialize(uint32_t, uint32_t coordinate_system) {
   if (!TitlePaths().avatar_system) return 0xFFFFFFFF;
+  if (TitlePaths().avatar_system_needs_pack && !x360::avatar::Available()) {
+    KLOG_W("avatars: no avatar system without an avatar asset pack: the game goes without avatars");
+    return 0xFFFFFFFF;
+  }
   x360::avatar::Initialize(coordinate_system);
   return X_ERROR_SUCCESS;
 }

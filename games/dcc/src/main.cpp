@@ -19,6 +19,9 @@ int main(int argc, char** argv) {
   game.avatar_system = true;
   // The avatar library's default skeleton (this version has no shaping by height and weight).
   game.avatar_skeleton = 0x82506768;
+  // With no avatar pack at all it goes without avatars, as the base game did: given the system
+  // with empty assets it crashed on its first level (a null read in sub_82877CC8).
+  game.avatar_system_needs_pack = true;
   // The game presents every vblank: 60 FPS, as on the console. With the default 120 Hz vblank it
   // ran at up to 120 FPS on a fast display.
   game.vblanks_per_frame = 1;
