@@ -28,6 +28,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 - **Kinect Party**: 17 minutes of auto play with the scripted player dancing went through eight
   channels (Kung Fu, Monster Attack, Dress Up, balloons, a picture booth, Bath Time, a rainy forest,
   a shadow play) without an error ([docs/KINECTPARTY.md](docs/KINECTPARTY.md)).
+- **Kinect Sports**: Boxing with two players in split screen, both scripted players punching,
+  into the second round; the menu aims for every sport ([docs/KINECTSPORTS.md](docs/KINECTSPORTS.md)).
+- **Fruit Ninja Kinect**: Zen and Party were tried, but the scripted player's slices pick the
+  menu fruit only now and then; they are left for a person
+  ([docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md)).
 
 ### Changed
 

@@ -138,6 +138,28 @@ on the build recompiled from 0.0.4.2 with the scripted player:
   warning), then `75_-22` Jugar, `95_-22` a sport (Football in the second row), `74_-22` against the
   AI, `37_4` skips the how-to screen.
 
+## Boxing with two players (2026-11-02)
+Played on release 0.33.0 from `ks.anyx` (a fresh profile) with two scripted players:
+- **The route** (the hand cursor moves about 14.5 pixels of 800 across per degree of azimuth and
+  7.7 of 450 down per degree of elevation; `84_-24` lands at (275, 270)): `78_-32` picks "Player"
+  on "Elegir jugador principal", `75_-22` Jugar, then the sport cards in a row at elevation `-19`:
+  Football `92`, Bowling `84`, Athletics `79`, Boxing `72`, Beach Volleyball `64`, Table Tennis
+  `55`; `75_-19` "Aceptar jugadores" (or `75_-16` "Jugar a ..." on "¿Quieres jugar ya?"); `54_5` the
+  top-right Skip of the intros and how-to screens. Hold each 4 s, then `lower`.
+- **Boxing**: the bout is split screen for two from the start ("Player: raise your hand",
+  "Púgil 2: stand in front of the sensor"). A second scripted player (`enter@1`, `walk_out@1`) and
+  both hands raised (`arm_right_10_80`, `arm_right_10_80@1`) start it: "¡A combatir!", both
+  boxers' avatars in their halves, punches (`arm_right_90_5/0.15` / `arm_left_...`, then `lower`)
+  thrown by each; round 1 to round 2. The scripted punches don't hurt much (the health bars stay
+  nearly full): a person decides the bout.
+- **Beach Volleyball**: chosen once (the route's aim for Boxing landed on it); skipping its intro
+  video, the game crashed (a guest read at `00000017` in `sub_82568120`, called from
+  `sub_8227DF18`) while Windows was out of memory (0.6 of 15.6 GB free, two other games running).
+  A second try didn't get past the menus' slower loading, so it isn't known whether it repeats on
+  an idle machine: try Beach Volleyball first when the machine is free.
+- **Not tried**: Football, Athletics and Table Tennis in this round (the scripted player has no
+  kicks or runs); Bowling's start is in the 2026-10-20 notes.
+
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `4D5308C9`):
 

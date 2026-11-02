@@ -356,7 +356,8 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Avatars                          | ✅ The game's guests with their looks; you play as your profile's avatar |
 | Bowling                          | 🧪 Starts and follows the body; not played through yet |
 | Football                         | 🧪 Loads; not played through yet               |
-| Other sports, two players        | 🧪 Not tried yet                               |
+| Boxing, two players              | 🧪 A two-player bout in split screen with two scripted players (rounds 1 and 2) |
+| Other sports                     | 🧪 Not tried yet; Beach Volleyball crashed once after its intro on a machine out of memory |
 | Title update (0.0.4.2)           | ✅ Required: the game is recompiled from it    |
 | Online, avatar awards            | ❌ Not available: they need Xbox Live          |
 
