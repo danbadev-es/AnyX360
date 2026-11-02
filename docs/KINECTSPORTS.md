@@ -161,8 +161,15 @@ Played on release 0.33.0 from `ks.anyx` (a fresh profile) with two scripted play
   needed: [main.cpp](../games/ks/src/main.cpp) overrides the function with what its code does.
   A scan of the byte-table jumps in the eight Kinect games' recompiled code found no other one
   switching on the wrong register (a few switch on the jump's target, which is right).
-- **The sport cards' aims**: Boxing and Beach Volleyball were used; the others are computed from the
-  same fit.
+  Afterwards Beach Volleyball plays: with both hands raised, the serves of two scripted players
+  gave a point (0-1, first to 7).
+- **The other sports, on the build with the fix**, each opened with its card and started with a
+  raised hand, no crash: **Table Tennis** to "choose a bat", **Bowling** to its lane and "pick a
+  ball" (the hand reaching a rack is in the 2026-10-20 notes), **Athletics** to the race, whose
+  rivals finish while the scripted player stands at the start (it has no running on the spot),
+  **Football** to kick-off (0-0, the clock running, then the intercept lesson). None was played
+  through. "¿Quieres jugar ya?" comes instead of "¿Quién va a jugar?" with two players
+  in view, and the first hold may fall on "Mis opciones" (`54_5` at the top right): hold again.
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `4D5308C9`):
