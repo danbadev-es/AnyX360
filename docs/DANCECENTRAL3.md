@@ -296,8 +296,14 @@ gestures, no error lines:
   25,440 on Beginner, the crown on the winner. The second player landed on Beginner because the
   hand's height chooses the row; the scripted `dance` routine matches no particular move (0% and no
   stars), so scores say the scoring runs for both, not how well a real pair would do.
-- **Not tried**: Battle, Make Some Noise, Crew Throwdown. A real pair with webcams is still for
-  people: the scripted skeletons are clean and don't overlap.
+- **Battle played to its end**: on a profile past the first run, Dance on the main menu goes straight
+  to the mode list (don't swipe back then). Battle (`hand_y_-16`, a swipe), Y.M.C.A., each player's
+  difficulty and Start (`hand_y_6` puts the hand on it), the tutorial's pages (`hand_y_-6`, swipes),
+  then both `dance/400`: the free-style cards, the turns with the double-points solo, the end menu
+  (Select song, Start again, Change difficulty, Main menu) with the crown over the first player's icon.
+  Only 2,000 to 0 was scored in the middle of it: the routine rarely matches these moves.
+- **Not tried**: Make Some Noise, Crew Throwdown. A real pair with webcams is still for people: the
+  scripted skeletons are clean and don't overlap.
 
 ## Status with the title update (2026-10-31)
 Played with the scripted player on the build recompiled from 0.0.1.5, from the Games on Demand

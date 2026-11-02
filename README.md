@@ -304,7 +304,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Menus (Kinect gestures, mouse)   | ✅ Working                                     |
 | Perform and Rehearse songs       | ✅ Playable; scoring follows the moves         |
 | Webcam tracking                  | 🧪 In testing                                  |
-| Two players                      | 🧪 A song played to its results by two scripted players, both scoring; with webcams in testing |
+| Two players                      | 🧪 Perform and Battle played to their ends by two scripted players; with webcams in testing |
 | Voice commands                   | ❌ Not available: no microphone support        |
 
 | Dance Central 2                  | Status                                         |
