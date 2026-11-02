@@ -154,22 +154,20 @@ The output folder is `recomp7`.
 ## Zen and Party (2026-11-02)
 Tried on release 0.33.0 from `fnk.anyx` with the scripted player: an Arcade round played to its
 results (77 points, "can't connect to Xbox LIVE" for the weekly board), and the mode selection
-reached (Party, Classic, Zen, Arcade, Back). **Zen and Party weren't entered**: the menus are
-chosen by slicing their fruit, and the scripted arm's slices hit the fruit only now and then (no
-cursor shows where the hand is until it moves fast; a slice that crosses two fruit picks the
-other one, e.g. Dojo instead of Start Game). After about 25 s without a slice the title screen
-and the main menu play a demo reel; a slice on its Skip fruit (`arm_right_10_-30/0.3`, the right
-hand raised from the side to low in front) ends it. Party mode is two people slicing side by side;
-both, with Zen, are left for a person (or a script that aims by the screen).
+reached once (Party, Classic, Zen, Arcade, Back). **Zen and Party weren't entered**, after about a
+dozen attempts: the game didn't fail, the scripted route did. The menus are chosen by slicing their
+fruit, no cursor shows where the hand is until it moves fast, and most attempts ended in the demo
+reel that the title screen falls into (gameplay clips, the blades list, a Skip fruit). Strokes aimed
+by a fit of screen positions, on the script's clock, didn't do better. Party mode also needs a second
+person on the mode selection. Both are left for a person, who sees the blade; the fruit's own
+reactions aren't in doubt, since Arcade and Classic rounds play.
 
-What was learnt for driving the menus:
-- An arm pose given at once (`arm_right_100_-70` then `arm_right_100_30`) is a fast stroke; the
-  title's fruit takes it reliably, the main menu's Start Game sometimes (`100_-70`, `100_30`,
-  `98_-70`, `98_30` at 1 s intervals worked once).
-- A pose raised over a duration (`arm_right_<az>_<el>/0.3`) sweeps the hand up from the side: that
-  is what cuts the bottom-right Skip fruit.
-- With the live script, a time written with a decimal comma (a Spanish Windows' default number
-  format) splits into two items; write times with a point.
+What was seen, for whoever scripts this next (each worked at least once, none reliably):
+- An arm pose given at once (`arm_right_100_-70` then `arm_right_100_30`) is a fast stroke: the title
+  fruit took it, and `100_-70`, `100_30`, `98_-70`, `98_30` at 1 s intervals opened the mode
+  selection from the main menu once.
+- A pose raised over a duration (`arm_right_<az>_<el>/0.3`) sweeps the hand up from the side:
+  `arm_right_10_-30/0.3` twice ended the reel once.
 
 ## Status with the title update (2026-10-28)
 Prepared by the launcher from the archive (the copy, the eight DLC packs and the update) and

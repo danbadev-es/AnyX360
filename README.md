@@ -329,13 +329,14 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Avatars                          | ✅ The players' avatars in every activity, from the disc's avatar data |
 | Downloadable content             | ✅ Installed by the launcher                   |
 | Title Update #1 (0.0.1.3)        | ✅ Required: the game is recompiled from it    |
-| Two players, voice, online       | 🧪 Two players with a person; ❌ voice and online not available |
+| Two players                      | 🧪 River Rush and Reflex Ridge (split screen) start with two scripted players; the others not tried yet |
+| Voice, online                    | ❌ Not available                               |
 
 | Fruit Ninja Kinect               | Status                                         |
 | -------------------------------- | ---------------------------------------------- |
 | Calibration, menus               | ✅ Working (slice a fruit to choose)           |
 | Arcade, Classic                  | ✅ Playable with the scripted player           |
-| Zen, Party (two players)         | 🧪 Offered on the mode selection; the scripted player's slices don't pick them reliably (needs a person) |
+| Zen, Party (two players)         | 🧪 Offered on the mode selection; not entered: the scripted player's slices don't pick them (needs a person) |
 | Progress and best scores         | ✅ Saved                                       |
 | Downloadable content             | ✅ Installed by the launcher                   |
 | Title update (0.0.1.3)           | ✅ Required: the game is recompiled from it    |
@@ -358,7 +359,7 @@ explains each game's controls and how to set up the webcam for the Kinect games.
 | Bowling                          | 🧪 Starts and follows the body; not played through yet |
 | Football                         | 🧪 Loads; not played through yet               |
 | Boxing, two players              | 🧪 A two-player bout in split screen with two scripted players (rounds 1 and 2) |
-| Other sports                     | 🧪 Not tried yet; Beach Volleyball crashed once after its intro on a machine out of memory |
+| Other sports                     | 🧪 Not tried yet                               |
 | Title update (0.0.4.2)           | ✅ Required: the game is recompiled from it    |
 | Online, avatar awards            | ❌ Not available: they need Xbox Live          |
 

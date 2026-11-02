@@ -31,9 +31,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   channels (Kung Fu, Monster Attack and six not tried before: Dress Up, balloons, a picture booth, a
   bath, a rainy forest, a shadow play) without an error ([docs/KINECTPARTY.md](docs/KINECTPARTY.md)).
 - **Kinect Sports**: Boxing with two players in split screen, both scripted players punching,
-  into the second round; the menu aims for every sport ([docs/KINECTSPORTS.md](docs/KINECTSPORTS.md)).
-- **Fruit Ninja Kinect**: Zen and Party were tried, but the scripted player's slices pick the
-  menu fruit only now and then; they are left for a person
+  into the second round ([docs/KINECTSPORTS.md](docs/KINECTSPORTS.md)).
+- **Fruit Ninja Kinect**: Zen and Party weren't entered: the scripted player's slices don't pick the
+  menu fruit reliably; they are left for a person
   ([docs/FRUITNINJAKINECT.md](docs/FRUITNINJAKINECT.md)).
 
 ### Changed
@@ -42,6 +42,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
   and Mortal Kombat import it, and Mortal Kombat has no avatars.
 - A failed `XMsgInProcessCall` is logged the first five times per message: Kinect Adventures asks
   for one every frame from its main menu on (9,000 log lines in a quarter of an hour).
+- `tools\regress\run_regress.ps1`: routes for a game's modes (`"game": "<id>"`, run by name or with
+  `-Games modes`; `-Games all` stays the games' own routes).
+
+### Fixed
+
+- **Kinect Sports**: skipping Beach Volleyball's intro video crashed the game (a jump table the
+  recompiler's analyser misread; `sub_8236B200` is overridden in `games/ks/src/main.cpp`).
 
 ## [0.33.0] - 2026-11-01
 

@@ -152,13 +152,17 @@ Played on release 0.33.0 from `ks.anyx` (a fresh profile) with two scripted play
   boxers' avatars in their halves, punches (`arm_right_90_5/0.15` / `arm_left_...`, then `lower`)
   thrown by each; round 1 to round 2. The scripted punches don't hurt much (the health bars stay
   nearly full): a person decides the bout.
-- **Beach Volleyball**: chosen once (the route's aim for Boxing landed on it); skipping its intro
-  video, the game crashed (a guest read at `00000017` in `sub_82568120`, called from
-  `sub_8227DF18`) while Windows was out of memory (0.6 of 15.6 GB free, two other games running).
-  A second try didn't get past the menus' slower loading, so it isn't known whether it repeats on
-  an idle machine: try Beach Volleyball first when the machine is free.
-- **Not tried**: Football, Athletics and Table Tennis in this round (the scripted player has no
-  kicks or runs); Bowling's start is in the 2026-10-20 notes.
+- **Beach Volleyball's crash, fixed**: skipping its intro video crashed the game every time (a guest
+  read at `00000017` in `sub_82568120`, comparing names, from `sub_8236B9E0`), on a free machine too.
+  `sub_8236B9E0` asks `sub_8236B200(23)` for a name. That function is a jump through a table of bytes
+  whose many cases each load a string's address; the analyser misread it (the 3-case, wrong-register
+  entry at `0x8236B228` in [switch_tables.toml](../games/ks/switch_tables.toml)) and took the other
+  cases for functions of their own, so the recompiled code returned 23 itself. Regenerating isn't
+  needed: [main.cpp](../games/ks/src/main.cpp) overrides the function with what its code does.
+  A scan of the byte-table jumps in the eight Kinect games' recompiled code found no other one
+  switching on the wrong register (a few switch on the jump's target, which is right).
+- **The sport cards' aims**: Boxing and Beach Volleyball were used; the others are computed from the
+  same fit.
 
 ## Reproducing
 From the Games on Demand package (`<package>` is the folder that holds `4D5308C9`):

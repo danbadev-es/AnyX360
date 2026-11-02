@@ -177,9 +177,12 @@ profile):
   (`arm_right_45_15/0.5`) starts it; cracks are plugged with the hands (left, right, high, low) and
   steps. Played to the results: 10 points.
 - **River Rush** and **Rallyball** still play, now with the avatar in the raft and in the court.
-- **Still for a person**: good scores (the scripted moves are blind), two players in these
-  activities, the photos (taken from the camera's picture: the scripted source's picture is a
-  drawing, and the photo cards came out black).
+- **Two players**: `enter@1` during River Rush puts a second avatar in the raft beside the first,
+  and the achievement "Best Friends" unlocks. In Reflex Ridge it splits the screen, a platform each,
+  and both players grabbing the bars start the countdown. Space Pop, 20,000 Leaks and Rallyball
+  weren't tried with two.
+- **Still for a person**: good scores (the scripted moves are blind), and how the photos look (their
+  picture is the camera's, a drawing on the scripted source).
 
 Menu note: on a results screen the top-right "SALIR" (`52_19`) went back to the activity select
 once and to the next level's tutorial another time; the Kinect Guide pause and "Leave activity"
