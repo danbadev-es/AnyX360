@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.36.2] - 2026-11-03
+
+Any game: the log of a run that failed is kept, with more in it.
+
 ### Added
 - **A failed run's log isn't lost, in any game.** The launcher keeps a copy of the log of each run that failed
   in `logs\<game>\failures` (the latest 20), named with its date and time, so playing again no longer
@@ -1507,7 +1511,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.36.1...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.36.2...HEAD
+[0.36.2]: https://github.com/danielbarretoes/AnyX360/compare/v0.36.1...v0.36.2
 [0.36.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.36.0...v0.36.1
 [0.36.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.34.0...v0.35.0
