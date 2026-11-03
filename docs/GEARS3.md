@@ -215,7 +215,7 @@ is the mouse speed over `smoothing_ms`, times the sensitivity (the aiming sensit
 held), with a radial anti dead zone so slow movements still turn the camera. The cursor is captured
 (clipped and hidden) while the window is active; Alt+Tab or F2 frees it.
 
-| Pad | Keys (default; `[input.bindings]` overrides) |
+| Pad | Keys (default; F2 > Controls changes them) |
 |---|---|
 | Left stick | W A S D |
 | Right stick | Mouse |

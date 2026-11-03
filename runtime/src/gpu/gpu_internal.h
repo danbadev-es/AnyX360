@@ -42,6 +42,8 @@ std::string BatteryState();
 void StartSettingsPanel();
 void ToggleSettingsPanel();
 bool IsSettingsPanelOpen();
+// The Controls page is waiting for a key to bind: the window's keys do nothing meanwhile.
+bool IsSettingsPanelBindingKey();
 void CloseSettingsPanel();
 // The Guide (guide_menu.cpp): its thread (the Guide button, Back+Start held, the controllers'
 // notifications), started once the window exists; Home on the keyboard (UI thread).

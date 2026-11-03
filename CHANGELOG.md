@@ -8,6 +8,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+- **The keyboard and mouse can be rebound in the game: F2 > Controls > Keys.** Click a control's keys and
+  press the key, mouse button or wheel direction you want; + gives it one more, and Reset (one control or
+  all) goes back to the game's. A key used elsewhere moves and the page says so. F1, F2, F3, F11 and Home
+  stay the window's.
+- **F2 > Network** chooses the network from a list (Automatic, This PC only, Wi-Fi, Ethernet, Tailscale...),
+  shows your address with a Copy button and takes the other PC's in Other PCs, with no file to edit.
+
 ## [0.35.0] - 2026-11-03
 
 Gears of War 3 recompiled from its title update 0.0.6.7, with its 33 downloadable packages, and a new backup.

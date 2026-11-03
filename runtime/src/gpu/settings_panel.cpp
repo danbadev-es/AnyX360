@@ -8,11 +8,16 @@
 // inside OnDraw (Xenia forbids surface changes during a paint).
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <cstdio>
 #include <functional>
 #include <initializer_list>
+#include <map>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <thread>
@@ -236,21 +241,69 @@ bool Segmented(const char* id, int* value, std::initializer_list<std::pair<const
   return changed;
 }
 
+std::atomic<bool> g_binding_key = false;
+std::string g_bind_test;  // test hook: control to start binding
+
+// A pad control as the Keys card shows it.
+const char* ControlLabel(const std::string& control) {
+  static const std::pair<const char*, const char*> names[] = {
+      {"LUP", "Left stick up"},    {"LDOWN", "Left stick down"},   {"LLEFT", "Left stick left"},
+      {"LRIGHT", "Left stick right"}, {"LT", "Left trigger (LT)"}, {"RT", "Right trigger (RT)"},
+      {"LB", "Left bumper (LB)"},  {"RB", "Right bumper (RB)"},    {"LS", "Left stick click"},
+      {"RS", "Right stick click"}, {"BACK", "Back"},               {"START", "Start"},
+      {"UP", "D-pad up"},          {"DOWN", "D-pad down"},         {"LEFT", "D-pad left"},
+      {"RIGHT", "D-pad right"}};
+  for (const auto& [name, label] : names)
+    if (control == name) return label;
+  return control.c_str();
+}
+
+std::string KeysLabel(const std::string& keys) {
+  std::string out;
+  std::istringstream words(keys);
+  for (std::string key; words >> key;) out += (out.empty() ? "" : ",  ") + input::KeyLabel(key);
+  return out.empty() ? "(no key)" : out;
+}
+
+std::string AdapterLabel(const net::Adapter& adapter) { return adapter.name + " (" + net::IpText(adapter.ip) + ")"; }
+
+bool IsTailscale(const net::Adapter& adapter) {
+  auto has = [](std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+    return text.find("tailscale") != std::string::npos;
+  };
+  return has(adapter.name) || has(adapter.description);
+}
+
+// "100.1.2.3, 100.1.2.4" as the setting's list.
+std::vector<std::string> SplitPeers(std::string text) {
+  std::replace_if(text.begin(), text.end(), [](char c) { return c == ',' || c == ';'; }, ' ');
+  std::vector<std::string> out;
+  std::istringstream words(text);
+  for (std::string word; words >> word;) out.push_back(word);
+  return out;
+}
+
 class SettingsPanel final : public xe::ui::ImGuiDialog {
  public:
   explicit SettingsPanel(xe::ui::ImGuiDrawer* drawer) : ImGuiDialog(drawer) {}
 
  protected:
-  enum Page { kDisplay, kControls, kPlayers, kKinect, kPerformance };
+  enum Page { kDisplay, kControls, kPlayers, kNetwork, kKinect, kPerformance };
 
   void OnDraw(ImGuiIO& io) override {
     Settings s = settings::Get();
     Settings saved = settings::GetSaved();
     if (!g_select_tab.empty()) {  // test hook
-      const char* const names[] = {"Display", "Controls", "Players", "Kinect", "Performance"};
-      for (int i = 0; i < 5; ++i)
+      const char* const names[] = {"Display", "Controls", "Players", "Network", "Kinect", "Performance"};
+      for (int i = 0; i < 6; ++i)
         if (g_select_tab == names[i]) page_ = Page(i);
       g_select_tab.clear();
+    }
+    if (!g_bind_test.empty()) {  // test hook
+      page_ = kControls;
+      StartBinding(g_bind_test, false);
+      g_bind_test.clear();
     }
     if (page_ == kKinect && !s.kinect.enabled) page_ = kDisplay;
 
@@ -278,6 +331,7 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
         case kDisplay: DrawDisplay(s, saved); break;
         case kControls: DrawControls(s); break;
         case kPlayers: DrawPlayers(s); break;
+        case kNetwork: DrawSystemLink(s); break;
         case kKinect: DrawKinect(s); break;
         case kPerformance: DrawPerformance(); break;
       }
@@ -320,7 +374,7 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
     const struct {
       const char* name;
       Page page;
-    } items[] = {{"Display", kDisplay}, {"Controls", kControls}, {"Players", kPlayers}, {"Kinect", kKinect},
+    } items[] = {{"Display", kDisplay}, {"Controls", kControls}, {"Players", kPlayers}, {"Network", kNetwork}, {"Kinect", kKinect},
                  {"Performance", kPerformance}};
     ImGui::SetCursorPos(ImVec2(0, Px(10)));
     for (const auto& item : items) {
@@ -464,20 +518,62 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
 
   // System Link ([network]): read when the game starts.
   void DrawSystemLink(const Settings& s) {
+    PageTitle("Network", "System Link: play with other copies of AnyX360 on this PC, your network or a VPN.");
     BeginCard("System Link");
     if (BeginRows("##network")) {
       bool on = s.network.enabled;
       Row("System Link", "Local-network play with other copies of AnyX360: on this PC, a LAN or a LAN-style VPN.");
       if (Toggle("##syslink", &on)) settings::Update([on](Settings& st) { st.network.enabled = on; });
-      int where = s.network.adapter == "loopback" ? 1 : s.network.adapter == "auto" ? 0 : 2;
-      Row("Network", "Another adapter (a VPN: Tailscale, ZeroTier, Radmin) is set in settings.toml.");
-      if (where == 2) {
+      RefreshAdapters(false);
+      const std::optional<net::Adapter> chosen = net::ChooseAdapter(adapters_, s.network.adapter);
+      const bool this_pc = s.network.adapter == "loopback";
+      const bool automatic = s.network.adapter == "auto" || s.network.adapter.empty();
+      const std::string shown = this_pc              ? "This PC only"
+                                : automatic && chosen ? "Automatic (" + chosen->name + ")"
+                                : automatic           ? "Automatic"
+                                : chosen              ? AdapterLabel(*chosen)
+                                                      : s.network.adapter + " (not connected)";
+      Row("Network", "Which network the game plays on. Tailscale, ZeroTier and Radmin are listed while they are connected.");
+      ImGui::SetNextItemWidth(Px(340));
+      if (ImGui::BeginCombo("##adapter", shown.c_str())) {
+        if (ImGui::IsWindowAppearing()) RefreshAdapters(true);
+        auto item = [&s](const std::string& label, const std::string& value) {
+          if (ImGui::Selectable(label.c_str(), s.network.adapter == value))
+            settings::Update([value](Settings& st) { st.network.adapter = value; });
+        };
+        item("Automatic", "auto");
+        item("This PC only", "loopback");
+        ImGui::Separator();
+        for (const net::Adapter& a : adapters_) item(AdapterLabel(a), a.name);
+        ImGui::EndCombo();
+      }
+      if (!this_pc && chosen) {
+        Row("Your address", "What the other PC writes in its Other PCs.");
         ImGui::AlignTextToFramePadding();
-        ImGui::TextDisabled("%s (settings.toml)", s.network.adapter.c_str());
-      } else if (Segmented("##adapter", &where, {{"LAN", 0}, {"This PC only", 1}})) {
-        settings::Update([where](Settings& st) { st.network.adapter = where ? "loopback" : "auto"; });
+        const std::string ip = net::IpText(chosen->ip);
+        ImGui::TextUnformatted(ip.c_str());
+        ImGui::SameLine();
+        if (ImGui::Button("Copy##address")) ImGui::SetClipboardText(ip.c_str());
+      }
+      if (!this_pc) {
+        Row("Other PCs", "Their addresses, separated by commas. Needed on a network that doesn't carry the game's search, like Tailscale.");
+        if (!peers_editing_) {
+          std::string text;
+          for (const std::string& peer : s.network.peers) text += (text.empty() ? "" : ", ") + peer;
+          std::snprintf(peers_text_, sizeof(peers_text_), "%s", text.c_str());
+        }
+        ImGui::SetNextItemWidth(Px(340));
+        if (ImGui::InputTextWithHint("##peers", "100.64.0.1", peers_text_, sizeof(peers_text_)))
+          settings::Update([peers = SplitPeers(peers_text_)](Settings& st) { st.network.peers = peers; });
+        peers_editing_ = ImGui::IsItemActive();
       }
       ImGui::EndTable();
+      if (!this_pc && !automatic && !chosen) {
+        const std::string text = s.network.adapter + " isn't connected: connect it, or choose another network.";
+        ColoredText(color::kAmber, text.c_str());
+      } else if (chosen && !this_pc && s.network.peers.empty() && IsTailscale(*chosen)) {
+        ColoredText(color::kAmber, "Tailscale doesn't carry the game's search: write the other PC's address in Other PCs, and yours on that PC.");
+      }
     }
     net::Stack& link = net::Global();
     if (link.started()) {
@@ -486,7 +582,8 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
                     net::IpText(link.adapter().ip).c_str(), link.instance() + 1);
       ImGui::TextDisabled("%s", text);
     }
-    if (s.network.enabled != link.started() || (link.started() && s.network.adapter != link.config().adapter)) {
+    if (s.network.enabled != link.started() ||
+        (link.started() && (s.network.adapter != link.config().adapter || s.network.peers != link.config().peers))) {
       ColoredText(color::kAmber, "System Link changes apply after a restart.");
       if (ImGui::Button("Restart now##syslink")) PostToUIThread(RestartNow);
       ImGui::SetItemTooltip("Saves the settings and starts the game again. Progress since the last checkpoint is lost.");
@@ -532,22 +629,124 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
     if (changed) settings::Update([in](Settings& st) { st.input = in; });
     EndCard();
 
+    DrawKeys(s);
+  }
+
+  // The keys: a button per control that waits for the key or mouse button to give it.
+  void DrawKeys(const Settings& s) {
     BeginCard("Keys");
-    if (ImGui::BeginTable("##bindings", 4, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_RowBg)) {
-      auto bindings = input::DescribeBindings();
-      for (size_t i = 0; i < bindings.size(); i += 2) {
+    Note("Click a control's keys, then press the key or mouse button you want for it. + gives it one more.");
+    if (!bind_note_.empty()) ColoredText(color::kAmber, bind_note_.c_str());
+    const std::map<std::string, std::string> defaults = settings::Defaults().input.bindings;
+    const auto default_keys = input::DescribeBindings(defaults);
+    const auto bindings = input::DescribeBindings(s.input.bindings);
+    if (ImGui::BeginTable("##bindings", 4, ImGuiTableFlags_RowBg)) {
+      ImGui::TableSetupColumn("control", ImGuiTableColumnFlags_WidthFixed, Px(150));
+      ImGui::TableSetupColumn("keys", ImGuiTableColumnFlags_WidthStretch);
+      ImGui::TableSetupColumn("add", ImGuiTableColumnFlags_WidthFixed, Px(34));
+      ImGui::TableSetupColumn("reset", ImGuiTableColumnFlags_WidthFixed, Px(64));
+      for (size_t i = 0; i < bindings.size(); ++i) {
+        const auto& [control, keys] = bindings[i];
+        ImGui::PushID(control.c_str());
         ImGui::TableNextRow();
-        for (size_t j = i; j < i + 2 && j < bindings.size(); ++j) {
-          ImGui::TableNextColumn();
-          ImGui::TextUnformatted(bindings[j].first.c_str());
-          ImGui::TableNextColumn();
-          ImGui::TextDisabled("%s", bindings[j].second.c_str());
+        ImGui::TableNextColumn();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(ControlLabel(control));
+        ImGui::TableNextColumn();
+        if (ImGui::Button(KeysLabel(keys).c_str(), ImVec2(-FLT_MIN, 0))) StartBinding(control, false);
+        ImGui::TableNextColumn();
+        if (ImGui::Button("+", ImVec2(-FLT_MIN, 0))) StartBinding(control, true);
+        ImGui::SetItemTooltip("Gives it one more key, keeping these.");
+        ImGui::TableNextColumn();
+        if (keys != default_keys[i].second && ImGui::Button("Reset", ImVec2(-FLT_MIN, 0))) {
+          // Its default keys, which leave any control they went to since.
+          std::map<std::string, std::string> overrides = s.input.bindings;
+          overrides[control] = "";
+          std::istringstream words(default_keys[i].second);
+          for (std::string key; words >> key;) overrides = input::BindKey(overrides, control, key, true);
+          settings::Update([overrides](Settings& st) { st.input.bindings = overrides; });
+          bind_note_.clear();
         }
+        ImGui::PopID();
       }
       ImGui::EndTable();
     }
-    Note("Changed in settings.toml, [input.bindings]. LUP/LDOWN/LLEFT/LRIGHT: the left stick.");
+    if (ImGui::Button("Reset all keys")) {
+      settings::Update([defaults](Settings& st) { st.input.bindings = defaults; });
+      bind_note_.clear();
+    }
+    DrawBindingPopup(s);
     EndCard();
+  }
+
+  void StartBinding(const std::string& control, bool add) {
+    bind_control_ = control;
+    bind_add_ = add;
+    bind_armed_ = false;
+    bind_refused_.clear();
+    bind_started_ = std::chrono::steady_clock::now();
+    g_binding_key = true;
+  }
+
+  void StopBinding() {
+    bind_control_.clear();
+    g_binding_key = false;
+    ImGui::CloseCurrentPopup();
+  }
+
+  // Waiting for the key. It counts from when nothing is held: the click on the button isn't it.
+  void DrawBindingPopup(const Settings& s) {
+    if (bind_control_.empty()) return;
+    if (!g_binding_key) {  // the panel closed meanwhile
+      bind_control_.clear();
+      return;
+    }
+    constexpr double kWaitSeconds = 8;
+    if (!ImGui::IsPopupOpen("##bindkey")) ImGui::OpenPopup("##bindkey");
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopupModal("##bindkey", nullptr,
+                                ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove))
+      return;
+    const double waited = std::chrono::duration<double>(std::chrono::steady_clock::now() - bind_started_).count();
+    ImGui::PushFont(Heading());
+    ImGui::Text("Press a key or mouse button for %s", ControlLabel(bind_control_));
+    ImGui::PopFont();
+    if (!bind_refused_.empty()) ColoredText(color::kAmber, bind_refused_.c_str());
+    Note(bind_add_ ? "It keeps the keys it has." : "It replaces the keys it has.");
+    ImGui::TextDisabled("Esc cancels (%d s)", int(std::ceil(std::max(0.0, kWaitSeconds - waited))));
+    const std::string key = input::PressedKey();
+    if (waited >= kWaitSeconds) {
+      StopBinding();
+    } else if (!bind_armed_) {
+      bind_armed_ = key.empty();
+    } else if (key == "ESCAPE") {
+      StopBinding();
+    } else if (input::IsReservedKey(key)) {
+      bind_refused_ = input::KeyLabel(key) + " belongs to the window: choose another.";
+      bind_armed_ = false;
+    } else if (!key.empty()) {
+      std::vector<std::string> moved;
+      const auto overrides = input::BindKey(s.input.bindings, bind_control_, key, bind_add_, &moved);
+      settings::Update([overrides](Settings& st) { st.input.bindings = overrides; });
+      KLOG_I("input: %s bound to %s", key.c_str(), bind_control_.c_str());
+      bind_note_.clear();
+      for (const std::string& from : moved) {
+        bind_note_ += input::KeyLabel(key) + " was on " + ControlLabel(from) + " and moved here.";
+        for (const auto& [name, keys] : input::DescribeBindings(overrides))
+          if (name == from && keys.empty()) bind_note_ += std::string(" ") + ControlLabel(from) + " now has no key.";
+      }
+      StopBinding();
+    }
+    ImGui::EndPopup();
+  }
+
+  void RefreshAdapters(bool now) {
+    const auto time = std::chrono::steady_clock::now();
+    if (!now && adapters_read_ && time - adapters_time_ < std::chrono::seconds(3)) return;
+    adapters_read_ = true;
+    adapters_time_ = time;
+    adapters_ = net::ListAdapters();
+    std::erase_if(adapters_, [](const net::Adapter& a) { return a.loopback || (a.ip >> 16) == 0xA9FE; });  // not 169.254
   }
 
   void DrawPlayers(const Settings& s) {
@@ -621,7 +820,6 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
          "game asks, each player chooses their profile (or creates one) with their own controller; \"at once\" signs "
          "them in as the profile last used on their slot. Playing alone with a controller: set player 1 to it.");
     EndCard();
-    DrawSystemLink(s);
   }
 
   void DrawKinect(const Settings& s) {
@@ -863,6 +1061,17 @@ class SettingsPanel final : public xe::ui::ImGuiDialog {
   }
 
   Page page_ = kDisplay;
+  std::string bind_control_;  // the control waiting for a key, if any
+  bool bind_add_ = false;
+  bool bind_armed_ = false;   // nothing has been held since the wait began
+  std::string bind_refused_;  // why the last key wasn't taken
+  std::string bind_note_;     // what the last binding did to other controls
+  std::chrono::steady_clock::time_point bind_started_;
+  std::vector<net::Adapter> adapters_;  // the networks to choose from
+  bool adapters_read_ = false;
+  std::chrono::steady_clock::time_point adapters_time_;
+  char peers_text_[256] = {};
+  bool peers_editing_ = false;
   std::unique_ptr<xe::ui::ImmediateTexture> preview_;
   std::chrono::steady_clock::time_point preview_time_;
 };
@@ -904,7 +1113,8 @@ void OpenSettingsPanel() {
 // ANYX360_SETTINGS_TEST="<seconds>:<setting>=<value>,..." applies settings as the panel does
 // (resolution, fullscreen, upscale, fxaa, fps, scale, stats, panel=1/0, tab=<name>, signin=<player>, signout=<player>, restart,
 // kinect_source=<webcam|mouse|none>, kinect_players=<1|2>, kinect_mirror=<0|1>, kinect_restart, kinect_calibrate,
-// kinect_window=<0|1>, guide: the Guide opens or closes as with Home).
+// kinect_window=<0|1>, guide: the Guide opens or closes as with Home, bind=<control>: waits for a key
+// for it, net_adapter=<setting>, net_peers=<address>[+<address>...]).
 void RunSettingsTest(std::string spec) {
   auto start = std::chrono::steady_clock::now();
   for (size_t pos = 0; pos < spec.size();) {
@@ -942,6 +1152,13 @@ void RunSettingsTest(std::string spec) {
       else if (key == "kinect_calibrate") nui::Calibrate();
       else if (key == "kinect_window") SetKinectWindow(n != 0);
       else if (key == "guide") GuideKey();
+      else if (key == "bind") g_bind_test = value;
+      else if (key == "net_adapter") settings::Update([value](Settings& st) { st.network.adapter = value; });
+      else if (key == "net_peers") {
+        std::string text = value;
+        std::replace(text.begin(), text.end(), '+', ' ');
+        settings::Update([peers = SplitPeers(text)](Settings& st) { st.network.peers = peers; });
+      }
     });
   }
 }
@@ -966,10 +1183,13 @@ void ToggleSettingsPanel() {
 
 bool IsSettingsPanelOpen() { return g_open; }
 
+bool IsSettingsPanelBindingKey() { return g_binding_key; }
+
 void CloseSettingsPanel() {
   if (!g_open) return;
   g_open = false;
   SharedImGuiDrawer()->RemoveDialog(g_panel);
+  g_binding_key = false;
   input::SetGameInputEnabled(true);
   KLOG_I("settings panel closed");
 }

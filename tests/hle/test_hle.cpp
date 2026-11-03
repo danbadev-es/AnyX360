@@ -1,5 +1,6 @@
 // Tests the HLE bridge the same way recompiled code uses it: by calling __imp__<Export>(ctx, base)
 // with arguments in PPC registers and guest pointers into a real 4 GiB guest address space.
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -7,6 +8,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <string>
 #include <thread>
 #include <tuple>
@@ -539,6 +541,36 @@ int main() {
     in.invert_y = true;
     input::detail::MouseLook(0, 400, false, in, rx, ry);
     CHECK(ry > 0);
+  }
+
+  // Rebinding: a key is on one control; the names round-trip.
+  {
+    using Keys = std::map<std::string, std::string>;
+    auto keys_of = [](const Keys& overrides, const std::string& control) {
+      for (const auto& [name, keys] : input::DescribeBindings(overrides))
+        if (name == control) return keys;
+      return std::string("?");
+    };
+    std::vector<std::string> moved;
+    Keys o = input::BindKey({}, "X", "G", false, &moved);  // replaces E
+    CHECK(keys_of(o, "X") == "G" && moved.empty());
+    o = input::BindKey(o, "X", "MOUSE4", true);  // one more
+    CHECK(keys_of(o, "X") == "G MOUSE4");
+    o = input::BindKey(o, "X", "G", true);  // one it has: no second copy
+    CHECK(keys_of(o, "X") == "MOUSE4 G");
+    o = input::BindKey(o, "X", "W", false, &moved);  // the left stick's: it leaves that control
+    CHECK(keys_of(o, "X") == "W" && keys_of(o, "LUP").empty());
+    CHECK(moved.size() == 1 && moved[0] == "LUP");
+    o = input::BindKey(o, "RB", "ENTER", false, &moved);  // RETURN's other name, on A with others
+    CHECK(keys_of(o, "RB") == "RETURN" && keys_of(o, "A") == "SPACE LSHIFT");
+    CHECK(input::BindKey(o, "RB", "NOTAKEY", false) == o);
+    CHECK(input::IsReservedKey("F2") && input::IsReservedKey("home") && !input::IsReservedKey("F4"));
+    for (const char* name : {"A", "7", "F12", "MOUSE5", "WHEELUP", "NUMPAD3", "GRAVE", "OEM102", "ESCAPE"})
+      CHECK(input::detail::KeyName(input::detail::KeyCode(name)) == name);
+    CHECK(input::KeyLabel("MOUSE1") == "Left click" && input::KeyLabel("F4") == "F4");
+    const auto all = input::detail::AllKeyCodes();
+    CHECK(std::find(all.begin(), all.end(), uint16_t('Z')) != all.end() &&
+          std::count(all.begin(), all.end(), uint16_t(0x1B)) == 1);  // Esc, under one of its names
   }
 
   // Settings files from version 1 still at its mouse defaults take the new ones; chosen values stay.

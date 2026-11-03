@@ -131,6 +131,7 @@ void Adapters() {
   CHECK(ChooseAdapter(list, "ZEROTIER")->ip == 0x0A930001);
   CHECK(ChooseAdapter(list, "virtual port")->ip == 0x0A930001);  // by description
   CHECK(ChooseAdapter(list, "192.168.56.1")->name == "Ethernet 2");
+  CHECK(ChooseAdapter(list, "ethernet 2")->ip == 0xC0A83801);  // its exact name
   CHECK(ChooseAdapter(list, "loopback")->loopback);
   CHECK(!ChooseAdapter(list, "Radmin"));
   CHECK(!ChooseAdapter(list, "10.0.0.9"));

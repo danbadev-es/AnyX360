@@ -9,7 +9,9 @@
 
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -75,6 +77,21 @@ bool GetMouseHand(MouseHand& hand);
 
 // The keyboard and mouse bindings in effect: {control, keys}.
 std::vector<std::pair<std::string, std::string>> DescribeBindings();
+// The same with those overrides of the default bindings (settings.toml's [input.bindings]).
+std::vector<std::pair<std::string, std::string>> DescribeBindings(const std::map<std::string, std::string>& overrides);
+
+// Rebinding, for the settings panel. The key or mouse button held now, or a wheel notch, by the name
+// bindings use ("E", "MOUSE4", "WHEELUP"); empty if none or the window isn't in the foreground.
+std::string PressedKey();
+// What to show for a key's name: readable mouse buttons and special keys, what the keyboard layout in
+// use prints for a punctuation key (GRAVE is the N with a tilde on a Spanish one), else the name.
+std::string KeyLabel(std::string_view key);
+// F1, F2, F3, F11 and Home belong to the window: no control can have them.
+bool IsReservedKey(std::string_view key);
+// The overrides with `key` on `control`: its only key, or (`add`) one more. A key has one control: it
+// leaves any other that had it, which `moved_from` lists.
+std::map<std::string, std::string> BindKey(const std::map<std::string, std::string>& overrides, std::string_view control,
+                                           std::string_view key, bool add, std::vector<std::string>* moved_from = nullptr);
 
 // Called (on the Input thread) when a controller connects or disconnects.
 void OnDevicesChanged(std::function<void()> callback);

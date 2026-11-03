@@ -259,6 +259,9 @@ std::optional<Adapter> ChooseAdapter(const std::vector<Adapter>& adapters, std::
       if (a.ip == *ip) return a;
     return std::nullopt;
   }
+  // Its exact name first: "Ethernet" isn't "Ethernet 2".
+  for (const Adapter& a : adapters)
+    if (!a.loopback && Lower(a.name) == wanted) return a;
   for (const Adapter& a : adapters)
     if (!a.loopback && (Lower(a.name).find(wanted) != std::string::npos ||
                         Lower(a.description).find(wanted) != std::string::npos))

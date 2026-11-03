@@ -354,6 +354,11 @@ class WindowKeys final : public xe::ui::WindowInputListener {
  public:
   void OnKeyDown(xe::ui::KeyEvent& e) override {
     if (e.prev_state()) return;  // auto-repeat
+    // The panel is waiting for a key to bind: no key is the window's.
+    if (IsSettingsPanelBindingKey()) {
+      e.set_handled(true);
+      return;
+    }
     switch (e.virtual_key()) {
       case xe::ui::VirtualKey::kF1: {
         bool show = !IsStatsOverlayVisible();

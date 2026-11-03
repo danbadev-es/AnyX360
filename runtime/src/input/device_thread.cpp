@@ -44,11 +44,14 @@ void HandleRawInput(HRAWINPUT handle) {
   UINT size = sizeof(buffer);
   if (GetRawInputData(handle, RID_INPUT, buffer, &size, sizeof(RAWINPUTHEADER)) == UINT(-1)) return;
   const RAWINPUT& raw = *reinterpret_cast<const RAWINPUT*>(buffer);
-  if (raw.header.dwType != RIM_TYPEMOUSE || !Captured()) return;
+  if (raw.header.dwType != RIM_TYPEMOUSE) return;
+  const bool captured = Captured();
+  // The settings panel (game input off) reads the wheel too, to bind it.
+  if (!captured && GameInputEnabled()) return;
   const RAWMOUSE& mouse = raw.data.mouse;
   int64_t now = QpcNow();
   // Absolute devices (remote desktop, pens, some tablets) can't drive a stick.
-  if (!(mouse.usFlags & MOUSE_MOVE_ABSOLUTE) && (mouse.lLastX || mouse.lLastY))
+  if (captured && !(mouse.usFlags & MOUSE_MOVE_ABSOLUTE) && (mouse.lLastX || mouse.lLastY))
     AddMouseMotion(now, mouse.lLastX, mouse.lLastY);
   if (mouse.usButtonFlags & RI_MOUSE_WHEEL) {
     SHORT delta = SHORT(mouse.usButtonData);

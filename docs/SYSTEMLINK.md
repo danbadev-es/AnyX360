@@ -22,8 +22,10 @@ locally, nothing goes to the network, no firewall prompt.
 
 ## Turning it on
 
-In the game's settings (F2 > Players > System Link), or in its `settings.toml` (in the game's
-user folder, `%LOCALAPPDATA%\AnyX360\<game>\settings.toml`):
+In the game's settings, **F2 > Network**: the switch, a list of this PC's networks (Automatic, This PC
+only, Wi-Fi, Ethernet, Tailscale, ZeroTier, Radmin... as they are connected), your address with a Copy
+button, and **Other PCs** for the addresses `peers` holds below. Each game keeps its own. They are
+saved in its `settings.toml` (in the game's user folder, `%LOCALAPPDATA%\AnyX360\<game>\settings.toml`):
 
 ```toml
 [network]
@@ -42,7 +44,7 @@ Spanish), then Host game or Find game.
 - `auto`: the adapter with the default route (the one Windows uses for the internet: usually the
   LAN's Wi-Fi or Ethernet). If a VPN is the default route, name the adapter instead.
 - `loopback`: this PC only. Nothing leaves the PC and Windows Firewall never asks.
-- a part of an adapter's name or description, case-insensitive (`"Tailscale"`, `"ZeroTier"`,
+- an adapter's exact name, or a part of its name or description, case-insensitive (`"Tailscale"`, `"ZeroTier"`,
   `"Radmin"`, `"Ethernet 2"`), or one of its IPv4 addresses. If nothing matches, System Link stays
   off and the log lists the adapters.
 
@@ -79,10 +81,9 @@ about it when System Link starts.
 The PCs join one virtual network; the game then sees a LAN.
 
 - **ZeroTier** or **Radmin VPN** carry broadcasts like a LAN: create a network, join it on both
-  PCs, then `adapter = "ZeroTier"` (or `"Radmin"`) on both.
-- **Tailscale** doesn't carry broadcasts, so the game's search can't find the host by itself: list
-  the other PC's Tailscale address in `peers` (on both PCs, each the other's), and
-  `adapter = "Tailscale"`:
+  PCs, then choose it in F2 > Network on both (`adapter = "ZeroTier"` or `"Radmin"`).
+- **Tailscale** doesn't carry broadcasts, so the game's search can't find the host by itself: on both
+  PCs choose it in F2 > Network and write the other PC's Tailscale address in Other PCs. In the file:
 
   ```toml
   [network]

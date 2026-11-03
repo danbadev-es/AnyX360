@@ -199,7 +199,7 @@ std::string Serialize(const Settings& s) {
     << "smoothing_ms = " << s.input.smoothing_ms << "\n"
     << "anti_deadzone = " << Float(s.input.anti_deadzone) << "\n"
     << "response = " << Float(s.input.response) << "  # 0.3-1: below 1, slow movements turn faster\n\n"
-    << "# Overrides of the default bindings, e.g. A = \"SPACE LSHIFT\". Controls: A B X Y LB RB LT RT\n"
+    << "# Overrides of the default bindings (F2 > Controls sets them), e.g. A = \"SPACE LSHIFT\". Controls: A B X Y LB RB LT RT\n"
     << "# LS RS BACK START UP DOWN LEFT RIGHT LUP LDOWN LLEFT LRIGHT. Keys: letters, digits, F1-F12,\n"
     << "# SPACE RETURN ESCAPE TAB BACK LSHIFT RSHIFT LCTRL RCTRL LALT UP DOWN LEFT RIGHT, mouse\n"
     << "# MOUSE1-MOUSE5 WHEELUP WHEELDOWN.\n"

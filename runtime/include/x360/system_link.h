@@ -125,8 +125,8 @@ struct Adapter {
 };
 std::vector<Adapter> ListAdapters();
 // "auto": the first adapter with a gateway, else the first one up that isn't loopback, else
-// loopback. "loopback": 127.0.0.1. Otherwise an address, or a case-insensitive part of the name or
-// description. Nothing when the setting names no adapter.
+// loopback. "loopback": 127.0.0.1. Otherwise an address, an exact name, or a case-insensitive part
+// of the name or description. Nothing when the setting names no adapter.
 std::optional<Adapter> ChooseAdapter(const std::vector<Adapter>& adapters, std::string_view setting);
 uint32_t BroadcastAddress(const Adapter& adapter);
 

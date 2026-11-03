@@ -28,6 +28,10 @@ struct Binding {
 // The default bindings with `overrides` (control -> space-separated key names) applied.
 std::vector<Binding> BuildBindings(const std::map<std::string, std::string>& overrides);
 uint16_t KeyCode(std::string_view name);  // 0 if unknown
+std::string KeyName(uint16_t code);       // empty if unknown
+std::vector<uint16_t> AllKeyCodes();      // every key a binding can name
+bool IsReservedCode(uint16_t code);       // the window's own keys
+std::vector<std::string> Split(const std::string& text);  // by spaces
 // The default bindings as text, for the panel: {control, keys}.
 std::vector<std::pair<std::string, std::string>> DescribeBindings(const std::map<std::string, std::string>& overrides);
 

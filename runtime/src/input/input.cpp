@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "input_internal.h"
@@ -507,6 +508,42 @@ bool IsCursorCaptured() { return Captured(); }
 
 std::vector<std::pair<std::string, std::string>> DescribeBindings() {
   return detail::DescribeBindings(settings::Get().input.bindings);
+}
+
+std::string PressedKey() {
+  if (!OurWindowInForeground()) return {};
+  // A wheel notch once each, however rarely the panel asks (10 times a second while the game loads).
+  static int64_t wheel_seen[2] = {};
+  for (const bool up : {true, false}) {
+    const int64_t t = LastWheel(up);
+    if (t != std::exchange(wheel_seen[up], t)) return up ? "WHEELUP" : "WHEELDOWN";
+  }
+  static const std::vector<uint16_t> codes = AllKeyCodes();
+  const int64_t now = QpcNow();
+  for (uint16_t code : codes)
+    if (code != kWheelUp && code != kWheelDown && RawKeyDown(code, now)) return KeyName(code);
+  return {};
+}
+
+std::string KeyLabel(std::string_view key) {
+  static const std::pair<const char*, const char*> names[] = {
+      {"MOUSE1", "Left click"},  {"MOUSE2", "Right click"}, {"MOUSE3", "Middle click"}, {"MOUSE4", "Mouse 4"},
+      {"MOUSE5", "Mouse 5"},     {"WHEELUP", "Wheel up"},   {"WHEELDOWN", "Wheel down"},
+      {"LSHIFT", "Left Shift"},  {"RSHIFT", "Right Shift"}, {"LCTRL", "Left Ctrl"},     {"RCTRL", "Right Ctrl"},
+      {"LALT", "Left Alt"},      {"RALT", "Right Alt"},     {"RETURN", "Enter"},        {"ESCAPE", "Esc"},
+      {"SPACE", "Space"},        {"BACK", "Backspace"},     {"TAB", "Tab"},             {"UP", "Arrow up"},
+      {"DOWN", "Arrow down"},    {"LEFT", "Arrow left"},    {"RIGHT", "Arrow right"}};
+  for (const auto& [name, label] : names)
+    if (key == name) return label;
+  // A punctuation key: the character it prints here.
+  const uint16_t code = KeyCode(key);
+  if ((code >= VK_OEM_1 && code <= VK_OEM_3) || (code >= VK_OEM_4 && code <= VK_OEM_8) || code == VK_OEM_102) {
+    const UINT character = MapVirtualKeyW(code, MAPVK_VK_TO_CHAR) & 0x7FFFFFFF;
+    const wchar_t wide[2] = {wchar_t(character), 0};
+    char utf8[8] = {};
+    if (character && WideCharToMultiByte(CP_UTF8, 0, wide, 1, utf8, sizeof(utf8) - 1, nullptr, nullptr)) return utf8;
+  }
+  return std::string(key);
 }
 
 void OnDevicesChanged(std::function<void()> callback) {
