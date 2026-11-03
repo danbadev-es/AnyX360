@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.36.1] - 2026-11-03
+
+Diablo III's log says which message it can't read when it stops itself.
+
 ### Added
 - **Diablo III's log says which message stopped the game.** On 0.36.0, hosting over Tailscale with two local
   players, the game stopped itself after about 46 minutes because it could not read a message of type 35.
@@ -1492,7 +1496,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.36.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.36.1...HEAD
+[0.36.1]: https://github.com/danielbarretoes/AnyX360/compare/v0.36.0...v0.36.1
 [0.36.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.33.0...v0.34.0
