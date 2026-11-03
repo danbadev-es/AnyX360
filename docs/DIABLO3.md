@@ -116,6 +116,21 @@ The launcher installs the title update and the package.
   2.7 s, at the gate's fight). So fights on a free machine are still unmeasured.
 - **Not tried yet**: the quests after New Tristram, the town's vendors and the stash.
 
+## The stop on an unreadable message (open)
+
+On 0.36.0, hosting over Tailscale (relay, about 200 ms) with two local players and one remote, the host
+stopped after about 46 minutes at 60 FPS, with 5.3 GB of RAM free; the other PC went back to the lobby. On
+the main thread, the dispatcher `sub_826D6D18` handles a message of type 35 (case 31 of its switch):
+`sub_82967408` compares the message's ID, then decodes its payload (at +12, size at +8). It returned 0, so
+the game asserts (`sub_82CDF678`, line 2525) and `sub_82CDEAB0` stores `CDCDCDCD` to address 0. The log has
+`RtlRaiseException C0000025 (ignored)` just before. One case so far: what type 35 is, and whether it came from
+the other PC, isn't known.
+
+`src/message_probe.cpp` logs each message that can't be read (`d3 message: type ... COULD NOT BE READ`) with
+its ID, size and bytes; `ANYX360_D3_MESSAGE_TRACE=1` logs every message. Two scripted runs alone at the menu,
+170 and 330 seconds, met no message, so these lines haven't been seen yet. Skipping such a message instead
+of stopping is possible, at the risk of the PCs falling out of step: to decide once the message is known.
+
 ## Routes (scripted input)
 With `[players] p1 = { device = "pad" }, p2 = { device = "pad2" }` in the sandbox's settings.toml
 (players 3 and 4 with `pad3` and `pad4`), and `ANYX360_INPUT_CLOCK=frames:60`:

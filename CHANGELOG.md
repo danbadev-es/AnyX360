@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+- **Diablo III's log says which message stopped the game.** On 0.36.0, hosting over Tailscale with two local
+  players, the game stopped itself after about 46 minutes because it could not read a message of type 35.
+  When a message can't be read the log now has its type, size and bytes. This doesn't prevent the stop, which
+  remains open, and the new lines haven't been seen yet: no test run met a message at all.
+
 ## [0.36.0] - 2026-11-03
 
 Keys rebound in F2 by pressing them, and a Network page to choose the network without editing files.
