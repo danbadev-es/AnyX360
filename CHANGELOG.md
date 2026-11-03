@@ -8,6 +8,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+### Added
+- **A failed run's log isn't lost, in any game.** The launcher keeps a copy of the log of each run that failed
+  in `logs\<game>\failures` (the latest 20), named with its date and time, so playing again no longer
+  overwrites it. A run counts as failed if it ended with an error, its log has a crash report, or the frames had
+  stopped when it was closed.
+- **More in the log when a game fails.** A crash report now has the guest thread's call stack and where every
+  guest thread was. Exceptions the report used to miss get one (any exception nothing handled, and a stack
+  overflow, on a stack of its own). The log's last line has the exit code, which also covers a process that ended
+  with no report of its own. With no frames for 10 s and for 1 min, the log says `=== FROZEN?` with where each
+  thread was, and says when the frames come back.
+
 ## [0.36.1] - 2026-11-03
 
 Diablo III's log says which message it can't read when it stops itself.

@@ -179,6 +179,7 @@ std::atomic<bool> g_reveal_asked{false};
 }  // namespace
 
 std::atomic<uint64_t> g_swap_count{0};
+std::atomic<int> g_test_swap{0};  // ANYX360_TEST_CRASH, in VdSwap: 1 it doesn't return, 2 it faults
 std::atomic<uint64_t> g_interrupt_count{0};
 std::atomic<uint64_t> g_gpu_swaps{0};       // swaps executed by the command processor
 std::atomic<uint64_t> g_presented_swap{0};  // g_gpu_swaps at the last present
@@ -862,9 +863,13 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
       // ANYX360_FRAMETIMES=<file.csv>: every frame timing event (see tools/scripts/frametimes.py).
       static const char* frametimes = std::getenv("ANYX360_FRAMETIMES");
       if (frametimes) timing::AppendCsv(frametimes);
+      // No frames for a while: where each thread is, at 10 s and at 1 min. A game closed in that state
+      // has its log kept by the launcher (WasFailedRun in tools/launcher/core/launch.h).
       static int stalled = 0;
+      if (swaps != last_swaps && stalled >= 2) std::fprintf(stderr, "=== frames are back after %d s ===\n", stalled * 5);
       stalled = (swaps == last_swaps) ? stalled + 1 : 0;
-      if (stalled == 2) {
+      if (stalled == 2 || stalled == 12) {
+        std::fprintf(stderr, "\n=== FROZEN? no frame for %d s ===\n", stalled * 5);
         DumpThreads();
         // What the GPU is busy with or waiting for, when the frames stopped on its side.
         PrintHostThreadStack(L"GPU Commands");
@@ -879,6 +884,31 @@ bool Initialize(const char* window_title, const DisplayConfig& config) {
       ++tick;
       // ANYX360_TEST_FATAL=<seconds>: an allocation fails then and the process ends on it (a test of the
       // out-of-memory report and the player's message; ANYX360_INPUT turns the message off).
+      // ANYX360_TEST_CRASH=<seconds>:<read|overflow|raise|failfast|freeze|guest>: a failure of that kind then.
+      if (static const char* test_crash = std::getenv("ANYX360_TEST_CRASH");
+          test_crash && std::atoi(test_crash) / 5 == tick) {
+        const std::string kind = std::strchr(test_crash, ':') ? std::strchr(test_crash, ':') + 1 : "";
+        if (kind == "read") {
+          volatile int* volatile nowhere = nullptr;
+          (void)*nowhere;
+        } else if (kind == "overflow") {
+          struct Deep {
+            static int Go(int n) {
+              volatile char used[4096] = {char(n)};
+              return Go(n + 1) + used[0];
+            }
+          };
+          (void)Deep::Go(0);
+        } else if (kind == "raise") {
+          RaiseException(0xE0FF0001, EXCEPTION_NONCONTINUABLE, 0, nullptr);
+        } else if (kind == "failfast") {
+          __fastfail(FAST_FAIL_FATAL_APP_EXIT);
+        } else if (kind == "freeze") {
+          g_test_swap = 1;
+        } else if (kind == "guest") {
+          g_test_swap = 2;
+        }
+      }
       static const char* test_fatal = std::getenv("ANYX360_TEST_FATAL");
       if (test_fatal && std::atoi(test_fatal) / 5 == tick) {
         static void* volatile sink = nullptr;

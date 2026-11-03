@@ -10,6 +10,7 @@
 //   games\<id>\icon.png         the game's dashboard icon, read from default.xex when it is added
 //   games\<id>\cover.png|.jpg   a cover the player chose instead
 //   logs\<id>\                  last_run.log (the game's output) and previous_run.log
+//   logs\<id>\failures\         a copy of the log of each run that failed (the latest ones)
 //
 // Run from the build folder, the games are found where the build puts them.
 #pragma once

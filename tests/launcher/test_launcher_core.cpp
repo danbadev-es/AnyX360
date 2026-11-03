@@ -1688,6 +1688,51 @@ int main() {
           StartFollowed(L"C:\\no\\such\\program.exe", {}, nullptr, nullptr, nullptr) == ERROR_FILE_NOT_FOUND);
   }
 
+  // Which runs' logs are kept, and for how long.
+  {
+    CHECK(!WasFailedRun("a log", 0u) && !WasFailedRun("a log", std::nullopt));
+    CHECK(!WasFailedRun("a log", x360::dashboard::kExitToDashboard));
+    CHECK(WasFailedRun("a log", 3u) && WasFailedRun("a log", 0xC0000409u));
+    CHECK(WasFailedRun("\n=== CRASH: exception", std::nullopt) && WasFailedRun("\n=== FATAL: abort", 0u));
+    CHECK(WasFailedRun("\n=== FROZEN? no frame", 0u));
+    CHECK(!WasFailedRun("\n=== FROZEN? no frame\n=== frames are back after 10 s", 0u));
+    CHECK(WasFailedRun("=== FROZEN?\n=== frames are back\n=== FROZEN?", 0u));
+
+    const fs::path logs = sandbox / L"failed_runs";
+    fs::create_directories(logs);
+    const fs::path log = logs / L"last_run.log", failures_dir = logs / L"failures";
+    auto write = [&log](const char* text, int day) {
+      std::ofstream(log, std::ios::binary) << text;
+      fs::last_write_time(log, fs::file_time_type(std::chrono::hours(24 * (155000 + day))));
+    };
+    auto kept = [&failures_dir] {
+      std::error_code none;
+      size_t count = 0;
+      for (const auto& entry : fs::directory_iterator(failures_dir, none)) count += entry.is_regular_file();
+      return count;
+    };
+    write("a good run", 0);
+    CHECK(!KeepFailedRun(log, 0u) && kept() == 0);
+    write("=== CRASH: exception", 1);
+    CHECK(KeepFailedRun(log, 4u) && kept() == 1);
+    // The same run again, when the next one starts: not twice.
+    CHECK(!KeepFailedRun(log, std::nullopt) && kept() == 1);
+    // A copy has the log's contents, and only the latest ones stay.
+    for (int day = 2; day < int(kMaxFailedRuns) + 6; ++day) {
+      write(("=== CRASH day " + std::to_string(day)).c_str(), day);
+      CHECK(KeepFailedRun(log, std::nullopt));
+    }
+    CHECK(kept() == kMaxFailedRuns);
+    std::vector<fs::path> names;
+    for (const auto& entry : fs::directory_iterator(failures_dir)) names.push_back(entry.path());
+    std::sort(names.begin(), names.end());
+    std::ifstream newest(names.back(), std::ios::binary);
+    std::string text((std::istreambuf_iterator<char>(newest)), std::istreambuf_iterator<char>());
+    CHECK(text == "=== CRASH day " + std::to_string(int(kMaxFailedRuns) + 5));
+    // A missing log: nothing.
+    CHECK(!KeepFailedRun(logs / L"none.log", 3u));
+  }
+
   fs::remove_all(sandbox, ec);
   std::printf("%s (%d failures)\n", failures ? "FAILED" : "OK", failures);
   return failures ? 1 : 0;

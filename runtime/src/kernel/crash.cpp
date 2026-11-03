@@ -1,6 +1,6 @@
 // Crash reporting: a vectored exception handler that explains faults in guest terms (which
-// recompiled function, which guest address, the guest thread's registers), the memory at the time,
-// and a message for the player when nothing else would tell them (out of memory, or a process
+// recompiled function, which guest address, the guest thread's registers and stack, every guest
+// thread), the memory at the time, and a message for the player when nothing else would tell them (out of memory, or a process
 // another one of the game started).
 #include <atomic>
 #include <csignal>
@@ -150,21 +150,29 @@ void ShowPlayerError(const std::string& text) {
 
 namespace {
 
-LONG CALLBACK Handler(EXCEPTION_POINTERS* info) {
-  DWORD code = info->ExceptionRecord->ExceptionCode;
-  // A thread that handles its own faults (the sampling profiler's stack walks).
-  if (t_faults_handled) return EXCEPTION_CONTINUE_SEARCH;
-  // Only report fatal faults; let C++ exceptions and debugger events through.
-  if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_ILLEGAL_INSTRUCTION &&
-      code != EXCEPTION_INT_DIVIDE_BY_ZERO && code != EXCEPTION_STACK_OVERFLOW && code != EXCEPTION_BREAKPOINT &&
-      code != STATUS_PRIVILEGED_INSTRUCTION) {
-    return EXCEPTION_CONTINUE_SEARCH;
-  }
-  std::lock_guard lock(g_crash_mutex);
+std::string GuestBacktraceOf(const Thread* t, int max_frames);
+
+// Every guest thread, from a thread of its own and for 2 s at most: the failing one may hold what the
+// dump needs.
+void DumpThreadsBriefly() {
+  HANDLE dump = ::CreateThread(nullptr, 0, [](void*) -> DWORD {
+    DumpThreads();
+    return 0;
+  }, nullptr, 0, nullptr);
+  if (!dump) return;
+  WaitForSingleObject(dump, 2000);
+  ::CloseHandle(dump);
+}
+
+// The report itself failing ends the process: it must not wait for its own lock.
+thread_local bool t_reporting = false;
+
+[[noreturn]] void Report(EXCEPTION_POINTERS* info, Thread* t) {
+  t_reporting = true;
+  const DWORD code = info->ExceptionRecord->ExceptionCode;
   CONTEXT* c = info->ContextRecord;
   char where[300];
   Symbolize(c->Rip, where, sizeof(where));
-  Thread* t = CurrentThread();
   std::fprintf(stderr, "\n=== CRASH: exception %08lX at %s (thread %X) ===\n", code, where, t ? t->thread_id : 0);
   if (code == EXCEPTION_ACCESS_VIOLATION) {
     uint64_t target = info->ExceptionRecord->ExceptionInformation[1];
@@ -179,6 +187,7 @@ LONG CALLBACK Handler(EXCEPTION_POINTERS* info) {
     PPCContext& g = *t->context;
     std::fprintf(stderr, "  guest lr %08llX  r1 %08X  r3 %08X  r4 %08X  r5 %08X  r31 %08X\n",
                  (unsigned long long)g.lr, g.r1.u32, g.r3.u32, g.r4.u32, g.r5.u32, g.r31.u32);
+    std::fprintf(stderr, "  guest stack: %s\n", GuestBacktraceOf(t, 16).c_str());
   }
   // Host stack (recompiled function names are sub_<guest address>).
   void* frames[24];
@@ -203,14 +212,53 @@ LONG CALLBACK Handler(EXCEPTION_POINTERS* info) {
   }
   const bool low = PrintMemory();
   std::fflush(stderr);
+  DumpThreadsBriefly();
+  Sleep(300);  // Xenia's log writer (the dump goes through it) gets its moment
   TellPlayer(low || g_allocation_failed);
   std::_Exit(4);
 }
 
-}  // namespace
-
-std::string GuestBacktrace(int max_frames) {
+// The report, on a stack of its own when the failing thread has none left.
+[[noreturn]] void ReportAndExit(EXCEPTION_POINTERS* info) {
+  if (t_reporting) std::_Exit(4);
+  std::lock_guard lock(g_crash_mutex);
   Thread* t = CurrentThread();
+  if (info->ExceptionRecord->ExceptionCode != EXCEPTION_STACK_OVERFLOW) Report(info, t);
+  static struct {
+    EXCEPTION_POINTERS* info;
+    Thread* thread;
+  } failure;
+  failure = {info, t};
+  HANDLE report = ::CreateThread(nullptr, 0, [](void*) -> DWORD { Report(failure.info, failure.thread); }, nullptr, 0,
+                                 nullptr);
+  if (report) WaitForSingleObject(report, INFINITE);
+  std::_Exit(4);
+}
+
+LONG CALLBACK Handler(EXCEPTION_POINTERS* info) {
+  DWORD code = info->ExceptionRecord->ExceptionCode;
+  // A thread that handles its own faults (the sampling profiler's stack walks).
+  if (t_faults_handled) return EXCEPTION_CONTINUE_SEARCH;
+  // Only report fatal faults; let C++ exceptions and debugger events through.
+  if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_ILLEGAL_INSTRUCTION &&
+      code != EXCEPTION_INT_DIVIDE_BY_ZERO && code != EXCEPTION_STACK_OVERFLOW && code != EXCEPTION_BREAKPOINT &&
+      code != STATUS_PRIVILEGED_INSTRUCTION) {
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+  ReportAndExit(info);
+}
+
+// Any other exception nothing handled. An uncaught C++ one goes on to the CRT (std::terminate's report).
+LPTOP_LEVEL_EXCEPTION_FILTER g_previous_filter = nullptr;
+
+LONG WINAPI UnhandledFilter(EXCEPTION_POINTERS* info) {
+  constexpr DWORD kCppException = 0xE06D7363;
+  if (info->ExceptionRecord->ExceptionCode == kCppException || t_faults_handled)
+    return g_previous_filter ? g_previous_filter(info) : EXCEPTION_CONTINUE_SEARCH;
+  ReportAndExit(info);
+}
+
+std::string GuestBacktraceOf(const Thread* t, int max_frames) {
   if (!t || !t->context) return "(no guest thread)";
   std::string out;
   char buf[16];
@@ -228,6 +276,10 @@ std::string GuestBacktrace(int max_frames) {
   }
   return out;
 }
+
+}  // namespace
+
+std::string GuestBacktrace(int max_frames) { return GuestBacktraceOf(CurrentThread(), max_frames); }
 
 void PrintHostThreadStack(const wchar_t* name) {
   HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
@@ -408,6 +460,7 @@ void InstallCrashHandler() {
   });
   // Last in the chain: Xenia's handler resolves MMIO accesses and memory watches first.
   AddVectoredExceptionHandler(0, Handler);
+  g_previous_filter = SetUnhandledExceptionFilter(UnhandledFilter);
 }
 
 void SetupWriteWatch() {

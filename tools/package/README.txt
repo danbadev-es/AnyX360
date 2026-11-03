@@ -104,7 +104,10 @@ IF SOMETHING GOES WRONG
   "Open logs") and send
   the last_run.log file (and previous_run.log if there is one; in Kinect games also
   pose_bridge.log, in the "logs" folder), with the version ({VERSION}) and what you were doing.
-- If it freezes, close it and send those logs anyway.
+- Played again since? A copy of the log of each run that failed stays in the "failures" folder
+  beside last_run.log, named with its date and time.
+- If it freezes, wait 10 seconds so the log can say where it stopped, then close it: its log goes
+  to "failures" too.
 - There is no online play (the Xbox 360's Xbox Live no longer exists).
 
 {SECTIONS}

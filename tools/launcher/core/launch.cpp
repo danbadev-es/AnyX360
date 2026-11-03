@@ -4,6 +4,8 @@
 #define NOMINMAX
 #include <windows.h>
 
+#include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <cwctype>
 #include <fstream>
@@ -228,6 +230,53 @@ uint32_t StartFollowed(std::wstring command, const fs::path& dir, void* std_in, 
   return 0;
 }
 
+bool WasFailedRun(const std::string& log, std::optional<uint32_t> code) {
+  if (code && *code != 0 && *code != x360::dashboard::kExitToDashboard) return true;
+  if (log.find("=== CRASH") != std::string::npos || log.find("=== FATAL") != std::string::npos) return true;
+  // The last time the frames stopped, they hadn't come back.
+  const size_t frozen = log.rfind("=== FROZEN?");
+  if (frozen == std::string::npos) return false;
+  const size_t back = log.rfind("=== frames are back");
+  return back == std::string::npos || back < frozen;
+}
+
+bool KeepFailedRun(const fs::path& log_path, std::optional<uint32_t> code) {
+  std::error_code ec;
+  const auto modified = fs::last_write_time(log_path, ec);
+  if (ec) return false;
+  std::string text;
+  {
+    std::ifstream in(log_path, std::ios::binary);
+    if (!in) return false;
+    text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+  }
+  if (!WasFailedRun(text, code)) return false;
+  const fs::path dir = log_path.parent_path() / L"failures";
+  fs::create_directories(dir, ec);
+  SYSTEMTIME utc{}, local{};
+  const auto ticks = modified.time_since_epoch().count();
+  FILETIME file_time{DWORD(ticks), DWORD(uint64_t(ticks) >> 32)};
+  FileTimeToSystemTime(&file_time, &utc);
+  SystemTimeToTzSpecificLocalTime(nullptr, &utc, &local);
+  wchar_t name[40];
+  swprintf(name, 40, L"%04u-%02u-%02u_%02u-%02u-%02u.log", local.wYear, local.wMonth, local.wDay, local.wHour,
+           local.wMinute, local.wSecond);
+  const fs::path copy = dir / name;
+  if (Exists(copy)) return false;  // kept already, when the game ended
+  {
+    std::ofstream out(copy, std::ios::binary);
+    out.write(text.data(), std::streamsize(text.size()));
+    if (!out) return false;
+  }
+  // The names sort by date.
+  std::vector<fs::path> kept;
+  for (const auto& entry : fs::directory_iterator(dir, ec))
+    if (entry.path().extension() == L".log") kept.push_back(entry.path());
+  std::sort(kept.begin(), kept.end());
+  for (size_t i = 0; i + kMaxFailedRuns < kept.size(); ++i) fs::remove(kept[i], ec);
+  return true;
+}
+
 Message StartGame(const LibraryGame& game, const LaunchOptions& options, GameEvents events) {
   if (game.exe.empty() || !Exists(game.exe)) return {kTextErrorNoExe, {game.info->exe}, true};
   if (game.needs_update) return {kTextNeedsUpdate, {game.info->title, game.info->update_version}, true};
@@ -238,6 +287,7 @@ Message StartGame(const LibraryGame& game, const LaunchOptions& options, GameEve
   fs::create_directories(logs, ec);
   fs::path log_path = logs / L"last_run.log";
   if (Exists(log_path)) {
+    KeepFailedRun(log_path, std::nullopt);  // the launcher may have closed before that game ended
     fs::remove(logs / L"previous_run.log", ec);
     fs::rename(log_path, logs / L"previous_run.log", ec);
   }
@@ -264,14 +314,31 @@ Message StartGame(const LibraryGame& game, const LaunchOptions& options, GameEve
     session->shown = CreateEventW(nullptr, FALSE, FALSE, EventName(options.dashboard_pid, L"shown").c_str());
     session->stop = CreateEventW(nullptr, TRUE, FALSE, nullptr);
   }
-  auto exited = [session, on_exit = std::move(events.exited)](uint32_t code) {
+  // The launcher's handle stays open for this: the exit code goes at the end of the log, also when the
+  // process ended with no report of its own (a fast fail, killed from outside).
+  HANDLE log_end = INVALID_HANDLE_VALUE;
+  if (log != INVALID_HANDLE_VALUE)
+    DuplicateHandle(GetCurrentProcess(), log, GetCurrentProcess(), &log_end, 0, FALSE, DUPLICATE_SAME_ACCESS);
+  auto exited = [session, log_path, log_end, on_exit = std::move(events.exited)](uint32_t code) {
+    if (log_end != INVALID_HANDLE_VALUE) {
+      char line[64];
+      const int size = std::snprintf(line, sizeof(line), "\n=== ended with code %08X ===\n", code);
+      DWORD written = 0;
+      SetFilePointer(log_end, 0, nullptr, FILE_END);
+      WriteFile(log_end, line, DWORD(size), &written, nullptr);
+      CloseHandle(log_end);
+    }
+    KeepFailedRun(log_path, code);
     if (session->stop) SetEvent(session->stop);
     if (on_exit) on_exit(code);
   };
   const uint32_t error = StartFollowed(command, Root(), input, log != INVALID_HANDLE_VALUE ? log : nullptr, exited);
   if (log != INVALID_HANDLE_VALUE) CloseHandle(log);
   CloseHandle(input);
-  if (error) return {kTextErrorStart, {std::to_wstring(error)}, true};
+  if (error) {
+    if (log_end != INVALID_HANDLE_VALUE) CloseHandle(log_end);
+    return {kTextErrorStart, {std::to_wstring(error)}, true};
+  }
   if (session->ready && session->leaving && session->shown && session->stop) {
     std::thread([session, ready = std::move(events.ready), leaving = std::move(events.leaving)] {
       for (;;) {

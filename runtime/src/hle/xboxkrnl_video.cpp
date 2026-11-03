@@ -129,12 +129,15 @@ uint32_t VdRetrainEDRAM() { return 0; }
 }  // namespace
 namespace x360::gpu {
 extern std::atomic<uint64_t> g_swap_count;
+extern std::atomic<int> g_test_swap;
 }
 namespace {
 
 void VdSwap(uint32_t buffer, uint32_t fetch, uint32_t unk2, uint32_t unk3, uint32_t unk4, uint32_t frontbuffer_ptr,
             uint32_t format_ptr, uint32_t color_space_ptr, uint32_t width_ptr, uint32_t height_ptr) {
   (void)unk2, (void)unk3, (void)unk4, (void)format_ptr, (void)color_space_ptr;
+  while (x360::gpu::g_test_swap == 1) std::this_thread::sleep_for(std::chrono::seconds(1));
+  if (x360::gpu::g_test_swap == 2) *static_cast<volatile int*>(nullptr) = 0;
   ++x360::gpu::g_swap_count;
   uint32_t fetch_dwords[6];
   for (int i = 0; i < 6; ++i) fetch_dwords[i] = Load<uint32_t>(fetch + i * 4);

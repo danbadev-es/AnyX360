@@ -827,7 +827,8 @@ Halo: Reach:
 - Only Winter Contingency has been played of the campaign, and Firefight's first wave.
 
 Found something else? Open an issue with the version (shown in the launcher) and the game's
-`logs\<game>\last_run.log` file.
+`logs\<game>\last_run.log` file. If the game has been played since, the log of the run that failed is in
+`logs\<game>\failures`, by date and time.
 
 ## System Requirements
 

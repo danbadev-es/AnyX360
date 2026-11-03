@@ -1,4 +1,5 @@
-// Running a game: its output goes to logs\<id>\last_run.log (the previous run's is kept).
+// Running a game: its output goes to logs\<id>\last_run.log (the previous run's is kept, and a run
+// that failed is also kept in logs\<id>\failures).
 #pragma once
 
 #include <cstdint>
@@ -34,6 +35,14 @@ struct LaunchOptions {
 // The game's command line: the executable, the game and key, then the options' arguments.
 std::wstring GameCommandLine(const fs::path& exe, const fs::path& game_dir, const fs::path& key,
                              const LaunchOptions& options);
+
+// Whether a run with this log and exit code (no code: not known) failed: it ended with an error, its
+// log has a crash report, or the frames had stopped when it ended.
+bool WasFailedRun(const std::string& log, std::optional<uint32_t> code);
+// Copies a log to failures\<date and time of the log>.log beside it if that run failed, keeping the
+// latest kMaxFailedRuns copies. Returns whether it copied it.
+constexpr size_t kMaxFailedRuns = 20;
+bool KeepFailedRun(const fs::path& log_path, std::optional<uint32_t> code);
 
 // What a running game tells the launcher, each on another thread.
 struct GameEvents {

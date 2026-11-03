@@ -328,8 +328,9 @@ All opt-in through environment variables read by the runtime:
 | `ANYX360_DISPATCH_SAFETY_MS` | Interval of the dispatcher's missed-wakeup re-check for infinite waits (default 250, 0 disables) |
 | `ANYX360_PROFILE` | A sampling profiler for named threads: `"GPU Commands\|guest 11\|Backend:140:60"` (`threads:start s:seconds`; guest threads by the names titles give them; a start of `draws2500` waits for a 5 s window with at least 2,500 draws a frame). Logs each thread's hottest functions (self, inclusive, and the caller of the top ones), named through the `.pdb` (recompiled code as `sub_XXXXXXXX`) |
 | `ANYX360_TEST_FATAL` | `<seconds>`: an allocation fails then and the process ends on it, to test the out-of-memory report in the log and the player's message box (`ANYX360_INPUT` or `ANYX360_NUI_SCRIPT` turn the box off; so does `ANYX360_NO_ERROR_BOX`) |
+| `ANYX360_TEST_CRASH` | `<seconds>:<kind>`: a failure then, to test the reports: `read` (a host fault), `overflow` (the stack), `raise` (an exception nothing handles), `failfast` (no report, only the exit code), `freeze` (`VdSwap` doesn't return), `guest` (a fault in `VdSwap`, on a guest thread) |
 | `ANYX360_CAPTURE_DIR` | Saves the guest frame as BMP every 5 s |
-| `ANYX360_DUMP_AT` | Thread dumps at the given seconds (`"95,100"`); without it, one comes after 10 s without frames, with the GPU command processor's host stack |
+| `ANYX360_DUMP_AT` | Thread dumps at the given seconds (`"95,100"`); without it, one comes after 10 s and 1 min without frames (`=== FROZEN?`), with the GPU command processor's host stack |
 | `ANYX360_MEMSCAN` | With `ANYX360_DUMP_AT`: logs guest memory holding that text (ASCII or UTF-16BE) |
 | `ANYX360_TRACE` | Logs the exports a thread calls after a time: `"11:75"` (`FFFF` = all threads) |
 | `ANYX360_HOOK` | Logs indirect calls to guest functions: `"8252A040,..."` |

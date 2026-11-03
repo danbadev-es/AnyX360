@@ -59,7 +59,7 @@ const wchar_t* const kEnglish[] = {
     L"{0} was not found in the bin folder.",
     L"The game could not be started (error {0}).",
     L"{0} closed with an error (code {1}). Press Logs and send the last_run.log file to whoever gave you "
-    L"the game.",
+    L"the game. A copy stays in the failures folder.",
     L"That image could not be opened.",
     L"{0} is ready, with its downloadable content ({1}).",
     L"The copy could not be read ({0}).",
@@ -339,7 +339,7 @@ const wchar_t* const kSpanish[] = {
     L"No se encuentra {0} en la carpeta bin.",
     L"No se pudo iniciar el juego (error {0}).",
     L"{0} se cerró con un error (código {1}). Pulsa Registros y envía el archivo last_run.log a quien te "
-    L"pasó el juego.",
+    L"pasó el juego. Queda una copia en la carpeta failures.",
     L"No se pudo abrir esa imagen.",
     L"{0} está preparado, con su contenido descargable ({1}).",
     L"No se pudo leer la copia ({0}).",
