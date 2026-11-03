@@ -8,6 +8,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The versi
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-03
+
+Keys rebound in F2 by pressing them, and a Network page to choose the network without editing files.
+
 ### Added
 - **The keyboard and mouse can be rebound in the game: F2 > Controls > Keys.** Click a control's keys and
   press the key, mouse button or wheel direction you want; + gives it one more, and Reset (one control or
@@ -1482,7 +1486,8 @@ executable), the player's own copy.
   argument).
 - Bink video artifacts, audio distortion and a 30 FPS cap.
 
-[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.35.0...HEAD
+[Unreleased]: https://github.com/danielbarretoes/AnyX360/compare/v0.36.0...HEAD
+[0.36.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.35.0...v0.36.0
 [0.35.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.34.0...v0.35.0
 [0.34.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.33.0...v0.34.0
 [0.33.0]: https://github.com/danielbarretoes/AnyX360/compare/v0.32.0...v0.33.0
